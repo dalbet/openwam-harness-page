@@ -1,0 +1,22 @@
+# 上游只读仓库（嵌套 git repo，不纳入本仓库）
+Show-Harness/
+
+# 运行时日志、诊断输出、rollout 视频（结果结论见 page_ui/README.md）
+page_ui/logs/
+logs_baseline/
+
+# Python
+__pycache__/
+*.pyc
+
+# 模型权重 / 数据集 / 缓存（一律不提交）
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+models/
+
+# 密钥与环境
+*.env
+.env*
+secrets.*
