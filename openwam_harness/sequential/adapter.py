@@ -109,6 +109,7 @@ class App:
         self.human_plans = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
         self.catalog = self.human_plans
         self.suites = None
+        self.suite_error = ""
         self.scene_spec = None
         self.loading = False
         self.session = Session("none")
@@ -133,30 +134,56 @@ class App:
         ]
 
     def health(self) -> dict:
+        """Adapter status plus a cached, time-bounded probe. Does not start models or reset."""
         checkpoints = {"pi05": False, "sam3": False, "env": False}
         error = ""
         try:
             from live import require_resources
 
-            checkpoints = require_resources()
-            checkpoints = {"pi05": True, "sam3": True, "env": True, "paths": checkpoints}
+            paths = require_resources()
+            checkpoints = {"pi05": True, "sam3": True, "env": True, "paths": paths}
         except Exception as exc:
             error = str(exc)
         components = []
         if self.backend is not None and hasattr(self.backend, "component_health"):
             components = self.backend.component_health()
+        env_row = next((item for item in components if item["name"] == "env"), None)
+        vla_row = next((item for item in components if item["name"] == "vla"), None)
+        if self.loading:
+            env_state = "loading"
+        elif env_row is None:
+            env_state = "not_loaded"
+        elif env_row["alive"]:
+            env_state = "ready"
+        else:
+            env_state = "down"
+        if vla_row is None:
+            vla_state = "not_loaded"
+        elif vla_row["alive"]:
+            vla_state = "ready"
+        else:
+            vla_state = "down"
+        planner = PROBE["planner"]
         return {
             "type": "health",
+            "adapter": "online",
             "mode": self.mode,
             "harness_live": LIVE,
             "port": PORT,
             "pid": os.getpid(),
-            "planner_ok": _planner_ok(),
+            "planner": planner,
+            "planner_ok": planner == "ok",
+            "planner_detail": PROBE["detail"],
             "planner_url": PLANNER_URL,
             "checkpoints": checkpoints,
             "components": components,
-            "env": "ready" if components and all(item["alive"] for item in components if item["name"] == "env") else "not_loaded",
-            "vla": "ready" if components and all(item["alive"] for item in components if item["name"] == "vla") else "not_loaded",
+            "env": env_state,
+            "vla": vla_state,
+            "suites": "ready" if self.suites else ("failed" if self.suite_error else "loading"),
+            "suite_error": self.suite_error,
+            "can_select_scene": True,
+            "can_manual_plan": True,
+            "can_model_plan": planner == "ok",
             "silent_dry_fallback": False,
             "error": error,
         }
@@ -534,20 +561,24 @@ class App:
                 elapsed_s=0,
             )
         else:
+            if PROBE["planner"] != "ok":
+                self._fail_run(episode, f"planner {PROBE['planner']}: {PROBE['detail'] or 'unavailable'}")
+                return
             self.broadcast({"type": "state", "phase": "planning", "detail": PLANNER_MODEL, "mode": "live", "plan_source": "model"})
             info = self.backend.scene_info()
             image_ids = [f"agentview:{info.get('env_step')}", f"wrist:{info.get('env_step')}"]
             from suites import _objects_from_names
 
+            scene_objects = _objects_from_names(info.get("object_names") or [])
             scene_text = json.dumps(
                 {
+                    "planning_input": "scene_metadata",
+                    "vision": False,
                     "goal_relation": spec.get("goal_relation"),
-                    "objects": _objects_from_names(info.get("object_names") or []),
-                    "sim_object_names": info.get("object_names"),
-                    "env_step": info.get("env_step"),
+                    "allowed_refs": sorted(scene_objects),
+                    "record_index": info.get("env_step"),
                     "image_ids": image_ids,
-                    "planner_image_max_edge": 384,
-                    "note": "image bytes are not inlined; ids only",
+                    "note": "image bytes are not in this request; ids only",
                 },
                 ensure_ascii=False,
             )
@@ -569,6 +600,7 @@ class App:
                     client=self.planner,
                     short_memory=SHORT_MEMORY,
                     image_ids=image_ids,
+                    scene_objects=scene_objects,
                     on_event=on_planner,
                 )
             except Exception as exc:
@@ -765,31 +797,76 @@ class App:
             self.backend = None
 
 
-def _planner_ok() -> bool:
-    try:
-        with urllib.request.urlopen(PLANNER_URL.rstrip("/") + "/models", timeout=2) as response:
-            return response.status == 200
-    except Exception:
-        return False
-
-
 APP = App()
+PROBE = {"planner": "unknown", "detail": "", "checked_at": 0.0}
+PROBE_TIMEOUT_S = 1.5
+
+
+def _probe_planner() -> None:
+    try:
+        with urllib.request.urlopen(PLANNER_URL.rstrip("/") + "/models", timeout=PROBE_TIMEOUT_S) as response:
+            PROBE["planner"] = "ok" if response.status == 200 else "down"
+            PROBE["detail"] = f"HTTP {response.status}"
+    except TimeoutError:
+        PROBE["planner"] = "timeout"
+        PROBE["detail"] = f"planner probe exceeded {PROBE_TIMEOUT_S}s"
+    except Exception as exc:
+        PROBE["planner"] = "down" if not isinstance(exc, TimeoutError) else "timeout"
+        PROBE["detail"] = str(exc)
+        if "timed out" in str(exc).lower():
+            PROBE["planner"] = "timeout"
+    PROBE["checked_at"] = time.time()
+
+
+def _planner_probe_loop() -> None:
+    while True:
+        _probe_planner()
+        time.sleep(5)
+
+
+def _suite_loader() -> None:
+    try:
+        from suites import load_suites
+
+        APP.suites = load_suites()
+        APP.suite_error = ""
+    except Exception as exc:
+        APP.suite_error = str(exc)
+
+
+def start_background() -> None:
+    threading.Thread(target=_planner_probe_loop, name="planner-probe", daemon=True).start()
+    threading.Thread(target=_suite_loader, name="suite-loader", daemon=True).start()
+
+
+_NO_STORE = {"Cache-Control": "no-store"}
 
 
 async def index(_request):
-    return web.FileResponse(ROOT / "static" / "index.html")
+    return web.FileResponse(ROOT / "static" / "index.html", headers=_NO_STORE)
 
 
 async def app_js(_request):
-    return web.FileResponse(ROOT / "static" / "app.js")
+    return web.FileResponse(ROOT / "static" / "app.js", headers=_NO_STORE)
 
 
 async def hook_js(_request):
-    return web.FileResponse(ROOT / "static" / "hook.js")
+    return web.FileResponse(ROOT / "static" / "hook.js", headers=_NO_STORE)
 
 
 async def health(_request):
-    return web.json_response(APP.health())
+    return web.json_response(APP.health(), headers=_NO_STORE)
+
+
+async def suites(_request):
+    if APP.suites is None and not APP.suite_error:
+        return web.json_response({"type": "suites", "status": "loading", "suites": []}, headers=_NO_STORE)
+    if APP.suite_error:
+        return web.json_response(
+            {"type": "suites", "status": "failed", "detail": APP.suite_error, "suites": []},
+            headers=_NO_STORE,
+        )
+    return web.json_response({"type": "suites", "status": "ready", "suites": APP.suites}, headers=_NO_STORE)
 
 
 async def websocket(request):
@@ -805,14 +882,12 @@ async def websocket(request):
             data = json.loads(msg.data)
             kind = data.get("type")
             if kind == "get_scenes":
-                try:
-                    if APP.suites is None:
-                        from suites import load_suites
-
-                        APP.suites = load_suites()
-                    await ws.send_str(json.dumps({"type": "suites", "suites": APP.suites}, ensure_ascii=False))
-                except Exception as exc:
-                    await ws.send_str(json.dumps({"type": "load_failed", "detail": f"读取 LIBERO 套件失败: {exc}"}, ensure_ascii=False))
+                if APP.suites is None and not APP.suite_error:
+                    await ws.send_str(json.dumps({"type": "suites", "status": "loading", "suites": []}, ensure_ascii=False))
+                elif APP.suite_error:
+                    await ws.send_str(json.dumps({"type": "suites", "status": "failed", "detail": APP.suite_error, "suites": []}, ensure_ascii=False))
+                else:
+                    await ws.send_str(json.dumps({"type": "suites", "status": "ready", "suites": APP.suites}, ensure_ascii=False))
             elif kind == "get_health":
                 await ws.send_str(json.dumps(APP.health(), ensure_ascii=False))
             elif kind == "ping":
@@ -840,10 +915,12 @@ def main() -> None:
     app = web.Application()
     app.router.add_get("/", index)
     app.router.add_get("/health", health)
+    app.router.add_get("/suites", suites)
     app.router.add_get("/static/app.js", app_js)
     app.router.add_get("/static/hook.js", hook_js)
     app.router.add_get("/ws", websocket)
     print(f"sequential adapter mode={'live' if LIVE else 'dry'} pid={os.getpid()} port={PORT}", flush=True)
+    start_background()
     web.run_app(app, host=HOST, port=PORT)
 
 

@@ -26,7 +26,11 @@
     "left_behind_xy_m": 0.04,
     "relative_stable_m": 0.015,
     "stable_samples": 2,
-    "near_eef_m": 0.06
+    "near_eef_m": 0.06,
+    "window_calls": 2,
+    "window_steps": 4,
+    "window_gripper": 1.0,
+    "purpose_window": "before asking a person, step the existing set_gripper primitive so the sim produces a new observation window; do not lower lift_above_support_m"
   },
   "transport": {
     "min_progress_m": 0.02,

@@ -315,7 +315,13 @@ class ContractTest(unittest.TestCase):
     def test_semantic_transfer_expands_and_incomplete_stream_is_rejected(self):
         from schema import prepare_plan, semantic_example
 
-        expanded = prepare_plan(semantic_example(), task=semantic_example()["goal"])
+        from schema import example_scene_objects
+
+        expanded = prepare_plan(
+            semantic_example(),
+            task=semantic_example()["goal"],
+            scene_objects=example_scene_objects(),
+        )
         skills = [step["skill"] for step in expanded["steps"]]
         self.assertNotIn("transfer", skills)
         self.assertIn("pi0_pick", skills)
@@ -323,6 +329,32 @@ class ContractTest(unittest.TestCase):
         with self.assertRaises(PlanError) as raised:
             parse_model_message({"content": "", "finish_reason": None, "incomplete": True})
         self.assertIn("incomplete_stream", str(raised.exception))
+        saved = json.loads((Path(__file__).resolve().parent / "records" / "planner_speed.json").read_text(encoding="utf-8"))
+        arguments = saved["plan_check"]["attempts"][0]["tool_calls"][0]["function"]["arguments"]
+        with self.assertRaises(PlanError) as saved_error:
+            parse_model_message(
+                {"tool_calls": [{"function": {"name": "submit_plan", "arguments": arguments}}], "finish_reason": "stop"},
+                task=semantic_example()["goal"],
+                scene_objects=example_scene_objects(),
+            )
+        self.assertIn("unknown_field", str(saved_error.exception))
+
+    def test_chunk_trace_counts_env_actions_separately_from_records(self):
+        from chunk_trace import attach_chunk_trace, take_chunk_trace
+
+        class Env:
+            def chunk_step(self, actions):
+                count = len(actions)
+                return ({}, 0, [False] * count, [False] * count, {})
+
+        primitives = type("P", (), {"env": Env()})()
+        attach_chunk_trace(primitives)
+        primitives.env.chunk_step([[0] * 7] * 5)
+        primitives.env.chunk_step([[0] * 7] * 5)
+        rows = take_chunk_trace(primitives)
+        self.assertEqual([row["actions_sent"] for row in rows], [5, 5])
+        self.assertEqual(rows[-1]["env_actions_after"], 10)
+        self.assertEqual(rows[-1]["observation_id"], "env-actions-5:10")
 
 
 if __name__ == "__main__":

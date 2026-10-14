@@ -105,7 +105,7 @@ ssh -N -L 8766:127.0.0.1:8766 -p 14263 root@connect.bjb1.seetacloud.com
 - Pi0.5 的输入仍是环境观测里的 256 相机，这条预处理没有改。
 - `agentview_high.png` / `wrist_high.png` 是 1024 方图，给分割和反投影用。
 - 页面传输前把展示图最长边缩到 512，JPEG quality 70，宽高比保持原帧。
-- Planner 默认只收图像 id，不内联字节。若要附图像，最长边不超过 384。
+- Planner 请求标记为 `planning_input=scene_metadata`，`vision=false`。只带图像 id，不把这次规划叫做视觉规划。若要附图像，最长边不超过 384。
 
 ## 双卡示例
 
@@ -127,18 +127,21 @@ SEQUENTIAL_CUDA_DEVICE=1 HARNESS_LIVE=1 \
   bash /root/Page_dmh/openwam_harness/sequential/start_adapter.sh
 ```
 
-32768 是当前服务的上下文，继续保留。65536 大约要再留一倍 KV cache。9B bf16 权重本身就占约 18GB；单卡 32GB 在已经 offload、并且还要同卡放 VLA 时放不下 65536。放不下就退回 32768，不要把上下文改成 65536 后再和 VLA 挤在一张卡上。
+32768 继续保留。65536 大约要再留一倍 KV cache。9B bf16 权重大约 18GB；单卡 32GB 在 offload、并且还要同卡放 VLA 时放不下 65536。放不下就退回 32768。不要把 `--enforce-eager` 关掉后直接当成主链路；图模式要单独验证兼容性和回退。
 
-当前实际启动（pid 31092）是：`dtype bfloat16`，无量化参数，`--gpu-memory-utilization 0.48`，`--cpu-offload-gb 6`，`--enforce-eager`，`--max-model-len 32768`，vLLM 0.24.0。420 秒只是旧客户端为了等满 2048 token，不是性能修复。
+当前服务仍是 bfloat16、无量化、`--max-model-len 32768`、`--gpu-memory-utilization 0.48`、`--cpu-offload-gb 6`、`--enforce-eager`、vLLM 0.24.0。日志写明 `Total CPU offloaded parameters: 6.05` GiB，权重加载占 11.63 GiB，可用 KV cache 只有 1.33 GiB。进程占用约 14470 MiB。这是长解码慢的主要原因。本轮没有改启动参数，也没有做 offload=0 的持续解码对比，所以没有新的加速数字。pid 以 `ss` 或页头为准，不要沿用旧数字。
+
+## 页面状态
+
+`/health` 只返回适配器状态和最多 1.5 秒的 Planner 探测缓存。它不启动模型、不 reset、不做推理。超时记为 `planner=timeout`，失败记为 `down`。套件从 `/suites` 读取；注册表还在加载时页面显示「套件加载中」，并有「重试检查」。适配器在线就可以选套件、任务和 seed，再点「加载场景」。环境未加载不是阻止选择的条件。Planner 不可用时「开始」禁用，人工计划仍可用。页面不会静默改成干跑。
 
 ## 手动测试
 
-1. 打开 `http://127.0.0.1:8766`。页头应写真实模式、端口和 pid。
-2. 选套件、任务、seed，点「加载场景」。状态会经过 service_start、env_create、reset、first_frame。再加载同一任务应是 reset，VLA 不重启。
-3. 「人工计划」是单次抓放，`plan_source=manual`。Long 的 t0/t1 另外有「长任务人工计划」。
-4. 「开始」才请求模型。状态依次是排队、处理输入、生成中、校验。校验失败不会动机器人。
-5. 确认按钮只在真实动作之后的 `waiting_confirmation` 出现。点「停止」会关掉当前这条 Planner 流。
-6. 点「重新开始」对同一任务做 reset，并增加 `scene_epoch`。
+1. 打开 `http://127.0.0.1:8766` 并刷新。页头应在几秒内变成「适配器在线」，并带上当前 pid、planner、env、vla。若停在「检查超时」，点「重试检查」。
+2. 选套件、任务、seed。此时 env 可以仍是未加载。点「加载场景」。
+3. 加载完成后点「人工计划」。只有校验出现 `GRASP_HELD` 且来源 `sim_state_assisted` 才算抓住。`NEED_STABILITY_SAMPLE` 会先用 `set_gripper` 采一段新观测；仍未知才等人确认。未确认持有不会搬运或放置。
+4. 「开始」才请求模型，而且 Planner 必须是 ok。请求里是场景元数据和图像 id，不是图像字节。校验失败不会动机器人。
+5. 长任务 t0/t1 用「长任务人工计划」，留给手动跑完整任务。
 
 ## 日志
 
@@ -183,6 +186,8 @@ Planner：
 - 同一任务热 reset：service_start 0，env_create 0，reset 2.338s，first_frame 2.766s，`scene_epoch=2`。VLA 没有重启。
 - 加载进行中的第二次请求被拒绝，文案是「已有加载在进行，不会再创建环境。」
 
-抓取：回合目录 `runs/sequential/6838b71aaab1`（不上传）。显式人工计划调用了 `pi0_pick`，prompt `pick up the alphabet soup`，12 个 chunk，14.8s。工具 `success=false`，`peak_lift_m=0.011`，低于 0.05。`env_step` 从观察后的 1 推进到了 4。校验是 `unknown` / `NEED_STABILITY_SAMPLE` / `sim_state_assisted`，不是 `GRASP_HELD`。当时恢复后的 unknown 又继续做了 move 和 place，最终 `native_success=false`。这不算抓取通过。执行器现已改为：恢复之后仍是 unknown 时先等人确认；没有明确成功确认就停止，不再执行后续动作。
+抓取：回合 `6838b71aaab1` 的服务端 `states.json`。第一次 `pi0_pick` 是 record_index 2，`chunks_used=12`，工具 `success=false`，`peak_lift_m=0.011`。页面上的 `env_step` 1→4 是记录序号，不是 12 个 chunk 只走了 3 个仿真步。LIBERO Pi0.5 配置是 `action_chunk=5`、`action_dim=7`。当时没有逐 chunk 的动作形状，所以不用别的快照回填动作数。之后的记录是恢复和未确认就继续的 move/place。抬升阈值仍是 0.05 m。这不算抓取通过。计数说明在 `sequential/records/grasp_units.json`。
 
-CPU：`test_contract.py` 与 `test_stagec.py` 共 20 项通过。双卡命令只写在上面，没有执行。上下文仍是 32768。
+扁平计划：已保存的旧输出在 CPU 上因 `objects` 等未知字段被拒绝。修好后只发了一次真实初始请求 `seq-a302f9505e25`，prompt 1150 / completion 168，`finish_reason=stop`，没有 reasoning，没有修复，没有执行。展开后的技能是观察、分割、`pi0_pick`、移动、夹爪和暂停。记录在 `sequential/records/planner_flat_check.json`。输入是场景元数据和图像 id，不是视觉规划。
+
+CPU 测试通过只说明契约，不表示整条系统完成。没有批量评测，上下文仍是 32768。offload=0 的持续解码还没有做。

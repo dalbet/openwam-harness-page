@@ -62,6 +62,8 @@ const PHASES = {
 };
 let suites = [];
 let ws = null, wsConnected = false;
+let lastHealth = null;
+let suitePoll = null;
 function connect(){
   const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/ws`);
@@ -89,15 +91,15 @@ function handleText(txt){
       renderHealth(m);
       break;
     case "suites":
-      suites = m.suites || [];
-      fillSuites();
+      if (m.status === "ready") applyCatalog(m.suites || []);
       break;
     case "loaded":
       curEid = null; acceptEid = null; gate = false; clearBuffer();
       episode = m.episode_id; sceneEpoch = m.scene_epoch; planVersion = m.plan_version || 1;
       taskIn.value = m.instruction || "";
       $("summary").textContent = m.summary_zh ? `中文摘要：${m.summary_zh}` : "";
-      taskIn.disabled = false; startBtn.disabled = false; manualBtn.disabled = false;
+      taskIn.disabled = false; manualBtn.disabled = false;
+      startBtn.disabled = !(lastHealth && lastHealth.can_model_plan);
       longBtn.disabled = !currentTask().long_candidate;
       restartBtn.disabled = true; loadBtn.disabled = false;
       setConfirm(false);
@@ -156,6 +158,16 @@ function currentTask(){
   const task = suite && (suite.tasks || []).find(item => String(item.id) === taskSel.value);
   return task || {};
 }
+function applyCatalog(items){
+  suites = items || [];
+  if (!suites.length) return;
+  fillSuites();
+  suiteSel.disabled = false;
+  taskSel.disabled = false;
+  seedIn.disabled = false;
+  loadBtn.disabled = false;
+  if (suitePoll) { clearInterval(suitePoll); suitePoll = null; }
+}
 function fillSuites(){
   suiteSel.innerHTML = "";
   suites.forEach(suite => {
@@ -184,17 +196,20 @@ function applyTask(){
   const maxSeed = Math.max(0, (task.init_states || 1) - 1);
   seedIn.max = String(maxSeed);
   if (Number(seedIn.value) > maxSeed) seedIn.value = "0";
-  longBtn.disabled = !task.long_candidate;
+  longBtn.disabled = !task.long_candidate || !episode;
 }
 
 function renderHealth(m){
+  lastHealth = m;
   const mode = m.mode === "live" ? "真实模式" : "干跑模式";
-  const planner = m.planner_ok ? "planner 正常" : "planner 不可用";
-  const env = m.env === "ready" ? "env 就绪" : "env 未加载";
-  const vla = m.vla === "ready" ? "VLA 就绪" : "VLA 未加载";
-  healthEl.textContent = `${mode} · ${location.host} · pid ${m.pid} · ${planner} · ${env} · ${vla}`;
-  if (m.mode !== "live") healthEl.style.color = "var(--warn)";
-  if (m.error) healthEl.title = m.error;
+  const planner = m.planner === "ok" ? "planner 正常" : `planner ${m.planner || "未知"}`;
+  const env = {ready: "env 就绪", loading: "env 加载中", down: "env 已停止", not_loaded: "env 未加载"}[m.env] || `env ${m.env || "未知"}`;
+  const vla = {ready: "VLA 就绪", down: "VLA 已停止", not_loaded: "VLA 未加载"}[m.vla] || `VLA ${m.vla || "未知"}`;
+  healthEl.textContent = `适配器在线 · ${mode} · ${location.host} · pid ${m.pid} · ${planner} · ${env} · ${vla}`;
+  healthEl.style.color = m.mode === "live" ? "var(--dim)" : "var(--warn)";
+  if (m.error || m.planner_detail) healthEl.title = [m.error, m.planner_detail].filter(Boolean).join("\n");
+  $("retry").hidden = true;
+  if (m.can_model_plan === false && !startBtn.disabled && taskIn.value.trim()) startBtn.disabled = true;
 }
 
 function renderPlanner(m){
@@ -325,7 +340,53 @@ okBtn.onclick = () => confirm("success");
 badBtn.onclick = () => confirm("failure");
 unkBtn.onclick = () => confirm("unknown");
 $("planner-expand").onclick = () => { plannerFull.hidden = !plannerFull.hidden; };
-taskIn.addEventListener("input", ()=>{ startBtn.disabled = !taskIn.value.trim(); manualBtn.disabled = startBtn.disabled; });
+taskIn.addEventListener("input", ()=>{
+  const ready = !!taskIn.value.trim();
+  manualBtn.disabled = !ready;
+  startBtn.disabled = !ready || !(lastHealth && lastHealth.can_model_plan);
+});
+async function bootstrap(){
+  healthEl.textContent = "正在检查服务…";
+  $("retry").hidden = true;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4000);
+  const started = performance.now();
+  try {
+    const response = await fetch("/health", {signal: ctrl.signal, cache: "no-store"});
+    const text = await response.text();
+    let body;
+    try { body = JSON.parse(text); }
+    catch (err) { throw new Error(`健康检查不是 JSON：HTTP ${response.status} ${text.slice(0, 180)}`); }
+    if (!response.ok) throw new Error(`健康检查 HTTP ${response.status}`);
+    renderHealth(body);
+    setStatus("适配器在线", `${Math.round(performance.now() - started)}ms · 可以选择套件，环境在点击加载后才启动`);
+    await refreshSuites();
+  } catch (err) {
+    healthEl.textContent = "检查超时。适配器没有在时限内返回，没有改跑干跑。";
+    healthEl.style.color = "var(--bad)";
+    $("retry").hidden = false;
+    setStatus("failed", err.name === "AbortError" ? "健康检查超过 4 秒" : String(err.message || err), "bad");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function refreshSuites(){
+  const response = await fetch("/suites", {cache: "no-store"});
+  const body = await response.json();
+  if (body.status === "ready") {
+    applyCatalog(body.suites || []);
+    return;
+  }
+  if (body.status === "failed") {
+    setStatus("failed", body.detail || "读取套件失败", "bad");
+    $("retry").hidden = false;
+    return;
+  }
+  setStatus("套件加载中", "正在从 LIBERO 注册表读取，不会启动环境");
+  if (!suitePoll) suitePoll = setInterval(refreshSuites, 1000);
+}
+$("retry").onclick = () => bootstrap();
 setInterval(()=>{ send({type:"ping"}); }, 20000);
 connect();
+bootstrap();
 requestAnimationFrame(tick);

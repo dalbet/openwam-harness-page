@@ -1,0 +1,45 @@
+{
+  "status": "ok",
+  "plan_source": "model",
+  "repairs": 0,
+  "executed": false,
+  "planning_input": "scene_metadata",
+  "vision": false,
+  "errors": [],
+  "attempts": [
+    {
+      "role": "initial",
+      "response_kind": "tool_calls",
+      "finish_reason": "stop",
+      "request_id": "seq-a302f9505e25",
+      "reasoning_present": false,
+      "usage": {
+        "prompt_tokens": 1150,
+        "total_tokens": 1318,
+        "completion_tokens": 168
+      },
+      "content_chars": 0
+    }
+  ],
+  "plan_keys": [
+    "goal",
+    "goal_relation",
+    "objects",
+    "plan_id",
+    "plan_source",
+    "semantic_step_ids",
+    "steps"
+  ],
+  "semantic_step_ids": [
+    "soup"
+  ],
+  "skills": [
+    "view_env_state",
+    "segment",
+    "segment",
+    "pi0_pick",
+    "move_to",
+    "set_gripper",
+    "pause_for_confirm"
+  ]
+}

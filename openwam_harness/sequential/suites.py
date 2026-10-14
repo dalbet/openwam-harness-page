@@ -141,17 +141,14 @@ def single_manual_plan(language: str, object_names: list[str], *, suite: str, ta
         "task_id": task_id,
         "seed": seed,
         "plan_source": "manual",
-        "objects": {key: objects[key] for key in (chosen, target)},
         "steps": [
             {
                 "step_id": "once",
                 "skill": "transfer",
-                "args": {
-                    "object_ref": chosen,
-                    "target_ref": target,
-                    "relation": relation,
-                    "prompt": f"pick up the {objects[chosen]['phrases'][0]}",
-                },
+                "object_ref": chosen,
+                "target_ref": target,
+                "relation": relation,
+                "prompt": f"pick up the {objects[chosen]['phrases'][0]}",
                 "depends_on": [],
                 "preconditions": [],
                 "completion_check": "object_placed",
@@ -160,7 +157,7 @@ def single_manual_plan(language: str, object_names: list[str], *, suite: str, ta
             }
         ],
     }
-    return prepare_plan(plan, task=language)
+    return prepare_plan(plan, task=language, scene_objects={key: objects[key] for key in (chosen, target)})
 
 
 def _objects_from_names(names: list[str]) -> dict:

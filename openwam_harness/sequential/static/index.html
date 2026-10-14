@@ -43,15 +43,16 @@
   <header>
     <h1>Page · sequential</h1>
     <span id="health">正在检查服务…</span>
+    <button id="retry" type="button" hidden>重试检查</button>
   </header>
   <div class="ctrl">
     <label for="suite">套件</label>
-    <select id="suite"></select>
+    <select id="suite" disabled></select>
     <label for="task-id">任务</label>
-    <select id="task-id"></select>
+    <select id="task-id" disabled></select>
     <label for="seed">seed</label>
-    <input id="seed" type="number" min="0" value="0" />
-    <button id="load" class="primary">加载场景</button>
+    <input id="seed" type="number" min="0" value="0" disabled />
+    <button id="load" class="primary" disabled>加载场景</button>
     <label for="task">任务</label>
     <input id="task" type="text" placeholder="输入任务指令" disabled />
     <button id="start" class="primary" disabled>开始</button>
@@ -84,6 +85,6 @@
     <pre id="log"></pre>
   </details>
 </div>
-<script src="static/app.js"></script>
+<script src="static/app.js?v=health3"></script>
 </body>
 </html>

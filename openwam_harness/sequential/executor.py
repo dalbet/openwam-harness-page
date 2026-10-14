@@ -15,7 +15,7 @@ from typing import Any, Callable
 from recovery import RecoveryBudget, event_for, propose, signature
 from schema import PlanError, resolve_args, split_move, validate_plan
 from store import LocalizationCache, new_observation
-from verify import receipt, verify_step
+from verify import THRESHOLDS, receipt, verify_step
 
 WORLD_SKILLS = frozenset({"pi0_pick", "move_to", "set_gripper"})
 
@@ -350,7 +350,7 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
         before=before,
     )
     if verdict["reason_code"] == "NEED_STABILITY_SAMPLE":
-        post.append(_capture(backend, scene_epoch))
+        post.extend(_hold_window(backend, scene_epoch))
         verdict = verify_step(
             step,
             outcome,
@@ -363,6 +363,24 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
             before=before,
         )
     return post, verdict
+
+
+def _hold_window(backend: Any, scene_epoch: int) -> list[dict[str, Any]]:
+    """Advance the sim with the existing close-gripper primitive, then observe."""
+    grasp = THRESHOLDS["grasp"]
+    calls = int(grasp.get("window_calls", 2))
+    steps = int(grasp.get("window_steps", 4))
+    gripper = float(grasp.get("window_gripper", 1.0))
+    samples = []
+    for _ in range(calls):
+        try:
+            outcome = backend.execute("set_gripper", {"gripper": gripper, "steps": steps})
+        except Exception:
+            break
+        samples.append(_capture(backend, scene_epoch))
+        if not getattr(outcome, "executed", False):
+            break
+    return samples
 
 
 def _recover_or_confirm(

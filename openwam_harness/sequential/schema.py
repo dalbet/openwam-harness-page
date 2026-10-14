@@ -50,6 +50,36 @@ SKILL_CHECK = {
     "move_to": "object_transported",
     "pause_for_confirm": "user_confirmed",
 }
+SEMANTIC_PLAN_KEYS = frozenset(
+    {
+        "plan_id",
+        "goal",
+        "steps",
+        "goal_relation",
+        "scene_id",
+        "suite",
+        "task_id",
+        "seed",
+        "task",
+        "plan_source",
+        "semantic_step_ids",
+    }
+)
+SEMANTIC_STEP_KEYS = frozenset(
+    {
+        "step_id",
+        "skill",
+        "object_ref",
+        "target_ref",
+        "relation",
+        "prompt",
+        "depends_on",
+        "preconditions",
+        "completion_check",
+        "budget",
+        "on_failure",
+    }
+)
 PLAN_KEYS = frozenset(
     {
         "plan_id",
@@ -245,16 +275,15 @@ SEMANTIC_SKILLS = ("transfer",)
 
 
 def planner_parameters_schema() -> dict[str, Any]:
-    """Schema the planner fills. The executor expands each transfer."""
+    """Flat semantic steps. Object identity is checked against the live scene, not a nested map."""
     return {
         "type": "object",
         "additionalProperties": False,
-        "required": ["plan_id", "goal", "steps"],
+        "required": ["plan_id", "goal", "goal_relation", "steps"],
         "properties": {
             "plan_id": {"type": "string"},
             "goal": {"type": "string"},
             "goal_relation": {"type": "string", "enum": sorted(RELATIONS)},
-            "objects": {"type": "object"},
             "steps": {
                 "type": "array",
                 "minItems": 1,
@@ -265,9 +294,11 @@ def planner_parameters_schema() -> dict[str, Any]:
                     "required": [
                         "step_id",
                         "skill",
-                        "args",
+                        "object_ref",
+                        "target_ref",
+                        "relation",
+                        "prompt",
                         "depends_on",
-                        "preconditions",
                         "completion_check",
                         "budget",
                         "on_failure",
@@ -275,17 +306,10 @@ def planner_parameters_schema() -> dict[str, Any]:
                     "properties": {
                         "step_id": {"type": "string"},
                         "skill": {"type": "string", "enum": list(SEMANTIC_SKILLS)},
-                        "args": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "required": ["object_ref", "target_ref", "relation", "prompt"],
-                            "properties": {
-                                "object_ref": {"type": "string"},
-                                "target_ref": {"type": "string"},
-                                "relation": {"type": "string", "enum": sorted(RELATIONS)},
-                                "prompt": {"type": "string"},
-                            },
-                        },
+                        "object_ref": {"type": "string"},
+                        "target_ref": {"type": "string"},
+                        "relation": {"type": "string", "enum": sorted(RELATIONS)},
+                        "prompt": {"type": "string"},
                         "depends_on": {"type": "array", "items": {"type": "string"}},
                         "preconditions": {"type": "array", "items": {"type": "string"}},
                         "completion_check": {"type": "string", "enum": ["object_placed"]},
@@ -327,28 +351,14 @@ def semantic_example() -> dict[str, Any]:
         "plan_id": "example-soup",
         "goal": "put the alphabet soup in the basket",
         "goal_relation": "in",
-        "objects": {
-            "alphabet_soup": {
-                "sim_name": "alphabet_soup_1",
-                "phrases": ["alphabet soup"],
-                "role": "movable",
-            },
-            "basket": {
-                "sim_name": "basket_1",
-                "phrases": ["basket"],
-                "role": "container",
-            },
-        },
         "steps": [
             {
                 "step_id": "soup",
                 "skill": "transfer",
-                "args": {
-                    "object_ref": "alphabet_soup",
-                    "target_ref": "basket",
-                    "relation": "in",
-                    "prompt": "pick up the alphabet soup",
-                },
+                "object_ref": "alphabet_soup",
+                "target_ref": "basket",
+                "relation": "in",
+                "prompt": "pick up the alphabet soup",
                 "depends_on": [],
                 "preconditions": [],
                 "completion_check": "object_placed",
@@ -356,6 +366,13 @@ def semantic_example() -> dict[str, Any]:
                 "on_failure": "recover",
             }
         ],
+    }
+
+
+def example_scene_objects() -> dict[str, Any]:
+    return {
+        "alphabet_soup": {"sim_name": "alphabet_soup_1", "phrases": ["alphabet soup"], "role": "movable"},
+        "basket": {"sim_name": "basket_1", "phrases": ["basket"], "role": "container"},
     }
 
 
@@ -633,13 +650,18 @@ def _cycle_errors(graph: dict[str, list[str]]) -> list[dict[str, Any]]:
     return errors
 
 
-def validate_semantic_plan(plan: dict[str, Any], *, task: str | None = None) -> dict[str, Any]:
+def validate_semantic_plan(
+    plan: dict[str, Any],
+    *,
+    task: str | None = None,
+    scene_objects: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     errors: list[dict[str, Any]] = []
     if not isinstance(plan, dict):
         raise PlanError([_err("plan", "type", type(plan).__name__, "object")])
     for key in plan:
-        if key in EXECUTABLE_KEYS or key not in PLAN_KEYS:
-            errors.append(_err(f"plan.{key}", "unknown_field", key, "plan contract fields only"))
+        if key == "objects" or key in EXECUTABLE_KEYS or key not in SEMANTIC_PLAN_KEYS:
+            errors.append(_err(f"plan.{key}", "unknown_field", key, "flat semantic fields only; object refs are checked against the scene"))
     goal = plan.get("goal")
     if not isinstance(plan.get("plan_id"), str) or not str(plan.get("plan_id")).strip():
         errors.append(_err("plan.plan_id", "missing", plan.get("plan_id"), "non-empty string"))
@@ -649,22 +671,14 @@ def validate_semantic_plan(plan: dict[str, Any], *, task: str | None = None) -> 
         errors.append(_err("plan.goal", "task_mismatch", goal, task.strip()))
     if plan.get("goal_relation") not in RELATIONS:
         errors.append(_err("plan.goal_relation", "relation", plan.get("goal_relation"), "in|on|inside_drawer"))
-    objects = plan.get("objects")
-    if not isinstance(objects, dict) or not objects:
-        errors.append(_err("plan.objects", "type", objects, "non-empty object map"))
-        objects = {}
-    else:
+    objects = scene_objects or {}
+    if scene_objects is not None:
         for ref, spec in objects.items():
             if not isinstance(spec, dict):
-                errors.append(_err(f"plan.objects.{ref}", "type", spec, "object"))
+                errors.append(_err(f"scene.{ref}", "type", spec, "object"))
                 continue
             if spec.get("role") not in {"movable", "container", "support"}:
-                errors.append(_err(f"plan.objects.{ref}.role", "role", spec.get("role"), "movable|container|support"))
-            if not isinstance(spec.get("sim_name"), str) or not spec.get("sim_name"):
-                errors.append(_err(f"plan.objects.{ref}.sim_name", "missing", spec.get("sim_name"), "sim object name"))
-            phrases = spec.get("phrases")
-            if not isinstance(phrases, list) or not phrases:
-                errors.append(_err(f"plan.objects.{ref}.phrases", "type", phrases, "non-empty string list"))
+                errors.append(_err(f"scene.{ref}.role", "role", spec.get("role"), "movable|container|support"))
     steps = plan.get("steps")
     if not isinstance(steps, list) or not steps:
         raise PlanError(errors or [_err("plan.steps", "type", steps, "non-empty list")])
@@ -677,6 +691,9 @@ def validate_semantic_plan(plan: dict[str, Any], *, task: str | None = None) -> 
             continue
         step_id = step.get("step_id")
         skill = step.get("skill")
+        for key in step:
+            if key not in SEMANTIC_STEP_KEYS:
+                errors.append(_err(f"{path}.{key}", "unknown_field", key, "flat step fields only"))
         if not isinstance(step_id, str) or not step_id.strip():
             errors.append(_err(f"{path}.step_id", "missing", step_id, "non-empty string"))
             step_id = f"missing-{index}"
@@ -685,14 +702,14 @@ def validate_semantic_plan(plan: dict[str, Any], *, task: str | None = None) -> 
         seen.add(str(step_id))
         if skill != "transfer":
             errors.append(_err(f"{path}.skill", "skill_not_registered", skill, "transfer"))
-        args = step.get("args") if isinstance(step.get("args"), dict) else {}
-        if not isinstance(step.get("args"), dict):
-            errors.append(_err(f"{path}.args", "type", step.get("args"), "object"))
-        for key in args:
-            if key in EXECUTABLE_KEYS:
-                errors.append(_err(f"{path}.args.{key}", "executable_field", key, "no code fields"))
-        object_ref = args.get("object_ref")
-        target_ref = args.get("target_ref")
+        object_ref = step.get("object_ref")
+        target_ref = step.get("target_ref")
+        args = {
+            "object_ref": object_ref,
+            "target_ref": target_ref,
+            "relation": step.get("relation"),
+            "prompt": step.get("prompt"),
+        }
         if object_ref not in objects:
             errors.append(_err(f"{path}.args.object_ref", "object_ref", object_ref, "a plan object"))
         elif objects[object_ref].get("role") != "movable":
@@ -725,7 +742,22 @@ def validate_semantic_plan(plan: dict[str, Any], *, task: str | None = None) -> 
     errors.extend(_cycle_errors(graph))
     if errors:
         raise PlanError(errors)
-    return plan
+    used = []
+    normalized_steps = []
+    for step in steps:
+        item = dict(step)
+        item["args"] = {
+            "object_ref": step.get("object_ref"),
+            "target_ref": step.get("target_ref"),
+            "relation": step.get("relation"),
+            "prompt": step.get("prompt"),
+        }
+        used.extend([step.get("object_ref"), step.get("target_ref")])
+        normalized_steps.append(item)
+    normalized = {key: plan[key] for key in plan if key in SEMANTIC_PLAN_KEYS}
+    normalized["objects"] = {ref: objects[ref] for ref in used if ref in objects}
+    normalized["steps"] = normalized_steps
+    return normalized
 
 
 def _phrase(spec: dict[str, Any]) -> str:
@@ -855,7 +887,12 @@ def _segment_step(ref: str, phrase: str, previous: str) -> dict[str, Any]:
     }
 
 
-def prepare_plan(plan: dict[str, Any], *, task: str | None = None) -> dict[str, Any]:
+def prepare_plan(
+    plan: dict[str, Any],
+    *,
+    task: str | None = None,
+    scene_objects: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Accept a semantic plan or a primitive plan. Illegal plans raise."""
     if not isinstance(plan, dict):
         return validate_plan(plan, task=task)
@@ -868,7 +905,7 @@ def prepare_plan(plan: dict[str, Any], *, task: str | None = None) -> dict[str, 
             raise PlanError([
                 _err("plan.steps", "mixed_plan", skills, "transfer steps only, or primitive steps only")
             ])
-        semantic = validate_semantic_plan(plan, task=task)
+        semantic = validate_semantic_plan(plan, task=task, scene_objects=scene_objects)
         expanded = expand_semantic_plan(semantic)
         if plan.get("plan_source"):
             expanded["plan_source"] = plan["plan_source"]
@@ -891,7 +928,12 @@ def unwrap_model_text(text: str) -> str:
     return inner.strip()
 
 
-def parse_model_message(message: dict[str, Any], *, task: str | None = None) -> tuple[str, dict[str, Any]]:
+def parse_model_message(
+    message: dict[str, Any],
+    *,
+    task: str | None = None,
+    scene_objects: dict[str, Any] | None = None,
+) -> tuple[str, dict[str, Any]]:
     """Return (response kind, plan). Tool calls are not also parsed as text."""
     finish = message.get("finish_reason")
     if message.get("incomplete"):
@@ -945,7 +987,7 @@ def parse_model_message(message: dict[str, Any], *, task: str | None = None) -> 
             raise PlanError([
                 _err("message.tool_calls[0].arguments", "type", type(raw_args).__name__, "JSON object")
             ])
-        return "tool_calls", prepare_plan(payload, task=task)
+        return "tool_calls", prepare_plan(payload, task=task, scene_objects=scene_objects)
     content = message.get("content")
     if not isinstance(content, str):
         raise PlanError([_err("message.content", "type", content, "string JSON or submit_plan tool call")])
@@ -964,7 +1006,7 @@ def parse_model_message(message: dict[str, Any], *, task: str | None = None) -> 
         ]) from exc
     if not isinstance(payload, dict):
         raise PlanError([_err("message.content", "type", type(payload).__name__, "JSON object")])
-    return "json", prepare_plan(payload, task=task)
+    return "json", prepare_plan(payload, task=task, scene_objects=scene_objects)
 
 
 def parse_plan_text(text: str, *, task: str | None = None) -> dict[str, Any]:

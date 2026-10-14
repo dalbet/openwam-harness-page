@@ -12,10 +12,11 @@ from budget import OUTPUT_BUDGET, budget_check, slim_prompt
 from schema import TOOL_SCHEMA, PlanError, parse_model_message, semantic_example, submit_plan_tools, validate_plan
 
 OUTPUT_FORMAT = (
-    "Call submit_plan once. Arguments are a short semantic plan: plan_id, goal, and steps. "
-    "Each step skill is transfer, with object_ref, target_ref, relation, prompt, depends_on, "
-    "completion_check object_placed, budget, and on_failure. Do not emit primitive skills or "
-    "controller parameters. Do not also print a second JSON plan. goal must equal the task text."
+    "Call submit_plan once. Arguments are a flat list: plan_id, goal, goal_relation, and steps. "
+    "Each step has skill transfer, object_ref, target_ref, relation, prompt, depends_on, "
+    "completion_check object_placed, budget, and on_failure. Do not send an objects map. "
+    "Do not emit primitive skills or controller parameters. goal must equal the task text. "
+    "This request contains scene metadata and image ids only, not image bytes."
 )
 SHORT_MEMORY = (
     "Earlier original-mode episodes failed before pi0_pick, from a planner timeout or a "
@@ -39,6 +40,7 @@ def request_plan(
     counter=None,
     short_memory: str = SHORT_MEMORY,
     image_ids: list[str] | None = None,
+    scene_objects: dict[str, Any] | None = None,
     on_event: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
     example = json.dumps(semantic_example(), ensure_ascii=False)
@@ -63,7 +65,7 @@ def request_plan(
     _emit(options, "validating", "initial")
     attempts.append(_attempt(1, "initial", message, parts, counter))
     try:
-        kind, plan = parse_model_message(message, task=task)
+        kind, plan = parse_model_message(message, task=task, scene_objects=scene_objects)
         plan["plan_source"] = "model"
         return _ok("model", plan, attempts, instruction_report, kind)
     except PlanError as exc:
@@ -81,7 +83,7 @@ def request_plan(
     _emit(options, "validating", "format_repair")
     attempts.append(_attempt(2, "format_repair", message, repair_parts, counter))
     try:
-        kind, plan = parse_model_message(message, task=task)
+        kind, plan = parse_model_message(message, task=task, scene_objects=scene_objects)
         plan["plan_source"] = "model"
         return _ok("model_repair", plan, attempts, instruction_report, kind)
     except PlanError as exc:

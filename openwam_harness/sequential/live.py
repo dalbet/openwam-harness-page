@@ -176,6 +176,13 @@ class LiveBackend:
                 env_step=self.env_step(),
             )
         data = result.data if isinstance(result.data, dict) else {"result": result.data}
+        if action == "pi0_pick":
+            from chunk_trace import take_chunk_trace
+
+            data = dict(data)
+            data["chunks"] = take_chunk_trace(self.toolkit.primitives)
+            data["env_action_count"] = int(getattr(self.toolkit.primitives, "_env_action_count", 0))
+            data["record_note"] = "states.json step_idx counts tool records, not env actions inside a chunk"
         if data.get("error"):
             error = str(data.get("error"))
             return ToolOutcome(
@@ -452,6 +459,9 @@ def _timed_toolkit(robot_spec, runtime_kwargs, events, config, output_dir):
     finally:
         LiberoPrimitives.reset = orig_reset
         tools.dump_state = orig_dump
+    from chunk_trace import attach_chunk_trace
+
+    attach_chunk_trace(toolkit.primitives)
     return toolkit, marks
 
 

@@ -1,0 +1,27 @@
+{
+  "episode": "6838b71aaab1",
+  "source": "openwam_harness/runs/sequential/6838b71aaab1/states.json and vla_server.log",
+  "native_success": false,
+  "evidence_source": "sim_state_assisted",
+  "units": {
+    "chunks_used": "number of Pi0.5 forward passes inside one pi0_pick tool call",
+    "action_chunk": "LIBERO Pi0.5 config action_chunk=5, action_dim=7, model action_horizon=10. Each forward is one chunk; the server config asks for 5 env actions.",
+    "env_actions": "actions actually passed to env.chunk_step. The saved episode did not record per-chunk shapes, so the historical action count is not reconstructed from a stale snapshot.",
+    "record_index": "states.json step_idx and the UI field env_step. One tool record, not one simulator step."
+  },
+  "why_12_chunks_and_record_4": "The first pi0_pick is record_index 2 and reports chunks_used 12 inside that single record. The UI env_step 4 is record_index 4, the second pi0_pick after a set_gripper recovery record. 12 chunks were not 12 records and were not 3 simulator steps.",
+  "first_pick": {
+    "record_index": 2,
+    "prompt": "pick up the alphabet soup",
+    "chunks_used": 12,
+    "tool_success": false,
+    "peak_lift_m": 0.011,
+    "lift_threshold_m": 0.05,
+    "elapsed_s": 14.8,
+    "terminated": false,
+    "truncated": false,
+    "checker": "NEED_STABILITY_SAMPLE",
+    "failure_location": "pi0_pick lift below 0.05 m; hold was not GRASP_HELD"
+  },
+  "later_records_same_episode": "record 3 set_gripper, record 4 another pi0_pick, records 5-6 move_to, record 7 set_gripper, record 8 another pi0_pick. Those continued because an unknown verdict did not stop the plan. That continuation is now blocked unless a person confirms success."
+}
