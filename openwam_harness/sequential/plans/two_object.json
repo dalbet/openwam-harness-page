@@ -1,0 +1,44 @@
+{
+  "libero_10_t0": {
+    "scene_id": "libero_10_t0",
+    "task": "put both the alphabet soup and the tomato sauce in the basket",
+    "suite": "libero_10",
+    "task_id": 0,
+    "seed": 0,
+    "steps": [
+      {"id": "observe", "action": "view_env_state", "args": {"step": 0}, "subtask": "observe"},
+      {"id": "seg_soup", "action": "segment", "args": {"prompt": "alphabet soup can", "camera": "agentview"}, "subtask": "soup"},
+      {"id": "seg_sauce", "action": "segment", "args": {"prompt": "tomato sauce can", "camera": "agentview"}, "subtask": "sauce"},
+      {"id": "seg_basket", "action": "segment", "args": {"prompt": "basket", "camera": "agentview"}, "subtask": "basket"},
+      {"id": "pick_soup", "action": "pi0_pick", "args": {"prompt": "pick up the alphabet soup", "max_chunks": 12}, "subtask": "soup_pick"},
+      {"id": "carry_soup", "action": "move_to", "args": {"xyz_from": "segment:basket", "z_offset": 0.15, "gripper": 1.0}, "subtask": "soup_place"},
+      {"id": "drop_soup", "action": "set_gripper", "args": {"gripper": -1.0, "steps": 8}, "subtask": "soup_place"},
+      {"id": "confirm_soup", "action": "pause_for_confirm", "args": {}, "subtask": "soup_place"},
+      {"id": "pick_sauce", "action": "pi0_pick", "args": {"prompt": "pick up the tomato sauce", "max_chunks": 12}, "subtask": "sauce_pick"},
+      {"id": "carry_sauce", "action": "move_to", "args": {"xyz_from": "segment:basket", "z_offset": 0.15, "gripper": 1.0}, "subtask": "sauce_place"},
+      {"id": "drop_sauce", "action": "set_gripper", "args": {"gripper": -1.0, "steps": 8}, "subtask": "sauce_place"},
+      {"id": "confirm_sauce", "action": "pause_for_confirm", "args": {}, "subtask": "sauce_place"}
+    ]
+  },
+  "libero_10_t1": {
+    "scene_id": "libero_10_t1",
+    "task": "put both the cream cheese box and the butter in the basket",
+    "suite": "libero_10",
+    "task_id": 1,
+    "seed": 0,
+    "steps": [
+      {"id": "observe", "action": "view_env_state", "args": {"step": 0}, "subtask": "observe"},
+      {"id": "seg_cheese", "action": "segment", "args": {"prompt": "cream cheese box", "camera": "agentview"}, "subtask": "cheese"},
+      {"id": "seg_butter", "action": "segment", "args": {"prompt": "butter", "camera": "agentview"}, "subtask": "butter"},
+      {"id": "seg_basket", "action": "segment", "args": {"prompt": "basket", "camera": "agentview"}, "subtask": "basket"},
+      {"id": "pick_cheese", "action": "pi0_pick", "args": {"prompt": "pick up the cream cheese", "max_chunks": 12}, "subtask": "cheese_pick"},
+      {"id": "carry_cheese", "action": "move_to", "args": {"xyz_from": "segment:basket", "z_offset": 0.15, "gripper": 1.0}, "subtask": "cheese_place"},
+      {"id": "drop_cheese", "action": "set_gripper", "args": {"gripper": -1.0, "steps": 8}, "subtask": "cheese_place"},
+      {"id": "confirm_cheese", "action": "pause_for_confirm", "args": {}, "subtask": "cheese_place"},
+      {"id": "pick_butter", "action": "pi0_pick", "args": {"prompt": "pick up the butter", "max_chunks": 12}, "subtask": "butter_pick"},
+      {"id": "carry_butter", "action": "move_to", "args": {"xyz_from": "segment:basket", "z_offset": 0.15, "gripper": 1.0}, "subtask": "butter_place"},
+      {"id": "drop_butter", "action": "set_gripper", "args": {"gripper": -1.0, "steps": 8}, "subtask": "butter_place"},
+      {"id": "confirm_butter", "action": "pause_for_confirm", "args": {}, "subtask": "butter_place"}
+    ]
+  }
+}

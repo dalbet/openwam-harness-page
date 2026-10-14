@@ -1,6 +1,20 @@
 # 上游只读仓库（嵌套 git repo，不纳入本仓库）
 Show-Harness/
 
+# Harness 现场环境：权重、虚拟环境、缓存、嵌套上游仓库、运行录像
+openwam_harness/envs/
+openwam_harness/checkpoints/
+openwam_harness/hf_cache/
+openwam_harness/pip_cache/
+openwam_harness/deps/
+openwam_harness/tmp/
+openwam_harness/OpenWAM/
+openwam_harness/RPent/
+openwam_harness/runs/
+openwam_harness/**/*.mp4
+openwam_harness/**/*.pt
+openwam_harness/**/*.safetensors
+
 # 运行时日志、诊断输出、rollout 视频（结果结论见 page_ui/README.md）
 page_ui/logs/
 logs_baseline/

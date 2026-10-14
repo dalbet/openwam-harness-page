@@ -1,0 +1,9 @@
+{
+  "planner_output_budget": 2048,
+  "context_limit": 32768,
+  "initial_plans": 1,
+  "format_repairs": 1,
+  "no_progress_retries": 1,
+  "diagnostic_episode_s": 180,
+  "notes": "Output budget is the request max_tokens. Context stays at the running vLLM max-model-len. Do not raise it to 65536."
+}

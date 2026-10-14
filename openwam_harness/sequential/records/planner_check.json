@@ -1,0 +1,82 @@
+{
+  "source": "human_fallback",
+  "output_budget": 2048,
+  "preflight": {
+    "input_tokens": 265,
+    "output_budget": 2048,
+    "context_limit": 32768,
+    "projected": 2313,
+    "parts": [
+      {
+        "name": "task",
+        "tokens": 12,
+        "chars": 61
+      },
+      {
+        "name": "skill_constraints",
+        "tokens": 78,
+        "chars": 325
+      },
+      {
+        "name": "failure_evidence",
+        "tokens": 22,
+        "chars": 84
+      },
+      {
+        "name": "tool_schema",
+        "tokens": 136,
+        "chars": 442
+      },
+      {
+        "name": "history",
+        "tokens": 17,
+        "chars": 88
+      }
+    ]
+  },
+  "requests": [
+    {
+      "preflight": {
+        "input_tokens": 315,
+        "output_budget": 2048,
+        "context_limit": 32768,
+        "projected": 2363,
+        "parts": [
+          {
+            "name": "request",
+            "tokens": 315,
+            "chars": 1172
+          }
+        ]
+      },
+      "api_usage": {
+        "prompt_tokens": 327,
+        "total_tokens": 593,
+        "completion_tokens": 266,
+        "prompt_tokens_details": null
+      }
+    },
+    {
+      "preflight": {
+        "input_tokens": 607,
+        "output_budget": 2048,
+        "context_limit": 32768,
+        "projected": 2655,
+        "parts": [
+          {
+            "name": "request",
+            "tokens": 607,
+            "chars": 1985
+          }
+        ]
+      },
+      "api_usage": {
+        "prompt_tokens": 627,
+        "total_tokens": 965,
+        "completion_tokens": 338,
+        "prompt_tokens_details": null
+      }
+    }
+  ],
+  "steps": 12
+}
