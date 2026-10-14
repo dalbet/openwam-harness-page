@@ -21,7 +21,8 @@ SKILL_CONSTRAINTS = (
     "Do not emit executable code. Do not call pi0_doubled. "
     "pi0_doubled success is official termination only and is not a subtask result. "
     "Do not reset the scene between subtasks. "
-    "A new observation after an action is not a request for another planner call."
+    "A new observation after an action is not a request for another planner call. "
+    "Use only registered skills and checker names. Object refs must be semantic scene names."
 )
 
 
@@ -67,21 +68,25 @@ def budget_check(
 def slim_prompt(
     *,
     task: str,
-    failure_evidence: str,
+    scene_observation: str,
     tool_schema: str,
+    short_memory: str,
+    output_format: str,
+    example: str,
 ) -> list[tuple[str, str]]:
-    """Keep the task, skill constraints, and the current failure. Drop corpus dumps."""
+    """Task, current scene summary, skill schema, short memory, and format. No trajectory dump."""
     if not task.strip():
         raise ValueError("task must be kept")
-    if not failure_evidence.strip():
-        raise ValueError("current failure evidence must be kept")
+    if not scene_observation.strip():
+        raise ValueError("scene observation must be kept")
+    if not tool_schema.strip():
+        raise ValueError("tool schema must be kept")
     return [
         ("task", task.strip()),
         ("skill_constraints", SKILL_CONSTRAINTS),
-        ("failure_evidence", failure_evidence.strip()),
+        ("scene_observation", scene_observation.strip()),
         ("tool_schema", tool_schema.strip()),
-        (
-            "history",
-            "History is limited to the task, the skill constraints, and the current failure evidence.",
-        ),
+        ("short_memory", short_memory.strip() or "No short memory for this request."),
+        ("output_format", output_format.strip()),
+        ("example", example.strip()),
     ]

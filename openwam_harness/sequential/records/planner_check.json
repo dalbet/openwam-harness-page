@@ -1,82 +1,34 @@
 {
-  "source": "human_fallback",
+  "status": "PLANNING_FAILED",
+  "source": null,
+  "plan_source": null,
   "output_budget": 2048,
-  "preflight": {
-    "input_tokens": 265,
-    "output_budget": 2048,
-    "context_limit": 32768,
-    "projected": 2313,
-    "parts": [
-      {
-        "name": "task",
-        "tokens": 12,
-        "chars": 61
-      },
-      {
-        "name": "skill_constraints",
-        "tokens": 78,
-        "chars": 325
-      },
-      {
-        "name": "failure_evidence",
-        "tokens": 22,
-        "chars": 84
-      },
-      {
-        "name": "tool_schema",
-        "tokens": 136,
-        "chars": 442
-      },
-      {
-        "name": "history",
-        "tokens": 17,
-        "chars": 88
-      }
-    ]
-  },
-  "requests": [
+  "repairs": 0,
+  "errors": [
     {
-      "preflight": {
-        "input_tokens": 315,
-        "output_budget": 2048,
-        "context_limit": 32768,
-        "projected": 2363,
-        "parts": [
-          {
-            "name": "request",
-            "tokens": 315,
-            "chars": 1172
-          }
-        ]
-      },
-      "api_usage": {
-        "prompt_tokens": 327,
-        "total_tokens": 593,
-        "completion_tokens": 266,
-        "prompt_tokens_details": null
-      }
-    },
-    {
-      "preflight": {
-        "input_tokens": 607,
-        "output_budget": 2048,
-        "context_limit": 32768,
-        "projected": 2655,
-        "parts": [
-          {
-            "name": "request",
-            "tokens": 607,
-            "chars": 1985
-          }
-        ]
-      },
-      "api_usage": {
-        "prompt_tokens": 627,
-        "total_tokens": 965,
-        "completion_tokens": 338,
-        "prompt_tokens_details": null
-      }
+      "path": "message",
+      "code": "client_timeout",
+      "received": "TimeoutError after 180s waiting for /v1/chat/completions",
+      "expected": "one completion before the client timeout"
     }
   ],
-  "steps": 12
+  "requests": [
+    {
+      "role": "initial",
+      "response_kind": null,
+      "finish_reason": null,
+      "thinking_disabled_sent": true,
+      "reasoning_present": null,
+      "content": null,
+      "tool_calls": null,
+      "usage": null,
+      "note": "The HTTP client closed at 180s. vLLM kept the request. Engine log from 13:06:03 to 13:11:53 shows about 7 tokens/s and then Running: 0. The response body was not captured, so this is not a schema error."
+    }
+  ],
+  "previous_record_limit": {
+    "note": "The earlier planner_check.json stored only token counts. The client read message.content and dropped tool_calls and finish_reason, so those two failures cannot be reconstructed as a specific field error.",
+    "request_1": {"prompt_tokens": 327, "completion_tokens": 266},
+    "request_2": {"prompt_tokens": 627, "completion_tokens": 338}
+  },
+  "note": "No format-repair request was sent. No robot actions were started."
 }

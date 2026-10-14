@@ -1,0 +1,53 @@
+{
+  "units": {
+    "length": "m",
+    "time": "s",
+    "gripper_opening": "m, abs(qpos[6])+abs(qpos[7]); open is about 0.08 and empty-closed is about 0"
+  },
+  "workspace_m": {
+    "x": [-0.35, 0.35],
+    "y": [-0.4, 0.5],
+    "z": [0.0, 1.1],
+    "purpose": "reject primitive xyz outside the LIBERO table workspace"
+  },
+  "approach_z_offset_m": [-0.05, 0.4],
+  "gripper_command": [-1.0, 1.0],
+  "budget_max_s": 180,
+  "budget_max_attempts": 3,
+  "recovery_attempts": 2,
+  "service_retries": 1,
+  "grasp": {
+    "lift_above_support_m": 0.03,
+    "purpose_lift": "object origin must clear its initial support height",
+    "gripper_held_min_m": 0.008,
+    "gripper_held_max_m": 0.05,
+    "purpose_gripper": "an object between the fingers, not a fully shut empty gripper or a wide-open gripper",
+    "empty_closed_max_m": 0.008,
+    "left_behind_xy_m": 0.04,
+    "relative_stable_m": 0.015,
+    "stable_samples": 2,
+    "near_eef_m": 0.06
+  },
+  "transport": {
+    "min_progress_m": 0.02,
+    "hold_relative_m": 0.03,
+    "purpose": "the held object keeps a stable offset and its xy moves toward the target"
+  },
+  "place": {
+    "in_radius_m": 0.08,
+    "on_radius_m": 0.06,
+    "inside_drawer_radius_m": 0.07,
+    "support_z_tolerance_m": 0.04,
+    "gripper_open_min_m": 0.05,
+    "drift_m": 0.02,
+    "stable_samples": 2,
+    "purpose": "relation, support, release, and a short window without being carried off or dropped"
+  },
+  "stall": {
+    "window_s": 2.0,
+    "min_eef_motion_m": 0.01,
+    "min_target_progress_m": 0.01,
+    "purpose": "contact that is still closing distance is not stalled"
+  },
+  "note": "Thresholds are fixed for this scene family. Do not loosen them after a failed episode."
+}

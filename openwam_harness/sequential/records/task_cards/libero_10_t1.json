@@ -1,0 +1,70 @@
+{
+  "status": "candidate",
+  "scene_id": "libero_10_t1",
+  "goal": "put both the cream cheese box and the butter in the basket",
+  "goal_relation": "in",
+  "objects": {
+    "cream_cheese": {
+      "sim_name": "cream_cheese_1",
+      "role": "movable",
+      "phrases": [
+        "cream cheese box",
+        "cream cheese"
+      ]
+    },
+    "butter": {
+      "sim_name": "butter_1",
+      "role": "movable",
+      "phrases": [
+        "butter"
+      ]
+    },
+    "basket": {
+      "sim_name": "basket_1",
+      "role": "container",
+      "phrases": [
+        "basket"
+      ]
+    }
+  },
+  "skill_order": [
+    "view_env_state",
+    "segment",
+    "segment",
+    "segment",
+    "pi0_pick",
+    "move_to",
+    "set_gripper",
+    "pause_for_confirm",
+    "pi0_pick",
+    "move_to",
+    "set_gripper",
+    "pause_for_confirm"
+  ],
+  "entry_conditions": [
+    "scene_loaded",
+    "no_reset_between_subtasks"
+  ],
+  "validators": {
+    "grasp": "grasp_held",
+    "transport": "object_transported",
+    "place": "object_placed",
+    "mode": "sim_state_assisted"
+  },
+  "recovery": {
+    "max_attempts": 2,
+    "events": [
+      "EMPTY_GRASP",
+      "GRASP_LOST",
+      "NO_PROGRESS",
+      "PLACEMENT_UNVERIFIED",
+      "SERVICE_ERROR",
+      "TARGET_AMBIGUOUS"
+    ]
+  },
+  "model": "Qwen3.5-9B",
+  "code_version": "feat/harness-sequential-demo",
+  "source_episode": null,
+  "verified_scope": null,
+  "plan_source": "manual"
+}

@@ -1,6 +1,6 @@
 # 阶段 A/B：顺序 Harness 最小可运行版本
 
-本轮只做到可运行的阶段 A 和阶段 B。阶段 C 和多轮评测不在本轮启动。
+顺序页在 `8766`。`HARNESS_LIVE=1` 才创建 LIBERO。干跑会标明自己，不会用占位帧进入确认，也不会在环境或 VLA 缺失时偷偷改成干跑。模型计划两次失败返回 `PLANNING_FAILED`，不会偷偷换成人工计划。人工计划只有用户显式选择，`plan_source=manual`。
 
 ## 现场位置
 
@@ -64,10 +64,11 @@ Planner 已经在 `127.0.0.1:8000`。不要再开一个 vLLM。
 # 原模式 Planner（仅当 8000 没在听时）
 bash /root/Page_dmh/openwam_harness/baseline/start_planner.sh
 
-# 顺序 UI，默认不加载仿真
-bash /root/Page_dmh/openwam_harness/sequential/start_adapter.sh
+# 干跑只检查协议，页面会显示干跑并拒绝执行。
+HARNESS_LIVE=0 bash /root/Page_dmh/openwam_harness/sequential/start_adapter.sh
 
-# 手动真机闭环。先确认 GPU 只留给这一套。显存不够就先停 8000 上的 vLLM。
+# 真实闭环。脚本若发现本项目的旧 adapter 占着 8766，会停掉那个 pid 再启动，不会复用旧进程。
+# 不杀其他端口上的进程。显存不够就先停 8000 上的 vLLM，不要再开第二个。
 HARNESS_LIVE=1 bash /root/Page_dmh/openwam_harness/sequential/start_adapter.sh
 ```
 

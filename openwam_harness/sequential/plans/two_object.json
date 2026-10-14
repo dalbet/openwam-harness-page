@@ -1,44 +1,599 @@
 {
   "libero_10_t0": {
+    "plan_id": "manual-libero_10_t0",
     "scene_id": "libero_10_t0",
+    "goal": "put both the alphabet soup and the tomato sauce in the basket",
     "task": "put both the alphabet soup and the tomato sauce in the basket",
+    "goal_relation": "in",
     "suite": "libero_10",
     "task_id": 0,
     "seed": 0,
+    "objects": {
+      "alphabet_soup": {
+        "sim_name": "alphabet_soup_1",
+        "phrases": [
+          "alphabet soup",
+          "alphabet soup can"
+        ],
+        "role": "movable"
+      },
+      "tomato_sauce": {
+        "sim_name": "tomato_sauce_1",
+        "phrases": [
+          "tomato sauce",
+          "tomato sauce can"
+        ],
+        "role": "movable"
+      },
+      "basket": {
+        "sim_name": "basket_1",
+        "phrases": [
+          "basket"
+        ],
+        "role": "container"
+      }
+    },
     "steps": [
-      {"id": "observe", "action": "view_env_state", "args": {"step": 0}, "subtask": "observe"},
-      {"id": "seg_soup", "action": "segment", "args": {"prompt": "alphabet soup can", "camera": "agentview"}, "subtask": "soup"},
-      {"id": "seg_sauce", "action": "segment", "args": {"prompt": "tomato sauce can", "camera": "agentview"}, "subtask": "sauce"},
-      {"id": "seg_basket", "action": "segment", "args": {"prompt": "basket", "camera": "agentview"}, "subtask": "basket"},
-      {"id": "pick_soup", "action": "pi0_pick", "args": {"prompt": "pick up the alphabet soup", "max_chunks": 12}, "subtask": "soup_pick"},
-      {"id": "carry_soup", "action": "move_to", "args": {"xyz_from": "segment:basket", "z_offset": 0.15, "gripper": 1.0}, "subtask": "soup_place"},
-      {"id": "drop_soup", "action": "set_gripper", "args": {"gripper": -1.0, "steps": 8}, "subtask": "soup_place"},
-      {"id": "confirm_soup", "action": "pause_for_confirm", "args": {}, "subtask": "soup_place"},
-      {"id": "pick_sauce", "action": "pi0_pick", "args": {"prompt": "pick up the tomato sauce", "max_chunks": 12}, "subtask": "sauce_pick"},
-      {"id": "carry_sauce", "action": "move_to", "args": {"xyz_from": "segment:basket", "z_offset": 0.15, "gripper": 1.0}, "subtask": "sauce_place"},
-      {"id": "drop_sauce", "action": "set_gripper", "args": {"gripper": -1.0, "steps": 8}, "subtask": "sauce_place"},
-      {"id": "confirm_sauce", "action": "pause_for_confirm", "args": {}, "subtask": "sauce_place"}
+      {
+        "step_id": "observe",
+        "skill": "view_env_state",
+        "args": {
+          "step": -1
+        },
+        "depends_on": [],
+        "preconditions": [],
+        "completion_check": "observe_ready",
+        "budget": {
+          "max_s": 30,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "observe"
+      },
+      {
+        "step_id": "seg_alphabet_soup",
+        "skill": "segment",
+        "args": {
+          "prompt": "alphabet soup can",
+          "camera": "agentview",
+          "object_ref": "alphabet_soup"
+        },
+        "depends_on": [
+          "observe"
+        ],
+        "preconditions": [
+          "observe_ready"
+        ],
+        "completion_check": "object_localized",
+        "budget": {
+          "max_s": 40,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "alphabet_soup",
+        "object_ref": "alphabet_soup"
+      },
+      {
+        "step_id": "seg_tomato_sauce",
+        "skill": "segment",
+        "args": {
+          "prompt": "tomato sauce can",
+          "camera": "agentview",
+          "object_ref": "tomato_sauce"
+        },
+        "depends_on": [
+          "observe"
+        ],
+        "preconditions": [
+          "observe_ready"
+        ],
+        "completion_check": "object_localized",
+        "budget": {
+          "max_s": 40,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "tomato_sauce",
+        "object_ref": "tomato_sauce"
+      },
+      {
+        "step_id": "seg_basket",
+        "skill": "segment",
+        "args": {
+          "prompt": "basket",
+          "camera": "agentview",
+          "object_ref": "basket"
+        },
+        "depends_on": [
+          "observe"
+        ],
+        "preconditions": [
+          "observe_ready"
+        ],
+        "completion_check": "object_localized",
+        "budget": {
+          "max_s": 40,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "basket",
+        "object_ref": "basket"
+      },
+      {
+        "step_id": "pick_alphabet_soup",
+        "skill": "pi0_pick",
+        "args": {
+          "prompt": "pick up the alphabet soup",
+          "max_chunks": 12,
+          "object_ref": "alphabet_soup"
+        },
+        "depends_on": [
+          "seg_alphabet_soup"
+        ],
+        "preconditions": [
+          "object_localized"
+        ],
+        "completion_check": "grasp_held",
+        "budget": {
+          "max_s": 120,
+          "max_attempts": 2
+        },
+        "on_failure": "recover",
+        "subtask": "soup_pick",
+        "object_ref": "alphabet_soup"
+      },
+      {
+        "step_id": "carry_alphabet_soup",
+        "skill": "move_to",
+        "args": {
+          "xyz_from": "segment:basket",
+          "z_offset": 0.15,
+          "gripper": 1.0,
+          "object_ref": "alphabet_soup"
+        },
+        "depends_on": [
+          "pick_alphabet_soup",
+          "seg_basket"
+        ],
+        "preconditions": [
+          "grasp_held"
+        ],
+        "completion_check": "object_transported",
+        "budget": {
+          "max_s": 90,
+          "max_attempts": 2
+        },
+        "on_failure": "recover",
+        "subtask": "soup_place",
+        "object_ref": "alphabet_soup"
+      },
+      {
+        "step_id": "drop_alphabet_soup",
+        "skill": "set_gripper",
+        "args": {
+          "gripper": -1.0,
+          "steps": 8,
+          "object_ref": "alphabet_soup"
+        },
+        "depends_on": [
+          "carry_alphabet_soup"
+        ],
+        "preconditions": [
+          "grasp_held"
+        ],
+        "completion_check": "object_placed",
+        "budget": {
+          "max_s": 30,
+          "max_attempts": 1
+        },
+        "on_failure": "recover",
+        "subtask": "soup_place",
+        "object_ref": "alphabet_soup",
+        "relation": "in"
+      },
+      {
+        "step_id": "confirm_alphabet_soup",
+        "skill": "pause_for_confirm",
+        "args": {},
+        "depends_on": [
+          "drop_alphabet_soup"
+        ],
+        "preconditions": [],
+        "completion_check": "user_confirmed",
+        "budget": {
+          "max_s": 180,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "soup_place"
+      },
+      {
+        "step_id": "pick_tomato_sauce",
+        "skill": "pi0_pick",
+        "args": {
+          "prompt": "pick up the tomato sauce",
+          "max_chunks": 12,
+          "object_ref": "tomato_sauce"
+        },
+        "depends_on": [
+          "seg_tomato_sauce",
+          "confirm_alphabet_soup"
+        ],
+        "preconditions": [
+          "object_localized"
+        ],
+        "completion_check": "grasp_held",
+        "budget": {
+          "max_s": 120,
+          "max_attempts": 2
+        },
+        "on_failure": "recover",
+        "subtask": "sauce_pick",
+        "object_ref": "tomato_sauce"
+      },
+      {
+        "step_id": "carry_tomato_sauce",
+        "skill": "move_to",
+        "args": {
+          "xyz_from": "segment:basket",
+          "z_offset": 0.15,
+          "gripper": 1.0,
+          "object_ref": "tomato_sauce"
+        },
+        "depends_on": [
+          "pick_tomato_sauce",
+          "seg_basket"
+        ],
+        "preconditions": [
+          "grasp_held"
+        ],
+        "completion_check": "object_transported",
+        "budget": {
+          "max_s": 90,
+          "max_attempts": 2
+        },
+        "on_failure": "recover",
+        "subtask": "sauce_place",
+        "object_ref": "tomato_sauce"
+      },
+      {
+        "step_id": "drop_tomato_sauce",
+        "skill": "set_gripper",
+        "args": {
+          "gripper": -1.0,
+          "steps": 8,
+          "object_ref": "tomato_sauce"
+        },
+        "depends_on": [
+          "carry_tomato_sauce"
+        ],
+        "preconditions": [
+          "grasp_held"
+        ],
+        "completion_check": "object_placed",
+        "budget": {
+          "max_s": 30,
+          "max_attempts": 1
+        },
+        "on_failure": "recover",
+        "subtask": "sauce_place",
+        "object_ref": "tomato_sauce",
+        "relation": "in"
+      },
+      {
+        "step_id": "confirm_tomato_sauce",
+        "skill": "pause_for_confirm",
+        "args": {},
+        "depends_on": [
+          "drop_tomato_sauce"
+        ],
+        "preconditions": [],
+        "completion_check": "user_confirmed",
+        "budget": {
+          "max_s": 180,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "sauce_place"
+      }
     ]
   },
   "libero_10_t1": {
+    "plan_id": "manual-libero_10_t1",
     "scene_id": "libero_10_t1",
+    "goal": "put both the cream cheese box and the butter in the basket",
     "task": "put both the cream cheese box and the butter in the basket",
+    "goal_relation": "in",
     "suite": "libero_10",
     "task_id": 1,
     "seed": 0,
+    "objects": {
+      "cream_cheese": {
+        "sim_name": "cream_cheese_1",
+        "phrases": [
+          "cream cheese box",
+          "cream cheese"
+        ],
+        "role": "movable"
+      },
+      "butter": {
+        "sim_name": "butter_1",
+        "phrases": [
+          "butter"
+        ],
+        "role": "movable"
+      },
+      "basket": {
+        "sim_name": "basket_1",
+        "phrases": [
+          "basket"
+        ],
+        "role": "container"
+      }
+    },
     "steps": [
-      {"id": "observe", "action": "view_env_state", "args": {"step": 0}, "subtask": "observe"},
-      {"id": "seg_cheese", "action": "segment", "args": {"prompt": "cream cheese box", "camera": "agentview"}, "subtask": "cheese"},
-      {"id": "seg_butter", "action": "segment", "args": {"prompt": "butter", "camera": "agentview"}, "subtask": "butter"},
-      {"id": "seg_basket", "action": "segment", "args": {"prompt": "basket", "camera": "agentview"}, "subtask": "basket"},
-      {"id": "pick_cheese", "action": "pi0_pick", "args": {"prompt": "pick up the cream cheese", "max_chunks": 12}, "subtask": "cheese_pick"},
-      {"id": "carry_cheese", "action": "move_to", "args": {"xyz_from": "segment:basket", "z_offset": 0.15, "gripper": 1.0}, "subtask": "cheese_place"},
-      {"id": "drop_cheese", "action": "set_gripper", "args": {"gripper": -1.0, "steps": 8}, "subtask": "cheese_place"},
-      {"id": "confirm_cheese", "action": "pause_for_confirm", "args": {}, "subtask": "cheese_place"},
-      {"id": "pick_butter", "action": "pi0_pick", "args": {"prompt": "pick up the butter", "max_chunks": 12}, "subtask": "butter_pick"},
-      {"id": "carry_butter", "action": "move_to", "args": {"xyz_from": "segment:basket", "z_offset": 0.15, "gripper": 1.0}, "subtask": "butter_place"},
-      {"id": "drop_butter", "action": "set_gripper", "args": {"gripper": -1.0, "steps": 8}, "subtask": "butter_place"},
-      {"id": "confirm_butter", "action": "pause_for_confirm", "args": {}, "subtask": "butter_place"}
+      {
+        "step_id": "observe",
+        "skill": "view_env_state",
+        "args": {
+          "step": -1
+        },
+        "depends_on": [],
+        "preconditions": [],
+        "completion_check": "observe_ready",
+        "budget": {
+          "max_s": 30,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "observe"
+      },
+      {
+        "step_id": "seg_cream_cheese",
+        "skill": "segment",
+        "args": {
+          "prompt": "cream cheese box",
+          "camera": "agentview",
+          "object_ref": "cream_cheese"
+        },
+        "depends_on": [
+          "observe"
+        ],
+        "preconditions": [
+          "observe_ready"
+        ],
+        "completion_check": "object_localized",
+        "budget": {
+          "max_s": 40,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "cream_cheese",
+        "object_ref": "cream_cheese"
+      },
+      {
+        "step_id": "seg_butter",
+        "skill": "segment",
+        "args": {
+          "prompt": "butter",
+          "camera": "agentview",
+          "object_ref": "butter"
+        },
+        "depends_on": [
+          "observe"
+        ],
+        "preconditions": [
+          "observe_ready"
+        ],
+        "completion_check": "object_localized",
+        "budget": {
+          "max_s": 40,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "butter",
+        "object_ref": "butter"
+      },
+      {
+        "step_id": "seg_basket",
+        "skill": "segment",
+        "args": {
+          "prompt": "basket",
+          "camera": "agentview",
+          "object_ref": "basket"
+        },
+        "depends_on": [
+          "observe"
+        ],
+        "preconditions": [
+          "observe_ready"
+        ],
+        "completion_check": "object_localized",
+        "budget": {
+          "max_s": 40,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "basket",
+        "object_ref": "basket"
+      },
+      {
+        "step_id": "pick_cream_cheese",
+        "skill": "pi0_pick",
+        "args": {
+          "prompt": "pick up the cream cheese",
+          "max_chunks": 12,
+          "object_ref": "cream_cheese"
+        },
+        "depends_on": [
+          "seg_cream_cheese"
+        ],
+        "preconditions": [
+          "object_localized"
+        ],
+        "completion_check": "grasp_held",
+        "budget": {
+          "max_s": 120,
+          "max_attempts": 2
+        },
+        "on_failure": "recover",
+        "subtask": "cheese_pick",
+        "object_ref": "cream_cheese"
+      },
+      {
+        "step_id": "carry_cream_cheese",
+        "skill": "move_to",
+        "args": {
+          "xyz_from": "segment:basket",
+          "z_offset": 0.15,
+          "gripper": 1.0,
+          "object_ref": "cream_cheese"
+        },
+        "depends_on": [
+          "pick_cream_cheese",
+          "seg_basket"
+        ],
+        "preconditions": [
+          "grasp_held"
+        ],
+        "completion_check": "object_transported",
+        "budget": {
+          "max_s": 90,
+          "max_attempts": 2
+        },
+        "on_failure": "recover",
+        "subtask": "cheese_place",
+        "object_ref": "cream_cheese"
+      },
+      {
+        "step_id": "drop_cream_cheese",
+        "skill": "set_gripper",
+        "args": {
+          "gripper": -1.0,
+          "steps": 8,
+          "object_ref": "cream_cheese"
+        },
+        "depends_on": [
+          "carry_cream_cheese"
+        ],
+        "preconditions": [
+          "grasp_held"
+        ],
+        "completion_check": "object_placed",
+        "budget": {
+          "max_s": 30,
+          "max_attempts": 1
+        },
+        "on_failure": "recover",
+        "subtask": "cheese_place",
+        "object_ref": "cream_cheese",
+        "relation": "in"
+      },
+      {
+        "step_id": "confirm_cream_cheese",
+        "skill": "pause_for_confirm",
+        "args": {},
+        "depends_on": [
+          "drop_cream_cheese"
+        ],
+        "preconditions": [],
+        "completion_check": "user_confirmed",
+        "budget": {
+          "max_s": 180,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "cheese_place"
+      },
+      {
+        "step_id": "pick_butter",
+        "skill": "pi0_pick",
+        "args": {
+          "prompt": "pick up the butter",
+          "max_chunks": 12,
+          "object_ref": "butter"
+        },
+        "depends_on": [
+          "seg_butter",
+          "confirm_cream_cheese"
+        ],
+        "preconditions": [
+          "object_localized"
+        ],
+        "completion_check": "grasp_held",
+        "budget": {
+          "max_s": 120,
+          "max_attempts": 2
+        },
+        "on_failure": "recover",
+        "subtask": "butter_pick",
+        "object_ref": "butter"
+      },
+      {
+        "step_id": "carry_butter",
+        "skill": "move_to",
+        "args": {
+          "xyz_from": "segment:basket",
+          "z_offset": 0.15,
+          "gripper": 1.0,
+          "object_ref": "butter"
+        },
+        "depends_on": [
+          "pick_butter",
+          "seg_basket"
+        ],
+        "preconditions": [
+          "grasp_held"
+        ],
+        "completion_check": "object_transported",
+        "budget": {
+          "max_s": 90,
+          "max_attempts": 2
+        },
+        "on_failure": "recover",
+        "subtask": "butter_place",
+        "object_ref": "butter"
+      },
+      {
+        "step_id": "drop_butter",
+        "skill": "set_gripper",
+        "args": {
+          "gripper": -1.0,
+          "steps": 8,
+          "object_ref": "butter"
+        },
+        "depends_on": [
+          "carry_butter"
+        ],
+        "preconditions": [
+          "grasp_held"
+        ],
+        "completion_check": "object_placed",
+        "budget": {
+          "max_s": 30,
+          "max_attempts": 1
+        },
+        "on_failure": "recover",
+        "subtask": "butter_place",
+        "object_ref": "butter",
+        "relation": "in"
+      },
+      {
+        "step_id": "confirm_butter",
+        "skill": "pause_for_confirm",
+        "args": {},
+        "depends_on": [
+          "drop_butter"
+        ],
+        "preconditions": [],
+        "completion_check": "user_confirmed",
+        "budget": {
+          "max_s": 180,
+          "max_attempts": 1
+        },
+        "on_failure": "stop",
+        "subtask": "butter_place"
+      }
     ]
   }
 }

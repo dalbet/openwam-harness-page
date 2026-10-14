@@ -1,0 +1,71 @@
+{
+  "status": "candidate",
+  "scene_id": "libero_10_t0",
+  "goal": "put both the alphabet soup and the tomato sauce in the basket",
+  "goal_relation": "in",
+  "objects": {
+    "alphabet_soup": {
+      "sim_name": "alphabet_soup_1",
+      "role": "movable",
+      "phrases": [
+        "alphabet soup",
+        "alphabet soup can"
+      ]
+    },
+    "tomato_sauce": {
+      "sim_name": "tomato_sauce_1",
+      "role": "movable",
+      "phrases": [
+        "tomato sauce",
+        "tomato sauce can"
+      ]
+    },
+    "basket": {
+      "sim_name": "basket_1",
+      "role": "container",
+      "phrases": [
+        "basket"
+      ]
+    }
+  },
+  "skill_order": [
+    "view_env_state",
+    "segment",
+    "segment",
+    "segment",
+    "pi0_pick",
+    "move_to",
+    "set_gripper",
+    "pause_for_confirm",
+    "pi0_pick",
+    "move_to",
+    "set_gripper",
+    "pause_for_confirm"
+  ],
+  "entry_conditions": [
+    "scene_loaded",
+    "no_reset_between_subtasks"
+  ],
+  "validators": {
+    "grasp": "grasp_held",
+    "transport": "object_transported",
+    "place": "object_placed",
+    "mode": "sim_state_assisted"
+  },
+  "recovery": {
+    "max_attempts": 2,
+    "events": [
+      "EMPTY_GRASP",
+      "GRASP_LOST",
+      "NO_PROGRESS",
+      "PLACEMENT_UNVERIFIED",
+      "SERVICE_ERROR",
+      "TARGET_AMBIGUOUS"
+    ]
+  },
+  "model": "Qwen3.5-9B",
+  "code_version": "feat/harness-sequential-demo",
+  "source_episode": null,
+  "verified_scope": null,
+  "plan_source": "manual"
+}
