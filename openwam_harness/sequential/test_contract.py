@@ -356,6 +356,153 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(rows[-1]["env_actions_after"], 10)
         self.assertEqual(rows[-1]["observation_id"], "env-actions-5:10")
 
+    def test_bowl_capabilities_binding_and_saved_planner_output(self):
+        from binding import actions_allowed, bind_task
+        from schema import failure_stage, parse_model_message, prepare_plan
+        from suites import load_suites
+        from task_zh import SUITE_LABELS, TASK_ZH
+
+        task = "pick up the black bowl between the plate and the ramekin and place it on the plate"
+        scene = {
+            "akita_black_bowl_1": _bowl("akita_black_bowl_1"),
+            "akita_black_bowl_2": _bowl("akita_black_bowl_2"),
+            "plate_1": {
+                "sim_name": "plate_1",
+                "semantic_type": "plate",
+                "phrases": ["plate"],
+                "movable": True,
+                "can_be_target": True,
+                "target_relations": ["on"],
+                "capability_source": "bddl:objects",
+            },
+            "wooden_cabinet_1": {
+                "sim_name": "wooden_cabinet_1",
+                "semantic_type": "wooden_cabinet",
+                "phrases": ["wooden cabinet", "cabinet"],
+                "movable": False,
+                "can_be_target": True,
+                "target_relations": ["on", "inside_drawer"],
+                "capability_source": "bddl:fixtures",
+            },
+        }
+        prepared = prepare_plan(_transfer("held", "akita_black_bowl_1", "plate_1", task), task=task, scene_objects=scene, required_object_ref="akita_black_bowl_1")
+        self.assertIn("pi0_pick", [step["skill"] for step in prepared["steps"]])
+        self.assertEqual(scene["akita_black_bowl_1"]["capability_source"], "bddl:objects")
+        with self.assertRaises(PlanError) as fixed:
+            prepare_plan(_transfer("fixed", "wooden_cabinet_1", "plate_1", task), task=task, scene_objects=scene)
+        self.assertIn("not_movable", str(fixed.exception))
+        self.assertIn("bddl:fixtures", str(fixed.exception))
+
+        wrapped = {"submit_plan": _transfer("inner", "akita_black_bowl_1", "plate_1", task)}
+        with self.assertRaises(PlanError) as nested:
+            parse_model_message(
+                {"tool_calls": [{"function": {"name": "submit_plan", "arguments": json.dumps(wrapped)}}], "finish_reason": "stop"},
+                task=task,
+                scene_objects=scene,
+            )
+        self.assertIn("nested_tool", str(nested.exception))
+        self.assertEqual(failure_stage(nested.exception.errors), "parse_failed")
+
+        duplicated = _transfer("pick", "akita_black_bowl_1", "plate_1", task)
+        duplicated["steps"].append(dict(duplicated["steps"][0], step_id="place"))
+        with self.assertRaises(PlanError) as duplicate:
+            prepare_plan(duplicated, task=task, scene_objects=scene, required_object_ref="akita_black_bowl_1")
+        self.assertIn("duplicate_transfer", str(duplicate.exception))
+
+        plate = [0.06, 0.20, 0.45]
+        ramekin = [-0.20, 0.20, 0.45]
+        objects = dict(scene)
+        objects["glazed_rim_porcelain_ramekin_1"] = {
+            "semantic_type": "glazed_rim_porcelain_ramekin",
+            "phrases": ["ramekin"],
+            "movable": True,
+            "can_be_target": True,
+            "target_relations": ["on", "in"],
+            "capability_source": "bddl:objects",
+        }
+        ambiguous = bind_task(
+            task,
+            objects,
+            {"plate_1": plate, "glazed_rim_porcelain_ramekin_1": ramekin, "akita_black_bowl_1": [-0.05, 0.20, 0.45], "akita_black_bowl_2": [-0.07, 0.20, 0.45]},
+            observation_id="obs-1",
+        )
+        self.assertEqual(ambiguous["status"], "ambiguous")
+        self.assertFalse(actions_allowed(ambiguous))
+        resolved = bind_task(
+            task,
+            objects,
+            {"plate_1": plate, "glazed_rim_porcelain_ramekin_1": ramekin, "akita_black_bowl_1": [-0.05, 0.20, 0.45], "akita_black_bowl_2": [-0.18, 0.32, 0.45]},
+            observation_id="obs-2",
+        )
+        self.assertEqual(resolved["status"], "resolved")
+        self.assertEqual(resolved["object_ref"], "akita_black_bowl_1")
+        self.assertEqual(resolved["evidence_source"], "sim_state")
+        self.assertFalse(resolved["region_seen"])
+
+        saved = json.loads((Path(__file__).resolve().parent / "records" / "planner_bowl_failure.json").read_text(encoding="utf-8"))
+        self.assertFalse(saved["initial"]["stored"])
+        self.assertIsNone(saved["initial"]["request_id"])
+        arguments = saved["repair"]["arguments"]
+        self.assertTrue(all(step.get("skill") != "submit_plan" for step in arguments["steps"]))
+        with self.assertRaises(PlanError) as replay:
+            parse_model_message(
+                {"tool_calls": [{"id": saved["repair"]["tool_call_id"], "function": {"name": "submit_plan", "arguments": json.dumps(arguments)}}], "finish_reason": "stop"},
+                task=task,
+                scene_objects=objects,
+            )
+        self.assertIn("duplicate_transfer", str(replay.exception))
+        self.assertIn("object_ref", str(replay.exception))
+
+        suites = load_suites()
+        labels = [item["label"] for item in suites]
+        self.assertEqual(labels, ["空间任务", "对象任务", "目标任务", "长程任务"])
+        languages = []
+        for suite in suites:
+            self.assertEqual(suite["label"], SUITE_LABELS[suite["id"]])
+            for item in suite["tasks"]:
+                languages.append(item["language"])
+                self.assertEqual(item["summary_zh"], TASK_ZH[item["language"]])
+                self.assertNotEqual(item["summary_zh"], item["language"])
+                self.assertTrue(item["task_key"].startswith(suite["id"]))
+        self.assertEqual(len(languages), 40)
+        spatial = suites[0]["tasks"][0]
+        self.assertEqual(spatial["summary_zh"], "抓起位于盘子与小碗之间的黑碗，并放到盘子上。")
+        self.assertEqual(spatial["language"], task)
+        self.assertIn("akita_black_bowl_1", [row["name"] for row in spatial["instances"]])
+
+
+def _bowl(name: str) -> dict:
+    return {
+        "sim_name": name,
+        "semantic_type": "akita_black_bowl",
+        "phrases": ["black bowl", "akita black bowl"],
+        "movable": True,
+        "can_be_target": True,
+        "target_relations": ["in", "on"],
+        "capability_source": "bddl:objects",
+    }
+
+
+def _transfer(step_id: str, obj: str, target: str, task: str) -> dict:
+    return {
+        "plan_id": step_id,
+        "goal": task,
+        "goal_relation": "on",
+        "steps": [{
+            "step_id": step_id,
+            "skill": "transfer",
+            "object_ref": obj,
+            "target_ref": target,
+            "relation": "on",
+            "prompt": "pick up the black bowl",
+            "depends_on": [],
+            "preconditions": [],
+            "completion_check": "object_placed",
+            "budget": {"max_s": 180, "max_attempts": 2},
+            "on_failure": "recover",
+        }],
+    }
+
 
 if __name__ == "__main__":
     unittest.main()

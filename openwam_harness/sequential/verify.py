@@ -153,7 +153,7 @@ def _grasp(step, observations, objects, support_z, outcome) -> dict[str, Any]:
 
 def _transport(step, before_obs, after_obs, objects) -> dict[str, Any]:
     spec = objects.get(step.get("object_ref") or "")
-    container = _container(objects)
+    container = _target_sim(step, objects)
     ids = _ids([obs for obs in (before_obs, after_obs) if isinstance(obs, dict)])
     if not isinstance(spec, dict) or container is None:
         return receipt("unknown", "TARGET_AMBIGUOUS", "sim_state_assisted", ids, {})
@@ -186,7 +186,7 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
             {"relation": relation, "goal_relation": goal_relation},
         )
     spec = objects.get(step.get("object_ref") or "")
-    container = _container(objects)
+    container = _target_sim(step, objects)
     if not isinstance(spec, dict) or container is None:
         return receipt("unknown", "TARGET_AMBIGUOUS", "sim_state_assisted", _ids(observations), {})
     obj = _object(observations[-1], spec["sim_name"])
@@ -219,6 +219,14 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
 def native_success(terminated: bool, truncated: bool) -> bool:
     """LIBERO official success is terminated. Truncation is not success."""
     return bool(terminated) and not bool(truncated)
+
+
+def _target_sim(step: dict, objects: dict[str, Any]) -> str | None:
+    ref = step.get("target_ref")
+    spec = objects.get(ref) if isinstance(ref, str) else None
+    if isinstance(spec, dict) and spec.get("sim_name"):
+        return spec["sim_name"]
+    return _container(objects)
 
 
 def _container(objects: dict[str, Any]) -> str | None:

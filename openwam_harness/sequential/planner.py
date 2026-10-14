@@ -9,14 +9,25 @@ import json
 from typing import Any, Callable
 
 from budget import OUTPUT_BUDGET, budget_check, slim_prompt
-from schema import TOOL_SCHEMA, PlanError, parse_model_message, semantic_example, submit_plan_tools, validate_plan
+from schema import (
+    TOOL_SCHEMA,
+    PlanError,
+    failure_stage,
+    parse_model_message,
+    semantic_example,
+    submit_plan_tools,
+    validate_plan,
+)
 
 OUTPUT_FORMAT = (
-    "Call submit_plan once. Arguments are a flat list: plan_id, goal, goal_relation, and steps. "
-    "Each step has skill transfer, object_ref, target_ref, relation, prompt, depends_on, "
-    "completion_check object_placed, budget, and on_failure. Do not send an objects map. "
-    "Do not emit primitive skills or controller parameters. goal must equal the task text. "
-    "This request contains scene metadata and image ids only, not image bytes."
+    "Call submit_plan once. Arguments are one flat plan: plan_id, goal, goal_relation, and steps. "
+    "Each step is one transfer, and one transfer is the whole grasp, carry, place, and check. "
+    "For a single placement, emit one transfer. Do not add a second transfer with the same "
+    "object_ref, target_ref, and relation. Do not nest submit_plan inside arguments or steps. "
+    "Do not send an objects map, primitive skills, controller parameters, or code. "
+    "object_ref and target_ref must be instance ids from the scene. goal must equal the task text. "
+    "This request contains scene metadata and image ids only, not image bytes. "
+    "A sim_state binding is not a visual judgment."
 )
 SHORT_MEMORY = (
     "Earlier original-mode episodes failed before pi0_pick, from a planner timeout or a "
@@ -41,6 +52,7 @@ def request_plan(
     short_memory: str = SHORT_MEMORY,
     image_ids: list[str] | None = None,
     scene_objects: dict[str, Any] | None = None,
+    required_object_ref: str | None = None,
     on_event: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
     example = json.dumps(semantic_example(), ensure_ascii=False)
@@ -65,11 +77,17 @@ def request_plan(
     _emit(options, "validating", "initial")
     attempts.append(_attempt(1, "initial", message, parts, counter))
     try:
-        kind, plan = parse_model_message(message, task=task, scene_objects=scene_objects)
+        kind, plan = parse_model_message(
+            message,
+            task=task,
+            scene_objects=scene_objects,
+            required_object_ref=required_object_ref,
+        )
         plan["plan_source"] = "model"
         return _ok("model", plan, attempts, instruction_report, kind)
     except PlanError as exc:
         first_errors = exc.errors
+        attempts[0]["errors"] = first_errors
         if any(item.get("code") in {"incomplete_stream", "truncated_output"} for item in first_errors):
             return _failed(attempts, first_errors, repairs=0)
     repair = _repair_text(message, first_errors, task)
@@ -83,10 +101,16 @@ def request_plan(
     _emit(options, "validating", "format_repair")
     attempts.append(_attempt(2, "format_repair", message, repair_parts, counter))
     try:
-        kind, plan = parse_model_message(message, task=task, scene_objects=scene_objects)
+        kind, plan = parse_model_message(
+            message,
+            task=task,
+            scene_objects=scene_objects,
+            required_object_ref=required_object_ref,
+        )
         plan["plan_source"] = "model"
         return _ok("model_repair", plan, attempts, instruction_report, kind)
     except PlanError as exc:
+        attempts[-1]["errors"] = exc.errors
         return _failed(attempts, exc.errors, repairs=1)
 
 
@@ -101,6 +125,8 @@ def _failed(attempts: list[dict], errors: list[dict], *, repairs: int) -> dict[s
         "budgets": [item["preflight"] for item in attempts],
         "output_budget": OUTPUT_BUDGET,
         "repairs": repairs,
+        "stage": failure_stage(errors),
+        "plan_from": None,
     }
 
 
@@ -198,6 +224,8 @@ def _ok(source: str, plan: dict[str, Any], attempts: list[dict], preflight: dict
         "output_budget": OUTPUT_BUDGET,
         "repairs": 1 if source == "model_repair" else 0,
         "preflight": preflight,
+        "stage": "ok",
+        "plan_from": "format_repair" if source == "model_repair" else "initial",
     }
 
 

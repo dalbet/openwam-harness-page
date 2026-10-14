@@ -125,6 +125,7 @@ class App:
         self.mode = "live" if LIVE else "dry"
         self.load_token = 0
         self.recovery_attempts = 0
+        self.binding = None
         self.planner = make_openai_client(PLANNER_URL, PLANNER_MODEL)
 
     def scenes(self) -> list[dict]:
@@ -312,6 +313,7 @@ class App:
         with self.lock:
             episode = self._begin_session(scene_id)
             self.scene_spec = spec
+            self.binding = None
         out = ROOT.parents[0] / "runs" / "sequential" / episode
         box: dict = {}
         abandoned = threading.Event()
@@ -445,12 +447,15 @@ class App:
             "goal": task["language"],
             "task": task["language"],
             "summary_zh": task["summary_zh"],
+            "task_key": task.get("task_key"),
+            "instances": task.get("instances") or [],
+            "fixtures": task.get("fixtures") or [],
             "goal_relation": goal_relation(task["language"]),
             "long_candidate": task["long_candidate"],
             "init_states": task["init_states"],
         }
 
-    def start(self, kind: str, message: dict) -> None:
+    def start(self, kind: str, message: dict, execute: bool = True) -> None:
         if self.session.scene_id == "none" or (LIVE and self.backend is None):
             self.broadcast({"type": "load_failed", "detail": "load a scene first"})
             return
@@ -470,7 +475,7 @@ class App:
             self._wake()
         threading.Thread(
             target=self._run,
-            args=(kind, plan_source, run_id, message.get("manual_scope") or "single"),
+            args=(kind, plan_source, run_id, message.get("manual_scope") or "single", execute),
             daemon=True,
         ).start()
 
@@ -509,9 +514,25 @@ class App:
             return
         self.confirm_q.put(message.get("verdict"))
 
-    def _run(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single") -> None:
+    def choose_binding(self, message: dict) -> None:
+        current = self.binding or {}
+        ref = message.get("object_ref")
+        if ref not in (current.get("candidates") or []):
+            self.broadcast({"type": "state", "phase": "failed", "detail": "所选对象不在待确认列表中，没有开始动作"})
+            return
+        chosen = dict(current)
+        chosen["status"] = "resolved"
+        chosen["object_ref"] = ref
+        chosen["evidence_source"] = "user_selected"
+        chosen["bound_to_object_ref"] = True
+        chosen["region_seen"] = False
+        chosen["note"] = "用户显式选择，不是视觉判断，也不会自动开始动作"
+        self.binding = chosen
+        self.broadcast({"type": "binding", "binding": _public_binding(chosen)})
+
+    def _run(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True) -> None:
         try:
-            self._run_inner(kind, plan_source, run_id, manual_scope)
+            self._run_inner(kind, plan_source, run_id, manual_scope, execute)
         except Exception as exc:
             self.log(f"run failed: {exc}")
             self.broadcast({"type": "state", "phase": "failed", "detail": str(exc)})
@@ -528,13 +549,14 @@ class App:
                 self.running = False
                 self.awaiting_confirm = False
 
-    def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single") -> None:
+    def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True) -> None:
         if kind == "restart":
             self.session.cancel()
             self._wake()
             if not LIVE:
                 self._refuse_dry()
                 return
+            self.binding = None
             self.session.begin_episode()
             if self.backend is None:
                 self._fail_run(self.session.episode_id, "load a scene first")
@@ -549,15 +571,59 @@ class App:
         epoch = self.session.scene_epoch
         spec = self.scene_spec or {}
         self.broadcast({"type": "started", "episode_id": episode, "mode": self.mode, "plan_source": plan_source})
+        scene_objects, binding, info = self._scene_binding(spec)
+        self.broadcast({"type": "binding", "binding": _public_binding(binding)})
+        if binding.get("status") != "resolved":
+            self._emit_planner(
+                plan_source=None,
+                stage="binding_unresolved",
+                summary=spec.get("goal") or "",
+                output="",
+                errors=[{
+                    "path": "binding.object_ref",
+                    "code": "binding_unresolved",
+                    "received": binding.get("candidates"),
+                    "expected": "one explicit object_ref",
+                }],
+                repairs=0,
+                attempts=[],
+                binding=binding,
+                vision=False,
+                planning_input="scene_metadata",
+                elapsed_s=0,
+            )
+            self._fail_run(episode, "BINDING_UNRESOLVED")
+            return
         if plan_source == "manual":
-            plan = self._manual_plan(spec, manual_scope)
+            try:
+                plan = self._manual_plan(spec, manual_scope, binding)
+            except Exception as exc:
+                self._emit_planner(
+                    plan_source=None,
+                    stage="validation_failed",
+                    summary=str(exc),
+                    output="",
+                    errors=[{"path": "plan", "code": "manual_rejected", "received": str(exc), "expected": "one bound transfer"}],
+                    repairs=0,
+                    attempts=[],
+                    binding=binding,
+                    vision=False,
+                    planning_input="scene_metadata",
+                    elapsed_s=0,
+                )
+                self._fail_run(episode, f"PLANNING_FAILED {exc}")
+                return
             self._emit_planner(
                 plan_source="manual",
+                stage="ok",
                 summary=f"用户选择人工计划 scope={manual_scope}",
                 output=json.dumps({"plan_id": plan.get("plan_id"), "semantic_step_ids": plan.get("semantic_step_ids"), "steps": [step["step_id"] for step in plan["steps"]]}, ensure_ascii=False),
                 errors=[],
                 repairs=0,
-                usage={},
+                attempts=[],
+                binding=binding,
+                vision=False,
+                planning_input="scene_metadata",
                 elapsed_s=0,
             )
         else:
@@ -565,20 +631,32 @@ class App:
                 self._fail_run(episode, f"planner {PROBE['planner']}: {PROBE['detail'] or 'unavailable'}")
                 return
             self.broadcast({"type": "state", "phase": "planning", "detail": PLANNER_MODEL, "mode": "live", "plan_source": "model"})
-            info = self.backend.scene_info()
             image_ids = [f"agentview:{info.get('env_step')}", f"wrist:{info.get('env_step')}"]
-            from suites import _objects_from_names
+            from schema import transfer_slots
 
-            scene_objects = _objects_from_names(info.get("object_names") or [])
+            slots = transfer_slots(spec.get("goal") or "") or []
+            required_ref = binding.get("object_ref") if len(slots) == 1 else None
             scene_text = json.dumps(
                 {
                     "planning_input": "scene_metadata",
                     "vision": False,
                     "goal_relation": spec.get("goal_relation"),
                     "allowed_refs": sorted(scene_objects),
+                    "required_object_ref": required_ref,
+                    "binding": _public_binding(binding),
+                    "capabilities": {
+                        ref: {
+                            "semantic_type": item.get("semantic_type"),
+                            "movable": item.get("movable"),
+                            "can_be_target": item.get("can_be_target"),
+                            "target_relations": item.get("target_relations"),
+                            "capability_source": item.get("capability_source"),
+                        }
+                        for ref, item in scene_objects.items()
+                    },
                     "record_index": info.get("env_step"),
                     "image_ids": image_ids,
-                    "note": "image bytes are not in this request; ids only",
+                    "note": "image bytes are not in this request; ids only. sim_state binding is not vision.",
                 },
                 ensure_ascii=False,
             )
@@ -601,46 +679,53 @@ class App:
                     short_memory=SHORT_MEMORY,
                     image_ids=image_ids,
                     scene_objects=scene_objects,
+                    required_object_ref=required_ref,
                     on_event=on_planner,
                 )
             except Exception as exc:
                 self._emit_planner(
                     plan_source=None,
+                    stage="request_failed",
                     summary=scene_text[:500],
                     output="",
-                    errors=[{"code": "planner_request_failed", "received": str(exc), "expected": "one plan response"}],
+                    errors=[{"path": "planner.request", "code": "planner_request_failed", "received": str(exc), "expected": "one plan response"}],
                     repairs=0,
-                    usage={},
+                    attempts=[],
+                    binding=binding,
+                    vision=False,
+                    planning_input="scene_metadata",
                     elapsed_s=time.monotonic() - started,
                 )
                 self._fail_run(episode, f"PLANNING_FAILED {exc}")
                 return
             elapsed = time.monotonic() - started
-            usage = {}
-            for attempt in result.get("attempts") or []:
-                for key, value in (attempt.get("usage") or {}).items():
-                    if isinstance(value, int):
-                        usage[key] = usage.get(key, 0) + value
-            output = ""
-            attempts = result.get("attempts") or []
-            if attempts:
-                output = attempts[-1].get("content") or json.dumps(attempts[-1].get("tool_calls"), ensure_ascii=False)
+            attempts = _public_attempts(result.get("attempts") or [])
+            self._store_attempts(attempts, result)
             self._emit_planner(
                 plan_source=result.get("plan_source"),
+                stage=result.get("stage") or "validation_failed",
                 summary=scene_text[:500],
-                output=output,
+                output="",
                 errors=result.get("errors") or [],
                 repairs=result.get("repairs") or 0,
-                usage=usage,
+                attempts=attempts,
+                binding=binding,
+                vision=False,
+                planning_input="scene_metadata",
                 elapsed_s=elapsed,
                 response_kind=(attempts[-1].get("response_kind") if attempts else None),
                 image_ids=image_ids,
+                plan_from=result.get("plan_from"),
             )
             if result["status"] != "ok" or result["plan"] is None:
                 self._fail_run(episode, "PLANNING_FAILED")
                 return
             plan = result["plan"]
         self.log(f"plan_source={plan.get('plan_source')} steps={len(plan['steps'])}")
+        if not execute:
+            self.broadcast({"type": "state", "phase": "plan_ready", "detail": "只规划，不执行", "mode": "live", "plan_source": plan.get("plan_source")})
+            self.broadcast({"type": "ended", "episode_id": episode, "success": False, "reason": "plan_only_not_executed", "native_success": False})
+            return
 
         def confirm(subtask: str):
             self.awaiting_confirm = True
@@ -665,6 +750,8 @@ class App:
             return verdict
 
         def on_event(event: dict) -> None:
+            if event.get("skill") in {"pi0_pick", "move_to", "set_gripper"} or event.get("detail") == "local replan":
+                self.binding = None
             self.broadcast({"type": "state", **event, "mode": "live"})
             self.log(json.dumps(event, ensure_ascii=False)[:500])
             if event.get("phase") in {"executing", "failed"}:
@@ -725,7 +812,53 @@ class App:
             }
         )
 
-    def _manual_plan(self, spec: dict, scope: str) -> dict:
+    def _scene_binding(self, spec: dict) -> tuple[dict, dict, dict]:
+        from binding import bind_task, positions_moved
+        from suites import objects_for_names
+
+        info = self.backend.scene_info()
+        sim = self.backend.sim_state()
+        poses = {}
+        for name, item in (sim.get("objects") or {}).items():
+            if isinstance(item, dict) and isinstance(item.get("pos"), list):
+                poses[name] = item["pos"]
+        names = list(info.get("object_names") or [])
+        for name in poses:
+            if name not in names:
+                names.append(name)
+        objects = objects_for_names(names, spec)
+        observation_id = f"{spec.get('scene_id')}:epoch{self.session.scene_epoch}:step{info.get('env_step')}"
+        cached = self.binding
+        if (
+            cached
+            and cached.get("scene_epoch") == self.session.scene_epoch
+            and cached.get("status") == "resolved"
+            and not positions_moved(cached.get("positions"), poses)
+        ):
+            return objects, cached, info
+        binding = bind_task(
+            spec.get("goal") or "",
+            objects,
+            poses,
+            observation_id=observation_id,
+            scene_epoch=self.session.scene_epoch,
+        )
+        binding["positions"] = poses
+        self.binding = binding
+        return objects, binding, info
+
+    def _store_attempts(self, attempts: list[dict], result: dict) -> None:
+        path = ROOT / "records" / "planner_last.json"
+        payload = {
+            "stage": result.get("stage"),
+            "repairs": result.get("repairs"),
+            "plan_from": result.get("plan_from"),
+            "executed": False,
+            "attempts": attempts,
+        }
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _manual_plan(self, spec: dict, scope: str, binding: dict | None = None) -> dict:
         if scope == "long":
             key = f"{spec.get('suite')}_t{spec.get('task_id')}"
             if key not in self.human_plans or int(spec.get("seed") or 0) != 0:
@@ -736,15 +869,23 @@ class App:
         from suites import single_manual_plan
 
         info = self.backend.scene_info()
+        poses = (binding or {}).get("positions") or {}
         return single_manual_plan(
             spec["goal"],
             info.get("object_names") or [],
             suite=spec["suite"],
             task_id=int(spec["task_id"]),
             seed=int(spec["seed"]),
+            task_record=spec,
+            poses=poses,
+            observation_id=(binding or {}).get("observation_id"),
+            scene_epoch=self.session.scene_epoch,
+            binding=binding,
         )
 
     def _emit_planner(self, **payload) -> None:
+        if isinstance(payload.get("binding"), dict):
+            payload["binding"] = _public_binding(payload["binding"])
         text = json.dumps(payload, ensure_ascii=False, default=str)
         text = text.replace("Bearer EMPTY", "Bearer [redacted]")
         self.broadcast({"type": "planner_io", **json.loads(text), "model": PLANNER_MODEL})
@@ -795,6 +936,31 @@ class App:
         if self.backend is not None:
             self.backend.close()
             self.backend = None
+
+
+def _public_binding(binding: dict | None) -> dict:
+    if not binding:
+        return {}
+    return {key: value for key, value in binding.items() if key != "positions"}
+
+
+def _public_attempts(attempts: list[dict]) -> list[dict]:
+    rows = []
+    for item in attempts:
+        rows.append(
+            {
+                "index": item.get("index"),
+                "role": item.get("role"),
+                "request_id": item.get("request_id"),
+                "usage": item.get("usage") or {},
+                "response_kind": item.get("response_kind"),
+                "finish_reason": item.get("finish_reason"),
+                "errors": item.get("errors") or [],
+                "tool_calls": item.get("tool_calls"),
+                "content": None if item.get("tool_calls") else item.get("content"),
+            }
+        )
+    return rows
 
 
 APP = App()
@@ -895,7 +1061,11 @@ async def websocket(request):
             elif kind == "load":
                 threading.Thread(target=APP.load, args=(data,), daemon=True).start()
             elif kind in {"start", "restart"}:
-                APP.start(kind, data)
+                APP.start(kind, data, execute=True)
+            elif kind == "plan_only":
+                APP.start("start", data, execute=False)
+            elif kind == "bind":
+                APP.choose_binding(data)
             elif kind == "stop":
                 APP.stop()
             elif kind == "confirm":

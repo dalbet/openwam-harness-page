@@ -1,0 +1,32 @@
+{
+  "stage": "ok",
+  "repairs": 0,
+  "plan_from": "initial",
+  "executed": false,
+  "attempts": [
+    {
+      "index": 1,
+      "role": "initial",
+      "request_id": "seq-145a70365383",
+      "usage": {
+        "prompt_tokens": 1850,
+        "total_tokens": 2048,
+        "completion_tokens": 198
+      },
+      "response_kind": "tool_calls",
+      "finish_reason": "stop",
+      "errors": [],
+      "tool_calls": [
+        {
+          "id": "chatcmpl-tool-a1781fbad6cd127d",
+          "type": "function",
+          "function": {
+            "name": "submit_plan",
+            "arguments": "{\"plan_id\": \"black_bowl_on_plate\", \"goal\": \"pick up the black bowl between the plate and the ramekin and place it on the plate\", \"goal_relation\": \"on\", \"steps\": [{\"step_id\": \"transfer_bowl\", \"skill\": \"transfer\", \"object_ref\": \"akita_black_bowl_1\", \"target_ref\": \"plate_1\", \"relation\": \"on\", \"prompt\": \"pick up the black bowl between the plate and the ramekin and place it on the plate\", \"depends_on\": [], \"preconditions\": [], \"completion_check\": \"object_placed\", \"budget\": {\"max_s\": 180, \"max_attempts\": 2}, \"on_failure\": \"recover\"}]}"
+          }
+        }
+      ],
+      "content": null
+    }
+  ]
+}

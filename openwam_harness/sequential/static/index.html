@@ -56,6 +56,7 @@
     <label for="task">任务</label>
     <input id="task" type="text" placeholder="输入任务指令" disabled />
     <button id="start" class="primary" disabled>开始</button>
+    <button id="plan-only" disabled>只规划</button>
     <button id="manual" disabled>人工计划</button>
     <button id="long" disabled>长任务人工计划</button>
     <button id="restart" disabled>重新开始</button>
@@ -73,6 +74,11 @@
     <div class="view" id="wrist-view"><span class="tag">Wrist</span><canvas id="wrist"></canvas><span class="placeholder" id="ph-wrist">未加载场景</span></div>
   </div>
   <div id="status"><span class="phase">就绪</span></div>
+  <div id="bind-box" class="ctrl" hidden>
+    <span class="hint" id="bind-note">对象未唯一绑定。请显式选择，不会默认第一个，也不会开始动作。</span>
+    <select id="bind-choice"></select>
+    <button id="bind-apply" type="button">确认目标</button>
+  </div>
   <details id="planner-box">
     <summary>Planner输入/输出</summary>
     <div id="planner-meta" class="hint">还没有请求</div>
@@ -85,6 +91,6 @@
     <pre id="log"></pre>
   </details>
 </div>
-<script src="static/app.js?v=health3"></script>
+<script src="static/app.js?v=bind1"></script>
 </body>
 </html>

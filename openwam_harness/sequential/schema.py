@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -337,8 +338,9 @@ def submit_plan_tools() -> list[dict[str, Any]]:
             "function": {
                 "name": "submit_plan",
                 "description": (
-                    "Submit semantic subtasks only. Each step is one transfer. "
-                    "Do not emit primitive skills or repeated controller arguments."
+                    "Submit one flat transfer per placement. A transfer is the whole grasp, "
+                    "carry, place, and check. Do not split one placement into a pick transfer "
+                    "and a place transfer. Do not nest submit_plan, and do not send code."
                 ),
                 "parameters": planner_parameters_schema(),
             },
@@ -421,8 +423,8 @@ def validate_plan(plan: dict[str, Any], *, task: str | None = None) -> dict[str,
             phrases = spec.get("phrases")
             if not isinstance(phrases, list) or not phrases or not all(isinstance(item, str) and item.strip() for item in phrases):
                 errors.append(_err(f"plan.objects.{ref}.phrases", "type", phrases, "non-empty string list"))
-            if spec.get("role") not in {"movable", "container", "support"}:
-                errors.append(_err(f"plan.objects.{ref}.role", "role", spec.get("role"), "movable|container|support"))
+            if "movable" not in spec and spec.get("role") not in {"movable", "container", "support"}:
+                errors.append(_err(f"plan.objects.{ref}.role", "role", spec.get("role"), "movable|container|support or explicit movable"))
     steps = plan.get("steps")
     if not isinstance(steps, list) or not steps:
         errors.append(_err("plan.steps", "type", steps, "non-empty list"))
@@ -650,11 +652,159 @@ def _cycle_errors(graph: dict[str, list[str]]) -> list[dict[str, Any]]:
     return errors
 
 
+PARSE_CODES = frozenset(
+    {"json_decode", "tool_call", "incomplete_stream", "truncated_output", "nested_tool", "type"}
+)
+
+
+def failure_stage(errors: list[dict[str, Any]] | None) -> str:
+    if not errors:
+        return "ok"
+    if any(item.get("code") in PARSE_CODES for item in errors):
+        return "parse_failed"
+    return "validation_failed"
+
+
+def transfer_slots(language: str) -> list[dict[str, str]] | None:
+    """Placements the instruction actually names. None means this is not a transfer task."""
+    text = language.strip().lower()
+    text = re.sub(r" and close it$", "", text)
+    both = re.fullmatch(r"put both the (.+) and the (.+) in the (.+)", text)
+    if both:
+        target = _dest_noun(both.group(3))
+        return [
+            {"object": both.group(1), "target": target, "relation": "in"},
+            {"object": both.group(2), "target": target, "relation": "in"},
+        ]
+    if text == "put both moka pots on the stove":
+        return [
+            {"object": "moka pot", "target": "stove", "relation": "on"},
+            {"object": "moka pot", "target": "stove", "relation": "on"},
+        ]
+    picked = re.fullmatch(r"pick up the (.+) and place it (on|in) the (.+)", text)
+    if picked:
+        clause, rel, target = picked.groups()
+        noun = re.split(r" between | next to | on the | in the | from ", clause, maxsplit=1)[0].strip()
+        return [{"object": noun, "target": _dest_noun(target), "relation": "on" if rel == "on" else "in"}]
+    topped = re.fullmatch(r"put the (.+) on top of the (.+)", text)
+    if topped:
+        return [{"object": topped.group(1), "target": _dest_noun(topped.group(2)), "relation": "on"}]
+    placed = re.fullmatch(r"put the (.+) (on|in) the (.+)", text)
+    if placed:
+        relation = "inside_drawer" if "drawer" in placed.group(3) else ("on" if placed.group(2) == "on" else "in")
+        return [{"object": placed.group(1), "target": _dest_noun(placed.group(3)), "relation": relation}]
+    opened = re.fullmatch(r"open the top drawer and put the (.+) inside", text)
+    if opened:
+        return [{"object": opened.group(1), "target": "cabinet", "relation": "inside_drawer"}]
+    stove = re.fullmatch(r"turn on the stove and put the (.+) on it", text)
+    if stove:
+        return [{"object": stove.group(1), "target": "stove", "relation": "on"}]
+    parts = re.split(r" and put ", text)
+    if len(parts) == 2:
+        slots = [_one_put(parts[0]), _one_put("put " + parts[1])]
+        if all(slots):
+            return slots
+    return None
+
+
+def _one_put(text: str) -> dict[str, str] | None:
+    match = re.fullmatch(r"(?:put |pick up )the (.+?) (?:on|in) the (.+)", text.strip())
+    if not match:
+        return None
+    relation = "on" if " on the " in f" {text} " else "in"
+    if "drawer" in match.group(2):
+        relation = "inside_drawer"
+    return {"object": match.group(1), "target": _dest_noun(match.group(2)), "relation": relation}
+
+
+def _dest_noun(text: str) -> str:
+    if "caddy" in text:
+        return "caddy"
+    if "drawer" in text or "cabinet" in text:
+        return "cabinet"
+    if "microwave" in text:
+        return "microwave"
+    if "stove" in text:
+        return "stove"
+    if "basket" in text:
+        return "basket"
+    if "plate" in text:
+        return "plate"
+    if "bowl" in text:
+        return "bowl"
+    if "rack" in text:
+        return "rack"
+    return text.strip()
+
+
+def _phrase_match(spec: dict[str, Any], needle: str) -> bool:
+    needle = needle.strip().lower()
+    phrases = [str(item).lower() for item in spec.get("phrases") or []]
+    semantic = str(spec.get("semantic_type") or "").replace("_", " ")
+    return any(phrase and (phrase in needle or needle in phrase) for phrase in phrases) or bool(
+        semantic and (semantic in needle or needle in semantic)
+    )
+
+
+def _is_movable(spec: dict[str, Any]) -> bool:
+    if "movable" in spec:
+        return bool(spec["movable"])
+    return spec.get("role") == "movable"
+
+
+def _accepts_target(spec: dict[str, Any], relation: str) -> bool:
+    if "can_be_target" in spec:
+        if not spec["can_be_target"]:
+            return False
+        relations = spec.get("target_relations")
+        return True if relations is None else relation in relations
+    role = spec.get("role")
+    if relation == "in":
+        return role == "container"
+    return role in {"container", "support"}
+
+
+def _capability(spec: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "semantic_type": spec.get("semantic_type"),
+        "movable": spec.get("movable", spec.get("role") == "movable"),
+        "can_be_target": spec.get("can_be_target"),
+        "capability_source": spec.get("capability_source") or spec.get("role"),
+    }
+
+
+def _nested_tool_errors(payload: Any) -> list[dict[str, Any]]:
+    """Reject a wrapped plan. Do not read the inner object as another plan."""
+    if not isinstance(payload, dict):
+        return []
+    errors = []
+    for key in ("submit_plan", "tool_calls", "function"):
+        if key in payload:
+            errors.append(_err(f"plan.{key}", "nested_tool", key, "flat submit_plan arguments; inner plans are not extracted"))
+    steps = payload.get("steps")
+    if isinstance(steps, list):
+        for index, step in enumerate(steps):
+            if isinstance(step, dict) and (
+                step.get("skill") == "submit_plan"
+                or any(key in step for key in ("submit_plan", "tool_calls", "function", "arguments"))
+            ):
+                errors.append(
+                    _err(
+                        f"steps[{index}]",
+                        "nested_tool",
+                        step.get("skill") or "wrapper",
+                        "a flat transfer step; nested tool calls are not extracted",
+                    )
+                )
+    return errors
+
+
 def validate_semantic_plan(
     plan: dict[str, Any],
     *,
     task: str | None = None,
     scene_objects: dict[str, Any] | None = None,
+    required_object_ref: str | None = None,
 ) -> dict[str, Any]:
     errors: list[dict[str, Any]] = []
     if not isinstance(plan, dict):
@@ -677,8 +827,8 @@ def validate_semantic_plan(
             if not isinstance(spec, dict):
                 errors.append(_err(f"scene.{ref}", "type", spec, "object"))
                 continue
-            if spec.get("role") not in {"movable", "container", "support"}:
-                errors.append(_err(f"scene.{ref}.role", "role", spec.get("role"), "movable|container|support"))
+            if "movable" not in spec and spec.get("role") not in {"movable", "container", "support"}:
+                errors.append(_err(f"scene.{ref}.role", "role", spec.get("role"), "movable|container|support or explicit movable"))
     steps = plan.get("steps")
     if not isinstance(steps, list) or not steps:
         raise PlanError(errors or [_err("plan.steps", "type", steps, "non-empty list")])
@@ -711,13 +861,29 @@ def validate_semantic_plan(
             "prompt": step.get("prompt"),
         }
         if object_ref not in objects:
-            errors.append(_err(f"{path}.args.object_ref", "object_ref", object_ref, "a plan object"))
-        elif objects[object_ref].get("role") != "movable":
-            errors.append(_err(f"{path}.args.object_ref", "role", objects[object_ref].get("role"), "movable"))
+            errors.append(_err(f"{path}.object_ref", "object_ref", object_ref, "an instance id in the current scene"))
+        elif not _is_movable(objects[object_ref]):
+            errors.append(
+                _err(
+                    f"{path}.object_ref",
+                    "not_movable",
+                    _capability(objects[object_ref]),
+                    "movable true from the scene definition; container type alone is not movable",
+                )
+            )
+        elif required_object_ref and object_ref != required_object_ref:
+            errors.append(_err(f"{path}.object_ref", "binding_mismatch", object_ref, required_object_ref))
         if target_ref not in objects:
-            errors.append(_err(f"{path}.args.target_ref", "object_ref", target_ref, "a plan object"))
-        elif objects[target_ref].get("role") not in {"container", "support"}:
-            errors.append(_err(f"{path}.args.target_ref", "role", objects[target_ref].get("role"), "container|support"))
+            errors.append(_err(f"{path}.target_ref", "object_ref", target_ref, "an instance id in the current scene"))
+        elif not _accepts_target(objects[target_ref], str(step.get("relation") or "")):
+            errors.append(
+                _err(
+                    f"{path}.target_ref",
+                    "relation_unsupported",
+                    _capability(objects[target_ref]),
+                    f"can_be_target for relation {step.get('relation')}",
+                )
+            )
         if args.get("relation") != plan.get("goal_relation"):
             errors.append(_err(f"{path}.args.relation", "relation_mismatch", args.get("relation"), plan.get("goal_relation")))
         if not isinstance(args.get("prompt"), str) or not str(args.get("prompt") or "").strip():
@@ -740,6 +906,57 @@ def validate_semantic_plan(
             if dep == step_id:
                 errors.append(_err("steps.depends_on", "cycle", dep, "no self dependency"))
     errors.extend(_cycle_errors(graph))
+    triples = []
+    for index, step in enumerate(steps):
+        if not isinstance(step, dict):
+            continue
+        triple = (step.get("object_ref"), step.get("target_ref"), step.get("relation"))
+        if triple in triples:
+            errors.append(
+                _err(
+                    f"steps[{index}]",
+                    "duplicate_transfer",
+                    {"object_ref": triple[0], "target_ref": triple[1], "relation": triple[2]},
+                    "one transfer for the same object, target, and relation; duplicates are not merged",
+                )
+            )
+        triples.append(triple)
+    if task is not None:
+        slots = transfer_slots(task)
+        if not slots:
+            errors.append(_err("plan.goal", "task_form", task, "a registered pick-and-place instruction"))
+        else:
+            open_slots = list(slots)
+            for index, step in enumerate(steps):
+                if not isinstance(step, dict):
+                    continue
+                obj = objects.get(step.get("object_ref")) or {}
+                dst = objects.get(step.get("target_ref")) or {}
+                found = None
+                for slot in open_slots:
+                    if (
+                        _phrase_match(obj, slot["object"])
+                        and _phrase_match(dst, slot["target"])
+                        and step.get("relation") == slot["relation"]
+                    ):
+                        found = slot
+                        break
+                if found is None:
+                    code = "extra_transfer" if not open_slots else "task_target_mismatch"
+                    if open_slots and obj and not _phrase_match(obj, open_slots[0]["object"]):
+                        code = "task_object_mismatch"
+                    errors.append(
+                        _err(
+                            f"steps[{index}]",
+                            code,
+                            {"object_ref": step.get("object_ref"), "target_ref": step.get("target_ref"), "relation": step.get("relation")},
+                            "a placement named by the task",
+                        )
+                    )
+                else:
+                    open_slots.remove(found)
+            for slot in open_slots:
+                errors.append(_err("plan.steps", "task_incomplete", slot, "a transfer for every placement in the task"))
     if errors:
         raise PlanError(errors)
     used = []
@@ -755,9 +972,25 @@ def validate_semantic_plan(
         used.extend([step.get("object_ref"), step.get("target_ref")])
         normalized_steps.append(item)
     normalized = {key: plan[key] for key in plan if key in SEMANTIC_PLAN_KEYS}
-    normalized["objects"] = {ref: objects[ref] for ref in used if ref in objects}
+    normalized["objects"] = {ref: _with_role(objects[ref]) for ref in used if ref in objects}
     normalized["steps"] = normalized_steps
     return normalized
+
+
+def _with_role(spec: dict[str, Any]) -> dict[str, Any]:
+    copied = dict(spec)
+    if copied.get("role") in {"movable", "container", "support"}:
+        return copied
+    relations = copied.get("target_relations") or []
+    if copied.get("can_be_target") and not copied.get("movable"):
+        copied["role"] = "container" if ("in" in relations or "inside_drawer" in relations) else "support"
+    elif copied.get("semantic_type") in {"plate", "flat_stove"}:
+        copied["role"] = "support"
+    elif copied.get("movable"):
+        copied["role"] = "movable"
+    else:
+        copied["role"] = "support"
+    return copied
 
 
 def _phrase(spec: dict[str, Any]) -> str:
@@ -828,6 +1061,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "depends_on": [pick, f"seg_{target}"],
                 "preconditions": ["grasp_held"],
                 "completion_check": "object_transported",
+                "target_ref": target,
                 "budget": {"max_s": min(180, int(budget["max_s"])), "max_attempts": 1},
                 "on_failure": failure,
                 "object_ref": obj,
@@ -842,6 +1076,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "depends_on": [move],
                 "preconditions": ["grasp_held"],
                 "completion_check": "object_placed",
+                "target_ref": target,
                 "budget": {"max_s": 30, "max_attempts": 1},
                 "on_failure": failure,
                 "object_ref": obj,
@@ -892,6 +1127,7 @@ def prepare_plan(
     *,
     task: str | None = None,
     scene_objects: dict[str, Any] | None = None,
+    required_object_ref: str | None = None,
 ) -> dict[str, Any]:
     """Accept a semantic plan or a primitive plan. Illegal plans raise."""
     if not isinstance(plan, dict):
@@ -905,7 +1141,12 @@ def prepare_plan(
             raise PlanError([
                 _err("plan.steps", "mixed_plan", skills, "transfer steps only, or primitive steps only")
             ])
-        semantic = validate_semantic_plan(plan, task=task, scene_objects=scene_objects)
+        semantic = validate_semantic_plan(
+            plan,
+            task=task,
+            scene_objects=scene_objects,
+            required_object_ref=required_object_ref,
+        )
         expanded = expand_semantic_plan(semantic)
         if plan.get("plan_source"):
             expanded["plan_source"] = plan["plan_source"]
@@ -933,6 +1174,7 @@ def parse_model_message(
     *,
     task: str | None = None,
     scene_objects: dict[str, Any] | None = None,
+    required_object_ref: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Return (response kind, plan). Tool calls are not also parsed as text."""
     finish = message.get("finish_reason")
@@ -987,7 +1229,15 @@ def parse_model_message(
             raise PlanError([
                 _err("message.tool_calls[0].arguments", "type", type(raw_args).__name__, "JSON object")
             ])
-        return "tool_calls", prepare_plan(payload, task=task, scene_objects=scene_objects)
+        nested = _nested_tool_errors(payload)
+        if nested:
+            raise PlanError(nested)
+        return "tool_calls", prepare_plan(
+            payload,
+            task=task,
+            scene_objects=scene_objects,
+            required_object_ref=required_object_ref,
+        )
     content = message.get("content")
     if not isinstance(content, str):
         raise PlanError([_err("message.content", "type", content, "string JSON or submit_plan tool call")])
@@ -1006,7 +1256,15 @@ def parse_model_message(
         ]) from exc
     if not isinstance(payload, dict):
         raise PlanError([_err("message.content", "type", type(payload).__name__, "JSON object")])
-    return "json", prepare_plan(payload, task=task, scene_objects=scene_objects)
+    nested = _nested_tool_errors(payload)
+    if nested:
+        raise PlanError(nested)
+    return "json", prepare_plan(
+        payload,
+        task=task,
+        scene_objects=scene_objects,
+        required_object_ref=required_object_ref,
+    )
 
 
 def parse_plan_text(text: str, *, task: str | None = None) -> dict[str, Any]:

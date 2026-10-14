@@ -1,0 +1,70 @@
+{
+  "page": {
+    "elapsed_s": 93.1,
+    "usage_displayed": {"prompt_tokens": 3276, "completion_tokens": 566, "total_tokens": 3842},
+    "usage_note": "适配器把两次尝试的 usage 相加后显示。这不是单次请求的 token 数。",
+    "repairs": 1,
+    "response_kind": "tool_calls",
+    "model": "Qwen3.5-9B",
+    "planning_input": "scene_metadata",
+    "vision": false,
+    "task": "pick up the black bowl between the plate and the ramekin and place it on the plate",
+    "allowed_refs_sent": ["akita_black_bowl", "akita_black_bowl_2", "cookies", "glazed_rim_porcelain_ramekin", "plate"],
+    "ui_errors": [
+      {"path": "steps[0].args.object_ref", "code": "role", "received": "container", "expected": "movable"},
+      {"path": "steps[1].args.object_ref", "code": "role", "received": "container", "expected": "movable"}
+    ]
+  },
+  "initial": {
+    "stored": false,
+    "request_id": null,
+    "tool_calls": null,
+    "reason": "页面和适配器只保留了最后一次尝试的 tool_calls，没有把初始响应单独落盘。vLLM 未打开请求体日志，不能从日志还原 arguments。"
+  },
+  "repair": {
+    "stored": true,
+    "source": "browser DOM planner-full，仅最后一次尝试",
+    "request_id": null,
+    "tool_call_id": "chatcmpl-tool-b0d65e64dea22d8e",
+    "function_name": "submit_plan",
+    "arguments": {
+      "plan_id": "bowl-to-plate",
+      "goal": "pick up the black bowl between the plate and the ramekin and place it on the plate",
+      "goal_relation": "on",
+      "steps": [
+        {
+          "step_id": "pick_bowl",
+          "skill": "transfer",
+          "object_ref": "akita_black_bowl",
+          "target_ref": "plate",
+          "relation": "on",
+          "prompt": "pick up the black bowl and place it on the plate",
+          "depends_on": [],
+          "preconditions": [],
+          "completion_check": "object_placed",
+          "budget": {"max_s": 180, "max_attempts": 2},
+          "on_failure": "recover"
+        },
+        {
+          "step_id": "place_bowl",
+          "skill": "transfer",
+          "object_ref": "akita_black_bowl",
+          "target_ref": "plate",
+          "relation": "on",
+          "prompt": "place the black bowl on the plate",
+          "depends_on": ["pick_bowl"],
+          "preconditions": [],
+          "completion_check": "object_placed",
+          "budget": {"max_s": 180, "max_attempts": 2},
+          "on_failure": "recover"
+        }
+      ]
+    }
+  },
+  "nested_submit_plan": "已保存的修复 arguments 里，steps 没有内嵌 submit_plan。唯一的 submit_plan 是外层工具名。初始 arguments 没有保存，所以不能把嵌套归属到某一层。",
+  "vllm_log": {
+    "first_window": "10-14 17:03:03 prompt throughput 123.7 tok/s, generation until 17:03:43",
+    "repair_window": "10-14 17:03:53 prompt throughput 203.9 tok/s, generation until 17:04:33",
+    "note": "123.7+203.9=327.6，乘 10 秒窗口等于页面上的 prompt 3276。两次请求，不是一次。"
+  }
+}

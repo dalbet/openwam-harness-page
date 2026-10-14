@@ -2,7 +2,7 @@
 const $ = (id) => document.getElementById(id);
 const suiteSel = $("suite"), taskSel = $("task-id"), seedIn = $("seed"),
   loadBtn = $("load"), taskIn = $("task"),
-  startBtn = $("start"), manualBtn = $("manual"), longBtn = $("long"),
+  startBtn = $("start"), planBtn = $("plan-only"), manualBtn = $("manual"), longBtn = $("long"),
   restartBtn = $("restart"), stopBtn = $("stop"),
   okBtn = $("ok"), badBtn = $("bad"), unkBtn = $("unk"),
   agentCanvas = $("agent"), wristCanvas = $("wrist"),
@@ -53,12 +53,13 @@ const PHASES = {
   processing_input: "处理输入",
   generating: "生成中",
   validating: "校验",
-  planning: "planning",
+  planning: "规划中",
   loading: "加载中",
   loaded: "场景已加载",
-  executing: "executing",
-  waiting_confirmation: "waiting_confirmation",
-  failed: "failed"
+  plan_ready: "计划已生成",
+  executing: "执行中",
+  waiting_confirmation: "等待确认",
+  failed: "失败"
 };
 let suites = [];
 let ws = null, wsConnected = false;
@@ -100,6 +101,7 @@ function handleText(txt){
       $("summary").textContent = m.summary_zh ? `中文摘要：${m.summary_zh}` : "";
       taskIn.disabled = false; manualBtn.disabled = false;
       startBtn.disabled = !(lastHealth && lastHealth.can_model_plan);
+      planBtn.disabled = startBtn.disabled;
       longBtn.disabled = !currentTask().long_candidate;
       restartBtn.disabled = true; loadBtn.disabled = false;
       setConfirm(false);
@@ -134,6 +136,9 @@ function handleText(txt){
       break;
     case "planner_io":
       renderPlanner(m);
+      break;
+    case "binding":
+      renderBinding(m.binding || {});
       break;
     case "log":
       $("log").textContent += (m.text || "") + "\n";
@@ -184,7 +189,8 @@ function fillTasks(){
   (suite && suite.tasks || []).forEach(task => {
     const option = document.createElement("option");
     option.value = String(task.id);
-    option.textContent = `t${task.id} ${task.language}`;
+    option.textContent = `t${task.id} ${task.summary_zh || task.language}`;
+    option.title = `${task.task_key || ""} ${task.language}`;
     taskSel.appendChild(option);
   });
   applyTask();
@@ -192,7 +198,9 @@ function fillTasks(){
 function applyTask(){
   const task = currentTask();
   taskIn.value = task.language || "";
-  $("summary").textContent = task.summary_zh ? `中文摘要：${task.summary_zh}` : "";
+  $("summary").textContent = task.summary_zh
+    ? `${task.task_key || ""} · ${task.summary_zh} · 英文原文：${task.language}`
+    : "";
   const maxSeed = Math.max(0, (task.init_states || 1) - 1);
   seedIn.max = String(maxSeed);
   if (Number(seedIn.value) > maxSeed) seedIn.value = "0";
@@ -212,22 +220,65 @@ function renderHealth(m){
   if (m.can_model_plan === false && !startBtn.disabled && taskIn.value.trim()) startBtn.disabled = true;
 }
 
+const STAGES = {
+  request_failed: "请求失败",
+  parse_failed: "解析失败",
+  validation_failed: "校验失败",
+  binding_unresolved: "对象待确认",
+  ok: "通过"
+};
 function renderPlanner(m){
-  const usage = m.usage || {};
-  const tokens = `prompt ${usage.prompt_tokens ?? "—"} / completion ${usage.completion_tokens ?? "—"} / total ${usage.total_tokens ?? "—"}`;
-  const source = m.plan_source === "manual" ? "人工计划" : (m.plan_source === "model" ? "模型" : (m.plan_source || "无计划"));
-  plannerMeta.textContent = `${source} · ${m.model || ""} · ${Number(m.elapsed_s || 0).toFixed(1)}s · ${tokens} · 修复 ${m.repairs || 0} 次 · ${m.response_kind || ""}`;
+  const stage = STAGES[m.stage] || (m.plan_source ? "通过" : "未请求");
+  const attempts = m.attempts || [];
+  const attemptText = attempts.length
+    ? attempts.map(item => {
+        const usage = item.usage || {};
+        return `${item.role === "format_repair" ? "修复" : "初始"} ${item.request_id || "无 request_id"} · prompt ${usage.prompt_tokens ?? "—"} / completion ${usage.completion_tokens ?? "—"} · ${item.finish_reason || ""}`;
+      }).join("\n")
+    : "没有分开保存的初始/修复响应";
   const errors = (m.errors || []).map(item => `${item.path || ""} ${item.code || ""} received=${JSON.stringify(item.received)} expected ${item.expected || ""}`).join("\n");
+  const binding = m.binding || {};
+  const bound = binding.object_ref ? `${binding.object_ref} · ${binding.evidence_source || ""}` : "未绑定";
+  plannerMeta.textContent = `${stage} · ${m.model || ""} · ${Number(m.elapsed_s || 0).toFixed(1)}s · 修复 ${m.repairs || 0} 次`;
   plannerBrief.textContent = [
-    "输入摘要: " + (m.summary || ""),
-    "图像: " + ((m.image_ids || []).join(", ") || "无"),
-    "解析: " + (errors ? "失败" : "通过"),
-    errors ? "错误: " + errors : "",
-    "输出摘要: " + String(m.output || "").slice(0, 280)
+    `输入模式: ${m.planning_input || "未知"}`,
+    `真实图像: ${m.vision ? "包含" : "不包含"}`,
+    `失败阶段: ${stage}`,
+    `绑定对象: ${bound}`,
+    binding.note || "",
+    attemptText,
+    errors ? "错误:\n" + errors : ""
   ].filter(Boolean).join("\n");
   plannerFull.hidden = true;
-  plannerFull.textContent = String(m.output || "");
-  badge.textContent = `plan_source=${m.plan_source || "—"}`;
+  plannerFull.textContent = JSON.stringify({attempts, errors: m.errors || [], binding}, null, 2);
+  badge.textContent = `plan_source=${m.plan_source || "—"} · ${stage}`;
+  if (m.stage === "binding_unresolved") renderBinding(binding);
+}
+function renderBinding(binding){
+  const box = $("bind-box");
+  const choice = $("bind-choice");
+  if (!binding || binding.status === "resolved") {
+    box.hidden = binding && binding.evidence_source === "sim_state" ? false : true;
+    if (binding && binding.status === "resolved") {
+      $("bind-note").textContent = binding.evidence_source === "sim_state"
+        ? `已绑定 ${binding.object_ref}。仿真位姿辅助，不是视觉判断。`
+        : `已绑定 ${binding.object_ref}（${binding.evidence_source || ""}）`;
+      choice.innerHTML = "";
+      $("bind-apply").disabled = true;
+      box.hidden = false;
+    }
+    return;
+  }
+  box.hidden = false;
+  $("bind-note").textContent = "对象未唯一绑定。请显式选择，不会默认第一个，也不会开始动作。";
+  choice.innerHTML = "";
+  (binding.candidates || []).forEach(ref => {
+    const option = document.createElement("option");
+    option.value = ref;
+    option.textContent = ref;
+    choice.appendChild(option);
+  });
+  $("bind-apply").disabled = !(binding.candidates || []).length;
 }
 
 function handleBinary(ab){
@@ -316,16 +367,18 @@ function begin(source){
   if (!wsConnected) return;
   const task = taskIn.value.trim();
   if (!task) return;
-  startBtn.disabled = true; manualBtn.disabled = true; longBtn.disabled = true; restartBtn.disabled = true; loadBtn.disabled = true;
+  startBtn.disabled = true; planBtn.disabled = true; manualBtn.disabled = true; longBtn.disabled = true; restartBtn.disabled = true; loadBtn.disabled = true;
   clearBuffer(); terminalReached = false; curEid = null; acceptEid = null; gate = false;
   setConfirm(false);
   stopBtn.disabled = false;
-  const planSource = source === "model" ? "model" : "manual";
+  const planSource = source === "manual" || source === "long" ? "manual" : "model";
   const manualScope = source === "long" ? "long" : "single";
-  send({type: source === "restart" ? "restart" : "start", task, plan_source: planSource, manual_scope: manualScope});
-  setStatus(planSource === "manual" ? "人工计划" : "planning", planSource === "manual" ? `plan_source=manual ${manualScope}` : "等待模型");
+  const type = source === "restart" ? "restart" : (source === "plan" ? "plan_only" : "start");
+  send({type, task, plan_source: planSource, manual_scope: manualScope});
+  setStatus(planSource === "manual" ? "人工计划" : "规划中", source === "plan" ? "只规划，不执行" : planSource);
 }
 startBtn.onclick = () => begin("model");
+planBtn.onclick = () => begin("plan");
 manualBtn.onclick = () => begin("manual");
 longBtn.onclick = () => begin("long");
 restartBtn.onclick = () => begin("restart");
@@ -344,7 +397,13 @@ taskIn.addEventListener("input", ()=>{
   const ready = !!taskIn.value.trim();
   manualBtn.disabled = !ready;
   startBtn.disabled = !ready || !(lastHealth && lastHealth.can_model_plan);
+  planBtn.disabled = startBtn.disabled;
 });
+$("bind-apply").onclick = () => {
+  const ref = $("bind-choice").value;
+  if (!ref) return;
+  send({type: "bind", object_ref: ref});
+};
 async function bootstrap(){
   healthEl.textContent = "正在检查服务…";
   $("retry").hidden = true;

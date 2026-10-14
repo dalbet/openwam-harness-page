@@ -2,22 +2,70 @@
 
 Spatial, Object, Goal, and Long are the four standard suites. Perturbation
 suites (*_task, *_swap, *_lan) and libero_90 are not presented as those four.
+Object capabilities come from each task BDDL :objects and :fixtures lists.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
+
+from task_zh import SUITE_LABELS, TASK_ZH
 
 ROOT = Path(__file__).resolve().parents[1]
 RPENT = ROOT / "RPent"
 
 STANDARD = (
-    ("libero_spatial", "Spatial"),
-    ("libero_object", "Object"),
-    ("libero_goal", "Goal"),
-    ("libero_10", "Long"),
+    ("libero_spatial", SUITE_LABELS["libero_spatial"]),
+    ("libero_object", SUITE_LABELS["libero_object"]),
+    ("libero_goal", SUITE_LABELS["libero_goal"]),
+    ("libero_10", SUITE_LABELS["libero_10"]),
 )
+
+# Relations a type can receive. Membership in :objects, not this table, sets movable.
+TARGET_RELATIONS = {
+    "plate": ["on"],
+    "basket": ["in"],
+    "akita_black_bowl": ["in", "on"],
+    "glazed_rim_porcelain_ramekin": ["on", "in"],
+    "cookies": ["on"],
+    "flat_stove": ["on"],
+    "wooden_cabinet": ["on", "inside_drawer"],
+    "white_cabinet": ["on", "inside_drawer"],
+    "microwave": ["in"],
+    "wine_rack": ["on"],
+    "desk_caddy": ["in"],
+}
+ALIASES = {
+    "akita_black_bowl": ["black bowl", "akita black bowl"],
+    "glazed_rim_porcelain_ramekin": ["ramekin"],
+    "cookies": ["cookie box", "cookies"],
+    "alphabet_soup": ["alphabet soup"],
+    "cream_cheese": ["cream cheese", "cream cheese box"],
+    "salad_dressing": ["salad dressing"],
+    "bbq_sauce": ["bbq sauce"],
+    "tomato_sauce": ["tomato sauce"],
+    "orange_juice": ["orange juice"],
+    "chocolate_pudding": ["chocolate pudding"],
+    "wooden_cabinet": ["wooden cabinet", "cabinet"],
+    "white_cabinet": ["cabinet"],
+    "flat_stove": ["stove"],
+    "wine_bottle": ["wine bottle"],
+    "wine_rack": ["wine rack", "rack"],
+    "moka_pot": ["moka pot", "moka pots"],
+    "porcelain_mug": ["white mug", "porcelain mug"],
+    "white_yellow_mug": ["yellow and white mug"],
+    "red_coffee_mug": ["red coffee mug"],
+    "black_book": ["book"],
+    "desk_caddy": ["caddy"],
+    "microwave": ["microwave"],
+    "plate": ["plate"],
+    "basket": ["basket"],
+    "butter": ["butter"],
+    "milk": ["milk"],
+    "ketchup": ["ketchup"],
+}
 
 _PHRASES = (
     ("alphabet soup", "字母汤"),
@@ -58,15 +106,16 @@ _PHRASES = (
 
 
 def summarize_zh(language: str) -> str:
-    """Glossary gloss of a registry instruction. The English line stays authoritative."""
-    text = " " + language.strip().lower() + " "
-    for src, dst in sorted(_PHRASES, key=lambda item: len(item[0]), reverse=True):
-        text = text.replace(src, dst)
-    gloss = " ".join(text.split())
-    return gloss or language
+    """Display translation. Does not replace the English execution string."""
+    return TASK_ZH.get(language.strip(), language)
 
 
 def goal_relation(language: str) -> str:
+    from schema import transfer_slots
+
+    slots = transfer_slots(language)
+    if slots:
+        return slots[0]["relation"]
     lowered = language.lower()
     if "drawer" in lowered:
         return "inside_drawer"
@@ -85,13 +134,17 @@ def load_suites() -> list[dict]:
         for index in range(count):
             language = str(suite.get_task(index).language).strip()
             states = suite.get_task_init_states(index)
+            catalog = _catalog(suite.get_task_bddl_file_path(index))
             tasks.append(
                 {
                     "id": index,
+                    "task_key": f"{suite_id}:t{index}",
                     "language": language,
                     "summary_zh": summarize_zh(language),
                     "init_states": len(states),
                     "long_candidate": suite_id == "libero_10" and index in {0, 1},
+                    "instances": catalog["instances"],
+                    "fixtures": catalog["fixtures"],
                 }
             )
         suites.append({"id": suite_id, "label": label, "standard": True, "tasks": tasks})
@@ -111,27 +164,50 @@ def task_record(suites: list[dict], suite_id: str, task_id: int) -> dict:
     raise KeyError(f"suite {suite_id} is not a standard suite")
 
 
-def single_manual_plan(language: str, object_names: list[str], *, suite: str, task_id: int, seed: int) -> dict:
+def single_manual_plan(
+    language: str,
+    object_names: list[str],
+    *,
+    suite: str,
+    task_id: int,
+    seed: int,
+    task_record: dict | None = None,
+    poses: dict | None = None,
+    observation_id: str | None = None,
+    scene_epoch: int | None = None,
+    binding: dict | None = None,
+) -> dict:
     """One explicit manual pick-and-place. Not a model plan."""
+    from binding import bind_task
     from schema import prepare_plan
 
-    objects = _objects_from_names(object_names)
+    objects = objects_for_names(object_names, task_record)
     relation = goal_relation(language)
-    lowered = language.lower()
-    movables = [ref for ref, spec in objects.items() if spec["role"] == "movable"]
-    targets = [ref for ref, spec in objects.items() if spec["role"] in {"container", "support"}]
-    if not movables or not targets:
-        raise ValueError(f"场景对象不足以组成一次抓放: {object_names}")
+    if not binding or binding.get("status") != "resolved":
+        binding = bind_task(
+            language,
+            objects,
+            poses,
+            observation_id=observation_id,
+            scene_epoch=scene_epoch,
+        )
+    if binding["status"] != "resolved":
+        raise ValueError(f"对象未唯一绑定，不默认第一个，也不开始动作: {binding}")
+    from schema import transfer_slots
 
-    def rank(ref: str) -> int:
-        phrase = objects[ref]["phrases"][0]
-        found = lowered.find(phrase)
-        return found if found >= 0 else 10_000
-
-    chosen = sorted(movables, key=rank)[0]
-    target = sorted(targets, key=rank)[0]
-    if rank(chosen) == 10_000:
-        raise ValueError(f"指令里没有可对应的食品对象: {language}")
+    chosen = binding["object_ref"]
+    slots = transfer_slots(language) or []
+    if len(slots) != 1:
+        raise ValueError(f"人工单次计划只接受一个搬运: {language}")
+    slot = slots[0]
+    targets = [
+        ref
+        for ref, spec in objects.items()
+        if _phrase_match(spec, slot["target"]) and relation in (spec.get("target_relations") or [])
+    ]
+    if len(targets) != 1:
+        raise ValueError(f"目标没有唯一实例，不默认第一个: {targets}")
+    target = targets[0]
     plan = {
         "plan_id": f"manual-single-{suite}-t{task_id}-s{seed}",
         "goal": language,
@@ -157,22 +233,85 @@ def single_manual_plan(language: str, object_names: list[str], *, suite: str, ta
             }
         ],
     }
-    return prepare_plan(plan, task=language, scene_objects={key: objects[key] for key in (chosen, target)})
+    prepared = prepare_plan(
+        plan,
+        task=language,
+        scene_objects={key: objects[key] for key in (chosen, target)},
+        required_object_ref=chosen,
+    )
+    prepared["binding"] = binding
+    return prepared
+
+
+def objects_for_names(names: list[str], task: dict | None) -> dict:
+    """Instance ids stay intact. A bowl in :objects is movable and can still be a target."""
+    catalog = {}
+    if task:
+        for item in list(task.get("instances") or []) + list(task.get("fixtures") or []):
+            catalog[item["name"]] = item
+    objects = {}
+    for name in names:
+        spec = catalog.get(name)
+        if spec is None:
+            objects[name] = {
+                "sim_name": name,
+                "phrases": [name.replace("_", " ")],
+                "semantic_type": "unlisted",
+                "movable": False,
+                "can_be_target": False,
+                "target_relations": [],
+                "capability_source": "unlisted",
+            }
+            continue
+        objects[name] = dict(spec)
+        objects[name]["sim_name"] = name
+    return objects
 
 
 def _objects_from_names(names: list[str]) -> dict:
-    objects = {}
-    for name in names:
-        stem = name[:-2] if name.endswith("_1") else name
-        phrase = stem.replace("_", " ")
-        if any(word in phrase for word in ("basket", "plate", "bowl", "bin", "drawer", "cabinet")):
-            role = "container"
-        elif any(word in phrase for word in ("stove", "microwave", "table")):
-            role = "support"
-        else:
-            role = "movable"
-        objects[stem] = {"sim_name": name, "phrases": [phrase], "role": role}
-    return objects
+    """Legacy helper. Unknown names are not marked movable."""
+    return objects_for_names(names, None)
+
+
+def _catalog(path: str) -> dict:
+    text = Path(path).read_text(encoding="utf-8")
+    return {
+        "instances": _section(text, "objects", movable=True),
+        "fixtures": _section(text, "fixtures", movable=False),
+    }
+
+
+def _section(text: str, name: str, *, movable: bool) -> list[dict]:
+    match = re.search(rf"\(:{name}\b(.*?)\)\s*\n", text, re.S)
+    rows = []
+    if not match:
+        return rows
+    for line in match.group(1).splitlines():
+        if " - " not in line:
+            continue
+        raw_names, semantic = line.split(" - ", 1)
+        semantic = semantic.strip()
+        relations = list(TARGET_RELATIONS.get(semantic, []))
+        for instance in raw_names.split():
+            rows.append(
+                {
+                    "name": instance,
+                    "semantic_type": semantic,
+                    "phrases": list(ALIASES.get(semantic) or [semantic.replace("_", " ")]),
+                    "movable": movable,
+                    "can_be_target": bool(relations),
+                    "target_relations": relations,
+                    "capability_source": "bddl:objects" if movable else "bddl:fixtures",
+                }
+            )
+    return rows
+
+
+def _phrase_match(spec: dict, needle: str) -> bool:
+    needle = needle.strip().lower()
+    phrases = [str(item).lower() for item in spec.get("phrases") or []]
+    semantic = str(spec.get("semantic_type") or "").replace("_", " ")
+    return any(phrase and (phrase in needle or needle in phrase) for phrase in phrases) or bool(semantic and (semantic in needle or needle in semantic))
 
 
 def _benchmark():
