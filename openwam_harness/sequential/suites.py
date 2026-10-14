@@ -292,12 +292,14 @@ def _section(text: str, name: str, *, movable: bool) -> list[dict]:
         raw_names, semantic = line.split(" - ", 1)
         semantic = semantic.strip()
         relations = list(TARGET_RELATIONS.get(semantic, []))
+        aliases = list(ALIASES.get(semantic) or [semantic.replace("_", " ")])
         for instance in raw_names.split():
             rows.append(
                 {
                     "name": instance,
                     "semantic_type": semantic,
-                    "phrases": list(ALIASES.get(semantic) or [semantic.replace("_", " ")]),
+                    "phrases": aliases,
+                    "grounding_query": min(aliases, key=len),
                     "movable": movable,
                     "can_be_target": bool(relations),
                     "target_relations": relations,

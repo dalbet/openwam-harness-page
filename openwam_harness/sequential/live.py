@@ -165,14 +165,16 @@ class LiveBackend:
                 error_class="plan",
             )
         try:
-            tool_args = {key: value for key, value in args.items() if key != "object_ref"}
+            tool_args = tool_arguments(args)
             result = self.toolkit.execute_tool(action, tool_args)
         except Exception as exc:
+            parsed = interpret_exception(exc)
             return ToolOutcome(
-                executed=False,
-                error=str(exc),
+                executed=parsed["executed"],
+                error=parsed["error"],
                 real=True,
-                error_class="service",
+                error_class=parsed["error_class"],
+                category=parsed["category"],
                 env_step=self.env_step(),
             )
         data = result.data if isinstance(result.data, dict) else {"result": result.data}
@@ -183,32 +185,26 @@ class LiveBackend:
             data["chunks"] = take_chunk_trace(self.toolkit.primitives)
             data["env_action_count"] = int(getattr(self.toolkit.primitives, "_env_action_count", 0))
             data["record_note"] = "states.json step_idx counts tool records, not env actions inside a chunk"
-        if data.get("error"):
-            error = str(data.get("error"))
-            return ToolOutcome(
-                executed=False,
-                error=error,
-                real=True,
-                error_class=_error_class(error),
-                env_step=self.env_step(),
-                raw={k: v for k, v in data.items() if k != "images"},
-            )
+        if action == "pi0_pick" and "success" not in data:
+            data = attach_saved_pick_result(data, _saved_record_result(self.toolkit))
+        parsed = interpret_tool_data(action, data)
         env = self.toolkit.primitives.env
-        xyz = _find_xyz(data)
-        grasp = data.get("success") if action == "pi0_pick" else None
         eef = None
         state = data.get("state") if isinstance(data.get("state"), dict) else {}
         if isinstance(state.get("robot0_eef_pos"), list):
             eef = [float(v) for v in state["robot0_eef_pos"][:3]]
         return ToolOutcome(
-            executed=True,
-            grasp_signal=None if grasp is None else bool(grasp),
+            executed=parsed["executed"],
+            error=parsed["error"],
+            grasp_signal=parsed["grasp_signal"],
             native_terminated=bool(env.terminated),
             native_truncated=bool(env.truncated),
-            xyz=xyz,
+            xyz=parsed["xyz"],
             eef_pos=eef,
             raw={k: v for k, v in data.items() if k != "images"},
             real=True,
+            error_class=parsed["error_class"],
+            category=parsed["category"],
             env_step=self.env_step(),
         )
 
@@ -480,6 +476,110 @@ def _find_xyz(data: dict):
 
     walk(data)
     return found[0] if found else None
+
+
+def tool_arguments(args: dict) -> dict:
+    """Instance ids and prompt labels stay off the tool call. The tool receives one prompt."""
+    return {
+        key: value
+        for key, value in args.items()
+        if key not in {"object_ref", "grounding_query", "vla_prompt"}
+    }
+
+
+def attach_saved_pick_result(data: dict, saved: dict | None) -> dict:
+    """The toolkit returns the observation after pi0_pick and drops the tool body.
+
+    Copy the saved tool fields back. ``terminated`` stays out of this copy so it
+    cannot be read as the call status.
+    """
+    if not isinstance(saved, dict) or "success" in data:
+        return data
+    merged = dict(data)
+    for key in ("success", "chunks_used", "peak_lift_m", "min_gripper_opening", "final_gripper_opening"):
+        if key in saved:
+            merged[key] = saved[key]
+    return merged
+
+
+def _saved_record_result(toolkit) -> dict | None:
+    try:
+        record = toolkit.state.latest_record()
+    except Exception:
+        return None
+    saved = getattr(record, "result", None)
+    return saved if isinstance(saved, dict) else None
+
+
+def interpret_exception(exc: BaseException) -> dict:
+    """Keep the exception text. Do not rename it and do not report success."""
+    return {
+        "executed": False,
+        "error": str(exc),
+        "error_class": "service",
+        "category": "tool_exception",
+        "xyz": None,
+        "grasp_signal": None,
+    }
+
+
+def interpret_tool_data(action: str, data: dict) -> dict:
+    """Split a finished tool payload from a failed call.
+
+    ``success`` on pi0_pick is grasp evidence. A segment ``found: false`` is a
+    localization miss. Neither one is a failed tool call, and neither one is
+    read from ``env.terminated``.
+    """
+    error = data.get("error")
+    error_text = None if error in (None, "") else str(error)
+    if data.get("code") == "segment_artifact_save_failed" or (
+        error_text is not None and error_text.startswith("failed to persist")
+    ):
+        return _call_failure(error_text or "segment artifact was not saved", "tool_exception", "physical")
+    if action == "segment" and data.get("found") is False and error_text and _error_class(error_text) != "service":
+        return {
+            "executed": True,
+            "error": error_text,
+            "error_class": None,
+            "category": "subtask_incomplete",
+            "xyz": None,
+            "grasp_signal": None,
+        }
+    if error_text:
+        kind = _error_class(error_text)
+        if kind == "service":
+            return _call_failure(error_text, "service", "service")
+        if _parameter_error(error_text):
+            return _call_failure(error_text, "parameter", "plan")
+        return _call_failure(error_text, "tool_exception", "physical")
+    grasp = None
+    if action == "pi0_pick" and "success" in data:
+        grasp = bool(data.get("success"))
+    return {
+        "executed": True,
+        "error": None,
+        "error_class": None,
+        "category": None,
+        "xyz": _find_xyz(data),
+        "grasp_signal": grasp,
+    }
+
+
+def _call_failure(error: str, category: str, error_class: str) -> dict:
+    return {
+        "executed": False,
+        "error": error,
+        "error_class": error_class,
+        "category": category,
+        "xyz": None,
+        "grasp_signal": None,
+    }
+
+
+def _parameter_error(error: str) -> bool:
+    lowered = error.lower()
+    markers = ("unknown", "invalid", "needs exactly", "unexpected keyword", "missing")
+    return any(marker in lowered for marker in markers)
 
 
 def _error_class(error: str) -> str:

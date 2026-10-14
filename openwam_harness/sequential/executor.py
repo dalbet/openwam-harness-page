@@ -15,7 +15,7 @@ from typing import Any, Callable
 from recovery import RecoveryBudget, event_for, propose, signature
 from schema import PlanError, resolve_args, split_move, validate_plan
 from store import LocalizationCache, new_observation
-from verify import THRESHOLDS, receipt, verify_step
+from verify import THRESHOLDS, call_failure_receipt, receipt, verify_step
 
 WORLD_SKILLS = frozenset({"pi0_pick", "move_to", "set_gripper"})
 
@@ -37,6 +37,7 @@ class ToolOutcome:
     real: bool = True
     error_class: str | None = None
     env_step: int | None = None
+    category: str | None = None
 
 
 class Session:
@@ -85,8 +86,15 @@ def run_plan(
     on_event: Callable[[dict[str, Any]], None] | None = None,
     task: str | None = None,
     replan_fn: Callable[[dict[str, Any]], dict[str, Any] | None] | None = None,
+    stop_after: str | None = None,
 ) -> dict[str, Any]:
+    carried = {
+        key: plan.pop(key)
+        for key in ("request_id", "planner_stage", "episode_id", "replay_note")
+        if key in plan
+    }
     plan = validate_plan(plan, task=task if task is not None else plan.get("goal"))
+    plan.update(carried)
     started_epoch = session.scene_epoch if epoch is None else epoch
     started_version = session.plan_version if plan_version is None else plan_version
     bindings: dict[str, list[float]] = {}
@@ -290,18 +298,46 @@ def run_plan(
         ):
             if not (verification.get("reason_code") == "RECOVERY_EXHAUSTED" and replanned):
                 steps.append(_step_record(step, outcome, verification, last_obs))
+                diag = _diagnosis(step, outcome, verification, last_obs, plan)
                 emit(
                     "failed",
                     step_id=step["step_id"],
                     skill=skill,
-                    reason=verification.get("reason_code") or outcome.error,
-                    detail=outcome.error or verification.get("reason_code"),
+                    reason=diag["reason"],
+                    reason_code=diag["reason_code"],
+                    category=diag["category"],
+                    detail=diag["reason"],
                     evidence_source=verification.get("evidence_source"),
                     recovery_attempts=recovery.attempts.get(step["step_id"], 0),
+                    execution=diag,
                 )
                 status = "RECOVERY_EXHAUSTED" if verification.get("reason_code") == "RECOVERY_EXHAUSTED" else "no_progress"
-                return _finish(status, verification.get("reason_code") or outcome.error or "failed", session, started_epoch, started_version, steps, backend, llm_calls)
+                return _finish(status, diag["reason"] or "failed", session, started_epoch, started_version, steps, backend, llm_calls, execution=diag)
         steps.append(_step_record(step, outcome, verification, last_obs))
+        if stop_after and step.get("completion_check") == stop_after:
+            diag = _diagnosis(step, outcome, verification, last_obs, plan)
+            diag["stopped"] = stop_after
+            emit(
+                "executing",
+                step_id=step["step_id"],
+                skill=skill,
+                detail=f"stop_after {stop_after}",
+                verification_status=verification.get("status"),
+                reason_code=verification.get("reason_code"),
+                category=diag["category"],
+                execution=diag,
+            )
+            return _finish(
+                "stopped_at_check",
+                verification.get("reason_code") or stop_after,
+                session,
+                started_epoch,
+                started_version,
+                steps,
+                backend,
+                llm_calls,
+                execution=diag,
+            )
         emit(
             "executing",
             step_id=step["step_id"],
@@ -336,7 +372,7 @@ def _remember_support(obs: dict | None, support_z: dict[str, float]) -> None:
 
 def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_z):
     if not outcome.executed:
-        return [], receipt("failure", "tool_failed", "tool_return", [], {"error": outcome.error})
+        return [], call_failure_receipt(outcome)
     post = [_capture(backend, scene_epoch)]
     verdict = verify_step(
         step,
@@ -480,12 +516,38 @@ def _recover_or_confirm(
 
 
 def _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post):
+    metrics = verification.get("metrics") or {}
+    reason = outcome.error or metrics.get("error") or verification["reason_code"]
     emit(
         "waiting_confirmation",
         step_id=step["step_id"],
+        skill=step.get("skill"),
         subtask=step.get("subtask"),
-        detail=verification["reason_code"],
-        reason=verification["reason_code"],
+        detail=reason,
+        reason=reason,
+        reason_code=verification["reason_code"],
+        category=getattr(outcome, "category", None) or metrics.get("category") or "subtask_incomplete",
+        execution={
+            "step_id": step.get("step_id"),
+            "skill": step.get("skill"),
+            "category": getattr(outcome, "category", None) or metrics.get("category") or "subtask_incomplete",
+            "reason": reason,
+            "reason_code": verification["reason_code"],
+            "args": {key: value for key, value in (step.get("args") or {}).items() if key != "code"},
+            "object_ref": step.get("object_ref"),
+            "grounding_query": step.get("grounding_query"),
+            "vla_prompt": step.get("vla_prompt"),
+            "return_summary": {
+                "executed": outcome.executed,
+                "error": outcome.error,
+                "score": metrics.get("score"),
+                "found": metrics.get("found"),
+                "grasp_signal": outcome.grasp_signal,
+                "native_terminated": outcome.native_terminated,
+            },
+            "observation_id": (verification.get("observation_ids") or [None])[-1],
+            "record_index_note": "states.json 的序号是工具记录，不是仿真步数",
+        },
     )
     user = confirm(step.get("subtask") or step["step_id"])
     if stale() or user is None:
@@ -500,6 +562,9 @@ def _confirm_unknown(step, verification, confirm, emit, stale, session, outcome,
         "plan_version": session.plan_version,
     }
     if user != "success":
+        metrics = dict(verification.get("metrics") or {})
+        metrics["checker_reason_code"] = verification.get("reason_code")
+        verification["metrics"] = metrics
         verification["status"] = "failure"
         verification["reason_code"] = f"manual_{user}"
     return verification, outcome, post
@@ -631,7 +696,59 @@ def _public_observation(observation: Any) -> dict | None:
     }
 
 
-def _finish(status, reason, session, epoch, version, steps, backend, llm_calls) -> dict[str, Any]:
+def _diagnosis(step, outcome, verification, observation, plan) -> dict[str, Any]:
+    metrics = (verification or {}).get("metrics") or {}
+    category = outcome.category or metrics.get("category")
+    code = (verification or {}).get("reason_code") or ""
+    if not category:
+        if code in {"TOOL_UNAVAILABLE"}:
+            category = "service"
+        elif code in {"PARAMETER"}:
+            category = "parameter"
+        elif code in {"TOOL_EXCEPTION"}:
+            category = "tool_exception"
+        elif not outcome.executed:
+            category = "tool_exception"
+        else:
+            category = "subtask_incomplete"
+    checker_reason = metrics.get("checker_reason_code")
+    reason = outcome.error or metrics.get("error") or code
+    raw = outcome.raw or {}
+    obs = _public_observation(observation) or {}
+    args = {key: value for key, value in (step.get("args") or {}).items() if key != "code"}
+    return {
+        "step_id": step.get("step_id"),
+        "skill": step.get("skill"),
+        "category": category,
+        "reason": reason,
+        "reason_code": code,
+        "checker_reason_code": checker_reason,
+        "args": args,
+        "object_ref": step.get("object_ref") or args.get("object_ref"),
+        "grounding_query": step.get("grounding_query") if step.get("skill") == "segment" else None,
+        "vla_prompt": step.get("vla_prompt") if step.get("skill") == "pi0_pick" else None,
+        "return_summary": {
+            "executed": outcome.executed,
+            "error": outcome.error,
+            "error_class": outcome.error_class,
+            "grasp_signal": outcome.grasp_signal,
+            "native_terminated": outcome.native_terminated,
+            "native_truncated": outcome.native_truncated,
+            "found": raw.get("found"),
+            "score": raw.get("score"),
+            "world_xyz": outcome.xyz,
+        },
+        "request_id": plan.get("request_id"),
+        "episode_id": plan.get("episode_id"),
+        "env_action_count": int(raw.get("env_action_count") or 0),
+        "observation_id": obs.get("observation_id"),
+        "record_index": obs.get("env_step") if obs.get("env_step") is not None else outcome.env_step,
+        "record_index_note": "states.json 的序号是工具记录，不是仿真步数",
+        "planner_stage": plan.get("planner_stage"),
+    }
+
+
+def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, execution=None) -> dict[str, Any]:
     # Official success is only the backend's LIBERO terminated flag.
     # Truncation, an unfinished plan, and planner finish do not set it.
     native = bool(backend.native_success())
@@ -648,4 +765,5 @@ def _finish(status, reason, session, epoch, version, steps, backend, llm_calls) 
         "llm_calls_during_execution": llm_calls,
         "tool_results": [step.get("tool_result") for step in steps],
         "subtask_results": [step.get("verification") for step in steps],
+        "execution": execution,
     }

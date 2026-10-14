@@ -64,7 +64,9 @@ def verify_step(
 ) -> dict[str, Any]:
     check = step.get("completion_check")
     if not outcome.executed:
-        return receipt("failure", "tool_failed", "tool_return", _ids(observations), {"error": outcome.error})
+        failed = call_failure_receipt(outcome)
+        failed["observation_ids"] = _ids(observations)
+        return failed
     current = observations[-1] if observations else None
     if not observation_ok(current, scene_epoch=scene_epoch, min_step=min_step):
         return receipt(
@@ -77,7 +79,7 @@ def verify_step(
     if check == "observe_ready":
         return receipt("success", "OBSERVE_READY", "sim_state_assisted", _ids(observations), {})
     if check == "object_localized":
-        return _localized(step, outcome, observations)
+        return _localized(step, outcome, observations, objects)
     if check == "grasp_held":
         return _grasp(step, observations, objects, support_z, outcome)
     if check == "object_transported":
@@ -89,16 +91,105 @@ def verify_step(
     return receipt("unknown", "NO_CHECKER", "tool_return", _ids(observations), {"check": check})
 
 
-def _localized(step, outcome, observations) -> dict[str, Any]:
-    if outcome.xyz is None:
-        return receipt("unknown", "TARGET_NOT_IDENTIFIED", "tool_return", _ids(observations), {})
+def call_failure_receipt(outcome: Any) -> dict[str, Any]:
+    """A raised or refused tool call keeps its own text. It is not renamed tool_failed."""
+    category = getattr(outcome, "category", None)
+    if category not in {"service", "parameter", "tool_exception"}:
+        if getattr(outcome, "error_class", None) == "service":
+            category = "service"
+        elif getattr(outcome, "error_class", None) == "plan":
+            category = "parameter"
+        else:
+            category = "tool_exception"
+    code = {"service": "TOOL_UNAVAILABLE", "parameter": "PARAMETER", "tool_exception": "TOOL_EXCEPTION"}[category]
     return receipt(
-        "success",
-        "OBJECT_LOCALIZED",
+        "failure",
+        code,
         "tool_return",
-        _ids(observations),
-        {"xyz": outcome.xyz},
+        [],
+        {"error": outcome.error, "category": category},
     )
+
+
+_MATCH_M = 0.05
+_MARGIN_M = 0.03
+
+
+def _localized(step, outcome, observations, objects) -> dict[str, Any]:
+    ids = _ids(observations)
+    if outcome.xyz is None:
+        return receipt(
+            "unknown",
+            "TARGET_NOT_IDENTIFIED",
+            "tool_return",
+            ids,
+            {
+                "error": outcome.error,
+                "category": "subtask_incomplete",
+                "found": (outcome.raw or {}).get("found"),
+                "score": (outcome.raw or {}).get("score"),
+                "grounding_query": step.get("grounding_query") or (step.get("args") or {}).get("prompt"),
+            },
+        )
+    bound = step.get("object_ref")
+    spec = objects.get(bound) if isinstance(bound, str) else None
+    if not isinstance(spec, dict):
+        return receipt(
+            "unknown",
+            "INSTANCE_UNCONFIRMED",
+            "sim_state",
+            ids,
+            {
+                "error": "绑定实例没有仿真规格，不能改用另一只",
+                "category": "subtask_incomplete",
+                "object_ref": bound,
+                "xyz": outcome.xyz,
+            },
+        )
+    sim_name = spec.get("sim_name") or bound
+    bound_pos = _object(observations[-1], sim_name)
+    if bound_pos is None:
+        return receipt(
+            "unknown",
+            "INSTANCE_UNCONFIRMED",
+            "sim_state",
+            ids,
+            {
+                "error": "没有绑定实例的仿真位姿，不能确认，也不会更换目标",
+                "category": "subtask_incomplete",
+                "object_ref": bound,
+                "xyz": outcome.xyz,
+            },
+        )
+    bound_d = _distance(outcome.xyz, bound_pos)
+    semantic = spec.get("semantic_type")
+    others = []
+    for ref, item in objects.items():
+        if ref == bound or not isinstance(item, dict):
+            continue
+        if semantic and item.get("semantic_type") != semantic:
+            continue
+        other_name = item.get("sim_name") or ref
+        pos = _object(observations[-1], other_name)
+        if pos is None:
+            continue
+        others.append({"object_ref": ref, "distance_m": round(_distance(outcome.xyz, pos), 4)})
+    nearest_other = min((item["distance_m"] for item in others), default=None)
+    metrics = {
+        "xyz": outcome.xyz,
+        "object_ref": bound,
+        "sim_name": sim_name,
+        "bound_distance_m": round(bound_d, 4),
+        "other_instances": others,
+        "match_m": _MATCH_M,
+    }
+    confirmed = bound_d <= _MATCH_M and (nearest_other is None or bound_d + _MARGIN_M < nearest_other)
+    if confirmed:
+        return receipt("success", "OBJECT_LOCALIZED", "sim_state", ids, metrics)
+    closer = nearest_other is not None and nearest_other < bound_d
+    metrics["error"] = "定位更接近其他同类实例，保持原绑定，不更换" if closer else "定位结果不能确认是绑定实例，暂停"
+    metrics["category"] = "subtask_incomplete"
+    return receipt("unknown", "INSTANCE_UNCONFIRMED", "sim_state", ids, metrics)
 
 
 def _grasp(step, observations, objects, support_z, outcome) -> dict[str, Any]:

@@ -558,9 +558,17 @@ def _arg_errors(path: str, skill: str, args: dict[str, Any], plan: dict[str, Any
     elif skill == "segment":
         need_ref()
         prompt = args.get("prompt")
+        owned: set[str] = set()
+        if isinstance(object_ref, str):
+            spec = (plan.get("objects") or {}).get(object_ref) or {}
+            owned = {
+                str(item).strip().lower()
+                for item in (spec.get("phrases") or [])
+                if isinstance(item, str) and item.strip()
+            }
         if not isinstance(prompt, str) or prompt.strip().lower() not in phrases:
             errors.append(_err(f"{path}.args.prompt", "phrase", prompt, "a phrase of a scene object"))
-        elif isinstance(object_ref, str) and phrases.get(prompt.strip().lower()) not in {None, object_ref}:
+        elif prompt.strip().lower() not in owned:
             errors.append(_err(f"{path}.args.prompt", "phrase_object_mismatch", prompt, object_ref))
         if args.get("camera") not in {"agentview", "wrist"}:
             errors.append(_err(f"{path}.args.camera", "camera", args.get("camera"), "agentview|wrist"))
@@ -993,9 +1001,19 @@ def _with_role(spec: dict[str, Any]) -> dict[str, Any]:
     return copied
 
 
-def _phrase(spec: dict[str, Any]) -> str:
-    phrases = [item for item in spec.get("phrases") or [] if isinstance(item, str) and item.strip()]
-    return max(phrases, key=len)
+def _grounding_query(spec: dict[str, Any]) -> str:
+    """Visual phrase for SAM3. Not the instance id and not the longest catalog alias."""
+    explicit = spec.get("grounding_query")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip()
+    phrases = [item.strip() for item in spec.get("phrases") or [] if isinstance(item, str) and item.strip()]
+    sim_name = str(spec.get("sim_name") or "")
+    sim_words = sim_name.replace("_", " ")
+    visual = [item for item in phrases if item != sim_name and item.lower() != sim_words.lower()]
+    pool = visual or phrases
+    if not pool:
+        return sim_words
+    return min(pool, key=len)
 
 
 def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
@@ -1020,13 +1038,14 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
         args = item["args"]
         obj = args["object_ref"]
         target = args["target_ref"]
-        obj_phrase = _phrase(objects[obj])
-        target_phrase = _phrase(objects[target])
+        obj_query = _grounding_query(objects[obj])
+        target_query = _grounding_query(objects[target])
+        vla_prompt = str(args["prompt"])
         if obj not in segmented:
-            steps.append(_segment_step(obj, obj_phrase, previous))
+            steps.append(_segment_step(obj, obj_query, previous))
             segmented.add(obj)
         if target not in segmented:
-            steps.append(_segment_step(target, target_phrase, previous))
+            steps.append(_segment_step(target, target_query, previous))
             segmented.add(target)
         pick = f"pick_{item['step_id']}"
         move = f"move_{item['step_id']}"
@@ -1038,7 +1057,8 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
             {
                 "step_id": pick,
                 "skill": "pi0_pick",
-                "args": {"prompt": args["prompt"], "max_chunks": 12, "object_ref": obj},
+                "args": {"prompt": vla_prompt, "max_chunks": 12, "object_ref": obj},
+                "vla_prompt": vla_prompt,
                 "depends_on": [f"seg_{obj}", previous] if previous != "observe" else [f"seg_{obj}"],
                 "preconditions": ["object_localized"],
                 "completion_check": "grasp_held",
@@ -1053,7 +1073,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "step_id": move,
                 "skill": "move_to",
                 "args": {
-                    "xyz_from": f"segment:{target_phrase}",
+                    "xyz_from": f"segment:{target_query}",
                     "z_offset": 0.15,
                     "gripper": 1,
                     "object_ref": obj,
@@ -1118,6 +1138,7 @@ def _segment_step(ref: str, phrase: str, previous: str) -> dict[str, Any]:
         "budget": {"max_s": 40, "max_attempts": 1},
         "on_failure": "stop",
         "object_ref": ref,
+        "grounding_query": phrase,
         "subtask": ref,
     }
 

@@ -471,6 +471,184 @@ class ContractTest(unittest.TestCase):
         self.assertIn("akita_black_bowl_1", [row["name"] for row in spatial["instances"]])
 
 
+    def test_segment_miss_keeps_the_original_error(self):
+        from live import attach_saved_pick_result, interpret_exception, interpret_tool_data, tool_arguments
+        from schema import prepare_plan
+        from verify import verify_step
+
+        task = "pick up the black bowl between the plate and the ramekin and place it on the plate"
+        scene = {
+            "akita_black_bowl_1": _bowl("akita_black_bowl_1"),
+            "akita_black_bowl_2": _bowl("akita_black_bowl_2"),
+            "plate_1": {
+                "sim_name": "plate_1",
+                "semantic_type": "plate",
+                "phrases": ["plate"],
+                "movable": True,
+                "can_be_target": True,
+                "target_relations": ["on"],
+                "capability_source": "bddl:objects",
+            },
+        }
+        prepared = prepare_plan(
+            _transfer("transfer_bowl", "akita_black_bowl_1", "plate_1", task),
+            task=task,
+            scene_objects=scene,
+            required_object_ref="akita_black_bowl_1",
+        )
+        prepared["planner_stage"] = "ok"
+        prepared["request_id"] = "seq-fdb0bf5e8750"
+        segment = next(step for step in prepared["steps"] if step["skill"] == "segment" and step["object_ref"] == "akita_black_bowl_1")
+        pick = next(step for step in prepared["steps"] if step["skill"] == "pi0_pick")
+        self.assertEqual(segment["grounding_query"], "black bowl")
+        self.assertEqual(segment["args"]["prompt"], "black bowl")
+        self.assertNotIn("akita_black_bowl", tool_arguments(segment["args"])["prompt"])
+        self.assertNotIn("object_ref", tool_arguments(segment["args"]))
+        self.assertEqual(pick["vla_prompt"], "pick up the black bowl")
+        self.assertEqual(tool_arguments(pick["args"])["prompt"], "pick up the black bowl")
+        self.assertNotEqual(tool_arguments(pick["args"])["prompt"], "akita_black_bowl_1")
+
+        miss = interpret_tool_data("segment", {
+            "found": False,
+            "score": 0.08,
+            "world_xyz": None,
+            "error": "top score 0.080 is below min_score 0.200",
+        })
+        self.assertTrue(miss["executed"])
+        self.assertEqual(miss["category"], "subtask_incomplete")
+        self.assertIn("0.080", miss["error"])
+        grasp = interpret_tool_data("pi0_pick", {"success": False, "terminated": True})
+        self.assertTrue(grasp["executed"])
+        self.assertFalse(grasp["grasp_signal"])
+        self.assertIsNone(grasp["category"])
+        restored = attach_saved_pick_result(
+            {"env_action_count": 55},
+            {"success": True, "chunks_used": 11, "peak_lift_m": 0.065, "terminated": True},
+        )
+        self.assertNotIn("terminated", restored)
+        restored_grasp = interpret_tool_data("pi0_pick", restored)
+        self.assertTrue(restored_grasp["executed"])
+        self.assertTrue(restored_grasp["grasp_signal"])
+        blown = interpret_exception(RuntimeError("segment() got an unexpected keyword argument 'object_ref'"))
+        self.assertFalse(blown["executed"])
+        self.assertEqual(blown["category"], "tool_exception")
+
+        class Miss:
+            def __init__(self):
+                self.calls = []
+
+            def execute(self, action, args):
+                self.calls.append(action)
+                if action == "segment":
+                    return ToolOutcome(
+                        executed=True,
+                        error="top score 0.080 is below min_score 0.200",
+                        xyz=None,
+                        category="subtask_incomplete",
+                        raw={"found": False, "score": 0.08},
+                    )
+                return ToolOutcome(executed=True)
+
+            def observe(self):
+                return {"cameras": {"agentview": {"id": "a"}, "wrist": {"id": "w"}}, "sim": {"objects": {}}}
+
+            def native_success(self):
+                return False
+
+        backend = Miss()
+        events = []
+        result = run_plan(
+            prepared,
+            backend,
+            Session("scene"),
+            lambda _subtask: "unknown",
+            task=task,
+            on_event=events.append,
+        )
+        waiting = [event for event in events if event["phase"] == "waiting_confirmation"]
+        self.assertEqual(result["status"], "no_progress")
+        self.assertIn("0.080", result["reason"])
+        self.assertNotIn("tool_failed", result["reason"])
+        self.assertEqual(waiting[0]["reason_code"], "TARGET_NOT_IDENTIFIED")
+        self.assertIn("0.080", waiting[0]["reason"])
+        self.assertEqual(result["execution"]["category"], "subtask_incomplete")
+        self.assertEqual(result["execution"]["request_id"], "seq-fdb0bf5e8750")
+        self.assertEqual(backend.calls.count("segment"), 1)
+        self.assertNotIn("pi0_pick", backend.calls)
+        self.assertNotIn("move_to", backend.calls)
+
+        class Boom:
+            def execute(self, action, args):
+                if action == "segment":
+                    return ToolOutcome(
+                        executed=False,
+                        error="segment() got an unexpected keyword argument 'object_ref'",
+                        error_class="service",
+                        category="tool_exception",
+                    )
+                return ToolOutcome(executed=True)
+
+            def observe(self):
+                return {"cameras": {"agentview": {"id": "a"}, "wrist": {"id": "w"}}, "sim": {"objects": {}}}
+
+            def native_success(self):
+                return False
+
+        raised = run_plan(prepared, Boom(), Session("scene"), lambda _subtask: None, task=task)
+        self.assertEqual(raised["execution"]["reason_code"], "TOOL_EXCEPTION")
+        self.assertIn("unexpected keyword", raised["reason"])
+        self.assertNotIn("tool_failed", raised["reason"])
+
+        def obs(points):
+            return {
+                "observation_id": "obs-1",
+                "scene_epoch": 1,
+                "env_step": 1,
+                "cameras": {"agentview": {"id": "a"}, "wrist": {"id": "w"}},
+                "sim": {"objects": {name: {"pos": pos, "identified": True} for name, pos in points.items()}},
+            }
+
+        local = {
+            "step_id": "seg_akita_black_bowl_1",
+            "skill": "segment",
+            "object_ref": "akita_black_bowl_1",
+            "completion_check": "object_localized",
+            "args": {"prompt": "black bowl"},
+            "grounding_query": "black bowl",
+        }
+        points = {
+            "akita_black_bowl_1": [-0.05, 0.20, 0.45],
+            "akita_black_bowl_2": [-0.18, 0.32, 0.45],
+        }
+        matched = verify_step(
+            local,
+            ToolOutcome(executed=True, xyz=[-0.05, 0.20, 0.46]),
+            [obs(points)],
+            scene_epoch=1,
+            min_step=0,
+            objects=scene,
+            support_z={},
+            goal_relation="on",
+        )
+        self.assertEqual(matched["reason_code"], "OBJECT_LOCALIZED")
+        self.assertEqual(matched["evidence_source"], "sim_state")
+        self.assertEqual(matched["metrics"]["object_ref"], "akita_black_bowl_1")
+        other = verify_step(
+            local,
+            ToolOutcome(executed=True, xyz=[-0.18, 0.32, 0.45]),
+            [obs(points)],
+            scene_epoch=1,
+            min_step=0,
+            objects=scene,
+            support_z={},
+            goal_relation="on",
+        )
+        self.assertEqual(other["reason_code"], "INSTANCE_UNCONFIRMED")
+        self.assertEqual(other["status"], "unknown")
+        self.assertEqual(other["metrics"]["object_ref"], "akita_black_bowl_1")
+        self.assertIn("不更换", other["metrics"]["error"])
+
+
 def _bowl(name: str) -> dict:
     return {
         "sim_name": name,

@@ -463,7 +463,7 @@ class App:
             self.broadcast({"type": "state", "phase": "failed", "detail": "already running"})
             return
         plan_source = message.get("plan_source") or "model"
-        if plan_source not in {"model", "manual"}:
+        if plan_source not in {"model", "manual", "replay"}:
             self.broadcast({"type": "state", "phase": "failed", "detail": f"unknown plan_source {plan_source}"})
             return
         self.run_id += 1
@@ -475,7 +475,7 @@ class App:
             self._wake()
         threading.Thread(
             target=self._run,
-            args=(kind, plan_source, run_id, message.get("manual_scope") or "single", execute),
+            args=(kind, plan_source, run_id, message.get("manual_scope") or "single", execute, message.get("stop_after")),
             daemon=True,
         ).start()
 
@@ -530,9 +530,9 @@ class App:
         self.binding = chosen
         self.broadcast({"type": "binding", "binding": _public_binding(chosen)})
 
-    def _run(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True) -> None:
+    def _run(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None) -> None:
         try:
-            self._run_inner(kind, plan_source, run_id, manual_scope, execute)
+            self._run_inner(kind, plan_source, run_id, manual_scope, execute, stop_after)
         except Exception as exc:
             self.log(f"run failed: {exc}")
             self.broadcast({"type": "state", "phase": "failed", "detail": str(exc)})
@@ -549,7 +549,7 @@ class App:
                 self.running = False
                 self.awaiting_confirm = False
 
-    def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True) -> None:
+    def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None) -> None:
         if kind == "restart":
             self.session.cancel()
             self._wake()
@@ -625,6 +625,39 @@ class App:
                 vision=False,
                 planning_input="scene_metadata",
                 elapsed_s=0,
+            )
+        elif plan_source == "replay":
+            try:
+                plan = self._saved_plan(spec, binding, scene_objects)
+            except Exception as exc:
+                self._emit_planner(
+                    plan_source="replay",
+                    stage="validation_failed",
+                    summary=str(exc),
+                    output="",
+                    errors=[{"path": "plan", "code": "replay_rejected", "received": str(exc), "expected": "the saved object_ref still bound"}],
+                    repairs=0,
+                    attempts=[],
+                    binding=binding,
+                    vision=False,
+                    planning_input="scene_metadata",
+                    elapsed_s=0,
+                )
+                self._fail_run(episode, str(exc))
+                return
+            self._emit_planner(
+                plan_source="replay",
+                stage="ok",
+                summary=plan.get("replay_note") or "",
+                output=json.dumps({"request_id": plan.get("request_id"), "steps": [step["step_id"] for step in plan["steps"]]}, ensure_ascii=False),
+                errors=[],
+                repairs=0,
+                attempts=[{"role": "saved", "request_id": plan.get("request_id"), "finish_reason": "reused", "usage": {}}],
+                binding=binding,
+                vision=False,
+                planning_input="scene_metadata",
+                elapsed_s=0,
+                plan_from="saved",
             )
         else:
             if PROBE["planner"] != "ok":
@@ -721,6 +754,11 @@ class App:
                 self._fail_run(episode, "PLANNING_FAILED")
                 return
             plan = result["plan"]
+            plan["planner_stage"] = "ok"
+            plan["request_id"] = attempts[-1].get("request_id") if attempts else None
+        plan["episode_id"] = episode
+        if plan_source in {"model", "replay"}:
+            plan["planner_stage"] = "ok"
         self.log(f"plan_source={plan.get('plan_source')} steps={len(plan['steps'])}")
         if not execute:
             self.broadcast({"type": "state", "phase": "plan_ready", "detail": "只规划，不执行", "mode": "live", "plan_source": plan.get("plan_source")})
@@ -780,6 +818,7 @@ class App:
             deadline_s=deadline,
             on_event=on_event,
             task=spec["goal"],
+            stop_after=stop_after if plan_source == "replay" else None,
         )
         if result["episode_id"] != episode or result["scene_epoch"] != epoch:
             return
@@ -787,7 +826,11 @@ class App:
             return
         native = bool(result["native_success"]) if result["status"] == "completed" else False
         reason = result["reason"] or result["status"]
-        phase = "failed" if not native or result["status"] != "completed" else "completed"
+        if result["status"] == "stopped_at_check":
+            phase = "stopped"
+            reason = "停在抓取验证 · " + (result["reason"] or "")
+        else:
+            phase = "failed" if not native or result["status"] != "completed" else "completed"
         self.broadcast_frame(
             {
                 "eid": episode,
@@ -809,8 +852,44 @@ class App:
                 "native_success": native,
                 "plan_source": plan.get("plan_source"),
                 "status": result["status"],
+                "planner_stage": plan.get("planner_stage"),
+                "execution": result.get("execution"),
             }
         )
+
+    def _saved_plan(self, spec: dict, binding: dict, scene_objects: dict) -> dict:
+        path = ROOT / "records" / "planner_last.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("stage") != "ok":
+            raise RuntimeError("已保存的计划没有通过校验，不会执行")
+        attempt = (payload.get("attempts") or [None])[0] or {}
+        calls = attempt.get("tool_calls") or []
+        if not calls:
+            raise RuntimeError("已保存的计划没有 tool call，不会执行")
+        request_id = attempt.get("request_id")
+        arguments = json.loads(calls[0]["function"]["arguments"])
+        saved_ref = ((arguments.get("steps") or [{}])[0]).get("object_ref")
+        bound = binding.get("object_ref")
+        if binding.get("status") != "resolved" or bound != saved_ref:
+            raise RuntimeError(
+                f"当前绑定是 {bound}（{binding.get('evidence_source')}），已校验计划的 object_ref 是 {saved_ref}。不更换对象，也不再次请求 Planner。"
+            )
+        from schema import prepare_plan
+
+        plan = prepare_plan(
+            arguments,
+            task=spec.get("goal") or arguments.get("goal"),
+            scene_objects=scene_objects,
+            required_object_ref=bound,
+        )
+        plan["plan_source"] = "replay"
+        plan["request_id"] = request_id
+        plan["planner_stage"] = "ok"
+        plan["replay_note"] = (
+            f"复用 {request_id}。该请求没有保存 episode_id、scene_epoch、plan_version，"
+            "不能当成当前会话。已按当前场景重新绑定，object_ref 仍一致，所以没有再次请求 Planner。"
+        )
+        return plan
 
     def _scene_binding(self, spec: dict) -> tuple[dict, dict, dict]:
         from binding import bind_task, positions_moved
@@ -1064,6 +1143,10 @@ async def websocket(request):
                 APP.start(kind, data, execute=True)
             elif kind == "plan_only":
                 APP.start("start", data, execute=False)
+            elif kind == "replay":
+                data["plan_source"] = "replay"
+                data["stop_after"] = data.get("stop_after") or "grasp_held"
+                APP.start("start", data, execute=True)
             elif kind == "bind":
                 APP.choose_binding(data)
             elif kind == "stop":

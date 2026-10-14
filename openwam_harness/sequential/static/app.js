@@ -9,7 +9,8 @@ const suiteSel = $("suite"), taskSel = $("task-id"), seedIn = $("seed"),
   agentView = $("agent-view"), wristView = $("wrist-view"),
   phAgent = $("ph-agent"), phWrist = $("ph-wrist"), statusEl = $("status"),
   healthEl = $("health"), badge = $("badge"),
-  plannerMeta = $("planner-meta"), plannerBrief = $("planner-brief"), plannerFull = $("planner-full");
+  plannerMeta = $("planner-meta"), plannerBrief = $("planner-brief"), plannerFull = $("planner-full"),
+  execMeta = $("exec-meta"), execBrief = $("exec-brief"), execFull = $("exec-full");
 
 const agCtx = agentCanvas.getContext("2d");
 const wrCtx = wristCanvas.getContext("2d");
@@ -27,6 +28,9 @@ let episode = null;
 let sceneEpoch = null;
 let planVersion = 1;
 let waiting = false;
+let lastPlannerStage = "";
+let lastExec = null;
+let lastRunStatus = "";
 
 function clearBuffer(){
   pending = null; decoding = false; lastDisplayedFid = -1; endedFallback = null;
@@ -130,7 +134,13 @@ function handleText(txt){
       if (m.plan_version != null) planVersion = m.plan_version;
       if (m.phase === "waiting_confirmation") setConfirm(true);
       else if (m.phase === "failed" || m.phase === "executing" || m.phase === "planning") setConfirm(false);
-      if (!terminalReached) setStatus(PHASES[m.phase] || m.phase || "state", statusDetail(m), m.phase === "failed" ? "bad" : "");
+      if (m.execution) rememberExec(m.execution);
+      if (m.planner_stage) lastPlannerStage = m.planner_stage;
+      if (!terminalReached && lastPlannerStage === "ok" && m.phase === "failed") {
+        setStatus("规划通过，执行失败", (m.execution && m.execution.reason) || m.reason || m.detail || "", "bad");
+      } else if (!terminalReached && lastPlannerStage === "ok" && m.phase === "waiting_confirmation") {
+        setStatus("规划通过，执行暂停", (m.execution && m.execution.reason) || m.detail || "", "warn");
+      } else if (!terminalReached) setStatus(PHASES[m.phase] || m.phase || "state", statusDetail(m), m.phase === "failed" ? "bad" : "");
       const verify = m.verification_status ? ` · 验证 ${m.verification_status}` : "";
       badge.textContent = `plan_source=${m.plan_source || "—"} · 恢复 ${m.recovery_attempts || 0} 次${verify}`;
       break;
@@ -145,6 +155,9 @@ function handleText(txt){
       break;
     case "ended":
       if (acceptEid && m.episode_id && m.episode_id !== acceptEid) break;
+      if (m.planner_stage) lastPlannerStage = m.planner_stage;
+      if (m.status) lastRunStatus = m.status;
+      if (m.execution) rememberExec(m.execution);
       endedFallback = m;
       setConfirm(false);
       loadBtn.disabled = false; startBtn.disabled = false; manualBtn.disabled = false; restartBtn.disabled = false; stopBtn.disabled = true;
@@ -153,6 +166,48 @@ function handleText(txt){
   }
 }
 
+const CATEGORIES = {
+  service: "连接或超时",
+  parameter: "参数或对象名",
+  subtask_incomplete: "子任务未完成",
+  tool_exception: "工具异常"
+};
+function rememberExec(execution){
+  lastExec = execution || null;
+  renderExec(lastExec);
+}
+function renderExec(execution){
+  if (!execution) {
+    execMeta.textContent = "还没有执行";
+    execBrief.textContent = "";
+    return;
+  }
+  const category = CATEGORIES[execution.category] || execution.category || "—";
+  const checker = execution.checker_reason_code ? ` · 检查结果 ${execution.checker_reason_code}` : "";
+  const planner = lastPlannerStage === "ok" ? "规划通过" : (lastPlannerStage || "规划状态未知");
+  const failed = execution.reason_code && execution.reason_code !== "GRASP_HELD" && execution.reason_code !== "OBJECT_LOCALIZED" && !execution.stopped;
+  execMeta.textContent = failed ? `${planner}，执行失败` : `${planner} · ${execution.reason_code || "执行中"}`;
+  execBrief.textContent = [
+    `当前步骤: ${execution.step_id || "—"}`,
+    `当前工具: ${execution.skill || "—"}`,
+    `失败类别: ${category}`,
+    `原因: ${execution.reason || "—"}${checker}`,
+    `环境动作数: ${execution.env_action_count ?? 0}`,
+    `最新观测: ${execution.observation_id || "—"}`,
+    `记录序号: ${execution.record_index ?? "—"}（${execution.record_index_note || "不是仿真步数"}）`
+  ].join("\n");
+  execFull.hidden = true;
+  execFull.textContent = JSON.stringify({
+    args: execution.args || {},
+    object_ref: execution.object_ref || null,
+    grounding_query: execution.grounding_query || null,
+    vla_prompt: execution.vla_prompt || null,
+    return_summary: execution.return_summary || {},
+    request_id: execution.request_id || null,
+    episode_id: execution.episode_id || null,
+    reason_code: execution.reason_code || null
+  }, null, 2);
+}
 function statusDetail(m){
   const timing = m.timings ? JSON.stringify(m.timings) : "";
   const bits = [m.detail || "", m.reason || "", m.reason_code || "", m.step_id || "", m.skill || "", m.evidence_source || "", timing].filter(Boolean);
@@ -233,12 +288,14 @@ function renderPlanner(m){
   const attemptText = attempts.length
     ? attempts.map(item => {
         const usage = item.usage || {};
-        return `${item.role === "format_repair" ? "修复" : "初始"} ${item.request_id || "无 request_id"} · prompt ${usage.prompt_tokens ?? "—"} / completion ${usage.completion_tokens ?? "—"} · ${item.finish_reason || ""}`;
+        const label = item.role === "format_repair" ? "修复" : (item.role === "saved" ? "复用" : "初始");
+        return `${label} ${item.request_id || "无 request_id"} · prompt ${usage.prompt_tokens ?? "—"} / completion ${usage.completion_tokens ?? "—"} · ${item.finish_reason || ""}`;
       }).join("\n")
     : "没有分开保存的初始/修复响应";
   const errors = (m.errors || []).map(item => `${item.path || ""} ${item.code || ""} received=${JSON.stringify(item.received)} expected ${item.expected || ""}`).join("\n");
   const binding = m.binding || {};
   const bound = binding.object_ref ? `${binding.object_ref} · ${binding.evidence_source || ""}` : "未绑定";
+  lastPlannerStage = m.stage || lastPlannerStage;
   plannerMeta.textContent = `${stage} · ${m.model || ""} · ${Number(m.elapsed_s || 0).toFixed(1)}s · 修复 ${m.repairs || 0} 次`;
   plannerBrief.textContent = [
     `输入模式: ${m.planning_input || "未知"}`,
@@ -307,7 +364,14 @@ function handleBinary(ab){
 
 function showResult(success, reason){
   terminalReached = true;
-  setStatus(success ? "完成" : "failed", reason || "", success ? "good" : "bad");
+  const text = (lastExec && lastExec.reason) || reason || "";
+  if (!success && lastPlannerStage === "ok" && (lastRunStatus === "stopped_at_check" || String(reason || "").includes("停在抓取验证"))) {
+    setStatus("规划通过，执行停在抓取验证", text, "warn");
+  } else if (!success && lastPlannerStage === "ok") {
+    setStatus("规划通过，执行失败", text, "bad");
+  } else {
+    setStatus(success ? "完成" : "failed", reason || "", success ? "good" : "bad");
+  }
   startBtn.disabled = false; manualBtn.disabled = false; restartBtn.disabled = false; loadBtn.disabled = false;
   setConfirm(false);
   endedFallback = null;
@@ -342,7 +406,7 @@ function tick(){
     lastDisplayedFid = f.hdr.fid;
     if (f.hdr.phase === "waiting_confirmation") setConfirm(true);
     if (f.hdr.term) showResult(!!f.hdr.success, f.hdr.reason);
-    else if (!terminalReached) setStatus(f.hdr.phase || "executing", f.hdr.detail || "");
+    else if (!terminalReached && !lastExec) setStatus(f.hdr.phase || "executing", f.hdr.detail || "");
     if (f.hdr.term || (lastDisplayedFid % 8) === 0){
       send({type:"client_perf", decode_ms: 0, draw_ms: 0, gap_ms: f.gap || 0});
     }
@@ -393,6 +457,7 @@ okBtn.onclick = () => confirm("success");
 badBtn.onclick = () => confirm("failure");
 unkBtn.onclick = () => confirm("unknown");
 $("planner-expand").onclick = () => { plannerFull.hidden = !plannerFull.hidden; };
+$("exec-expand").onclick = () => { execFull.hidden = !execFull.hidden; };
 taskIn.addEventListener("input", ()=>{
   const ready = !!taskIn.value.trim();
   manualBtn.disabled = !ready;
