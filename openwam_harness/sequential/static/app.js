@@ -1,7 +1,9 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
-const sceneSel = $("scene"), loadBtn = $("load"), taskIn = $("task"),
-  startBtn = $("start"), manualBtn = $("manual"), restartBtn = $("restart"), stopBtn = $("stop"),
+const suiteSel = $("suite"), taskSel = $("task-id"), seedIn = $("seed"),
+  loadBtn = $("load"), taskIn = $("task"),
+  startBtn = $("start"), manualBtn = $("manual"), longBtn = $("long"),
+  restartBtn = $("restart"), stopBtn = $("stop"),
   okBtn = $("ok"), badBtn = $("bad"), unkBtn = $("unk"),
   agentCanvas = $("agent"), wristCanvas = $("wrist"),
   agentView = $("agent-view"), wristView = $("wrist-view"),
@@ -46,6 +48,19 @@ function setConfirm(on){
   stopBtn.disabled = !on && startBtn.disabled;
 }
 
+const PHASES = {
+  queued: "排队",
+  processing_input: "处理输入",
+  generating: "生成中",
+  validating: "校验",
+  planning: "planning",
+  loading: "加载中",
+  loaded: "场景已加载",
+  executing: "executing",
+  waiting_confirmation: "waiting_confirmation",
+  failed: "failed"
+};
+let suites = [];
 let ws = null, wsConnected = false;
 function connect(){
   const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -73,19 +88,17 @@ function handleText(txt){
     case "health":
       renderHealth(m);
       break;
-    case "scenes":
-      sceneSel.innerHTML = "";
-      (m.scenes||[]).forEach(s=>{
-        const o = document.createElement("option");
-        o.value = s.id; o.textContent = s.label;
-        sceneSel.appendChild(o);
-      });
+    case "suites":
+      suites = m.suites || [];
+      fillSuites();
       break;
     case "loaded":
       curEid = null; acceptEid = null; gate = false; clearBuffer();
       episode = m.episode_id; sceneEpoch = m.scene_epoch; planVersion = m.plan_version || 1;
       taskIn.value = m.instruction || "";
+      $("summary").textContent = m.summary_zh ? `中文摘要：${m.summary_zh}` : "";
       taskIn.disabled = false; startBtn.disabled = false; manualBtn.disabled = false;
+      longBtn.disabled = !currentTask().long_candidate;
       restartBtn.disabled = true; loadBtn.disabled = false;
       setConfirm(false);
       if (m.placeholder || m.mode === "dry"){
@@ -113,8 +126,9 @@ function handleText(txt){
       if (m.plan_version != null) planVersion = m.plan_version;
       if (m.phase === "waiting_confirmation") setConfirm(true);
       else if (m.phase === "failed" || m.phase === "executing" || m.phase === "planning") setConfirm(false);
-      if (!terminalReached) setStatus(m.phase || "state", statusDetail(m), m.phase === "failed" ? "bad" : "");
-      badge.textContent = `plan_source=${m.plan_source || "—"} · 恢复 ${m.recovery_attempts || 0} 次`;
+      if (!terminalReached) setStatus(PHASES[m.phase] || m.phase || "state", statusDetail(m), m.phase === "failed" ? "bad" : "");
+      const verify = m.verification_status ? ` · 验证 ${m.verification_status}` : "";
+      badge.textContent = `plan_source=${m.plan_source || "—"} · 恢复 ${m.recovery_attempts || 0} 次${verify}`;
       break;
     case "planner_io":
       renderPlanner(m);
@@ -133,8 +147,44 @@ function handleText(txt){
 }
 
 function statusDetail(m){
-  const bits = [m.detail || "", m.reason || "", m.step_id || "", m.skill || ""].filter(Boolean);
+  const timing = m.timings ? JSON.stringify(m.timings) : "";
+  const bits = [m.detail || "", m.reason || "", m.reason_code || "", m.step_id || "", m.skill || "", m.evidence_source || "", timing].filter(Boolean);
   return bits.join(" · ");
+}
+function currentTask(){
+  const suite = suites.find(item => item.id === suiteSel.value);
+  const task = suite && (suite.tasks || []).find(item => String(item.id) === taskSel.value);
+  return task || {};
+}
+function fillSuites(){
+  suiteSel.innerHTML = "";
+  suites.forEach(suite => {
+    const option = document.createElement("option");
+    option.value = suite.id;
+    option.textContent = `${suite.label} / ${suite.id}`;
+    suiteSel.appendChild(option);
+  });
+  fillTasks();
+}
+function fillTasks(){
+  const suite = suites.find(item => item.id === suiteSel.value);
+  taskSel.innerHTML = "";
+  (suite && suite.tasks || []).forEach(task => {
+    const option = document.createElement("option");
+    option.value = String(task.id);
+    option.textContent = `t${task.id} ${task.language}`;
+    taskSel.appendChild(option);
+  });
+  applyTask();
+}
+function applyTask(){
+  const task = currentTask();
+  taskIn.value = task.language || "";
+  $("summary").textContent = task.summary_zh ? `中文摘要：${task.summary_zh}` : "";
+  const maxSeed = Math.max(0, (task.init_states || 1) - 1);
+  seedIn.max = String(maxSeed);
+  if (Number(seedIn.value) > maxSeed) seedIn.value = "0";
+  longBtn.disabled = !task.long_candidate;
 }
 
 function renderHealth(m){
@@ -234,32 +284,35 @@ function tick(){
   }).catch(() => { decoding = false; setStatus("failed", "画面解码失败", "bad"); });
 }
 
+suiteSel.onchange = fillTasks;
+taskSel.onchange = applyTask;
 loadBtn.onclick = () => {
   if (!wsConnected) return;
-  const id = sceneSel.value;
-  if (!id) return;
-  loadBtn.disabled = true; startBtn.disabled = true; manualBtn.disabled = true; restartBtn.disabled = true;
+  if (!suiteSel.value) return;
+  loadBtn.disabled = true; startBtn.disabled = true; manualBtn.disabled = true; longBtn.disabled = true; restartBtn.disabled = true;
   taskIn.disabled = true;
   clearBuffer(); terminalReached = false; curEid = null; acceptEid = null; gate = false;
   setConfirm(false);
   phAgent.style.display = ""; phWrist.style.display = "";
-  setStatus("loading", id);
-  send({type:"load", scene:id});
+  setStatus("加载中", `${suiteSel.value} t${taskSel.value} seed ${seedIn.value}`);
+  send({type:"load", suite: suiteSel.value, task_id: Number(taskSel.value), seed: Number(seedIn.value || 0)});
 };
 function begin(source){
   if (!wsConnected) return;
   const task = taskIn.value.trim();
   if (!task) return;
-  startBtn.disabled = true; manualBtn.disabled = true; restartBtn.disabled = true; loadBtn.disabled = true;
+  startBtn.disabled = true; manualBtn.disabled = true; longBtn.disabled = true; restartBtn.disabled = true; loadBtn.disabled = true;
   clearBuffer(); terminalReached = false; curEid = null; acceptEid = null; gate = false;
   setConfirm(false);
   stopBtn.disabled = false;
   const planSource = source === "model" ? "model" : "manual";
-  send({type: source === "restart" ? "restart" : "start", task, plan_source: planSource});
-  setStatus(source === "manual" ? "人工计划" : "planning", source === "manual" ? "plan_source=manual" : "等待模型");
+  const manualScope = source === "long" ? "long" : "single";
+  send({type: source === "restart" ? "restart" : "start", task, plan_source: planSource, manual_scope: manualScope});
+  setStatus(planSource === "manual" ? "人工计划" : "planning", planSource === "manual" ? `plan_source=manual ${manualScope}` : "等待模型");
 }
 startBtn.onclick = () => begin("model");
 manualBtn.onclick = () => begin("manual");
+longBtn.onclick = () => begin("long");
 restartBtn.onclick = () => begin("restart");
 stopBtn.onclick = () => { send({type:"stop"}); setConfirm(false); stopBtn.disabled = true; };
 function confirm(verdict){

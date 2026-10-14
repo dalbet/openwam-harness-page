@@ -282,19 +282,38 @@ def run_plan(
                 _invalidate_broken(steps, last_obs, plan, support_z, started_epoch)
                 queue[index + 1 :] = replacement["steps"]
                 emit("executing", detail="local replan", plan_version=started_version, recovery_attempts=recovery.attempts.get(step["step_id"], 0))
-        if verification.get("status") == "failure" and verification.get("reason_code") not in {"NOT_REAL"}:
+        confirmed = (verification.get("manual_confirmation") or {}).get("verdict") == "success"
+        if (
+            verification.get("status") != "success"
+            and not confirmed
+            and verification.get("reason_code") not in {"NOT_REAL"}
+        ):
             if not (verification.get("reason_code") == "RECOVERY_EXHAUSTED" and replanned):
                 steps.append(_step_record(step, outcome, verification, last_obs))
                 emit(
                     "failed",
                     step_id=step["step_id"],
+                    skill=skill,
                     reason=verification.get("reason_code") or outcome.error,
+                    detail=outcome.error or verification.get("reason_code"),
+                    evidence_source=verification.get("evidence_source"),
                     recovery_attempts=recovery.attempts.get(step["step_id"], 0),
                 )
                 status = "RECOVERY_EXHAUSTED" if verification.get("reason_code") == "RECOVERY_EXHAUSTED" else "no_progress"
                 return _finish(status, verification.get("reason_code") or outcome.error or "failed", session, started_epoch, started_version, steps, backend, llm_calls)
         steps.append(_step_record(step, outcome, verification, last_obs))
-        emit("executing", step_id=step["step_id"], detail=verification.get("reason_code"), recovery_attempts=recovery.attempts.get(step["step_id"], 0))
+        emit(
+            "executing",
+            step_id=step["step_id"],
+            skill=skill,
+            detail=verification.get("reason_code"),
+            verification_status=verification.get("status"),
+            reason_code=verification.get("reason_code"),
+            evidence_source=verification.get("evidence_source"),
+            grasp_signal=outcome.grasp_signal,
+            env_step=outcome.env_step,
+            recovery_attempts=recovery.attempts.get(step["step_id"], 0),
+        )
         index += 1
 
     return _finish("completed", "", session, started_epoch, started_version, steps, backend, llm_calls)
@@ -370,29 +389,7 @@ def _recover_or_confirm(
         failed = receipt("failure", "NOT_REAL", "tool_return", [], {"real": False})
         return failed, outcome, post
     if verification["status"] == "unknown":
-        emit(
-            "waiting_confirmation",
-            step_id=step["step_id"],
-            subtask=step.get("subtask"),
-            detail=verification["reason_code"],
-            reason=verification["reason_code"],
-        )
-        user = confirm(step.get("subtask") or step["step_id"])
-        if stale() or user is None:
-            return {"status": "discarded", "reason": "stale confirmation discarded"}, outcome, post
-        verification = dict(verification)
-        verification["manual_confirmation"] = {
-            "verdict": user,
-            "step_id": step["step_id"],
-            "observation_ids": verification.get("observation_ids"),
-            "episode_id": session.episode_id,
-            "scene_epoch": session.scene_epoch,
-            "plan_version": session.plan_version,
-        }
-        if user != "success":
-            verification["status"] = "failure"
-            verification["reason_code"] = f"manual_{user}"
-        return verification, outcome, post
+        return _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post)
     event = event_for(verification, outcome)
     if event is None or step.get("on_failure") != "recover":
         return verification, outcome, post
@@ -457,8 +454,36 @@ def _recover_or_confirm(
             before=post[0] if post else None,
         )
         event = event_for(verification, outcome) or event
+    if verification.get("status") == "unknown":
+        return _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post)
     if verification.get("status") == "failure":
         verification = receipt("failure", "RECOVERY_EXHAUSTED", verification.get("evidence_source") or "sim_state_assisted", verification.get("observation_ids") or [], {"event": event})
+    return verification, outcome, post
+
+
+def _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post):
+    emit(
+        "waiting_confirmation",
+        step_id=step["step_id"],
+        subtask=step.get("subtask"),
+        detail=verification["reason_code"],
+        reason=verification["reason_code"],
+    )
+    user = confirm(step.get("subtask") or step["step_id"])
+    if stale() or user is None:
+        return {"status": "discarded", "reason": "stale confirmation discarded"}, outcome, post
+    verification = dict(verification)
+    verification["manual_confirmation"] = {
+        "verdict": user,
+        "step_id": step["step_id"],
+        "observation_ids": verification.get("observation_ids"),
+        "episode_id": session.episode_id,
+        "scene_epoch": session.scene_epoch,
+        "plan_version": session.plan_version,
+    }
+    if user != "success":
+        verification["status"] = "failure"
+        verification["reason_code"] = f"manual_{user}"
     return verification, outcome, post
 
 

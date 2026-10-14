@@ -52,13 +52,20 @@ def _image_size(raw: bytes) -> tuple[int, int]:
     return int(image.size[0]), int(image.size[1])
 
 
-def _png_to_jpeg(raw: bytes) -> bytes:
+UI_MAX_EDGE = 512
+UI_JPEG_QUALITY = 70
+
+
+def _ui_jpeg(raw: bytes) -> tuple[bytes, tuple[int, int], tuple[int, int]]:
+    """Downscale a grounding PNG for the page. Pi0.5 still reads the sim observation."""
     from PIL import Image
 
     image = Image.open(io.BytesIO(raw)).convert("RGB")
+    source = (int(image.size[0]), int(image.size[1]))
+    image.thumbnail((UI_MAX_EDGE, UI_MAX_EDGE), Image.Resampling.LANCZOS)
     buf = io.BytesIO()
-    image.save(buf, format="JPEG", quality=85)
-    return buf.getvalue()
+    image.save(buf, format="JPEG", quality=UI_JPEG_QUALITY)
+    return buf.getvalue(), source, (int(image.size[0]), int(image.size[1]))
 
 
 class DryBackend:
@@ -99,7 +106,11 @@ class DryBackend:
 
 class App:
     def __init__(self) -> None:
-        self.catalog = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
+        self.human_plans = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
+        self.catalog = self.human_plans
+        self.suites = None
+        self.scene_spec = None
+        self.loading = False
         self.session = Session("none")
         self.backend = None
         self.confirm_q: Queue = Queue()
@@ -188,37 +199,61 @@ class App:
                 }
             )
             return
-        if agent[:2] != b"\xff\xd8":
-            agent = _png_to_jpeg(agent)
-        if wrist[:2] != b"\xff\xd8":
-            wrist = _png_to_jpeg(wrist)
-        aw, ah = _image_size(agent)
-        ww, wh = _image_size(wrist)
-        header.update({"aw": aw, "ah": ah, "ww": ww, "wh": wh, "placeholder": False})
+        started = time.perf_counter()
+        agent, src_a, (aw, ah) = _ui_jpeg(agent)
+        wrist, src_w, (ww, wh) = _ui_jpeg(wrist)
+        self.last_encode_s = round(time.perf_counter() - started, 3)
+        header.update({
+            "aw": aw,
+            "ah": ah,
+            "ww": ww,
+            "wh": wh,
+            "src_aw": src_a[0],
+            "src_ah": src_a[1],
+            "src_ww": src_w[0],
+            "src_wh": src_w[1],
+            "placeholder": False,
+        })
         payload = frame_bytes(header, agent, wrist)
         if self.loop is None:
             return
         for ws in list(self.clients):
             asyncio.run_coroutine_threadsafe(ws.send_bytes(payload), self.loop)
 
-    def load(self, scene_id: str) -> None:
-        spec = self.catalog.get(scene_id)
-        if spec is None:
-            self.broadcast({"type": "load_failed", "detail": f"unknown scene {scene_id}"})
-            return
+    def load(self, message) -> None:
         with self.lock:
+            if self.loading:
+                self.broadcast({
+                    "type": "load_failed",
+                    "detail": "已有加载在进行，不会再创建环境。",
+                })
+                return
+            self.loading = True
             self.load_token += 1
             token = self.load_token
             self.session.cancel()
             self._wake()
             self.running = False
             self.awaiting_confirm = False
+        try:
+            self._load_locked(message, token)
+        finally:
+            with self.lock:
+                self.loading = False
+
+    def _load_locked(self, message, token: int) -> None:
+        try:
+            spec = self._scene_from_message(message)
+        except Exception as exc:
+            self.broadcast({"type": "load_failed", "detail": str(exc)})
+            self.broadcast({"type": "state", "phase": "failed", "detail": str(exc)})
+            return
+        scene_id = spec["scene_id"]
         self.broadcast({"type": "state", "phase": "loading", "detail": scene_id, "mode": self.mode})
         self.log(f"load {scene_id} mode={self.mode}")
         if not LIVE:
-            self._close_backend()
-            self.session = Session(scene_id)
-            episode = self.session.begin_episode()
+            episode = self._begin_session(scene_id)
+            self.scene_spec = spec
             self.broadcast(
                 {
                     "type": "loaded",
@@ -230,7 +265,8 @@ class App:
                     "placeholder": True,
                     "scene": {
                         "task_language": spec["goal"],
-                        "object_names": list(spec["objects"]),
+                        "object_names": [],
+                        "summary_zh": spec.get("summary_zh"),
                         "placeholder": True,
                         "note": "干跑未创建 LIBERO，没有新图像",
                     },
@@ -247,26 +283,42 @@ class App:
             return
 
         with self.lock:
-            self._close_backend()
-            self.session = Session(scene_id)
-            episode = self.session.begin_episode()
+            episode = self._begin_session(scene_id)
+            self.scene_spec = spec
         out = ROOT.parents[0] / "runs" / "sequential" / episode
         box: dict = {}
         abandoned = threading.Event()
+        same = (
+            self.backend is not None
+            and hasattr(self.backend, "scene_key")
+            and self.backend.scene_key() == (spec["suite"], int(spec["task_id"]), int(spec["seed"]))
+        )
 
         def work() -> None:
-            backend = None
+            backend = self.backend
             try:
                 from live import LiveBackend
 
-                backend = LiveBackend(spec, out)
+                def on_phase(name: str) -> None:
+                    self.broadcast({"type": "state", "phase": "loading", "detail": name, "mode": "live"})
+
+                if same:
+                    on_phase("reset")
+                    backend.warm_reset()
+                elif backend is not None:
+                    on_phase("env_create")
+                    backend.retarget(spec, out)
+                else:
+                    backend = LiveBackend(spec, out, on_phase=on_phase)
                 if abandoned.is_set() or token != self.load_token:
-                    backend.close()
+                    if not same:
+                        backend.close()
                     return
                 box["backend"] = backend
                 box["info"] = backend.scene_info()
+                box["timings"] = dict(backend.timings)
             except Exception as exc:
-                if backend is not None:
+                if backend is not None and not same:
                     backend.close()
                 box["error"] = exc
 
@@ -311,7 +363,9 @@ class App:
                 "plan_version": self.session.plan_version,
                 "mode": "live",
                 "placeholder": False,
+                "summary_zh": spec.get("summary_zh"),
                 "scene": info,
+                "timings": box.get("timings") or {},
             }
         )
         self.broadcast_frame(
@@ -325,6 +379,49 @@ class App:
                 "reason": "",
             }
         )
+        timings = dict(box.get("timings") or {})
+        timings["encode_transfer_s"] = getattr(self, "last_encode_s", None)
+        self.broadcast({"type": "state", "phase": "loaded", "detail": scene_id, "timings": timings, "mode": "live"})
+        self.log("load timings " + json.dumps(timings, ensure_ascii=False))
+
+    def _begin_session(self, scene_id: str) -> str:
+        previous = 0 if self.session.scene_id == "none" else self.session.scene_epoch
+        self.session = Session(scene_id)
+        self.session.scene_epoch = previous
+        return self.session.begin_episode()
+
+    def _scene_from_message(self, message) -> dict:
+        import re
+
+        from suites import goal_relation, load_suites, task_record
+
+        if self.suites is None:
+            self.suites = load_suites()
+        if isinstance(message, str) or (isinstance(message, dict) and message.get("scene") and not message.get("suite")):
+            scene_id = message if isinstance(message, str) else str(message.get("scene"))
+            matched = re.fullmatch(r"(libero_spatial|libero_object|libero_goal|libero_10)_t(\d+)(?:_s(\d+))?", scene_id)
+            if not matched:
+                raise ValueError(f"unknown scene {scene_id}")
+            suite, task_id, seed = matched.group(1), int(matched.group(2)), int(matched.group(3) or 0)
+        else:
+            suite = str(message.get("suite") or "")
+            task_id = int(message.get("task_id"))
+            seed = int(message.get("seed") or 0)
+        task = task_record(self.suites, suite, task_id)
+        if seed < 0 or seed >= int(task["init_states"]):
+            raise ValueError(f"seed {seed} 超出该任务初始状态数量 {task['init_states']}")
+        return {
+            "scene_id": f"{suite}_t{task_id}_s{seed}",
+            "suite": suite,
+            "task_id": task_id,
+            "seed": seed,
+            "goal": task["language"],
+            "task": task["language"],
+            "summary_zh": task["summary_zh"],
+            "goal_relation": goal_relation(task["language"]),
+            "long_candidate": task["long_candidate"],
+            "init_states": task["init_states"],
+        }
 
     def start(self, kind: str, message: dict) -> None:
         if self.session.scene_id == "none" or (LIVE and self.backend is None):
@@ -346,11 +443,14 @@ class App:
             self._wake()
         threading.Thread(
             target=self._run,
-            args=(kind, plan_source, run_id),
+            args=(kind, plan_source, run_id, message.get("manual_scope") or "single"),
             daemon=True,
         ).start()
 
     def stop(self) -> None:
+        cancel = getattr(self.planner, "cancel", None)
+        if cancel is not None:
+            cancel()
         self.session.cancel()
         self.awaiting_confirm = False
         self._wake()
@@ -382,9 +482,9 @@ class App:
             return
         self.confirm_q.put(message.get("verdict"))
 
-    def _run(self, kind: str, plan_source: str, run_id: int) -> None:
+    def _run(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single") -> None:
         try:
-            self._run_inner(kind, plan_source, run_id)
+            self._run_inner(kind, plan_source, run_id, manual_scope)
         except Exception as exc:
             self.log(f"run failed: {exc}")
             self.broadcast({"type": "state", "phase": "failed", "detail": str(exc)})
@@ -401,47 +501,67 @@ class App:
                 self.running = False
                 self.awaiting_confirm = False
 
-    def _run_inner(self, kind: str, plan_source: str, run_id: int) -> None:
+    def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single") -> None:
         if kind == "restart":
             self.session.cancel()
             self._wake()
             if not LIVE:
                 self._refuse_dry()
                 return
-            episode = self.session.begin_episode()
-            self._close_backend()
-            from live import LiveBackend
-
-            spec = self.catalog[self.session.scene_id]
-            out = ROOT.parents[0] / "runs" / "sequential" / episode
-            self.backend = LiveBackend(spec, out)
+            self.session.begin_episode()
+            if self.backend is None:
+                self._fail_run(self.session.episode_id, "load a scene first")
+                return
+            self.broadcast({"type": "state", "phase": "loading", "detail": "reset", "mode": "live"})
+            self.backend.warm_reset()
             self.backend.scene_epoch = self.session.scene_epoch
         if not LIVE:
             self._refuse_dry()
             return
         episode = self.session.episode_id
         epoch = self.session.scene_epoch
-        spec = self.catalog[self.session.scene_id]
+        spec = self.scene_spec or {}
         self.broadcast({"type": "started", "episode_id": episode, "mode": self.mode, "plan_source": plan_source})
         if plan_source == "manual":
-            plan = load_human_plan(PLAN_PATH, self.session.scene_id)
-            self._emit_planner(plan_source="manual", summary="用户选择人工计划", output="manual plan", errors=[], repairs=0, usage={}, elapsed_s=0)
+            plan = self._manual_plan(spec, manual_scope)
+            self._emit_planner(
+                plan_source="manual",
+                summary=f"用户选择人工计划 scope={manual_scope}",
+                output=json.dumps({"plan_id": plan.get("plan_id"), "semantic_step_ids": plan.get("semantic_step_ids"), "steps": [step["step_id"] for step in plan["steps"]]}, ensure_ascii=False),
+                errors=[],
+                repairs=0,
+                usage={},
+                elapsed_s=0,
+            )
         else:
             self.broadcast({"type": "state", "phase": "planning", "detail": PLANNER_MODEL, "mode": "live", "plan_source": "model"})
             info = self.backend.scene_info()
             image_ids = [f"agentview:{info.get('env_step')}", f"wrist:{info.get('env_step')}"]
+            from suites import _objects_from_names
+
             scene_text = json.dumps(
                 {
-                    "goal_relation": spec["goal_relation"],
-                    "objects": spec["objects"],
+                    "goal_relation": spec.get("goal_relation"),
+                    "objects": _objects_from_names(info.get("object_names") or []),
                     "sim_object_names": info.get("object_names"),
                     "env_step": info.get("env_step"),
                     "image_ids": image_ids,
-                    "note": "image bytes are not inlined",
+                    "planner_image_max_edge": 384,
+                    "note": "image bytes are not inlined; ids only",
                 },
                 ensure_ascii=False,
             )
             started = time.monotonic()
+
+            def on_planner(phase: str, detail: str) -> None:
+                self.broadcast({
+                    "type": "state",
+                    "phase": phase,
+                    "detail": detail,
+                    "mode": "live",
+                    "plan_source": "model",
+                })
+
             try:
                 result = request_plan(
                     task=spec["goal"],
@@ -449,6 +569,7 @@ class App:
                     client=self.planner,
                     short_memory=SHORT_MEMORY,
                     image_ids=image_ids,
+                    on_event=on_planner,
                 )
             except Exception as exc:
                 self._emit_planner(
@@ -572,6 +693,25 @@ class App:
             }
         )
 
+    def _manual_plan(self, spec: dict, scope: str) -> dict:
+        if scope == "long":
+            key = f"{spec.get('suite')}_t{spec.get('task_id')}"
+            if key not in self.human_plans or int(spec.get("seed") or 0) != 0:
+                raise RuntimeError(f"没有 {key} seed 0 的长任务人工计划，不会改用模型计划。")
+            plan = load_human_plan(PLAN_PATH, key)
+            plan["plan_source"] = "manual"
+            return plan
+        from suites import single_manual_plan
+
+        info = self.backend.scene_info()
+        return single_manual_plan(
+            spec["goal"],
+            info.get("object_names") or [],
+            suite=spec["suite"],
+            task_id=int(spec["task_id"]),
+            seed=int(spec["seed"]),
+        )
+
     def _emit_planner(self, **payload) -> None:
         text = json.dumps(payload, ensure_ascii=False, default=str)
         text = text.replace("Bearer EMPTY", "Bearer [redacted]")
@@ -665,13 +805,20 @@ async def websocket(request):
             data = json.loads(msg.data)
             kind = data.get("type")
             if kind == "get_scenes":
-                await ws.send_str(json.dumps({"type": "scenes", "scenes": APP.scenes()}))
+                try:
+                    if APP.suites is None:
+                        from suites import load_suites
+
+                        APP.suites = load_suites()
+                    await ws.send_str(json.dumps({"type": "suites", "suites": APP.suites}, ensure_ascii=False))
+                except Exception as exc:
+                    await ws.send_str(json.dumps({"type": "load_failed", "detail": f"读取 LIBERO 套件失败: {exc}"}, ensure_ascii=False))
             elif kind == "get_health":
                 await ws.send_str(json.dumps(APP.health(), ensure_ascii=False))
             elif kind == "ping":
                 await ws.send_str(json.dumps({"type": "pong"}))
             elif kind == "load":
-                threading.Thread(target=APP.load, args=(data.get("scene"),), daemon=True).start()
+                threading.Thread(target=APP.load, args=(data,), daemon=True).start()
             elif kind in {"start", "restart"}:
                 APP.start(kind, data)
             elif kind == "stop":

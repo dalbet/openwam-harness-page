@@ -26,9 +26,11 @@ async def main() -> None:
             assert hello["mode"] == health["mode"]
             await ws.send_json({"type": "get_scenes"})
             scenes = json.loads(await _text(ws))
-            assert scenes["type"] == "scenes", scenes
-            assert {item["id"] for item in scenes["scenes"]} == {"libero_10_t0", "libero_10_t1"}
-            await ws.send_json({"type": "load", "scene": "libero_10_t0"})
+            assert scenes["type"] == "suites", scenes
+            ids = {item["id"] for item in scenes["suites"]}
+            assert ids == {"libero_spatial", "libero_object", "libero_goal", "libero_10"}, ids
+            assert all(item["standard"] is True for item in scenes["suites"])
+            await ws.send_json({"type": "load", "suite": "libero_10", "task_id": 0, "seed": 0})
             messages = []
             while not any(item.get("type") in {"loaded", "load_failed"} for item in messages):
                 messages.append(json.loads(await _text(ws)))
@@ -54,14 +56,14 @@ async def main() -> None:
 
 async def _text(ws):
     while True:
-        msg = await ws.receive(timeout=30)
+        msg = await ws.receive(timeout=120)
         if msg.type == aiohttp.WSMsgType.TEXT:
             return msg.data
 
 
 async def _binary(ws):
     while True:
-        msg = await ws.receive(timeout=30)
+        msg = await ws.receive(timeout=120)
         if msg.type == aiohttp.WSMsgType.BINARY:
             return msg.data
 

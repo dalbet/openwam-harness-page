@@ -13,6 +13,29 @@ from store import LocalizationCache, candidate_card
 from test_contract import PLAN, Scripted
 from verify import native_success, verify_step
 
+
+class HeldButUnstable(Scripted):
+    """First pick is empty. A later pick looks lifted, but the object keeps moving."""
+
+    def __init__(self):
+        super().__init__(empty=True)
+        self.picks = 0
+
+    def execute(self, action, args):
+        if action == "pi0_pick":
+            self.picks += 1
+            if self.picks >= 2:
+                self.empty = False
+        return super().execute(action, args)
+
+    def observe(self):
+        obs = super().observe()
+        if self.picks >= 2:
+            obs["sim"]["objects"]["alphabet_soup_1"]["pos"] = [0.05 * self.observations, 0.0, 0.62]
+            obs["sim"]["eef_pos"] = [0.0, 0.0, 0.62]
+            obs["sim"]["gripper_opening_m"] = 0.02
+        return obs
+
 ROOT = Path(__file__).resolve().parent
 
 
@@ -50,6 +73,29 @@ class StageCTest(unittest.TestCase):
         self.assertIn("manual_confirmation", verification)
         self.assertNotEqual(verification["status"], "success")
         self.assertNotIn("set_gripper", blind.calls)
+
+    def test_unknown_after_recovery_does_not_continue(self):
+        plan = json.loads(json.dumps(load_human_plan(PLAN, "libero_10_t0")))
+        plan["steps"] = plan["steps"][4:6]
+        plan["steps"][0]["depends_on"] = []
+        plan["steps"][0]["preconditions"] = []
+        plan["steps"][1]["depends_on"] = []
+        plan["steps"][1]["preconditions"] = []
+        plan["steps"][1]["args"] = {"xyz": [0.0, 0.1, 0.7], "gripper": 1.0, "object_ref": "alphabet_soup"}
+        asked = []
+        session = Session("libero_10_t0")
+        session.begin_episode()
+        result = run_plan(
+            plan,
+            HeldButUnstable(),
+            session,
+            lambda subtask: asked.append(subtask) or "unknown",
+            task=plan["goal"],
+        )
+        self.assertEqual(asked, ["soup_pick"])
+        self.assertEqual(result["status"], "no_progress")
+        self.assertEqual(result["reason"], "manual_unknown")
+        self.assertEqual([step["step_id"] for step in result["steps"]], ["pick_alphabet_soup"])
 
     def test_recovery_budget_and_duplicate_signature(self):
         budget = RecoveryBudget(limit=2)

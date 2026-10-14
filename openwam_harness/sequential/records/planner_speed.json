@@ -1,0 +1,219 @@
+{
+  "engine": {
+    "vllm": "0.24.0",
+    "pid": 31092,
+    "model_path": "/root/Page_dmh/openwam_harness/checkpoints/Qwen3.5-9B",
+    "architecture": "Qwen3_5ForConditionalGeneration",
+    "dtype": "bfloat16",
+    "quantization": null,
+    "max_model_len": 32768,
+    "gpu_memory_utilization": 0.48,
+    "cpu_offload_gb": 6,
+    "enforce_eager": true,
+    "tool_call_parser": "qwen3_xml",
+    "default_chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "command": "/root/Page_dmh/Show-Harness/.venv-vllm/bin/python /root/Page_dmh/openwam_harness/../Show-Harness/.venv-vllm/bin/vllm serve /root/Page_dmh/openwam_harness/checkpoints/Qwen3.5-9B --served-model-name Qwen3.5-9B --host 127.0.0.1 --port 8000 --dtype bfloat16 --max-model-len 32768 --max-num-seqs 1 --gpu-memory-utilization 0.48 --cpu-offload-gb 6 --enforce-eager --enable-auto-tool-choice --tool-call-parser qwen3_xml --default-chat-template-kwargs {\"enable_thinking\": false} --limit-mm-per-prompt {\"image\":32} --trust-remote-code"
+  },
+  "gpu": {
+    "name": "NVIDIA GeForce RTX 5090",
+    "note": "one GPU; planner, Pi0.5 and SAM3 share it"
+  },
+  "text": {
+    "max_tokens": 64,
+    "ttft_s": 0.267,
+    "total_s": 0.409,
+    "gen_s": 0.142,
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 17,
+      "completion_tokens": 2,
+      "total_tokens": 19
+    },
+    "content": "pong",
+    "reasoning_present": false,
+    "thinking_disabled_sent": true,
+    "request_id": "seq-text-64"
+  },
+  "image": {
+    "pixels": "256x256",
+    "jpeg_bytes": 1652,
+    "max_tokens": 96,
+    "ttft_s": 0.574,
+    "total_s": 0.718,
+    "gen_s": 0.144,
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 83,
+      "completion_tokens": 2,
+      "total_tokens": 85
+    },
+    "content": "seen",
+    "reasoning_present": false,
+    "thinking_disabled_sent": true,
+    "request_id": "seq-image-96"
+  },
+  "cancel": {
+    "request_id": "seq-cancel-1",
+    "closed_after_first_chunk": true,
+    "elapsed_s": 0.256,
+    "followup_content": "alive",
+    "followup_s": 0.39,
+    "engine_after": "Running: 0 within the next metrics interval; vLLM process kept"
+  },
+  "nonstreaming_timeout": "Earlier non-streaming client closed at 180s and the engine kept Running: 1 at about 6.9 tok/s until 15:04. Streaming close is the abort path.",
+  "plan_check": {
+    "status": "PLANNING_FAILED",
+    "plan_source": null,
+    "repairs": 1,
+    "elapsed_s": 157.535,
+    "errors": [
+      {
+        "path": "plan.alphabet_soup",
+        "code": "unknown_field",
+        "received": "alphabet_soup",
+        "expected": "plan contract fields only"
+      },
+      {
+        "path": "plan.basket",
+        "code": "unknown_field",
+        "received": "basket",
+        "expected": "plan contract fields only"
+      },
+      {
+        "path": "plan.tomato_sauce",
+        "code": "unknown_field",
+        "received": "tomato_sauce",
+        "expected": "plan contract fields only"
+      },
+      {
+        "path": "plan.objects",
+        "code": "type",
+        "received": "",
+        "expected": "non-empty object map"
+      },
+      {
+        "path": "steps[0].args.object_ref",
+        "code": "object_ref",
+        "received": "alphabet_soup",
+        "expected": "a plan object"
+      },
+      {
+        "path": "steps[0].args.target_ref",
+        "code": "object_ref",
+        "received": "basket",
+        "expected": "a plan object"
+      },
+      {
+        "path": "steps[1].args.object_ref",
+        "code": "object_ref",
+        "received": "tomato_sauce",
+        "expected": "a plan object"
+      },
+      {
+        "path": "steps[1].args.target_ref",
+        "code": "object_ref",
+        "received": "basket",
+        "expected": "a plan object"
+      }
+    ],
+    "events": [
+      {
+        "t": 1791964057.418,
+        "phase": "queued",
+        "detail": "seq-d7a38087ddd3"
+      },
+      {
+        "t": 1791964057.436,
+        "phase": "processing_input",
+        "detail": "seq-d7a38087ddd3"
+      },
+      {
+        "t": 1791964061.811,
+        "phase": "generating",
+        "detail": "seq-d7a38087ddd3"
+      },
+      {
+        "t": 1791964116.968,
+        "phase": "validating",
+        "detail": "initial"
+      },
+      {
+        "t": 1791964116.969,
+        "phase": "queued",
+        "detail": "seq-e653ae06b66d"
+      },
+      {
+        "t": 1791964116.991,
+        "phase": "processing_input",
+        "detail": "seq-e653ae06b66d"
+      },
+      {
+        "t": 1791964130.114,
+        "phase": "generating",
+        "detail": "seq-e653ae06b66d"
+      },
+      {
+        "t": 1791964214.953,
+        "phase": "validating",
+        "detail": "format_repair"
+      }
+    ],
+    "semantic_step_ids": null,
+    "expanded_skills": null,
+    "attempts": [
+      {
+        "role": "initial",
+        "response_kind": "tool_calls",
+        "finish_reason": "stop",
+        "request_id": "seq-d7a38087ddd3",
+        "thinking_disabled_sent": true,
+        "reasoning_present": false,
+        "usage": {
+          "prompt_tokens": 1482,
+          "total_tokens": 1873,
+          "completion_tokens": 391
+        },
+        "content_chars": 0,
+        "tool_calls": [
+          {
+            "id": "chatcmpl-tool-ac2c8118343bb346",
+            "type": "function",
+            "function": {
+              "name": "submit_plan",
+              "arguments": "{\"plan_id\": \"task-basket\", \"goal\": \"put both the alphabet soup and the tomato sauce in the basket\", \"goal_relation\": \"in\", \"objects\": \"\", \"alphabet_soup\": \"{\\\"sim_name\\\": \\\"alphabet_soup_1\\\", \\\"phrases\\\": [\\\"alphabet soup\\\"], \\\"role\\\": \\\"movable\\\"}\", \"basket\": \"{\\\"sim_name\\\": \\\"basket_1\\\", \\\"phrases\\\": [\\\"basket\\\"], \\\"role\\\": \\\"container\\\"}\", \"tomato_sauce\": \"{\\\"sim_name\\\": \\\"tomato_sauce_1\\\", \\\"phrases\\\": [\\\"tomato sauce\\\"], \\\"role\\\": \\\"movable\\\"}\", \"steps\": [{\"step_id\": \"step1\", \"skill\": \"transfer\", \"args\": {\"object_ref\": \"alphabet_soup\", \"target_ref\": \"basket\", \"relation\": \"in\", \"prompt\": \"pick up the alphabet soup\"}, \"depends_on\": [], \"preconditions\": [], \"completion_check\": \"object_placed\", \"budget\": {\"max_s\": 180, \"max_attempts\": 2}, \"on_failure\": \"recover\"}, {\"step_id\": \"step2\", \"skill\": \"transfer\", \"args\": {\"object_ref\": \"tomato_sauce\", \"target_ref\": \"basket\", \"relation\": \"in\", \"prompt\": \"pick up the tomato sauce\"}, \"depends_on\": [\"step1\"], \"preconditions\": [], \"completion_check\": \"object_placed\", \"budget\": {\"max_s\": 180, \"max_attempts\": 2}, \"on_failure\": \"recover\"}]}"
+            }
+          }
+        ],
+        "reasoning": null
+      },
+      {
+        "role": "format_repair",
+        "response_kind": "tool_calls",
+        "finish_reason": "stop",
+        "request_id": "seq-e653ae06b66d",
+        "thinking_disabled_sent": true,
+        "reasoning_present": false,
+        "usage": {
+          "prompt_tokens": 2680,
+          "total_tokens": 3276,
+          "completion_tokens": 596
+        },
+        "content_chars": 0,
+        "tool_calls": [
+          {
+            "id": "chatcmpl-tool-8bf25c14be69c28c",
+            "type": "function",
+            "function": {
+              "name": "submit_plan",
+              "arguments": "{\"plan_id\": \"task-basket\", \"goal\": \"put both the alphabet soup and the tomato sauce in the basket\", \"goal_relation\": \"in\", \"objects\": \"\", \"alphabet_soup\": \"{\\\"sim_name\\\": \\\"alphabet_soup_1\\\", \\\"phrases\\\": [\\\"alphabet soup\\\"], \\\"role\\\": \\\"movable\\\"}\", \"basket\": \"{\\\"sim_name\\\": \\\"basket_1\\\", \\\"phrases\\\": [\\\"basket\\\"], \\\"role\\\": \\\"container\\\"}\", \"tomato_sauce\": \"{\\\"sim_name\\\": \\\"tomato_sauce_1\\\", \\\"phrases\\\": [\\\"tomato sauce\\\"], \\\"role\\\": \\\"movable\\\"}\", \"steps\": [{\"step_id\": \"step1\", \"skill\": \"transfer\", \"args\": {\"object_ref\": \"alphabet_soup\", \"target_ref\": \"basket\", \"relation\": \"in\", \"prompt\": \"pick up the alphabet soup\"}, \"depends_on\": [], \"preconditions\": [], \"completion_check\": \"object_placed\", \"budget\": {\"max_s\": 180, \"max_attempts\": 2}, \"on_failure\": \"recover\"}, {\"step_id\": \"step2\", \"skill\": \"transfer\", \"args\": {\"object_ref\": \"tomato_sauce\", \"target_ref\": \"basket\", \"relation\": \"in\", \"prompt\": \"pick up the tomato sauce\"}, \"depends_on\": [\"step1\"], \"preconditions\": [], \"completion_check\": \"object_placed\", \"budget\": {\"max_s\": 180, \"max_attempts\": 2}, \"on_failure\": \"recover\"}]}"
+            }
+          }
+        ],
+        "reasoning": null
+      }
+    ],
+    "executed": false
+  }
+}

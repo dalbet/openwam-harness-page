@@ -45,13 +45,18 @@
     <span id="health">正在检查服务…</span>
   </header>
   <div class="ctrl">
-    <label for="scene">场景</label>
-    <select id="scene"></select>
+    <label for="suite">套件</label>
+    <select id="suite"></select>
+    <label for="task-id">任务</label>
+    <select id="task-id"></select>
+    <label for="seed">seed</label>
+    <input id="seed" type="number" min="0" value="0" />
     <button id="load" class="primary">加载场景</button>
     <label for="task">任务</label>
     <input id="task" type="text" placeholder="输入任务指令" disabled />
     <button id="start" class="primary" disabled>开始</button>
     <button id="manual" disabled>人工计划</button>
+    <button id="long" disabled>长任务人工计划</button>
     <button id="restart" disabled>重新开始</button>
     <button id="stop" disabled>停止</button>
   </div>
@@ -60,6 +65,7 @@
     <button id="bad" disabled>确认失败</button>
     <button id="unk" disabled>确认未知</button>
     <span class="hint" id="badge">子任务确认只在真实动作之后出现。</span>
+    <span class="hint" id="summary"></span>
   </div>
   <div id="views">
     <div class="view" id="agent-view"><span class="tag">Agent</span><canvas id="agent"></canvas><span class="placeholder" id="ph-agent">未加载场景</span></div>

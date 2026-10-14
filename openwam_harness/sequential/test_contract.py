@@ -9,7 +9,7 @@ from pathlib import Path
 from budget import BudgetError, SKILL_CONSTRAINTS, budget_check, slim_prompt
 from executor import Session, ToolOutcome, run_plan
 from planner import load_human_plan, request_plan
-from schema import PlanError, example_plan, parse_plan_text, split_move, validate_plan
+from schema import PlanError, example_plan, parse_model_message, parse_plan_text, split_move, validate_plan
 
 PLAN = Path(__file__).resolve().parent / "plans" / "two_object.json"
 
@@ -311,6 +311,18 @@ class ContractTest(unittest.TestCase):
             parse_plan_text("note {\"plan_id\": \"x\"}", task=plan["goal"])
         self.assertIn("json_decode", str(raised.exception))
         validate_plan(example_plan())
+
+    def test_semantic_transfer_expands_and_incomplete_stream_is_rejected(self):
+        from schema import prepare_plan, semantic_example
+
+        expanded = prepare_plan(semantic_example(), task=semantic_example()["goal"])
+        skills = [step["skill"] for step in expanded["steps"]]
+        self.assertNotIn("transfer", skills)
+        self.assertIn("pi0_pick", skills)
+        self.assertIn("set_gripper", skills)
+        with self.assertRaises(PlanError) as raised:
+            parse_model_message({"content": "", "finish_reason": None, "incomplete": True})
+        self.assertIn("incomplete_stream", str(raised.exception))
 
 
 if __name__ == "__main__":

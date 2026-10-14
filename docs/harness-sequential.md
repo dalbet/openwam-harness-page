@@ -38,7 +38,8 @@
 - 每次请求前把任务、技能约束、当前失败证据、工具 schema 和短历史分开计数。
 - 没有 tokenizer 时按每 2 个字符至少 1 个 token 高估。超过上限在本地抛 `BudgetError`，不发送。
 - 不裁任务、技能约束和当前失败证据。不把整份 memory corpus 或 guide 放进请求。
-- 初始规划一次。格式不合法时最多修复一次。仍不合法则用人工计划。
+- 初始规划一次。格式不合法时最多修复一次。仍不合法返回 `PLANNING_FAILED`，不执行，也不换成人工计划。人工计划只有用户显式选择，`plan_source=manual`。
+- 未完成的流式输出不会进入执行器，也不会靠拼接补全。客户端关闭流会只取消该 `X-Request-Id`，不停止 vLLM 进程。
 - 同一工具失败后只重试一次，再失败则 `no_progress` 退出。
 
 ## 顺序执行
@@ -84,13 +85,60 @@ ssh -N -L 8766:127.0.0.1:8766 -p 14263 root@connect.bjb1.seetacloud.com
 
 请用 AutoDL 控制台里这一台 `bj-B2` 机器的 SSH 命令，只把本地转发改成上面这一行的 `-L`。原 Page UI 把 `8766` 换成 `8765`。浏览器打开 `http://127.0.0.1:8766`。
 
+## 套件
+
+页面按「套件 → 任务 → seed」从 LIBERO 注册表读取，只列四个标准套件：
+
+| 页面 | suite | 任务数 | 初始状态 |
+|---|---|---|---|
+| Spatial | `libero_spatial` | 10 | 每任务 `get_task_init_states` |
+| Object | `libero_object` | 10 | 同上 |
+| Goal | `libero_goal` | 10 | 同上 |
+| Long | `libero_10` | 10 | 同上，t0/t1 是长任务候选 |
+
+`libero_90` 和 `*_task` / `*_swap` / `*_lan` 不会出现在这四个名字下面。任务原文来自 `task.language`。中文摘要是对照表，原文为准。
+
+同套件、同任务、同 seed 的再次加载走环境 `reset`，VLA 和 SAM3 保持进程。切换任务会停掉 env 进程并新建，同时增加 `scene_epoch`。加载进行中的第二次点击会被拒绝。
+
+## 图像
+
+- Pi0.5 的输入仍是环境观测里的 256 相机，这条预处理没有改。
+- `agentview_high.png` / `wrist_high.png` 是 1024 方图，给分割和反投影用。
+- 页面传输前把展示图最长边缩到 512，JPEG quality 70，宽高比保持原帧。
+- Planner 默认只收图像 id，不内联字节。若要附图像，最长边不超过 384。
+
+## 双卡示例
+
+这台机器当前只有一张 RTX 5090。下面的命令是配置示例，本轮没有执行，也没有改正在跑的 vLLM。不要默认 `--tensor-parallel-size 2`。
+
+```bash
+# GPU0 只跑 Planner。先不要在这张卡上加载 Pi0.5 / SAM3。
+CUDA_VISIBLE_DEVICES=0 /root/Page_dmh/Show-Harness/.venv-vllm/bin/vllm serve \
+  /root/Page_dmh/openwam_harness/checkpoints/Qwen3.5-9B \
+  --served-model-name Qwen3.5-9B --host 127.0.0.1 --port 8000 \
+  --dtype bfloat16 --max-model-len 32768 --max-num-seqs 1 \
+  --gpu-memory-utilization 0.90 --cpu-offload-gb 0 --enforce-eager \
+  --enable-auto-tool-choice --tool-call-parser qwen3_xml \
+  --default-chat-template-kwargs '{"enable_thinking": false}' \
+  --limit-mm-per-prompt '{"image":4}' --trust-remote-code
+
+# GPU1 跑 Pi0.5 和 SAM3。顺序页启动前设置，不要和上面抢 GPU0。
+SEQUENTIAL_CUDA_DEVICE=1 HARNESS_LIVE=1 \
+  bash /root/Page_dmh/openwam_harness/sequential/start_adapter.sh
+```
+
+32768 是当前服务的上下文，继续保留。65536 大约要再留一倍 KV cache。9B bf16 权重本身就占约 18GB；单卡 32GB 在已经 offload、并且还要同卡放 VLA 时放不下 65536。放不下就退回 32768，不要把上下文改成 65536 后再和 VLA 挤在一张卡上。
+
+当前实际启动（pid 31092）是：`dtype bfloat16`，无量化参数，`--gpu-memory-utilization 0.48`，`--cpu-offload-gb 6`，`--enforce-eager`，`--max-model-len 32768`，vLLM 0.24.0。420 秒只是旧客户端为了等满 2048 token，不是性能修复。
+
 ## 手动测试
 
-1. 打开顺序页，选 `libero_10_t0` 或 `t1`，点「加载场景」。
-2. 点「开始」。干跑会立刻走到第一个放下边界并显示「等待确认」。
-3. 点「确认未知」「确认成功」或「确认失败」。未确认不会抓第二个物体。
-4. 点「停止」结束。点「重新开始」增加 `scene_epoch` 并丢弃旧确认。
-5. `HARNESS_LIVE=1` 时同样操作会走真实 env、SAM3 和 Pi0.5，子任务之间不 reset。这一步留给手动测试。自动诊断若要跑完整回合，设 `SEQUENTIAL_DIAGNOSTIC_S=180`，到时保存现场并退出。本轮没有启动这个诊断。
+1. 打开 `http://127.0.0.1:8766`。页头应写真实模式、端口和 pid。
+2. 选套件、任务、seed，点「加载场景」。状态会经过 service_start、env_create、reset、first_frame。再加载同一任务应是 reset，VLA 不重启。
+3. 「人工计划」是单次抓放，`plan_source=manual`。Long 的 t0/t1 另外有「长任务人工计划」。
+4. 「开始」才请求模型。状态依次是排队、处理输入、生成中、校验。校验失败不会动机器人。
+5. 确认按钮只在真实动作之后的 `waiting_confirmation` 出现。点「停止」会关掉当前这条 Planner 流。
+6. 点「重新开始」对同一任务做 reset，并增加 `scene_epoch`。
 
 ## 日志
 
@@ -119,7 +167,22 @@ cd /root/Page_dmh/openwam_harness/RPent
 
 ## 本轮验证
 
-- CPU：`sequential/test_contract.py` 8 项，`baseline/test_episode_log.py` 与 `test_runtime_patches.py` 7 项通过。
-- UI：浏览器工具无法打开容器内的 `127.0.0.1:8766`（页面停在 `chrome-error`）。同一服务上的 WebSocket 客户端完成了加载、开始、`soup_place` 暂停、`sauce_place` 暂停和停止，结果 `UI_PROTOCOL_OK`。
-- Pi0.5：复用已有检查，`libero_10_t0_s0_r0/vla_server.log` 有 `Loaded norm stats` 和 `model ready in 32.6s`。本轮不再并发加载第二套 VLA。
-- Planner 短请求：本地 tokenizer 预检输入 265 token，加上输出额度 2048 后 projected 2313，低于 32768。服务返回两次用量：第一次 prompt 327 / completion 266；格式不合法后的唯一一次修复 prompt 627 / completion 338。两次都没通过 schema，执行器改用 12 步人工计划。记录在 `records/planner_check.json`。没有第三次请求。
+记录在 `openwam_harness/sequential/records/planner_speed.json`。没有第三次 Planner 请求，也没有批量评测。
+
+Planner：
+
+- 纯文本：TTFT 0.267s，总时长 0.409s，prompt 17 / completion 2，`finish_reason=stop`，content `pong`，没有 reasoning。请求里带了 `enable_thinking: false`。
+- 单图 256×256：TTFT 0.574s，总时长 0.718s，prompt 83 / completion 2，content `seen`。
+- 一次真实语义计划：初始 `seq-d7a38087ddd3` prompt 1482 / completion 391；唯一一次修复 `seq-e653ae06b66d` prompt 2680 / completion 596。两次都是 `finish_reason=stop`，没有 reasoning，没有截断。总耗时 157.535s。模型把 `objects` 展平成顶层字符串，schema 失败，`executed=false`。共享卡上长输出大约 6–7 token/s。420 秒不是修复。
+- 非流式请求在客户端超时后，服务端仍会把这条请求生成完。流式断开会按 `X-Request-Id` 只取消这一条；随后的短请求能返回。不停止 vLLM。
+
+场景：
+
+- 注册表四个标准套件各 10 个任务、50 个初始状态。Long t0/t1 仍是长任务候选。
+- `libero_10` task 0 seed 0 冷加载：service_start 34.6s，env_create 12.233s，reset 2.394s，first_frame 2.808s，`scene_epoch=1`。画面 512，来源 1024。
+- 同一任务热 reset：service_start 0，env_create 0，reset 2.338s，first_frame 2.766s，`scene_epoch=2`。VLA 没有重启。
+- 加载进行中的第二次请求被拒绝，文案是「已有加载在进行，不会再创建环境。」
+
+抓取：回合目录 `runs/sequential/6838b71aaab1`（不上传）。显式人工计划调用了 `pi0_pick`，prompt `pick up the alphabet soup`，12 个 chunk，14.8s。工具 `success=false`，`peak_lift_m=0.011`，低于 0.05。`env_step` 从观察后的 1 推进到了 4。校验是 `unknown` / `NEED_STABILITY_SAMPLE` / `sim_state_assisted`，不是 `GRASP_HELD`。当时恢复后的 unknown 又继续做了 move 和 place，最终 `native_success=false`。这不算抓取通过。执行器现已改为：恢复之后仍是 unknown 时先等人确认；没有明确成功确认就停止，不再执行后续动作。
+
+CPU：`test_contract.py` 与 `test_stagec.py` 共 20 项通过。双卡命令只写在上面，没有执行。上下文仍是 32768。
