@@ -373,7 +373,8 @@ def _remember_support(obs: dict | None, support_z: dict[str, float]) -> None:
 def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_z):
     if not outcome.executed:
         return [], call_failure_receipt(outcome)
-    post = [_capture(backend, scene_epoch)]
+    sampled = _observations_from_samples((outcome.raw or {}).get("samples"), scene_epoch)
+    post = sampled or [_capture(backend, scene_epoch)]
     verdict = verify_step(
         step,
         outcome,
@@ -385,7 +386,7 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
         goal_relation=plan.get("goal_relation"),
         before=before,
     )
-    if verdict["reason_code"] == "NEED_STABILITY_SAMPLE":
+    if verdict["reason_code"] == "NEED_STABILITY_SAMPLE" and step.get("completion_check") != "grasp_held":
         post.extend(_hold_window(backend, scene_epoch))
         verdict = verify_step(
             step,
@@ -402,7 +403,7 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
 
 
 def _hold_window(backend: Any, scene_epoch: int) -> list[dict[str, Any]]:
-    """Advance the sim with the existing close-gripper primitive, then observe."""
+    """Advance a non-grasp check. Grasp checks use chunk snapshots instead of set_gripper."""
     grasp = THRESHOLDS["grasp"]
     calls = int(grasp.get("window_calls", 2))
     steps = int(grasp.get("window_steps", 4))
@@ -417,6 +418,31 @@ def _hold_window(backend: Any, scene_epoch: int) -> list[dict[str, Any]]:
         if not getattr(outcome, "executed", False):
             break
     return samples
+
+
+def _observations_from_samples(samples, scene_epoch: int) -> list[dict[str, Any]]:
+    """Turn chunk snapshots into observations. Identical versions are not repeated."""
+    rows = []
+    seen = set()
+    for sample in samples or []:
+        if not isinstance(sample, dict) or not isinstance(sample.get("sim"), dict):
+            continue
+        version = sample.get("env_action_count")
+        if not isinstance(version, int) or version in seen:
+            continue
+        seen.add(version)
+        rows.append({
+            "observation_id": sample.get("observation_id") or f"sample-{version}",
+            "scene_epoch": scene_epoch,
+            "env_step": version,
+            "timestamp": sample.get("timestamp"),
+            "cameras": {
+                "agentview": {"id": f"agentview:{version}"},
+                "wrist": {"id": f"wrist:{version}"},
+            },
+            "sim": sample["sim"],
+        })
+    return rows
 
 
 def _recover_or_confirm(
@@ -507,10 +533,13 @@ def _recover_or_confirm(
             goal_relation=plan.get("goal_relation"),
             before=post[0] if post else None,
         )
-        event = event_for(verification, outcome) or event
+        mapped = event_for(verification, outcome)
+        if verification.get("status") == "failure" and mapped is None:
+            break
+        event = mapped or event
     if verification.get("status") == "unknown":
         return _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post)
-    if verification.get("status") == "failure":
+    if verification.get("status") == "failure" and event_for(verification, outcome):
         verification = receipt("failure", "RECOVERY_EXHAUSTED", verification.get("evidence_source") or "sim_state_assisted", verification.get("observation_ids") or [], {"event": event})
     return verification, outcome, post
 
@@ -547,6 +576,9 @@ def _confirm_unknown(step, verification, confirm, emit, stale, session, outcome,
             },
             "observation_id": (verification.get("observation_ids") or [None])[-1],
             "record_index_note": "states.json 的序号是工具记录，不是仿真步数",
+            "transport_started": step.get("completion_check") in {"object_transported", "object_placed"},
+            "missing": metrics.get("missing"),
+            "unmet": metrics.get("unmet"),
         },
     )
     user = confirm(step.get("subtask") or step["step_id"])
@@ -742,9 +774,12 @@ def _diagnosis(step, outcome, verification, observation, plan) -> dict[str, Any]
         "episode_id": plan.get("episode_id"),
         "env_action_count": int(raw.get("env_action_count") or 0),
         "observation_id": obs.get("observation_id"),
-        "record_index": obs.get("env_step") if obs.get("env_step") is not None else outcome.env_step,
+        "record_index": outcome.env_step,
         "record_index_note": "states.json 的序号是工具记录，不是仿真步数",
         "planner_stage": plan.get("planner_stage"),
+        "transport_started": step.get("completion_check") in {"object_transported", "object_placed"},
+        "missing": metrics.get("missing"),
+        "unmet": metrics.get("unmet"),
     }
 
 

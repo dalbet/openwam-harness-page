@@ -26,6 +26,7 @@ class HeldButUnstable(Scripted):
             self.picks += 1
             if self.picks >= 2:
                 self.empty = False
+                self.skip_samples = True
         return super().execute(action, args)
 
     def observe(self):
@@ -62,6 +63,7 @@ class StageCTest(unittest.TestCase):
         result = run_plan(_pick_plan(), held, session, lambda _subtask: "success", task=_pick_plan()["goal"])
         self.assertEqual(result["steps"][0]["verification"]["status"], "success")
         self.assertEqual(result["steps"][0]["verification"]["reason_code"], "GRASP_HELD")
+        self.assertNotIn("set_gripper", held.calls)
 
     def test_missing_evidence_is_unknown_and_not_rewritten(self):
         session = Session("libero_10_t0")
@@ -94,7 +96,8 @@ class StageCTest(unittest.TestCase):
         )
         self.assertEqual(asked, ["soup_pick"])
         self.assertEqual(result["status"], "no_progress")
-        self.assertEqual(result["reason"], "manual_unknown")
+        self.assertEqual(result["steps"][0]["verification"]["reason_code"], "manual_unknown")
+        self.assertIn("lifted samples", result["reason"])
         self.assertEqual([step["step_id"] for step in result["steps"]], ["pick_alphabet_soup"])
 
     def test_recovery_budget_and_duplicate_signature(self):
@@ -174,6 +177,81 @@ class StageCTest(unittest.TestCase):
         )
         self.assertEqual(verdict["status"], "unknown")
         self.assertEqual(verdict["reason_code"], "STALE_OBSERVATION")
+
+    def test_gripper_outside_band_names_the_condition(self):
+        plan = load_human_plan(PLAN, "libero_10_t0")
+        step = plan["steps"][4]
+        observations = [
+            _obs("a", 5, 0.0034, 1.0),
+            _obs("b", 10, 0.0034, 2.0),
+        ]
+        verdict = verify_step(
+            step,
+            type("O", (), {"executed": True, "grasp_signal": True, "xyz": None, "error": None})(),
+            observations,
+            scene_epoch=1,
+            min_step=None,
+            objects=plan["objects"],
+            support_z={"alphabet_soup_1": 0.45},
+            goal_relation="in",
+        )
+        self.assertEqual(verdict["status"], "unknown")
+        self.assertEqual(verdict["reason_code"], "INSUFFICIENT_EVIDENCE")
+        self.assertEqual(verdict["evidence_source"], "sim_state")
+        self.assertIn("gripper_opening_m 0.0034 outside [0.008, 0.05]", verdict["metrics"]["error"])
+        self.assertIsNone(verdict["metrics"]["contact"])
+
+    def test_same_snapshot_is_not_a_second_sample(self):
+        from executor import _observations_from_samples
+
+        rows = _observations_from_samples(
+            [
+                {"observation_id": "a", "env_action_count": 5, "timestamp": 1.0, "sim": {"objects": {}}},
+                {"observation_id": "b", "env_action_count": 5, "timestamp": 1.1, "sim": {"objects": {}}},
+            ],
+            1,
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["observation_id"], "a")
+
+    def test_frame_bus_drops_a_stale_snapshot(self):
+        import time
+        from frame_bus import FrameBus
+        import numpy as np
+
+        sent = []
+
+        def sender(agent, wrist, meta):
+            time.sleep(0.08)
+            sent.append(meta["observation_id"])
+
+        bus = FrameBus()
+        bus.set_sender(sender)
+        image = np.zeros((8, 8, 3), dtype=np.uint8)
+        for index in range(4):
+            bus.publish(image, image, {"observation_id": f"f{index}"})
+        time.sleep(0.6)
+        bus.close()
+        self.assertGreater(bus.dropped, 0)
+        self.assertLess(bus.sent, bus.published)
+        self.assertGreaterEqual(bus.sent, 1)
+
+
+def _obs(name, version, opening, stamp):
+    return {
+        "observation_id": name,
+        "scene_epoch": 1,
+        "env_step": version,
+        "timestamp": stamp,
+        "cameras": {"agentview": {"id": name}, "wrist": {"id": name}},
+        "sim": {
+            "objects": {"alphabet_soup_1": {"pos": [0.0, 0.0, 0.62], "identified": True}},
+            "eef_pos": [0.0, 0.0, 0.62],
+            "gripper_opening_m": opening,
+            "contact": None,
+            "evidence_source": "sim_state",
+        },
+    }
 
 
 if __name__ == "__main__":

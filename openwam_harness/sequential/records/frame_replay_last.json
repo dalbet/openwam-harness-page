@@ -1,0 +1,118 @@
+{
+  "note": "second short replay after display images fall back to raw_obs; confirm unknown; no place",
+  "frames_received": 23,
+  "frames_drawn": null,
+  "draw_note": "this client receives websocket frames and does not draw a canvas",
+  "live_chunk_frames": 11,
+  "max_gap_s": 2.9995,
+  "max_live_gap_s": 0.4913,
+  "observation_ids": [
+    "env-actions-0:5",
+    "env-actions-5:10",
+    "env-actions-10:15",
+    "env-actions-15:20",
+    "env-actions-20:25",
+    "env-actions-25:30",
+    "env-actions-30:35",
+    "env-actions-35:40",
+    "env-actions-40:45",
+    "env-actions-45:50",
+    "env-actions-50:55"
+  ],
+  "ids_increase": false,
+  "action_counts_increase": true,
+  "ids_note": "observation_id 文本按字典序不是递增的；env_action_count 5,10,...,55 才是递增的观测版本",
+  "env_action_counts": [
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50,
+    55
+  ],
+  "frame_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "confirmed_unknown": true,
+  "ended": {
+    "episode_id": "ba7a3c61c7f4",
+    "status": "no_progress",
+    "reason": "gripper_opening_m 0.00475507853725072 outside [0.008, 0.05]；object_to_eef_m 0.0639 > near_eef_m 0.06；lifted samples 1 < stable_samples 2",
+    "success": false,
+    "frames": {
+      "published": 11,
+      "sent": 11,
+      "dropped": 0,
+      "skipped": 0,
+      "max_gap_s": 0.4918,
+      "gaps_s": [
+        0.4918,
+        0.441,
+        0.4702,
+        0.4833,
+        0.451,
+        0.4889,
+        0.4906,
+        0.4884,
+        0.4661,
+        0.4608
+      ]
+    }
+  },
+  "execution": {
+    "step_id": "pick_transfer_bowl",
+    "skill": "pi0_pick",
+    "category": "subtask_incomplete",
+    "reason": "gripper_opening_m 0.00475507853725072 outside [0.008, 0.05]；object_to_eef_m 0.0639 > near_eef_m 0.06；lifted samples 1 < stable_samples 2",
+    "reason_code": "manual_unknown",
+    "checker_reason_code": "NEED_STABILITY_SAMPLE",
+    "args": {
+      "prompt": "pick up the black bowl between the plate and the ramekin and place it on the plate",
+      "max_chunks": 12,
+      "object_ref": "akita_black_bowl_1"
+    },
+    "object_ref": "akita_black_bowl_1",
+    "grounding_query": null,
+    "vla_prompt": "pick up the black bowl between the plate and the ramekin and place it on the plate",
+    "return_summary": {
+      "executed": true,
+      "error": null,
+      "error_class": null,
+      "grasp_signal": true,
+      "native_terminated": false,
+      "native_truncated": false,
+      "found": null,
+      "score": null,
+      "world_xyz": null
+    },
+    "request_id": "seq-353c2bfc1846",
+    "episode_id": "ba7a3c61c7f4",
+    "env_action_count": 55,
+    "observation_id": "env-actions-50:55",
+    "record_index": 1,
+    "record_index_note": "states.json 的序号是工具记录，不是仿真步数",
+    "planner_stage": "ok",
+    "transport_started": false,
+    "missing": null,
+    "unmet": [
+      "gripper_opening_m 0.00475507853725072 outside [0.008, 0.05]",
+      "object_to_eef_m 0.0639 > near_eef_m 0.06",
+      "lifted samples 1 < stable_samples 2"
+    ]
+  }
+}

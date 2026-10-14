@@ -1,0 +1,247 @@
+{
+  "loaded": true,
+  "confirmed_unknown": true,
+  "frames_received": 12,
+  "live_chunk_frames": 0,
+  "max_gap_s": 9.6038,
+  "observation_ids": [],
+  "env_action_counts": [],
+  "frame_ids": [],
+  "ended": {
+    "episode_id": "476647d77aa4",
+    "status": "no_progress",
+    "reason": "gripper_opening_m 0.0036259030993725204 outside [0.008, 0.05]；object_to_eef_m 0.0612 > near_eef_m 0.06；lifted samples 1 < stable_samples 2",
+    "success": false,
+    "frames": {
+      "published": 0,
+      "sent": 0,
+      "dropped": 0,
+      "max_gap_s": null,
+      "gaps_s": []
+    },
+    "client_frames": null
+  },
+  "execution": {
+    "step_id": "pick_transfer_bowl",
+    "skill": "pi0_pick",
+    "category": "subtask_incomplete",
+    "reason": "gripper_opening_m 0.0036259030993725204 outside [0.008, 0.05]；object_to_eef_m 0.0612 > near_eef_m 0.06；lifted samples 1 < stable_samples 2",
+    "reason_code": "manual_unknown",
+    "checker_reason_code": "NEED_STABILITY_SAMPLE",
+    "args": {
+      "prompt": "pick up the black bowl between the plate and the ramekin and place it on the plate",
+      "max_chunks": 12,
+      "object_ref": "akita_black_bowl_1"
+    },
+    "object_ref": "akita_black_bowl_1",
+    "grounding_query": null,
+    "vla_prompt": "pick up the black bowl between the plate and the ramekin and place it on the plate",
+    "return_summary": {
+      "executed": true,
+      "error": null,
+      "error_class": null,
+      "grasp_signal": true,
+      "native_terminated": false,
+      "native_truncated": false,
+      "found": null,
+      "score": null,
+      "world_xyz": null
+    },
+    "request_id": "seq-353c2bfc1846",
+    "episode_id": "476647d77aa4",
+    "env_action_count": 55,
+    "observation_id": "env-actions-50:55",
+    "record_index": 55,
+    "record_index_note": "states.json 的序号是工具记录，不是仿真步数",
+    "planner_stage": "ok",
+    "transport_started": false,
+    "missing": null,
+    "unmet": [
+      "gripper_opening_m 0.0036259030993725204 outside [0.008, 0.05]",
+      "object_to_eef_m 0.0612 > near_eef_m 0.06",
+      "lifted samples 1 < stable_samples 2"
+    ]
+  },
+  "events": [
+    {
+      "t": 1791986014.2061427,
+      "type": "log",
+      "phase": null,
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": ""
+    },
+    {
+      "t": 1791986014.2285686,
+      "type": "state",
+      "phase": "executing",
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": "observe"
+    },
+    {
+      "t": 1791986014.2286391,
+      "type": "log",
+      "phase": null,
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": ""
+    },
+    {
+      "t": 1791986014.3203712,
+      "type": "state",
+      "phase": "executing",
+      "reason": null,
+      "reason_code": "OBSERVE_READY",
+      "status": null,
+      "detail": "OBSERVE_READY"
+    },
+    {
+      "t": 1791986014.3206494,
+      "type": "log",
+      "phase": null,
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": ""
+    },
+    {
+      "t": 1791986014.399816,
+      "type": "state",
+      "phase": "executing",
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": "akita_black_bowl_1"
+    },
+    {
+      "t": 1791986014.3999658,
+      "type": "log",
+      "phase": null,
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": ""
+    },
+    {
+      "t": 1791986016.3817618,
+      "type": "state",
+      "phase": "executing",
+      "reason": null,
+      "reason_code": "OBJECT_LOCALIZED",
+      "status": null,
+      "detail": "OBJECT_LOCALIZED"
+    },
+    {
+      "t": 1791986016.382616,
+      "type": "log",
+      "phase": null,
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": ""
+    },
+    {
+      "t": 1791986016.4591637,
+      "type": "state",
+      "phase": "executing",
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": "plate_1"
+    },
+    {
+      "t": 1791986016.4593027,
+      "type": "log",
+      "phase": null,
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": ""
+    },
+    {
+      "t": 1791986017.628441,
+      "type": "state",
+      "phase": "executing",
+      "reason": null,
+      "reason_code": "OBJECT_LOCALIZED",
+      "status": null,
+      "detail": "OBJECT_LOCALIZED"
+    },
+    {
+      "t": 1791986017.6288636,
+      "type": "log",
+      "phase": null,
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": ""
+    },
+    {
+      "t": 1791986017.7049031,
+      "type": "state",
+      "phase": "executing",
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": "transfer_bowl"
+    },
+    {
+      "t": 1791986017.7050304,
+      "type": "log",
+      "phase": null,
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": ""
+    },
+    {
+      "t": 1791986027.3121896,
+      "type": "state",
+      "phase": "waiting_confirmation",
+      "reason": "gripper_opening_m 0.0036259030993725204 outside [0.008, 0.05]；object_to_eef_m 0.0612 > near_eef_m 0.06；lifted samples 1 < stable_samples 2",
+      "reason_code": "NEED_STABILITY_SAMPLE",
+      "status": null,
+      "detail": "gripper_opening_m 0.0036259030993725204 outside [0.008, 0.05]；object_to_eef_m 0.0612 > near_eef_m 0.06；lifted samples 1 < stable_samples 2"
+    },
+    {
+      "t": 1791986027.3126025,
+      "type": "log",
+      "phase": null,
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": ""
+    },
+    {
+      "t": 1791986027.3915775,
+      "type": "state",
+      "phase": "failed",
+      "reason": "gripper_opening_m 0.0036259030993725204 outside [0.008, 0.05]；object_to_eef_m 0.0612 > near_eef_m 0.06；lifted samples 1 < stable_samples 2",
+      "reason_code": "manual_unknown",
+      "status": null,
+      "detail": "gripper_opening_m 0.0036259030993725204 outside [0.008, 0.05]；object_to_eef_m 0.0612 > near_eef_m 0.06；lifted samples 1 < stable_samples 2"
+    },
+    {
+      "t": 1791986027.391759,
+      "type": "log",
+      "phase": null,
+      "reason": null,
+      "reason_code": null,
+      "status": null,
+      "detail": ""
+    },
+    {
+      "t": 1791986027.5413663,
+      "type": "ended",
+      "phase": null,
+      "reason": "gripper_opening_m 0.0036259030993725204 outside [0.008, 0.05]；object_to_eef_m 0.0612 > near_eef_m 0.06；lifted samples 1 < stable_samples 2",
+      "reason_code": null,
+      "status": "no_progress",
+      "detail": ""
+    }
+  ]
+}

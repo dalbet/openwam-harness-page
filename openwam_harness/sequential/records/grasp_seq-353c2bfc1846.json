@@ -1,0 +1,71 @@
+{
+  "request_id": "seq-353c2bfc1846",
+  "episode_id": "74c7d9d47e31",
+  "link": "episode directory mtime matches this planner request; the episode files do not store request_id",
+  "planner_stage": "ok",
+  "primitives_started": ["observe/reset", "pi0_pick", "set_gripper", "set_gripper"],
+  "transport_started": false,
+  "release_started": false,
+  "move_to_calls": 0,
+  "set_gripper_open_calls": 0,
+  "records": [
+    {
+      "record_index": 1,
+      "action": "pi0_pick",
+      "elapsed_s": 7.51,
+      "chunks_used": 11,
+      "tool_success": true,
+      "tool_peak_lift_m": 0.09793806076049805,
+      "tool_peak_lift_note": "pi0_pick 内部的末端上升，不是对象抬升，也不是 GRASP_HELD",
+      "terminated": false,
+      "truncated": false,
+      "eef_pos": [-0.026072259130967772, 0.16517477677187248, 1.0282338742384598],
+      "gripper_qpos": [0.001718908586903156, -0.0016967811705943625],
+      "gripper_opening_m": 0.0034156897574975185
+    },
+    {
+      "record_index": 2,
+      "action": "set_gripper",
+      "gripper_command": 1.0,
+      "steps": 4,
+      "elapsed_s": 0.22,
+      "terminated": false,
+      "eef_pos": [-0.012184436661484443, 0.16588570621974846, 1.0425422994877405],
+      "gripper_qpos": [0.0016914851268034262, -0.0016760881610805337],
+      "gripper_opening_m": 0.00336757328788396
+    },
+    {
+      "record_index": 3,
+      "action": "set_gripper",
+      "gripper_command": 1.0,
+      "steps": 4,
+      "elapsed_s": 0.24,
+      "terminated": false,
+      "eef_pos": [-0.006884234487131692, 0.16707656034644386, 1.0465708380550711],
+      "gripper_qpos": [0.0016793768906859844, -0.0016752676356588528],
+      "gripper_opening_m": 0.003354644526344837
+    }
+  ],
+  "saved_fields": {
+    "grasp_signal": "tool result success true；这是工具信号，不是持有判定",
+    "object_pos": null,
+    "object_pos_note": "states.json 只保存 object_names，没有对象世界位姿",
+    "eef_pos": "见各条 record",
+    "gripper_state": "qpos 约 ±0.0017，开度约 0.0034 m",
+    "contact": null,
+    "contact_note": "保存的状态没有接触字段",
+    "sample_time": "没有逐块时间戳；只有工具结束时的 record",
+    "observation_version": "states.json step_idx 是工具记录序号 0..3，不是仿真步",
+    "evidence_source": "未写入 checker receipt；对象位姿当时只存在于进程内 raw_obs"
+  },
+  "set_gripper_1_0": {
+    "source": "robots/libero/tools.py set_gripper",
+    "meaning": "保持当前末端位姿，gripper 命令 +1 关闭，-1 打开",
+    "effect_in_this_episode": "命令为 +1。两次调用后 qpos 仍约为 0.0017，夹爪没有打开。每次调用仍 step 了 4 次。",
+    "used_as_stability_window": true
+  },
+  "likely_unmet": "夹爪开度 0.0034 m 低于持有区间下限 0.008 m。对象是否抬升没有被保存，不能把 tool peak_lift_m 0.0979 当成对象抬升。",
+  "pause_code": "INSUFFICIENT_EVIDENCE",
+  "pause_code_note": "当时的 checker 只返回这个代码，没有列出未满足条件。本次进程包含 attach_saved_pick_result，但返回体把工具 success 抄到观测字典上，没有把 tool_result 和 observation 分成两个字段。",
+  "frames_saved": "agentview/wrist 只有 00-03 四张，对应工具结束，不是 11 个 chunk"
+}

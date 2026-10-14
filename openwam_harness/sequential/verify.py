@@ -195,51 +195,110 @@ def _localized(step, outcome, observations, objects) -> dict[str, Any]:
 def _grasp(step, observations, objects, support_z, outcome) -> dict[str, Any]:
     spec = objects.get(step.get("object_ref") or "")
     if not isinstance(spec, dict):
-        return receipt("unknown", "TARGET_AMBIGUOUS", "sim_state_assisted", _ids(observations), {})
+        return receipt(
+            "unknown",
+            "TARGET_AMBIGUOUS",
+            "sim_state",
+            _ids(observations),
+            {"missing": ["object_spec"], "error": "缺少 object_spec"},
+        )
     sim_name = spec.get("sim_name")
     grasp_cfg = THRESHOLDS["grasp"]
     current = _object(observations[-1], sim_name)
-    if current is None:
-        return receipt(
-            "unknown",
-            "TARGET_NOT_IDENTIFIED",
-            "sim_state_assisted",
-            _ids(observations),
-            {"sim_name": sim_name, "grasp_signal": outcome.grasp_signal},
-        )
     opening = _opening(observations[-1])
     eef = _eef(observations[-1])
     base = support_z.get(sim_name)
-    if base is None or opening is None or eef is None:
-        return receipt(
-            "unknown",
-            "INSUFFICIENT_EVIDENCE",
-            "sim_state_assisted",
-            _ids(observations),
-            {"grasp_signal": outcome.grasp_signal},
-        )
+    contact = ((observations[-1] or {}).get("sim") or {}).get("contact")
+    missing = []
+    if current is None:
+        missing.append("object_pos")
+    if opening is None:
+        missing.append("gripper_opening_m")
+    if eef is None:
+        missing.append("eef_pos")
+    if base is None:
+        missing.append("support_z")
+    metrics = _grasp_metrics(observations, outcome, current, opening, eef, base, contact, grasp_cfg)
+    if current is None:
+        metrics["missing"] = missing
+        metrics["error"] = "缺少 " + ", ".join(missing)
+        return receipt("unknown", "TARGET_NOT_IDENTIFIED", "sim_state", _ids(observations), metrics)
+    if missing:
+        metrics["missing"] = missing
+        metrics["error"] = "缺少 " + ", ".join(missing)
+        return receipt("unknown", "INSUFFICIENT_EVIDENCE", "sim_state", _ids(observations), metrics)
     lifted = current[2] >= base + float(grasp_cfg["lift_above_support_m"])
     gap = _distance(current, eef)
     empty_closed = opening <= float(grasp_cfg["empty_closed_max_m"])
     left_behind = gap > float(grasp_cfg["left_behind_xy_m"])
-    metrics = {
-        "grasp_signal": outcome.grasp_signal,
-        "lift_m": round(current[2] - base, 4),
-        "gripper_opening_m": opening,
-        "object_to_eef_m": round(gap, 4),
-        "evidence_mode": "sim_state_assisted",
-    }
-    if (empty_closed or left_behind) and not lifted:
-        return receipt("failure", "EMPTY_GRASP", "sim_state_assisted", _ids(observations), metrics)
-    held_band = float(grasp_cfg["gripper_held_min_m"]) <= opening <= float(grasp_cfg["gripper_held_max_m"])
-    stable = _stable(observations, sim_name, eef, int(grasp_cfg["stable_samples"]), float(grasp_cfg["relative_stable_m"]))
-    if lifted and held_band and stable and gap <= float(grasp_cfg["near_eef_m"]):
-        return receipt("success", "GRASP_HELD", "sim_state_assisted", _ids(observations), metrics)
-    if not stable:
-        return receipt("unknown", "NEED_STABILITY_SAMPLE", "sim_state_assisted", _ids(observations), metrics)
+    held_min = float(grasp_cfg["gripper_held_min_m"])
+    held_max = float(grasp_cfg["gripper_held_max_m"])
+    held_band = held_min <= opening <= held_max
+    near = gap <= float(grasp_cfg["near_eef_m"])
+    need = int(grasp_cfg["stable_samples"])
+    limit = float(grasp_cfg["relative_stable_m"])
+    lift_line = base + float(grasp_cfg["lift_above_support_m"])
+    lifted_obs = []
+    for obs in observations:
+        pos = _object(obs, sim_name)
+        if pos is not None and pos[2] >= lift_line:
+            lifted_obs.append(obs)
+    span = _relative_span(lifted_obs[-need:], sim_name, eef) if len(lifted_obs) >= need else None
+    stable = span is not None and span <= limit
+    unmet = []
     if not lifted:
-        return receipt("failure", "EMPTY_GRASP", "sim_state_assisted", _ids(observations), metrics)
-    return receipt("unknown", "INSUFFICIENT_EVIDENCE", "sim_state_assisted", _ids(observations), metrics)
+        unmet.append(
+            f"lift_m {metrics['lift_m']} < lift_above_support_m {grasp_cfg['lift_above_support_m']}"
+        )
+    if not held_band:
+        unmet.append(f"gripper_opening_m {opening} outside [{held_min}, {held_max}]")
+    if not near:
+        unmet.append(f"object_to_eef_m {metrics['object_to_eef_m']} > near_eef_m {grasp_cfg['near_eef_m']}")
+    if len(lifted_obs) < need:
+        unmet.append(f"lifted samples {len(lifted_obs)} < stable_samples {need}")
+    elif span is not None and span > limit:
+        unmet.append(f"relative_span_m {round(span, 4)} > relative_stable_m {limit}")
+    metrics["unmet"] = unmet
+    metrics["lifted"] = lifted
+    metrics["held_band"] = held_band
+    metrics["stable"] = stable
+    metrics["relative_span_m"] = None if span is None else round(span, 4)
+    if unmet:
+        metrics["error"] = "；".join(unmet)
+    if (empty_closed or left_behind or not near) and not lifted:
+        return receipt("failure", "EMPTY_GRASP", "sim_state", _ids(observations), metrics)
+    if lifted and held_band and stable and near:
+        return receipt("success", "GRASP_HELD", "sim_state", _ids(observations), metrics)
+    if len(lifted_obs) < need:
+        return receipt("unknown", "NEED_STABILITY_SAMPLE", "sim_state", _ids(observations), metrics)
+    if span is not None and span > limit:
+        return receipt("failure", "GRASP_SLIP", "sim_state", _ids(observations), metrics)
+    if lifted and not near:
+        return receipt("failure", "EMPTY_GRASP", "sim_state", _ids(observations), metrics)
+    if not lifted:
+        return receipt("failure", "EMPTY_GRASP", "sim_state", _ids(observations), metrics)
+    return receipt("unknown", "INSUFFICIENT_EVIDENCE", "sim_state", _ids(observations), metrics)
+
+
+def _grasp_metrics(observations, outcome, current, opening, eef, base, contact, grasp_cfg) -> dict[str, Any]:
+    lift = None if current is None or base is None else round(current[2] - base, 4)
+    gap = None if current is None or eef is None else round(_distance(current, eef), 4)
+    return {
+        "grasp_signal": outcome.grasp_signal,
+        "object_pos": current,
+        "eef_pos": eef,
+        "gripper_opening_m": opening,
+        "support_z": base,
+        "lift_m": lift,
+        "object_to_eef_m": gap,
+        "contact": contact,
+        "contact_note": None if contact else "环境没有提供接触字段",
+        "observation_ids": _ids(observations),
+        "timestamps": [obs.get("timestamp") for obs in observations if isinstance(obs, dict)],
+        "evidence_source": "sim_state",
+        "lift_above_support_m": grasp_cfg["lift_above_support_m"],
+        "window_samples": len(observations),
+    }
 
 
 def _transport(step, before_obs, after_obs, objects) -> dict[str, Any]:
@@ -358,6 +417,19 @@ def _distance(a: list[float], b: list[float]) -> float:
 
 def _xy(a: list[float], b: list[float]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _relative_span(observations, sim_name, eef) -> float | None:
+    gaps = []
+    for obs in observations:
+        obj = _object(obs, sim_name)
+        center = _eef(obs) or eef
+        if obj is None or center is None:
+            return None
+        gaps.append(_distance(obj, center))
+    if not gaps:
+        return None
+    return max(gaps) - min(gaps)
 
 
 def _stable(observations, sim_name, eef, samples: int, limit: float) -> bool:

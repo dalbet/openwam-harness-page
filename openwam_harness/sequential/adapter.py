@@ -126,6 +126,8 @@ class App:
         self.load_token = 0
         self.recovery_attempts = 0
         self.binding = None
+        self.display_seq = 0
+        self.client_frames = None
         self.planner = make_openai_client(PLANNER_URL, PLANNER_MODEL)
 
     def scenes(self) -> list[dict]:
@@ -242,6 +244,34 @@ class App:
             "src_wh": src_w[1],
             "placeholder": False,
         })
+        payload = frame_bytes(header, agent, wrist)
+        if self.loop is None:
+            return
+        for ws in list(self.clients):
+            asyncio.run_coroutine_threadsafe(ws.send_bytes(payload), self.loop)
+
+    def send_display(self, agent: bytes, wrist: bytes, meta: dict) -> None:
+        """Send one already-encoded snapshot. Called off the environment thread."""
+        self.display_seq += 1
+        stamp = meta.get("timestamp") or time.time()
+        header = {
+            "type": "frame",
+            "eid": self.session.episode_id,
+            "fid": self.display_seq,
+            "frame_id": self.display_seq,
+            "primitive": meta.get("primitive") or "",
+            "observation_id": meta.get("observation_id"),
+            "timestamp": stamp,
+            "frame_time": time.strftime("%H:%M:%S", time.localtime(stamp)),
+            "env_action_count": meta.get("env_action_count"),
+            "phase": "executing",
+            "detail": meta.get("primitive") or "",
+            "term": False,
+            "success": False,
+            "placeholder": False,
+            "live_chunk": True,
+            "mode": self.mode,
+        }
         payload = frame_bytes(header, agent, wrist)
         if self.loop is None:
             return
@@ -382,6 +412,9 @@ class App:
             self.backend = box["backend"]
             self.backend.scene_epoch = self.session.scene_epoch
             info = box["info"]
+        bus = getattr(self.backend, "frame_bus", None)
+        if bus is not None:
+            bus.set_sender(self.send_display)
         self.broadcast(
             {
                 "type": "loaded",
@@ -854,6 +887,8 @@ class App:
                 "status": result["status"],
                 "planner_stage": plan.get("planner_stage"),
                 "execution": result.get("execution"),
+                "frames": getattr(getattr(self.backend, "frame_bus", None), "stats", lambda: {})(),
+                "client_frames": self.client_frames,
             }
         )
 
@@ -1154,7 +1189,12 @@ async def websocket(request):
             elif kind == "confirm":
                 APP.confirm(data)
             elif kind == "client_perf":
-                continue
+                APP.client_frames = {
+                    "frames_received": data.get("frames_received"),
+                    "frames_drawn": data.get("frames_drawn"),
+                    "max_gap_ms": data.get("max_gap_ms"),
+                    "gap_ms": data.get("gap_ms"),
+                }
     finally:
         APP.clients.discard(ws)
     return ws

@@ -14,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from executor import ToolOutcome
+from frame_bus import FrameBus
 
 HARNESS = Path(__file__).resolve().parents[1]
 RPENT = HARNESS / "RPent"
@@ -73,6 +74,7 @@ class LiveBackend:
         self._llm_calls = 0
         self._daemons = []
         self.toolkit = None
+        self.frame_bus = None
         self.scene_epoch = 0
         self.resources = require_resources()
         self._model = None
@@ -127,6 +129,7 @@ class LiveBackend:
             self.toolkit, marks = _timed_toolkit(
                 robot_spec, runtime_kwargs, events, config, self.output_dir
             )
+            self.frame_bus = getattr(self.toolkit.primitives, "_display_bus", None)
             timings.update(marks)
             self._model = self.toolkit.primitives.model
             self._sam3 = self.toolkit.primitives._sam3_client
@@ -179,13 +182,14 @@ class LiveBackend:
             )
         data = result.data if isinstance(result.data, dict) else {"result": result.data}
         if action == "pi0_pick":
-            from chunk_trace import take_chunk_trace
+            from chunk_trace import take_chunk_trace, take_grasp_samples
 
             data = dict(data)
             data["chunks"] = take_chunk_trace(self.toolkit.primitives)
+            data["samples"] = take_grasp_samples(self.toolkit.primitives)
             data["env_action_count"] = int(getattr(self.toolkit.primitives, "_env_action_count", 0))
             data["record_note"] = "states.json step_idx counts tool records, not env actions inside a chunk"
-        if action == "pi0_pick" and "success" not in data:
+        if action == "pi0_pick":
             data = attach_saved_pick_result(data, _saved_record_result(self.toolkit))
         parsed = interpret_tool_data(action, data)
         env = self.toolkit.primitives.env
@@ -228,33 +232,10 @@ class LiveBackend:
 
     def sim_state(self) -> dict:
         env = self.toolkit.primitives.env
-        raw = env.raw_obs()
-        objects = {}
-        for key, value in raw.items():
-            if not (isinstance(key, str) and key.endswith("_pos")):
-                continue
-            if "robot0" in key or "to_robot" in key:
-                continue
-            try:
-                pos = [float(item) for item in list(value)[:3]]
-            except (TypeError, ValueError):
-                continue
-            if len(pos) != 3:
-                continue
-            objects[key[:-4]] = {"pos": pos, "identified": True}
-        grip = raw.get("robot0_gripper_qpos")
-        opening = None
-        if grip is not None:
-            opening = abs(float(grip[0])) + abs(float(grip[1]))
-        eef = raw.get("robot0_eef_pos")
-        return {
-            "objects": objects,
-            "eef_pos": None if eef is None else [float(item) for item in list(eef)[:3]],
-            "gripper_opening_m": opening,
-            "terminated": bool(env.terminated),
-            "truncated": bool(env.truncated),
-            "evidence_source": "sim_state_assisted",
-        }
+        sim = dict(sim_sample(env)["sim"])
+        sim["terminated"] = bool(env.terminated)
+        sim["truncated"] = bool(env.truncated)
+        return sim
 
     def env_step(self) -> int | None:
         if self.toolkit is None:
@@ -362,6 +343,10 @@ class LiveBackend:
     def retarget(self, scene: dict, output_dir: Path) -> dict:
         """Replace the env for a different task. VLA and SAM3 stay up."""
         self._stop_named("env")
+        bus = getattr(self, "frame_bus", None)
+        if bus is not None:
+            bus.close()
+            self.frame_bus = None
         try:
             if self.toolkit is not None:
                 self.toolkit.close()
@@ -383,6 +368,7 @@ class LiveBackend:
         self.toolkit, marks = _timed_toolkit(
             self._robot_spec, env_kwargs, self._events, self._config, self.output_dir
         )
+        self.frame_bus = getattr(self.toolkit.primitives, "_display_bus", None)
         self._daemons.extend(env_daemons)
         self.timings = {"kind": "retarget", "service_start_s": 0.0, "env_create_s": env_s, **marks}
         if not all(self.frames()):
@@ -402,6 +388,10 @@ class LiveBackend:
         self._daemons = kept
 
     def close(self) -> None:
+        bus = getattr(self, "frame_bus", None)
+        if bus is not None:
+            bus.close()
+            self.frame_bus = None
         for daemon in self._daemons or []:
             try:
                 daemon.stop()
@@ -455,10 +445,113 @@ def _timed_toolkit(robot_spec, runtime_kwargs, events, config, output_dir):
     finally:
         LiberoPrimitives.reset = orig_reset
         tools.dump_state = orig_dump
-    from chunk_trace import attach_chunk_trace
+    from chunk_trace import attach_chunk_trace, set_chunk_hook
 
     attach_chunk_trace(toolkit.primitives)
+    bus = FrameBus()
+    toolkit.primitives._display_bus = bus
+
+    def on_chunk(primitives, obs, row) -> None:
+        sample = sim_sample(primitives.env)
+        sample["observation_id"] = row.get("observation_id")
+        sample["timestamp"] = time.time()
+        sample["env_action_count"] = row.get("env_actions_after")
+        primitives._grasp_samples = list(getattr(primitives, "_grasp_samples", []))
+        primitives._grasp_samples.append(sample)
+        agent, wrist = _display_images(obs)
+        if agent is None or wrist is None:
+            raw = primitives.env.raw_obs()
+            agent, wrist = _display_images(raw)
+        if agent is None or wrist is None:
+            bus.skipped = getattr(bus, "skipped", 0) + 1
+            return
+        bus.publish(agent, wrist, {
+            "primitive": "pi0_pick",
+            "observation_id": row.get("observation_id"),
+            "timestamp": sample["timestamp"],
+            "env_action_count": row.get("env_actions_after"),
+        })
+
+    set_chunk_hook(on_chunk)
     return toolkit, marks
+
+
+def sim_sample(env) -> dict:
+    """Read the current sim truth on the thread that just stepped. No render."""
+    raw = env.raw_obs()
+    objects = {}
+    contact = {}
+    for key, value in raw.items():
+        if not isinstance(key, str):
+            continue
+        if "contact" in key or "touch" in key:
+            contact[key] = _plain(value)
+            continue
+        if not key.endswith("_pos") or "robot0" in key or "to_robot" in key:
+            continue
+        try:
+            pos = [float(item) for item in list(value)[:3]]
+        except (TypeError, ValueError):
+            continue
+        if len(pos) == 3:
+            objects[key[:-4]] = {"pos": pos, "identified": True}
+    grip = raw.get("robot0_gripper_qpos")
+    opening = None
+    if grip is not None:
+        opening = abs(float(grip[0])) + abs(float(grip[1]))
+    eef = raw.get("robot0_eef_pos")
+    return {
+        "sim": {
+            "objects": objects,
+            "eef_pos": None if eef is None else [float(item) for item in list(eef)[:3]],
+            "gripper_opening_m": opening,
+            "contact": contact or None,
+            "evidence_source": "sim_state",
+        }
+    }
+
+
+def _plain(value):
+    try:
+        import numpy as np
+
+        if isinstance(value, np.ndarray):
+            return value.reshape(-1)[:8].astype(float).tolist()
+    except Exception:
+        pass
+    if isinstance(value, (int, float, str, bool)):
+        return value
+    return None
+
+
+def _display_images(source):
+    pairs = (
+        ("main_images", "wrist_images"),
+        ("agentview_image", "robot0_eye_in_hand_image"),
+        ("agentview_image", "eye_in_hand_image"),
+    )
+    for agent_key, wrist_key in pairs:
+        agent = _image_copy(source, agent_key)
+        wrist = _image_copy(source, wrist_key)
+        if agent is not None and wrist is not None:
+            return agent, wrist
+    return None, None
+
+
+def _image_copy(obs, key: str):
+    if not isinstance(obs, dict) or obs.get(key) is None:
+        return None
+    try:
+        import numpy as np
+
+        array = np.asarray(obs[key])
+        if array.dtype == object:
+            return None
+        if array.ndim == 4 and array.shape[0] == 1:
+            array = array[0]
+        return np.ascontiguousarray(np.array(array, copy=True))
+    except Exception:
+        return None
 
 
 def _find_xyz(data: dict):
@@ -488,17 +581,25 @@ def tool_arguments(args: dict) -> dict:
 
 
 def attach_saved_pick_result(data: dict, saved: dict | None) -> dict:
-    """The toolkit returns the observation after pi0_pick and drops the tool body.
+    """Keep the tool body and the post-tool observation as separate fields.
 
-    Copy the saved tool fields back. ``terminated`` stays out of this copy so it
-    cannot be read as the call status.
+    ``success`` is also copied to the top level so grasp_signal can read it.
+    ``terminated`` stays inside ``tool_result`` and is not the call status.
     """
-    if not isinstance(saved, dict) or "success" in data:
-        return data
-    merged = dict(data)
-    for key in ("success", "chunks_used", "peak_lift_m", "min_gripper_opening", "final_gripper_opening"):
-        if key in saved:
-            merged[key] = saved[key]
+    tool_keys = ("success", "chunks_used", "peak_lift_m", "min_gripper_opening", "final_gripper_opening", "terminated", "truncated")
+    source = saved if isinstance(saved, dict) and "success" in saved else data
+    tool = {key: source[key] for key in tool_keys if isinstance(source, dict) and key in source}
+    observation = {
+        key: value
+        for key, value in data.items()
+        if key not in tool_keys and key not in {"tool_result", "observation"}
+    }
+    merged = dict(observation)
+    if tool:
+        merged["tool_result"] = tool
+        if "success" in tool:
+            merged["success"] = tool["success"]
+    merged["observation"] = observation
     return merged
 
 

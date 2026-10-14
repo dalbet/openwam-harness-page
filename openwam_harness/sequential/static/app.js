@@ -31,6 +31,10 @@ let waiting = false;
 let lastPlannerStage = "";
 let lastExec = null;
 let lastRunStatus = "";
+let framesReceived = 0;
+let framesDrawn = 0;
+let maxFrameGapMs = 0;
+let lastFrameMeta = null;
 
 function clearBuffer(){
   pending = null; decoding = false; lastDisplayedFid = -1; endedFallback = null;
@@ -122,6 +126,8 @@ function handleText(txt){
       acceptEid = m.episode_id; gate = false; curEid = m.episode_id;
       episode = m.episode_id;
       clearBuffer(); terminalReached = false;
+      lastExec = null; framesReceived = 0; framesDrawn = 0; maxFrameGapMs = 0; lastFrameMeta = null;
+      updateMotion();
       stopBtn.disabled = false;
       setStatus(m.mode === "dry" ? "干跑" : "planning", m.plan_source || "");
       break;
@@ -175,6 +181,18 @@ const CATEGORIES = {
 function rememberExec(execution){
   lastExec = execution || null;
   renderExec(lastExec);
+  updateMotion();
+}
+function updateMotion(){
+  const el = $("motion");
+  if (!el) return;
+  const parts = [];
+  const prim = (lastFrameMeta && lastFrameMeta.primitive) || (lastExec && lastExec.skill);
+  if (prim) parts.push("当前 " + prim);
+  if (lastFrameMeta && lastFrameMeta.frame_time) parts.push("最新帧 " + lastFrameMeta.frame_time);
+  if (lastExec && lastExec.transport_started === false) parts.push("尚未搬运/放置");
+  if (framesReceived || framesDrawn) parts.push(`收 ${framesReceived} / 绘 ${framesDrawn}`);
+  el.textContent = parts.join(" · ");
 }
 function renderExec(execution){
   if (!execution) {
@@ -185,17 +203,22 @@ function renderExec(execution){
   const category = CATEGORIES[execution.category] || execution.category || "—";
   const checker = execution.checker_reason_code ? ` · 检查结果 ${execution.checker_reason_code}` : "";
   const planner = lastPlannerStage === "ok" ? "规划通过" : (lastPlannerStage || "规划状态未知");
-  const failed = execution.reason_code && execution.reason_code !== "GRASP_HELD" && execution.reason_code !== "OBJECT_LOCALIZED" && !execution.stopped;
-  execMeta.textContent = failed ? `${planner}，执行失败` : `${planner} · ${execution.reason_code || "执行中"}`;
+  const pauseCodes = ["INSUFFICIENT_EVIDENCE", "NEED_STABILITY_SAMPLE", "TARGET_NOT_IDENTIFIED", "TARGET_AMBIGUOUS"];
+  const paused = pauseCodes.includes(execution.reason_code);
+  const failed = !paused && execution.reason_code && execution.reason_code !== "GRASP_HELD" && execution.reason_code !== "OBJECT_LOCALIZED" && !execution.stopped;
+  execMeta.textContent = paused ? `${planner}，执行暂停` : (failed ? `${planner}，执行失败` : `${planner} · ${execution.reason_code || "执行中"}`);
   execBrief.textContent = [
     `当前步骤: ${execution.step_id || "—"}`,
     `当前工具: ${execution.skill || "—"}`,
     `失败类别: ${category}`,
     `原因: ${execution.reason || "—"}${checker}`,
+    (execution.unmet || []).length ? `未满足: ${(execution.unmet || []).join("；")}` : "",
+    (execution.missing || []).length ? `缺少: ${(execution.missing || []).join(", ")}` : "",
+    execution.transport_started === false ? "尚未搬运/放置" : "",
     `环境动作数: ${execution.env_action_count ?? 0}`,
     `最新观测: ${execution.observation_id || "—"}`,
     `记录序号: ${execution.record_index ?? "—"}（${execution.record_index_note || "不是仿真步数"}）`
-  ].join("\n");
+  ].filter(Boolean).join("\n");
   execFull.hidden = true;
   execFull.textContent = JSON.stringify({
     args: execution.args || {},
@@ -205,7 +228,10 @@ function renderExec(execution){
     return_summary: execution.return_summary || {},
     request_id: execution.request_id || null,
     episode_id: execution.episode_id || null,
-    reason_code: execution.reason_code || null
+    reason_code: execution.reason_code || null,
+    missing: execution.missing || null,
+    unmet: execution.unmet || null,
+    transport_started: execution.transport_started
   }, null, 2);
 }
 function statusDetail(m){
@@ -355,6 +381,12 @@ function handleBinary(ab){
     gap: lastArrival ? performance.now() - lastArrival : 0
   };
   lastArrival = frame.arrival;
+  framesReceived += 1;
+  if (frame.gap > maxFrameGapMs) maxFrameGapMs = frame.gap;
+  if (hdr.primitive || hdr.frame_time || hdr.live_chunk) {
+    lastFrameMeta = hdr;
+    updateMotion();
+  }
   if (curEid !== null && hdr.eid && hdr.eid !== curEid) clearBuffer();
   curEid = hdr.eid || curEid;
   if (!hdr.term) terminalReached = false;
@@ -404,11 +436,21 @@ function tick(){
     aBmp.close(); wBmp.close();
     phAgent.style.display = "none"; phWrist.style.display = "none";
     lastDisplayedFid = f.hdr.fid;
+    framesDrawn += 1;
+    updateMotion();
     if (f.hdr.phase === "waiting_confirmation") setConfirm(true);
     if (f.hdr.term) showResult(!!f.hdr.success, f.hdr.reason);
     else if (!terminalReached && !lastExec) setStatus(f.hdr.phase || "executing", f.hdr.detail || "");
-    if (f.hdr.term || (lastDisplayedFid % 8) === 0){
-      send({type:"client_perf", decode_ms: 0, draw_ms: 0, gap_ms: f.gap || 0});
+    if (f.hdr.term || (framesDrawn % 4) === 0){
+      send({
+        type:"client_perf",
+        decode_ms: 0,
+        draw_ms: 0,
+        gap_ms: f.gap || 0,
+        frames_received: framesReceived,
+        frames_drawn: framesDrawn,
+        max_gap_ms: maxFrameGapMs
+      });
     }
     decoding = false;
   }).catch(() => { decoding = false; setStatus("failed", "画面解码失败", "bad"); });

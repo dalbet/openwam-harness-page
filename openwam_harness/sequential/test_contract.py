@@ -66,15 +66,37 @@ class Scripted:
             self.objects[self.held] = [0.06, 0.23, 0.50]
             self.held = None
         xyz = list(self.objects[sim]) if action == "segment" and sim else None
+        raw = {}
+        if action == "pi0_pick":
+            raw = {"success": True}
+            if self.real and self.held and not getattr(self, "skip_samples", False):
+                raw["samples"] = self._grasp_samples()
         return ToolOutcome(
             executed=True,
             grasp_signal=True if action == "pi0_pick" else None,
             native_terminated=self.native,
             xyz=xyz,
             eef_pos=list(self.eef),
-            raw={"success": True} if action == "pi0_pick" else {},
+            raw=raw,
             real=self.real,
         )
+
+    def _grasp_samples(self):
+        sim = {
+            "objects": {
+                name: {"pos": list(pos), "identified": True}
+                for name, pos in self.objects.items()
+            },
+            "eef_pos": list(self.eef),
+            "gripper_opening_m": self.opening,
+            "contact": None,
+            "evidence_source": "sim_state",
+        }
+        second = json.loads(json.dumps(sim))
+        return [
+            {"observation_id": "pick-1", "env_action_count": 5, "timestamp": 1.0, "sim": sim},
+            {"observation_id": "pick-2", "env_action_count": 10, "timestamp": 2.0, "sim": second},
+        ]
 
     def observe(self):
         self.observations += 1
@@ -262,7 +284,7 @@ class ContractTest(unittest.TestCase):
         self.assertTrue(all(step["grasp_signal"] for step in picks))
         self.assertTrue(all(step["verification"]["status"] == "success" for step in picks))
         self.assertTrue(all(step["verification"]["reason_code"] == "GRASP_HELD" for step in picks))
-        self.assertTrue(all(step["verification"]["evidence_source"] == "sim_state_assisted" for step in picks))
+        self.assertTrue(all(step["verification"]["evidence_source"] == "sim_state" for step in picks))
         self.assertNotIn("reset", backend.calls)
         places = [step for step in result["steps"] if step["action"] == "pause_for_confirm"]
         self.assertEqual([step["confirmation_source"] for step in places], ["manual", "manual"])
@@ -526,6 +548,9 @@ class ContractTest(unittest.TestCase):
             {"success": True, "chunks_used": 11, "peak_lift_m": 0.065, "terminated": True},
         )
         self.assertNotIn("terminated", restored)
+        self.assertEqual(restored["tool_result"]["terminated"], True)
+        self.assertEqual(restored["observation"]["env_action_count"], 55)
+        self.assertNotIn("success", restored["observation"])
         restored_grasp = interpret_tool_data("pi0_pick", restored)
         self.assertTrue(restored_grasp["executed"])
         self.assertTrue(restored_grasp["grasp_signal"])

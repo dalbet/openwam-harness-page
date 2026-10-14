@@ -4,6 +4,14 @@ from __future__ import annotations
 
 import numpy as np
 
+_HOOK = None
+
+
+def set_chunk_hook(hook) -> None:
+    """Called on the environment thread after chunk_step returns. It must not step or render."""
+    global _HOOK
+    _HOOK = hook
+
 
 def attach_chunk_trace(primitives) -> None:
     if getattr(primitives, "_trace_attached", False):
@@ -44,9 +52,24 @@ def attach_chunk_trace(primitives) -> None:
             "cancelled": False,
             "observation_id": f"env-actions-{before}:{primitives._env_action_count}",
         })
+        hook = _HOOK
+        if hook is not None:
+            obs = result[0] if isinstance(result, tuple) and result else None
+            if isinstance(obs, list):
+                obs = obs[-1] if obs else None
+            try:
+                hook(primitives, obs, primitives._chunk_trace[-1])
+            except Exception:
+                pass
         return result
 
     env.chunk_step = chunk_step
+
+
+def take_grasp_samples(primitives) -> list[dict]:
+    rows = list(getattr(primitives, "_grasp_samples", []))
+    primitives._grasp_samples = []
+    return rows
 
 
 def take_chunk_trace(primitives) -> list[dict]:
