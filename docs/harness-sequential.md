@@ -170,6 +170,16 @@ cd /root/Page_dmh/openwam_harness/RPent
   --model openai:Qwen3.5-9B --base-url http://127.0.0.1:8000/v1
 ```
 
+## 能力矩阵与对象绑定
+
+矩阵在 `openwam_harness/sequential/records/capability_matrix.json`。四套件 40 条都来自本地注册表语言，并带上 BDDL `:objects` / `:fixtures`。`local_acceptance` 全部是 `not_run`。可展开计划不算已成功。
+
+开放范围：Object 搬运、Spatial 抓放、Goal 里不含开合/推动/旋钮的搬运、Long 里两条食品放入篮子。接触任务在动作前返回拒绝，不会调用 `pi0_pick`。
+
+Planner 收到带编号的场景图。同类型多实例都保留。SAM3 的 `segment` 经 `Sam3Facade._select_top` 只返回最高分；点提示 `segment(point=[row, col])` 存在，但同样只返回一张最高分掩码，没有多候选 RPC。最高分掩码在没有点提示或唯一实例证据时不绑定到实例，也不默认第一只。
+
+中文输入匹配到英文规范指令。多条都像时只问一个问题。自由输入若对应另一个任务，会显式加载该任务并改用它的 `env.terminated`；对不上时提示当前场景不支持，不沿用原来的成功标准。
+
 ## 本轮验证
 
 记录在 `openwam_harness/sequential/records/planner_speed.json`。没有第三次 Planner 请求，也没有批量评测。

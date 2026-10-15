@@ -26,7 +26,10 @@ OUTPUT_FORMAT = (
     "For a single placement, emit one transfer. Do not add a second transfer with the same "
     "object_ref, target_ref, and relation. Do not nest submit_plan inside arguments or steps. "
     "Do not send an objects map, primitive skills, controller parameters, or code. "
-    "object_ref and target_ref must be instance ids from the scene. goal must equal the task text. "
+    "Bind each object to a candidate number: set object_n and target_n, and set "
+    "object_ref and target_ref to the instance id printed beside that number. "
+    "Do not choose candidate 1 when several instances share a type. "
+    "goal must equal the task text. "
     "This request contains scene metadata and image ids only, not image bytes. "
     "A sim_state binding is not a visual judgment."
 )
@@ -54,6 +57,7 @@ def request_plan(
     image_ids: list[str] | None = None,
     scene_objects: dict[str, Any] | None = None,
     required_object_ref: str | None = None,
+    numbered_candidates: list[dict[str, Any]] | None = None,
     on_event: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
     example = json.dumps(semantic_example(), ensure_ascii=False)
@@ -78,14 +82,15 @@ def request_plan(
     _emit(options, "validating", "initial")
     attempts.append(_attempt(1, "initial", message, parts, counter))
     try:
-        kind, plan = parse_model_message(
+        kind, plan, resolution = _parsed(
             message,
             task=task,
             scene_objects=scene_objects,
             required_object_ref=required_object_ref,
+            numbered_candidates=numbered_candidates,
         )
         plan["plan_source"] = "model"
-        return _ok("model", plan, attempts, instruction_report, kind)
+        return _ok("model", plan, attempts, instruction_report, kind, resolution)
     except PlanError as exc:
         first_errors = exc.errors
         attempts[0]["errors"] = first_errors
@@ -102,14 +107,15 @@ def request_plan(
     _emit(options, "validating", "format_repair")
     attempts.append(_attempt(2, "format_repair", message, repair_parts, counter))
     try:
-        kind, plan = parse_model_message(
+        kind, plan, resolution = _parsed(
             message,
             task=task,
             scene_objects=scene_objects,
             required_object_ref=required_object_ref,
+            numbered_candidates=numbered_candidates,
         )
         plan["plan_source"] = "model"
-        return _ok("model_repair", plan, attempts, instruction_report, kind)
+        return _ok("model_repair", plan, attempts, instruction_report, kind, resolution)
     except PlanError as exc:
         attempts[-1]["errors"] = exc.errors
         return _failed(attempts, exc.errors, repairs=1)
@@ -215,13 +221,73 @@ def _replay(message: dict[str, Any]) -> str:
     return str(message.get("content") or "")
 
 
-def _ok(source: str, plan: dict[str, Any], attempts: list[dict], preflight: dict, kind: str) -> dict[str, Any]:
+def _parsed(message, **kwargs) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
+    numbered = kwargs.pop("numbered_candidates", None)
+    kind, plan = parse_model_message(message, **kwargs) if numbered is None else _parse_numbered(message, numbered, kwargs)
+    if numbered is None:
+        return kind, plan, []
+    return kind, plan, plan.pop("_candidate_resolution", [])
+
+
+def _parse_numbered(message, numbered, kwargs) -> tuple[str, dict[str, Any]]:
+    """Resolve candidate numbers before schema validation, and keep the evidence beside the plan."""
+    kind, plan = parse_model_message(_with_resolved_arguments(message, numbered), **kwargs)
+    plan["_candidate_resolution"] = getattr(_with_resolved_arguments, "last_evidence", [])
+    return kind, plan
+
+
+def _with_resolved_arguments(message, numbered):
+    from candidates import resolve_numbers
+
+    copied = dict(message)
+    calls = []
+    evidence: list[dict[str, Any]] = []
+    for call in message.get("tool_calls") or []:
+        item = dict(call)
+        function = dict((call.get("function") or {}))
+        raw = function.get("arguments")
+        payload = raw
+        if isinstance(raw, str):
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                payload = None
+        if isinstance(payload, dict):
+            resolved, found = resolve_numbers(payload, numbered)
+            evidence.extend(found)
+            function["arguments"] = resolved if not isinstance(raw, str) else json.dumps(resolved, ensure_ascii=False)
+        item["function"] = function
+        calls.append(item)
+    if calls:
+        copied["tool_calls"] = calls
+    elif isinstance(message.get("content"), str):
+        try:
+            payload = json.loads(message["content"])
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, dict):
+            resolved, found = resolve_numbers(payload, numbered)
+            evidence.extend(found)
+            copied["content"] = json.dumps(resolved, ensure_ascii=False)
+    _with_resolved_arguments.last_evidence = evidence
+    return copied
+
+
+def _ok(
+    source: str,
+    plan: dict[str, Any],
+    attempts: list[dict],
+    preflight: dict,
+    kind: str,
+    resolution: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     return {
         "status": "ok",
         "plan": plan,
         "source": source,
         "plan_source": "model",
         "response_kind": kind,
+        "candidate_resolution": resolution or [],
         "attempts": attempts,
         "errors": [],
         "budgets": [item["preflight"] for item in attempts],

@@ -640,6 +640,7 @@ class App:
                 execute,
                 message.get("stop_after"),
                 message.get("deadline_s"),
+                str(message.get("task") or ""),
             ),
             daemon=True,
         ).start()
@@ -695,9 +696,9 @@ class App:
         self.binding = chosen
         self.broadcast({"type": "binding", "binding": _public_binding(chosen)})
 
-    def _run(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None, deadline_s: float | None = None) -> None:
+    def _run(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None, deadline_s: float | None = None, user_text: str = "") -> None:
         try:
-            self._run_inner(kind, plan_source, run_id, manual_scope, execute, stop_after, deadline_s)
+            self._run_inner(kind, plan_source, run_id, manual_scope, execute, stop_after, deadline_s, user_text)
         except Exception as exc:
             self.log(f"run failed: {exc}")
             self.broadcast({"type": "state", "phase": "failed", "detail": str(exc)})
@@ -714,7 +715,7 @@ class App:
                 self.running = False
                 self.awaiting_confirm = False
 
-    def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None, deadline_s: float | None = None) -> None:
+    def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None, deadline_s: float | None = None, user_text: str = "") -> None:
         if kind == "restart":
             self.session.cancel()
             self._wake()
@@ -736,6 +737,30 @@ class App:
         epoch = self.session.scene_epoch
         spec = self.scene_spec or {}
         self.broadcast({"type": "started", "episode_id": episode, "mode": self.mode, "plan_source": plan_source})
+        decision = self._instruction_decision(user_text, spec)
+        if decision["status"] == "ambiguous":
+            self.broadcast({"type": "clarify", "question": decision["question"], "candidates": decision.get("candidates") or []})
+            self._fail_run(episode, decision["question"])
+            return
+        if decision["status"] == "unsupported":
+            self._fail_run(episode, decision["reason"])
+            return
+        if decision.get("changed"):
+            spec = self._adopt_task(int(decision["task_id"]))
+            episode = self.session.episode_id
+            epoch = self.session.scene_epoch
+        canonical = decision.get("language") or spec.get("goal") or ""
+        row = decision.get("capability") or {}
+        from capabilities import reject_reason
+
+        reason = reject_reason(row) if row else None
+        if reason:
+            self._fail_run(episode, reason)
+            return
+        spec = dict(spec)
+        spec["goal"] = canonical
+        spec["task"] = canonical
+        self.scene_spec = spec
         scene_objects, binding, info = self._scene_binding(spec)
         self.broadcast({"type": "binding", "binding": _public_binding(binding)})
         if binding.get("status") != "resolved":
@@ -757,7 +782,11 @@ class App:
                 planning_input="scene_metadata",
                 elapsed_s=0,
             )
-            self._fail_run(episode, "BINDING_UNRESOLVED")
+            from candidates import binding_question, number_candidates
+
+            question = binding_question(binding, number_candidates(scene_objects))
+            self.broadcast({"type": "clarify", "question": question, "candidates": binding.get("candidates") or []})
+            self._fail_run(episode, question)
             return
         if plan_source != "model":
             self._fail_run(episode, "开始只发起新的模型规划，不使用保存计划、人工计划或隐藏回退")
@@ -770,15 +799,22 @@ class App:
             self.planner = self._make_planner()
             self.broadcast({"type": "state", "phase": "planning", "detail": profile.get("model") or PLANNER_MODEL, "mode": "live", "plan_source": "model"})
             image_ids = [f"agentview:{info.get('env_step')}", f"wrist:{info.get('env_step')}"]
+            from candidates import number_candidates, scene_graph
             from schema import transfer_slots
 
             slots = transfer_slots(spec.get("goal") or "") or []
             required_ref = binding.get("object_ref") if len(slots) == 1 else None
+            numbered = number_candidates(scene_objects)
+            graph = scene_graph(scene_objects, (binding or {}).get("positions"))
             scene_text = json.dumps(
                 {
                     "planning_input": "scene_metadata",
                     "vision": False,
                     "goal_relation": spec.get("goal_relation"),
+                    "canonical_goal": canonical,
+                    "user_text": user_text,
+                    "scene_graph": graph,
+                    "candidates": numbered,
                     "allowed_refs": sorted(scene_objects),
                     "required_object_ref": required_ref,
                     "binding": _public_binding(binding),
@@ -818,6 +854,7 @@ class App:
                     image_ids=image_ids,
                     scene_objects=scene_objects,
                     required_object_ref=required_ref,
+                    numbered_candidates=numbered,
                     on_event=on_planner,
                 )
             except Exception as exc:
@@ -856,6 +893,7 @@ class App:
                 plan_from=result.get("plan_from"),
                 comparison=comparison_record(self.active_profile(), binding, scene_text),
                 telemetry=(attempts[-1].get("telemetry") if attempts else {}) or {},
+                candidate_resolution=result.get("candidate_resolution") or [],
             )
             if result["status"] != "ok" or result["plan"] is None:
                 self._fail_run(episode, "PLANNING_FAILED")
@@ -1018,6 +1056,61 @@ class App:
             "不能当成当前会话。已按当前场景重新绑定，object_ref 仍一致，所以没有再次请求 Planner。"
         )
         return plan
+
+    def _instruction_decision(self, user_text: str, spec: dict) -> dict:
+        from instruction import resolve_instruction
+
+        tasks = None
+        if self.suites:
+            tasks = [
+                {
+                    "suite": suite["id"],
+                    "id": task["id"],
+                    "language": task["language"],
+                    "summary_zh": task["summary_zh"],
+                    "task_key": task.get("task_key"),
+                }
+                for suite in self.suites
+                for task in suite.get("tasks") or []
+            ]
+        return resolve_instruction(user_text, spec, tasks)
+
+    def _adopt_task(self, task_id: int) -> dict:
+        """Load the matched task and drop the previous native success criterion."""
+        current = self.scene_spec or {}
+        spec = self._scene_from_message(
+            {"suite": current.get("suite"), "task_id": task_id, "seed": int(current.get("seed") or 0)}
+        )
+        self.log(
+            f"显式加载 {spec['scene_id']} seed={spec['seed']}，成功标准改为该任务的 env.terminated，不沿用上一个任务"
+        )
+        if LIVE and self.backend is not None:
+            out = ROOT.parents[0] / "runs" / "sequential" / self.session.episode_id
+            same = self.backend.scene_key() == (spec["suite"], int(spec["task_id"]), int(spec["seed"]))
+            if same:
+                self.backend.warm_reset()
+            else:
+                self.backend.retarget(spec, out)
+            self._begin_session(spec["scene_id"])
+            self.backend.scene_epoch = self.session.scene_epoch
+        else:
+            self._begin_session(spec["scene_id"])
+        self.scene_spec = spec
+        self.binding = None
+        self.broadcast(
+            {
+                "type": "loaded",
+                "instruction": spec["goal"],
+                "summary_zh": spec.get("summary_zh"),
+                "env_id": spec["scene_id"],
+                "episode_id": self.session.episode_id,
+                "scene_epoch": self.session.scene_epoch,
+                "mode": self.mode,
+                "explicit_task_switch": True,
+                "seed": spec["seed"],
+            }
+        )
+        return spec
 
     def _scene_binding(self, spec: dict) -> tuple[dict, dict, dict]:
         from binding import bind_task, positions_moved
