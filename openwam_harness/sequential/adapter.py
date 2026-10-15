@@ -10,8 +10,10 @@ import asyncio
 import io
 import json
 import os
+import subprocess
 import threading
 import time
+import traceback
 import urllib.request
 from pathlib import Path
 from queue import Empty, Queue
@@ -31,6 +33,25 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
+STATIC_VERSION = "view5"
+EXECUTION_LABEL = "同步"
+
+
+def _startup_commit() -> str:
+    """Commit of this process at import. Later disk HEAD is not substituted."""
+    repo = Path(__file__).resolve().parents[2]
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"],
+            text=True,
+            timeout=5,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        return "unavailable"
+
+
+STARTUP_COMMIT = _startup_commit()
 
 # Kept only so a unit test can recognize the old placeholder. Live mode never sends it.
 TINY_JPEG = bytes.fromhex(
@@ -212,6 +233,9 @@ class App:
             "harness_live": LIVE,
             "port": PORT,
             "pid": os.getpid(),
+            "commit": STARTUP_COMMIT,
+            "static_version": STATIC_VERSION,
+            "execution": EXECUTION_LABEL,
             "planner": planner,
             "planner_ok": planner == "ok",
             "planner_detail": PROBE["detail"],
@@ -414,8 +438,7 @@ class App:
         try:
             spec = self._scene_from_message(message)
         except Exception as exc:
-            self.broadcast({"type": "load_failed", "detail": str(exc)})
-            self.broadcast({"type": "state", "phase": "failed", "detail": str(exc)})
+            self._broadcast_load_error(exc)
             return
         scene_id = spec["scene_id"]
         self.broadcast({"type": "state", "phase": "loading", "detail": scene_id, "mode": self.mode})
@@ -461,7 +484,7 @@ class App:
         same = (
             self.backend is not None
             and hasattr(self.backend, "scene_key")
-            and self.backend.scene_key() == (spec["suite"], int(spec["task_id"]), int(spec["seed"]))
+            and self.backend.scene_key() == (spec["suite"], spec["task_id"], spec["seed"])
         )
 
         def work() -> None:
@@ -511,13 +534,11 @@ class App:
             return
         if box.get("error") is not None:
             err = box["error"]
-            detail = str(err)
+            self.log("".join(traceback.format_exception(type(err), err, err.__traceback__)))
             log = getattr(err, "log", "")
-            self.log(detail)
             if log:
                 self.log(log[-1000:])
-            self.broadcast({"type": "load_failed", "detail": detail})
-            self.broadcast({"type": "state", "phase": "failed", "detail": detail})
+            self._broadcast_load_error(err)
             return
         with self.lock:
             self.backend = box["backend"]
@@ -537,6 +558,11 @@ class App:
                 "mode": "live",
                 "placeholder": False,
                 "summary_zh": spec.get("summary_zh"),
+                "suite": spec["suite"],
+                "task_id": spec["task_id"],
+                "seed": spec["seed"],
+                "task_source": spec.get("task_source"),
+                "execution": EXECUTION_LABEL,
                 "scene": info,
                 "timings": box.get("timings") or {},
             }
@@ -563,42 +589,34 @@ class App:
         self.session.scene_epoch = previous
         return self.session.begin_episode()
 
-    def _scene_from_message(self, message) -> dict:
-        import re
+    def _broadcast_load_error(self, exc: BaseException) -> None:
+        detail = str(exc)
+        field = getattr(exc, "field", None)
+        cause = exc.__cause__ or exc.__context__
+        frames = traceback.extract_tb((cause or exc).__traceback__)
+        if field is None and frames:
+            last = frames[-1]
+            detail = f"{detail} @ {last.filename}:{last.lineno} {last.name}"
+        self.log(detail)
+        payload = {"type": "load_failed", "detail": detail}
+        state = {"type": "state", "phase": "failed", "detail": detail}
+        if field is not None:
+            payload["field"] = field
+            state["field"] = field
+        self.broadcast(payload)
+        self.broadcast(state)
 
-        from suites import goal_relation, load_suites, task_record
+    def _scene_from_message(self, message) -> dict:
+        from scene_request import resolve_load
+        from suites import load_suites
 
         if self.suites is None:
             self.suites = load_suites()
-        if isinstance(message, str) or (isinstance(message, dict) and message.get("scene") and not message.get("suite")):
-            scene_id = message if isinstance(message, str) else str(message.get("scene"))
-            matched = re.fullmatch(r"(libero_spatial|libero_object|libero_goal|libero_10)_t(\d+)(?:_s(\d+))?", scene_id)
-            if not matched:
-                raise ValueError(f"unknown scene {scene_id}")
-            suite, task_id = matched.group(1), int(matched.group(2))
-        else:
-            suite = str(message.get("suite") or "")
-            task_id = int(message.get("task_id") or 0)
-        seed = 0
-        self.log(f"seed fixed={seed} suite={suite} task={task_id}")
-        task = task_record(self.suites, suite, task_id)
-        if seed < 0 or seed >= int(task["init_states"]):
-            raise ValueError(f"seed {seed} 超出该任务初始状态数量 {task['init_states']}")
-        return {
-            "scene_id": f"{suite}_t{task_id}_s{seed}",
-            "suite": suite,
-            "task_id": task_id,
-            "seed": seed,
-            "goal": task["language"],
-            "task": task["language"],
-            "summary_zh": task["summary_zh"],
-            "task_key": task.get("task_key"),
-            "instances": task.get("instances") or [],
-            "fixtures": task.get("fixtures") or [],
-            "goal_relation": goal_relation(task["language"]),
-            "long_candidate": task["long_candidate"],
-            "init_states": task["init_states"],
-        }
+        spec = resolve_load(message, self.suites)
+        self.log(
+            f"seed fixed={spec['seed']} suite={spec['suite']} task={spec['task_id']} source={spec['task_source']}"
+        )
+        return spec
 
     def start(self, kind: str, message: dict, execute: bool = True) -> None:
         if self.session.scene_id == "none" or (LIVE and self.backend is None):
@@ -754,7 +772,11 @@ class App:
             self._fail_run(episode, decision["reason"])
             return
         if decision.get("changed"):
-            spec = self._adopt_task(int(decision["task_id"]))
+            task_id = decision.get("task_id")
+            if isinstance(task_id, bool) or not isinstance(task_id, int):
+                self._fail_run(episode, f"task_id 无效（收到 {task_id!r}），不会猜测或切换任务。")
+                return
+            spec = self._adopt_task(task_id)
             episode = self.session.episode_id
             epoch = self.session.scene_epoch
         canonical = decision.get("language") or spec.get("goal") or ""
@@ -1086,15 +1108,19 @@ class App:
     def _adopt_task(self, task_id: int) -> dict:
         """Load the matched task and drop the previous native success criterion."""
         current = self.scene_spec or {}
+        from scene_request import FieldError
+
+        if "seed" not in current or current.get("seed") is None:
+            raise FieldError("seed", "missing", current.get("seed"), "已加载场景的 seed 0")
         spec = self._scene_from_message(
-            {"suite": current.get("suite"), "task_id": task_id, "seed": int(current.get("seed") or 0)}
+            {"suite": current.get("suite"), "task_id": task_id, "seed": current.get("seed")}
         )
         self.log(
             f"显式加载 {spec['scene_id']} seed={spec['seed']}，成功标准改为该任务的 env.terminated，不沿用上一个任务"
         )
         if LIVE and self.backend is not None:
             out = ROOT.parents[0] / "runs" / "sequential" / self.session.episode_id
-            same = self.backend.scene_key() == (spec["suite"], int(spec["task_id"]), int(spec["seed"]))
+            same = self.backend.scene_key() == (spec["suite"], spec["task_id"], spec["seed"])
             if same:
                 self.backend.warm_reset()
             else:
@@ -1115,7 +1141,11 @@ class App:
                 "scene_epoch": self.session.scene_epoch,
                 "mode": self.mode,
                 "explicit_task_switch": True,
+                "suite": spec["suite"],
+                "task_id": spec["task_id"],
                 "seed": spec["seed"],
+                "task_source": spec.get("task_source"),
+                "execution": EXECUTION_LABEL,
             }
         )
         return spec
@@ -1467,7 +1497,11 @@ def main() -> None:
     app.router.add_get("/static/app.js", app_js)
     app.router.add_get("/static/hook.js", hook_js)
     app.router.add_get("/ws", websocket)
-    print(f"sequential adapter mode={'live' if LIVE else 'dry'} pid={os.getpid()} port={PORT}", flush=True)
+    print(
+        f"sequential adapter mode={'live' if LIVE else 'dry'} pid={os.getpid()} port={PORT} "
+        f"commit={STARTUP_COMMIT} static={STATIC_VERSION} execution=sync",
+        flush=True,
+    )
     start_background()
     web.run_app(app, host=HOST, port=PORT)
 

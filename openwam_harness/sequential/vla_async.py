@@ -1,9 +1,8 @@
 """VLA scheduling. Display frames on another thread are not VLA async.
 
-The live Pi0.5 path is still ``predict`` and then ``chunk_step`` on the
-environment thread. ``VLA_ASYNC=async`` may prefetch one chunk, but that
-prefetch is not RTC. If the observation version moved, the chunk is dropped
-and the next executed chunk is predicted synchronously.
+The live Pi0.5 path is ``predict`` and then ``chunk_step`` on the environment
+thread. A prefetch that is discarded and followed by another synchronous
+predict is not issued. The page reports synchronous execution.
 """
 
 from __future__ import annotations

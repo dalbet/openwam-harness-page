@@ -183,7 +183,7 @@ Planner 收到带编号的场景图。同类型多实例都保留。SAM3 的 `se
 
 `robots/libero/tools.py` 的 `_vlm_chunk` 在环境线程上先 `model.predict`（内部是 `vla.predict` RPC），返回后才 `env.chunk_step`。这两步不重叠。画面线程只编码和发送 512 JPEG，不能算 VLA 异步。用户看到的两段停顿，一段是这次推理加 RPC，一段是同线程上的 512 渲染或工具切换。
 
-`VLA_ASYNC=sync` 是默认，不包一层。`VLA_ASYNC=async` 在 `chunk_step` 期间最多起一个预取线程。当前 Pi0.5 `predict(obs, options)` 只把 `mode` 传给 `predict_action_batch`，没有动作前缀、推理延迟或 RTC 参数，所以预取结果直接丢弃，下一步仍同步预测。普通线程预取不会标成 RTC，也不会把两段动作块拼起来。
+执行保持同步。原先 `VLA_ASYNC=async` 会在 `chunk_step` 期间再发一次 `model.predict`，然后用 `apply=False` 丢掉，下一步仍同步预测。这次额外推理不再发送。页面详情写明「同步」。能消费并对齐动作结果之后，才重新打开异步实验。
 
 reset、取消、重规划、技能切换和原生成功会清空队列，并丢掉旧 `episode_id` / `scene_epoch` / `plan_version` 的结果。环境线程是唯一的 `chunk_step` 调用者。checkpoint、归一化、采样和 `action_chunk` 没有改。
 

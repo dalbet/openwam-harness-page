@@ -72,7 +72,7 @@ class StageDTest(unittest.TestCase):
         self.assertEqual(len(stepped), 1)
         self.assertEqual(replay_queue(ctrl.events)["discarded_unaligned"], 1)
 
-    def test_prefetch_hook_does_not_execute_the_background_chunk(self):
+    def test_discard_prefetch_is_not_issued(self):
         from live import _install_vla_experiment
 
         class Env:
@@ -108,12 +108,13 @@ class StageDTest(unittest.TestCase):
         ctrl.arm("ep", 1, 1, "pi0_pick")
         _install_vla_experiment(prim, ctrl)
         owner = prim.env.chunk_step([[0, 0, 0, 0, 0, 0, 1]])
+        self.assertEqual(prim.model.calls, 0)
         follow = prim._vlm_chunk("pick up the soup")
         self.assertEqual(owner, "owner")
         self.assertEqual(prim.env.steps, [[[0, 0, 0, 0, 0, 0, 1]]])
         self.assertEqual(ctrl.queue, [])
-        self.assertGreaterEqual(prim.model.calls, 1)
-        self.assertTrue(any(item.get("reason") == "unaligned" and item.get("rtc") is False for item in ctrl.events))
+        self.assertEqual(prim.model.calls, 1)
+        self.assertFalse(any(item.get("kind") == "prefetch_error" for item in ctrl.events))
         self.assertEqual(follow[0][0], 9)
 
 

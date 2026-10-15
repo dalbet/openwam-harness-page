@@ -53,7 +53,24 @@ def resolve_instruction(text: str, loaded: dict, tasks: list[dict] | None = None
     """Decide whether the typed text matches the loaded scene, another task, or neither."""
     tasks = tasks if tasks is not None else catalog_from_builtin()
     suite = loaded.get("suite")
-    loaded_id = int(loaded.get("task_id"))
+    if "task_id" not in loaded or loaded.get("task_id") is None:
+        return {
+            "status": "unsupported",
+            "changed": False,
+            "user_text": text.strip(),
+            "language": None,
+            "reason": "已加载场景缺少 task_id，不会猜测或切换任务。",
+        }
+    raw_id = loaded.get("task_id")
+    if isinstance(raw_id, bool) or not isinstance(raw_id, int):
+        return {
+            "status": "unsupported",
+            "changed": False,
+            "user_text": text.strip(),
+            "language": None,
+            "reason": f"已加载场景的 task_id 不是整数（收到 {raw_id!r}），不会猜测或切换任务。",
+        }
+    loaded_id = raw_id
     canonical = str(loaded.get("goal") or loaded.get("language") or "").strip()
     summary = str(loaded.get("summary_zh") or TASK_ZH.get(canonical, "")).strip()
     typed = text.strip()
@@ -105,6 +122,20 @@ def resolve_instruction(text: str, loaded: dict, tasks: list[dict] | None = None
     }
 
 
+def _task_id(task: dict) -> int:
+    if "id" in task:
+        value = task["id"]
+    elif "task_id" in task:
+        value = task["task_id"]
+    else:
+        value = None
+    if isinstance(value, bool) or not isinstance(value, int):
+        from scene_request import FieldError
+
+        raise FieldError("task_id", "null" if value is None else "type", value, "已注册任务的整数 id")
+    return value
+
+
 def _matched(task: dict, language: str, summary: str, *, changed: bool, user_text: str) -> dict:
     row = classify(language, task.get("suite") or "")
     return {
@@ -113,7 +144,7 @@ def _matched(task: dict, language: str, summary: str, *, changed: bool, user_tex
         "user_text": user_text,
         "language": language,
         "summary_zh": summary,
-        "task_id": int(task.get("id", task.get("task_id"))),
+        "task_id": _task_id(task),
         "suite": task.get("suite"),
         "task_key": task.get("task_key"),
         "capability": row,

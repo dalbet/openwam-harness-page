@@ -17,6 +17,17 @@ IMPLEMENTED = (
     "set_gripper",
     "pause_for_confirm",
 )
+
+SUITE_IDS = ("libero_spatial", "libero_object", "libero_goal", "libero_10")
+
+# Load defaults taken from the capability matrix. Goal task 0 is
+# "open the middle drawer of the cabinet" (contact) and is not open.
+DEFAULT_TASK_ID = {
+    "libero_spatial": 0,
+    "libero_object": 0,
+    "libero_goal": 1,
+    "libero_10": 0,
+}
 CONTACT_SKILLS = {
     "open": "open_drawer",
     "close": "close",

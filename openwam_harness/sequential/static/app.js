@@ -134,7 +134,7 @@ function handleText(txt){
         phAgent.textContent = "干跑，无图像"; phWrist.textContent = "干跑，无图像";
       } else {
         const scene = m.scene || {};
-        const loadedDetail = `${m.env_id || ""} · step ${scene.env_step ?? "?"}`;
+        const loadedDetail = `${m.suite || scene.suite || ""} task ${m.task_id ?? scene.task_id ?? "?"} seed ${m.seed ?? scene.seed ?? "?"} · step ${scene.env_step ?? "?"}`;
         const plannerNote = plannerReady() ? "" : " · Planner 未连接";
         setStatus("场景已加载", loadedDetail + plannerNote, plannerReady() ? "good" : "warn");
         phAgent.textContent = "等待画面"; phWrist.textContent = "等待画面";
@@ -155,6 +155,7 @@ function handleText(txt){
     case "load_failed":
       runBusy = false;
       loadBtn.disabled = false;
+      taskIn.disabled = !episode;
       syncRunButtons();
       setStatus("failed", m.detail || "加载失败", "bad");
       break;
@@ -215,7 +216,11 @@ function rememberExec(execution){
 function updateMotion(){
   const el = $("motion");
   if (!el) return;
-  const parts = [];
+  const parts = ["执行：同步"];
+  if (lastHealth){
+    const commit = (lastHealth.commit || "").slice(0, 7) || "未知";
+    parts.push(`commit ${commit}`, `前端 ${lastHealth.static_version || "未知"}`, `pid ${lastHealth.pid ?? "未知"}`);
+  }
   const prim = (lastFrameMeta && lastFrameMeta.primitive) || (lastExec && lastExec.skill);
   if (prim) parts.push("当前 " + prim);
   if (lastFrameMeta && lastFrameMeta.frame_time) parts.push("最新帧 " + lastFrameMeta.frame_time);
@@ -225,7 +230,7 @@ function updateMotion(){
 }
 function renderExec(execution){
   if (!execution) {
-    execMeta.textContent = "还没有执行";
+    execMeta.textContent = "执行：同步";
     execBrief.textContent = "";
     return;
   }
@@ -235,7 +240,8 @@ function renderExec(execution){
   const pauseCodes = ["INSUFFICIENT_EVIDENCE", "NEED_STABILITY_SAMPLE", "TARGET_NOT_IDENTIFIED", "TARGET_AMBIGUOUS"];
   const paused = pauseCodes.includes(execution.reason_code);
   const failed = !paused && execution.reason_code && execution.reason_code !== "GRASP_HELD" && execution.reason_code !== "OBJECT_LOCALIZED" && !execution.stopped;
-  execMeta.textContent = paused ? `${planner}，执行暂停` : (failed ? `${planner}，执行失败` : `${planner} · ${execution.reason_code || "执行中"}`);
+  const execState = paused ? `${planner}，执行暂停` : (failed ? `${planner}，执行失败` : `${planner} · ${execution.reason_code || "执行中"}`);
+  execMeta.textContent = `执行：同步 · ${execState}`;
   execBrief.textContent = [
     `当前步骤: ${execution.step_id || "—"}`,
     `当前工具: ${execution.skill || "—"}`,
@@ -291,11 +297,13 @@ function renderHealth(m){
   const planner = m.planner === "ok" ? "planner 正常" : `planner ${m.planner || "未知"}`;
   const env = {ready: "env 就绪", loading: "env 加载中", down: "env 已停止", not_loaded: "env 未加载"}[m.env] || `env ${m.env || "未知"}`;
   const vla = {ready: "VLA 就绪", down: "VLA 已停止", not_loaded: "VLA 未加载"}[m.vla] || `VLA ${m.vla || "未知"}`;
-  healthEl.textContent = `适配器在线 · ${mode} · ${location.host} · pid ${m.pid} · ${planner} · ${env} · ${vla}`;
+  const commit = (m.commit || "").slice(0, 7) || "未知";
+  healthEl.textContent = `适配器在线 · ${mode} · ${location.host} · pid ${m.pid} · commit ${commit} · 前端 ${m.static_version || "未知"} · ${planner} · ${env} · ${vla}`;
   healthEl.style.color = m.mode === "live" ? "var(--dim)" : "var(--warn)";
   if (m.error || m.planner_detail) healthEl.title = [m.error, m.planner_detail].filter(Boolean).join("\n");
   $("retry").hidden = true;
   syncRunButtons();
+  updateMotion();
 }
 
 const STAGES = {
