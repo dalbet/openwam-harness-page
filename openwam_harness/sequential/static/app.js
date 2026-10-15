@@ -46,11 +46,12 @@ function plannerReady(){
   return !!(lastHealth && lastHealth.can_model_plan);
 }
 function syncRunButtons(){
-  const sceneReady = !!episode;
-  const model = plannerReady();
-  startBtn.disabled = runBusy || !(sceneReady && model);
+  const reason = runBusy ? "正在执行" : ((lastHealth && lastHealth.start_block) || "");
+  startBtn.disabled = !!reason;
   startBtn.textContent = "开始";
-  startBtn.title = model ? "" : "Planner 未连接。开始不会复用已保存计划。";
+  const reasonEl = $("start-reason");
+  if (reasonEl) reasonEl.textContent = reason;
+  startBtn.title = reason;
 }
 
 function clearBuffer(){
@@ -80,6 +81,10 @@ const PHASES = {
   generating: "生成中",
   validating: "校验",
   planning: "规划中",
+  checking_task: "检查任务",
+  binding: "绑定对象",
+  validating: "校验中",
+  switching: "切换任务",
   loading: "加载中",
   loaded: "场景已加载",
   plan_ready: "计划已生成",
@@ -116,6 +121,7 @@ function handleText(txt){
   switch(m.type){
     case "health":
       renderHealth(m);
+      applyServerScene(m);
       break;
     case "suites":
       if (m.status === "ready") applyCatalog(m.suites || []);
@@ -139,6 +145,29 @@ function handleText(txt){
         setStatus("场景已加载", loadedDetail + plannerNote, plannerReady() ? "good" : "warn");
         phAgent.textContent = "等待画面"; phWrist.textContent = "等待画面";
       }
+      break;
+    case "start_ack":
+      if (m.status === "rejected") {
+        runBusy = false;
+        setStatus("已拒绝", m.detail || m.code || "开始被拒绝", "bad");
+        syncRunButtons();
+        break;
+      }
+      runBusy = true;
+      if (m.used_loaded_goal) goalEl.textContent = `实际执行：${m.summary_zh || m.goal || ""}`;
+      else goalEl.textContent = `输入保留：${m.user_text || ""} · 规范：${m.summary_zh || m.goal || ""}`;
+      setStatus("检查任务", m.client_request_id || "");
+      break;
+    case "task_bound":
+      if (m.used_loaded_goal) goalEl.textContent = `实际执行：${m.summary_zh || m.goal || ""}`;
+      else goalEl.textContent = `输入保留：${m.user_text || ""} · 规范：${m.summary_zh || m.goal || ""}`;
+      break;
+    case "run_stage":
+      if (m.stage === "planner_request" || m.stage === "planner_response") setStatus("规划中", m.detail || m.code || "", m.status === "failed" || m.status === "rejected" ? "bad" : "");
+      else if (m.stage === "validate" || m.stage === "compile") setStatus("校验中", m.detail || "", m.status === "failed" ? "bad" : "");
+      else if (m.stage === "first_tool") setStatus("执行中", m.detail || "");
+      else if (m.stage === "binding") setStatus("绑定对象", m.detail || "");
+      else if (m.stage === "task_check") setStatus("检查任务", m.detail || "", m.status === "rejected" ? "bad" : "");
       break;
     case "started":
       runBusy = true;
@@ -304,6 +333,7 @@ function renderHealth(m){
   $("retry").hidden = true;
   syncRunButtons();
   updateMotion();
+  applyServerScene(m);
 }
 
 const STAGES = {
@@ -496,17 +526,43 @@ loadBtn.onclick = () => {
   setStatus("加载中", suiteSel.value);
   send({type:"load", suite: suiteSel.value});
 };
+function applyServerScene(m){
+  const scene = m && m.scene;
+  if (!scene || !scene.loaded) {
+    if (m && (m.loading || m.env === "loading" || runBusy)) return;
+    episode = null;
+    sceneEpoch = null;
+    return;
+  }
+  episode = scene.episode_id;
+  sceneEpoch = scene.scene_epoch;
+  if (scene.plan_version) planVersion = scene.plan_version;
+  if (!taskEdited && scene.summary_zh) goalEl.textContent = `当前目标：${scene.summary_zh}`;
+  taskIn.disabled = !!m.running;
+}
 function begin(source){
-  if (!wsConnected) return;
-  const task = taskIn.value.trim();
-  runBusy = true;
-  startBtn.disabled = true; restartBtn.disabled = true; loadBtn.disabled = true;
-  clearBuffer(); terminalReached = false; curEid = null; acceptEid = null; gate = false;
-  setConfirm(false);
-  stopBtn.disabled = false;
+  if (!ws || ws.readyState !== 1) {
+    setStatus("失败", "连接未就绪", "bad");
+    return;
+  }
+  if (sceneEpoch === null || sceneEpoch === undefined) {
+    setStatus("已拒绝", "场景未加载", "bad");
+    return;
+  }
   const type = source === "restart" ? "restart" : "start";
-  send({type, task, plan_source: "model", planner_profile: profileSel.value});
-  setStatus(source === "restart" ? "重置" : "规划中", task || goalEl.textContent);
+  const client_request_id = `req-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  runBusy = true;
+  syncRunButtons();
+  stopBtn.disabled = false;
+  send({
+    type,
+    task: taskIn.value,
+    plan_source: "model",
+    planner_profile: profileSel.value,
+    client_request_id,
+    scene_epoch: sceneEpoch
+  });
+  setStatus(source === "restart" ? "重置" : "检查任务", client_request_id);
 }
 startBtn.onclick = () => begin("model");
 restartBtn.onclick = () => begin("restart");

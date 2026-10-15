@@ -100,6 +100,8 @@ def resolve_instruction(text: str, loaded: dict, tasks: list[dict] | None = None
             "question": _question(chosen),
             "candidates": [{"task_id": task["id"], "summary_zh": task["summary_zh"], "language": task["language"]} for task in chosen],
         }
+    if _rewrite_of_current(typed, canonical, summary):
+        return _matched(loaded, canonical, summary, changed=False, user_text=typed)
     elsewhere = [
         task for task in tasks
         if task.get("suite") != suite and _norm(typed) in {_norm(task["language"]), _norm(task["summary_zh"])}
@@ -149,6 +151,17 @@ def _matched(task: dict, language: str, summary: str, *, changed: bool, user_tex
         "task_key": task.get("task_key"),
         "capability": row,
     }
+
+
+def _rewrite_of_current(typed: str, canonical: str, summary: str) -> bool:
+    """A paraphrase of the loaded goal may reach the planner. It does not switch tasks."""
+    compact = _norm(typed)
+    summary_c = _norm(summary)
+    if len(summary_c) >= 4:
+        for index in range(0, len(summary_c) - 3):
+            if summary_c[index:index + 4] in compact:
+                return True
+    return any(flag in typed for flag in ("当前目标", "这个任务", "现在的目标"))
 
 
 def _question(tasks: list[dict]) -> str:

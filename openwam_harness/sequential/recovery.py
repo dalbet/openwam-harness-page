@@ -148,17 +148,19 @@ def _actions(event: str, step: dict, *, holding: bool, released: bool, attempt_i
             {"skill": "move_to", "args": {"xyz_from": f"segment:{phrase}", "z_offset": 0.15, "gripper": args.get("gripper", 1.0), "object_ref": ref}},
         ]
     if event == "PLACEMENT_UNVERIFIED":
-        if holding and not released:
+        target = step.get("target_ref") or ""
+        carried = ref if ref and ref != target else ""
+        if holding and not released and carried and target:
             return [
-                {"skill": "move_to", "args": {"xyz_from": "segment:basket", "z_offset": 0.15, "gripper": 1.0, "object_ref": ref}},
-                {"skill": "set_gripper", "args": {"gripper": -1.0, "steps": 8, "object_ref": ref}},
+                {"skill": "move_to", "args": {"xyz_from": f"segment:{target}", "z_offset": 0.15, "gripper": 1.0, "object_ref": carried}},
+                {"skill": "set_gripper", "args": {"gripper": -1.0, "steps": 8, "object_ref": carried}},
             ]
-        if released:
+        if released and carried:
             return [
-                locate,
-                {"skill": "pi0_pick", "args": {"prompt": prompt or f"pick up the {phrase}", "max_chunks": 12, "object_ref": ref}},
+                {"skill": "segment", "args": {"prompt": carried, "camera": camera, "object_ref": carried}},
+                {"skill": "pi0_pick", "args": {"prompt": f"pick up the {carried}", "max_chunks": 12, "object_ref": carried}},
             ]
-        return [locate]
+        return [locate] if carried else []
     if event == "TARGET_AMBIGUOUS":
         return [locate]
     return []

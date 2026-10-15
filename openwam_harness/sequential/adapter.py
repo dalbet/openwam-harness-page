@@ -33,7 +33,8 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
-STATIC_VERSION = "view5"
+STATIC_VERSION = "view6"
+RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
 
 
@@ -158,6 +159,9 @@ class App:
         self.binding = None
         self.display_seq = 0
         self.client_frames = None
+        self.run_journal: list[dict] = []
+        self.request_seq = 0
+        self.active_request_id = ""
         self.planner_profile = os.environ.get("PLANNER_PROFILE", "edge")
         if self.planner_profile not in {"edge", "cloud"}:
             self.planner_profile = "edge"
@@ -225,7 +229,18 @@ class App:
             vla_state = "ready"
         else:
             vla_state = "down"
-        planner = PROBE["planner"]
+        profile = self.active_profile()
+        probe = PROBE.get(self.planner_profile) or {}
+        planner = probe.get("status") or "unknown"
+        shown = {}
+        for key, value in profiles().items():
+            public = public_profile(value)
+            row = PROBE.get(key) or {}
+            public["reachable"] = row.get("status") == "ok"
+            public["probe"] = row.get("status") or "unknown"
+            public["model_ids"] = list(row.get("model_ids") or [])
+            shown[key] = public
+        scene = self.scene_context()
         return {
             "type": "health",
             "adapter": "online",
@@ -238,11 +253,16 @@ class App:
             "execution": EXECUTION_LABEL,
             "planner": planner,
             "planner_ok": planner == "ok",
-            "planner_detail": PROBE["detail"],
-            "planner_url": self.active_profile().get("base_url") or PLANNER_URL,
-            "planner_model": self.active_profile().get("model") or PLANNER_MODEL,
+            "planner_detail": probe.get("detail") or "",
+            "planner_url": profile.get("base_url") or PLANNER_URL,
+            "planner_model": profile.get("model") or PLANNER_MODEL,
             "planner_profile": self.planner_profile,
-            "planner_profiles": {key: public_profile(value) for key, value in profiles().items()},
+            "planner_profiles": shown,
+            "scene": scene,
+            "running": self.running,
+            "loading": self.loading,
+            "awaiting_confirm": self.awaiting_confirm,
+            "start_block": self.start_block_reason(),
             "checkpoints": checkpoints,
             "components": components,
             "env": env_state,
@@ -252,10 +272,71 @@ class App:
             "can_select_scene": True,
             "can_manual_plan": False,
             "saved_plan_fallback": False,
-            "can_model_plan": planner == "ok",
+            "can_model_plan": bool(profile.get("available")) and planner == "ok",
             "silent_dry_fallback": False,
             "error": error,
         }
+
+    def scene_context(self) -> dict:
+        """Authoritative loaded scene. Seed is the init-state index; missing stays missing."""
+        spec = self.scene_spec or {}
+        loaded = self.session.scene_id != "none" and bool(spec)
+        seed = spec.get("seed") if "seed" in spec else None
+        init_state = spec.get("init_state_id") if "init_state_id" in spec else seed
+        return {
+            "loaded": loaded,
+            "suite": spec.get("suite"),
+            "task_id": spec.get("task_id"),
+            "seed": seed,
+            "init_state_id": init_state,
+            "episode_id": self.session.episode_id if loaded else None,
+            "scene_epoch": self.session.scene_epoch if loaded else None,
+            "plan_version": self.session.plan_version if loaded else None,
+            "goal": spec.get("goal") or "",
+            "summary_zh": spec.get("summary_zh") or "",
+            "user_text": spec.get("user_text") or "",
+            "ended": bool(loaded and self.session.cancelled),
+        }
+
+    def start_block_reason(self) -> str:
+        if self.loading:
+            return "正在加载"
+        if self.running:
+            return "正在执行"
+        if self.awaiting_confirm:
+            return "等待确认"
+        scene = self.scene_context()
+        if not scene["loaded"] or (LIVE and self.backend is None):
+            return "场景未加载"
+        if scene["ended"]:
+            return "回合已结束"
+        profile = self.active_profile()
+        if not profile.get("available"):
+            return "云端未配置" if profile.get("id") == "cloud" else "模型未就绪"
+        if (PROBE.get(self.planner_profile) or {}).get("status") != "ok":
+            return "模型未就绪"
+        return ""
+
+    def _note(self, run_id: int, stage: str, status: str, code: str = "", detail: str = "", request_id: str | None = None) -> None:
+        row = {
+            "run_id": run_id,
+            "client_request_id": self.active_request_id if request_id is None else request_id,
+            "t": round(time.time(), 3),
+            "stage": stage,
+            "status": status,
+            "code": code,
+            "detail": str(detail)[:500],
+        }
+        self.run_journal.append(row)
+        self.run_journal = self.run_journal[-200:]
+        try:
+            path = ROOT / "records" / "run_journal.jsonl"
+            path.parent.mkdir(exist_ok=True)
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
+        self.broadcast({"type": "run_stage", **row})
 
     def broadcast(self, message: dict) -> None:
         if self.loop is None:
@@ -415,6 +496,12 @@ class App:
 
     def load(self, message) -> None:
         with self.lock:
+            if self.running:
+                self.broadcast({
+                    "type": "load_failed",
+                    "detail": "正在执行，不能同时加载。",
+                })
+                return
             if self.loading:
                 self.broadcast({
                     "type": "load_failed",
@@ -426,7 +513,6 @@ class App:
             token = self.load_token
             self.session.cancel()
             self._wake()
-            self.running = False
             self.awaiting_confirm = False
         try:
             self._load_locked(message, token)
@@ -619,54 +705,103 @@ class App:
         return spec
 
     def start(self, kind: str, message: dict, execute: bool = True) -> None:
-        if self.session.scene_id == "none" or (LIVE and self.backend is None):
-            self.broadcast({"type": "load_failed", "detail": "load a scene first"})
-            return
-        if self.running and kind != "restart":
-            self.broadcast({"type": "state", "phase": "failed", "detail": "already running"})
-            return
-        plan_source = message.get("plan_source") or "model"
-        if plan_source != "model":
-            self.broadcast({
-                "type": "state",
-                "phase": "failed",
-                "detail": "开始只发起新的模型规划，不使用保存计划、人工计划或隐藏回退",
-                "plan_source": plan_source,
-            })
-            return
-        requested = message.get("planner_profile")
-        if requested in {"edge", "cloud"}:
-            self.planner_profile = requested
+        plan_source = message.get("plan_source") if "plan_source" in message else "model"
+        with self.lock:
+            self.request_seq += 1
+            attempt = self.request_seq
+            ack = self._ack_start(kind, message, plan_source)
+            ack["run_id"] = attempt
+            request_id = ack.get("client_request_id") or ""
+            self.active_request_id = request_id if ack["status"] == "accepted" else self.active_request_id
+            if ack["status"] != "accepted":
+                self._note(attempt, "received", "ok", detail=kind, request_id=request_id)
+                self._note(attempt, "rejected", "rejected", code=ack.get("code") or "", detail=ack.get("detail") or "", request_id=request_id)
+                self.broadcast(ack)
+                return
+            self.running = True
+            self.run_id = attempt
+            self.active_request_id = request_id
+            self.planner_profile = ack["profile"]
             self.planner = self._make_planner()
-        profile = self.active_profile()
-        if not profile.get("available"):
-            self.broadcast({
-                "type": "state",
-                "phase": "failed",
-                "detail": f"{profile.get('label') or self.planner_profile} Planner 未配置，没有改用另一端或已保存计划",
-            })
-            return
-        self.run_id += 1
-        run_id = self.run_id
-        self.running = True
-        if kind == "restart":
-            self.session.cancel()
-            self.awaiting_confirm = False
-            self._wake()
+            if kind == "restart":
+                self.session.cancel()
+                self.awaiting_confirm = False
+                self._wake()
+        self._note(attempt, "received", "ok", detail=kind)
+        self._note(attempt, "accepted", "ok", detail=ack.get("detail") or "")
+        self.broadcast(ack)
+        raw_task = message.get("task") if isinstance(message.get("task"), str) else ""
         threading.Thread(
             target=self._run,
             args=(
                 kind,
-                plan_source,
-                run_id,
+                "model",
+                attempt,
                 message.get("manual_scope") or "single",
                 execute,
                 message.get("stop_after"),
                 message.get("deadline_s"),
-                str(message.get("task") or ""),
+                raw_task,
             ),
             daemon=True,
         ).start()
+
+    def _ack_start(self, kind: str, message: dict, plan_source) -> dict:
+        request_id = message.get("client_request_id") if isinstance(message, dict) else None
+        base = {"type": "start_ack", "client_request_id": request_id if isinstance(request_id, str) else None}
+        if plan_source != "model":
+            return {**base, "status": "rejected", "code": "plan_source", "detail": "开始只发起新的模型规划，不使用保存计划、人工计划或隐藏回退"}
+        if not isinstance(request_id, str) or not request_id.strip():
+            return {**base, "status": "rejected", "code": "request_id_missing", "detail": "开始请求缺少 client_request_id"}
+        if self.loading:
+            return {**base, "status": "rejected", "code": "busy_loading", "detail": "正在加载"}
+        if self.running:
+            return {**base, "status": "rejected", "code": "busy_running", "detail": "正在执行"}
+        spec = self.scene_spec or {}
+        if self.session.scene_id == "none" or not spec or (LIVE and self.backend is None):
+            return {**base, "status": "rejected", "code": "scene_missing", "detail": "场景未加载"}
+        if kind != "restart" and self.session.cancelled:
+            return {**base, "status": "rejected", "code": "episode_ended", "detail": "回合已结束"}
+        if not isinstance(message, dict) or "scene_epoch" not in message or message.get("scene_epoch") is None:
+            return {**base, "status": "rejected", "code": "epoch_missing", "detail": "scene_epoch 缺失，不会把 null 当成 0"}
+        epoch = message.get("scene_epoch")
+        if isinstance(epoch, bool) or not isinstance(epoch, int):
+            return {**base, "status": "rejected", "code": "epoch_type", "detail": f"scene_epoch 不是整数（收到 {epoch!r}）"}
+        if epoch != self.session.scene_epoch:
+            return {**base, "status": "rejected", "code": "epoch_stale", "detail": f"场景版本已过期：客户端 {epoch}，服务端 {self.session.scene_epoch}"}
+        if isinstance(message, dict) and "task" in message and message.get("task") is None:
+            return {**base, "status": "rejected", "code": "task_null", "detail": "task 为 null。留空表示使用当前目标，不能传 null"}
+        raw = message.get("task", "") if isinstance(message, dict) else ""
+        if not isinstance(raw, str):
+            return {**base, "status": "rejected", "code": "task_type", "detail": f"task 不是字符串（收到 {type(raw).__name__}）"}
+        profile_name = message.get("planner_profile") or self.planner_profile
+        if profile_name not in {"edge", "cloud"}:
+            return {**base, "status": "rejected", "code": "profile_unknown", "detail": f"未知模型 {profile_name}，没有改用另一端"}
+        profile = profiles().get(profile_name) or {}
+        if not profile.get("available"):
+            detail = "云端未配置，没有改用边缘或其他模型" if profile_name == "cloud" else "模型未配置"
+            return {**base, "status": "rejected", "code": "profile_unconfigured", "detail": detail}
+        probe = PROBE.get(profile_name) or {}
+        if probe.get("status") != "ok":
+            return {
+                **base,
+                "status": "rejected",
+                "code": "profile_offline",
+                "detail": f"{profile.get('label') or profile_name} Planner 未就绪：{probe.get('detail') or probe.get('status') or 'unknown'}",
+            }
+        text = raw.strip()
+        return {
+            **base,
+            "status": "accepted",
+            "code": "accepted",
+            "detail": spec.get("summary_zh") or spec.get("goal") or "",
+            "scene_epoch": epoch,
+            "user_text": raw if text else "",
+            "summary_zh": spec.get("summary_zh") or "",
+            "goal": spec.get("goal") or "",
+            "used_loaded_goal": text == "",
+            "profile": profile_name,
+        }
 
     def stop(self) -> None:
         from vla_async import get_controller
@@ -678,7 +813,6 @@ class App:
         self.session.cancel()
         self.awaiting_confirm = False
         self._wake()
-        self.running = False
         self.broadcast(
             {
                 "type": "ended",
@@ -761,22 +895,60 @@ class App:
             return
         episode = self.session.episode_id
         epoch = self.session.scene_epoch
-        spec = self.scene_spec or {}
-        self.broadcast({"type": "started", "episode_id": episode, "mode": self.mode, "plan_source": plan_source})
-        decision = self._instruction_decision(user_text, spec)
+        spec = dict(self.scene_spec or {})
+        typed = user_text.strip()
+        if not typed:
+            spec["user_text"] = ""
+            self.broadcast({
+                "type": "task_bound",
+                "used_loaded_goal": True,
+                "user_text": "",
+                "summary_zh": spec.get("summary_zh") or "",
+                "goal": spec.get("goal") or "",
+                "run_id": run_id,
+            })
+        else:
+            spec["user_text"] = user_text
+        self.scene_spec = spec
+        self._note(run_id, "task_check", "running", detail=typed or spec.get("summary_zh") or "")
+        self.broadcast({"type": "state", "phase": "checking_task", "detail": spec.get("summary_zh") or "", "mode": "live", "run_id": run_id})
+        decision = self._instruction_decision(typed, spec)
         if decision["status"] == "ambiguous":
+            self._note(run_id, "task_check", "rejected", code="ambiguous", detail=decision.get("question") or "")
             self.broadcast({"type": "clarify", "question": decision["question"], "candidates": decision.get("candidates") or []})
             self._fail_run(episode, decision["question"])
             return
         if decision["status"] == "unsupported":
+            self._note(run_id, "task_check", "rejected", code="unsupported", detail=decision.get("reason") or "")
             self._fail_run(episode, decision["reason"])
             return
+        self._note(run_id, "task_check", "ok", detail=decision.get("language") or "")
+        if typed:
+            self.broadcast({
+                "type": "task_bound",
+                "used_loaded_goal": False,
+                "user_text": user_text,
+                "summary_zh": decision.get("summary_zh") or spec.get("summary_zh") or "",
+                "goal": decision.get("language") or "",
+                "run_id": run_id,
+            })
         if decision.get("changed"):
             task_id = decision.get("task_id")
             if isinstance(task_id, bool) or not isinstance(task_id, int):
+                self._note(run_id, "task_switch", "rejected", code="task_id", detail=repr(task_id))
                 self._fail_run(episode, f"task_id 无效（收到 {task_id!r}），不会猜测或切换任务。")
                 return
+            self._note(run_id, "task_switch", "running", detail=decision.get("summary_zh") or "")
+            self.broadcast({
+                "type": "state",
+                "phase": "switching",
+                "detail": decision.get("summary_zh") or "",
+                "mode": "live",
+                "run_id": run_id,
+            })
             spec = self._adopt_task(task_id)
+            spec = dict(spec)
+            spec["user_text"] = user_text
             episode = self.session.episode_id
             epoch = self.session.scene_epoch
         canonical = decision.get("language") or spec.get("goal") or ""
@@ -785,6 +957,7 @@ class App:
 
         reason = reject_reason(row) if row else None
         if reason:
+            self._note(run_id, "capability", "rejected", code="unsupported_skill", detail=reason)
             self._fail_run(episode, reason)
             return
         spec = dict(spec)
@@ -792,6 +965,8 @@ class App:
         spec["task"] = canonical
         self.scene_spec = spec
         scene_objects, binding, info = self._scene_binding(spec)
+        self._note(run_id, "binding", binding.get("status") or "unknown", detail=binding.get("object_ref") or binding.get("evidence_source") or "")
+        self.broadcast({"type": "state", "phase": "binding", "detail": binding.get("evidence_source") or "", "mode": "live", "run_id": run_id})
         self.broadcast({"type": "binding", "binding": _public_binding(binding)})
         if binding.get("status") != "resolved":
             self._emit_planner(
@@ -821,119 +996,133 @@ class App:
         if plan_source != "model":
             self._fail_run(episode, "开始只发起新的模型规划，不使用保存计划、人工计划或隐藏回退")
             return
-        else:
-            if PROBE["planner"] != "ok":
-                self._fail_run(episode, f"planner {PROBE['planner']}: {PROBE['detail'] or 'unavailable'}")
-                return
-            profile = self.active_profile()
-            self.planner = self._make_planner()
-            self.broadcast({"type": "state", "phase": "planning", "detail": profile.get("model") or PLANNER_MODEL, "mode": "live", "plan_source": "model"})
-            image_ids = [f"agentview:{info.get('env_step')}", f"wrist:{info.get('env_step')}"]
-            from candidates import number_candidates, scene_graph
-            from schema import transfer_slots
+        probe = PROBE.get(self.planner_profile) or {}
+        if probe.get("status") != "ok":
+            self._note(run_id, "planner_request", "rejected", code="profile_offline", detail=probe.get("detail") or probe.get("status") or "")
+            self._fail_run(episode, f"planner {probe.get('status')}: {probe.get('detail') or 'unavailable'}")
+            return
+        profile = self.active_profile()
+        self.planner = self._make_planner()
+        self._note(run_id, "planner_request", "running", detail=profile.get("model") or "")
+        self.broadcast({"type": "state", "phase": "planning", "detail": profile.get("model") or PLANNER_MODEL, "mode": "live", "plan_source": "model", "run_id": run_id})
+        image_ids = [f"agentview:{info.get('env_step')}", f"wrist:{info.get('env_step')}"]
+        from candidates import number_candidates, scene_graph
+        from schema import transfer_slots
 
-            slots = transfer_slots(spec.get("goal") or "") or []
-            required_ref = binding.get("object_ref") if len(slots) == 1 else None
-            numbered = number_candidates(scene_objects)
-            graph = scene_graph(scene_objects, (binding or {}).get("positions"))
-            scene_text = json.dumps(
-                {
-                    "planning_input": "scene_metadata",
-                    "vision": False,
-                    "goal_relation": spec.get("goal_relation"),
-                    "canonical_goal": canonical,
-                    "user_text": user_text,
-                    "scene_graph": graph,
-                    "candidates": numbered,
-                    "allowed_refs": sorted(scene_objects),
-                    "required_object_ref": required_ref,
-                    "binding": _public_binding(binding),
-                    "capabilities": {
-                        ref: {
-                            "semantic_type": item.get("semantic_type"),
-                            "movable": item.get("movable"),
-                            "can_be_target": item.get("can_be_target"),
-                            "target_relations": item.get("target_relations"),
-                            "capability_source": item.get("capability_source"),
-                        }
-                        for ref, item in scene_objects.items()
-                    },
-                    "record_index": info.get("env_step"),
-                    "image_ids": image_ids,
-                    "note": "image bytes are not in this request; ids only. sim_state binding is not vision.",
+        slots = transfer_slots(spec.get("goal") or "") or []
+        required_ref = binding.get("object_ref") if len(slots) == 1 else None
+        numbered = number_candidates(scene_objects)
+        graph = scene_graph(scene_objects, (binding or {}).get("positions"))
+        scene_text = json.dumps(
+            {
+                "planning_input": "scene_metadata",
+                "vision": False,
+                "goal_relation": spec.get("goal_relation"),
+                "canonical_goal": canonical,
+                "user_text": user_text,
+                "scene_graph": graph,
+                "candidates": numbered,
+                "allowed_refs": sorted(scene_objects),
+                "required_object_ref": required_ref,
+                "binding": _public_binding(binding),
+                "capabilities": {
+                    ref: {
+                        "semantic_type": item.get("semantic_type"),
+                        "movable": item.get("movable"),
+                        "can_be_target": item.get("can_be_target"),
+                        "target_relations": item.get("target_relations"),
+                        "capability_source": item.get("capability_source"),
+                    }
+                    for ref, item in scene_objects.items()
                 },
-                ensure_ascii=False,
+                "record_index": info.get("env_step"),
+                "image_ids": image_ids,
+                "note": "image bytes are not in this request; ids only. sim_state binding is not vision.",
+            },
+            ensure_ascii=False,
+        )
+        started = time.monotonic()
+
+        def on_planner(phase: str, detail: str) -> None:
+            self.broadcast({
+                "type": "state",
+                "phase": phase,
+                "detail": detail,
+                "mode": "live",
+                "plan_source": "model",
+            })
+
+        try:
+            result = request_plan(
+                task=spec["goal"],
+                scene_observation=scene_text,
+                client=self.planner,
+                short_memory=SHORT_MEMORY,
+                image_ids=image_ids,
+                scene_objects=scene_objects,
+                required_object_ref=required_ref,
+                numbered_candidates=numbered,
+                on_event=on_planner,
             )
-            started = time.monotonic()
-
-            def on_planner(phase: str, detail: str) -> None:
-                self.broadcast({
-                    "type": "state",
-                    "phase": phase,
-                    "detail": detail,
-                    "mode": "live",
-                    "plan_source": "model",
-                })
-
-            try:
-                result = request_plan(
-                    task=spec["goal"],
-                    scene_observation=scene_text,
-                    client=self.planner,
-                    short_memory=SHORT_MEMORY,
-                    image_ids=image_ids,
-                    scene_objects=scene_objects,
-                    required_object_ref=required_ref,
-                    numbered_candidates=numbered,
-                    on_event=on_planner,
-                )
-            except Exception as exc:
-                self._emit_planner(
-                    plan_source=None,
-                    stage="request_failed",
-                    summary=scene_text[:500],
-                    output="",
-                    errors=[{"path": "planner.request", "code": "planner_request_failed", "received": str(exc), "expected": "one plan response"}],
-                    repairs=0,
-                    attempts=[],
-                    binding=binding,
-                    vision=False,
-                    planning_input="scene_metadata",
-                    elapsed_s=time.monotonic() - started,
-                )
-                self._fail_run(episode, f"PLANNING_FAILED {exc}")
-                return
-            elapsed = time.monotonic() - started
-            attempts = _public_attempts(result.get("attempts") or [])
-            self._store_attempts(attempts, result)
+        except Exception as exc:
+            self._note(run_id, "planner_response", "failed", code="planner_request_failed", detail=str(exc))
             self._emit_planner(
-                plan_source=result.get("plan_source"),
-                stage=result.get("stage") or "validation_failed",
+                plan_source=None,
+                stage="request_failed",
                 summary=scene_text[:500],
                 output="",
-                errors=result.get("errors") or [],
-                repairs=result.get("repairs") or 0,
-                attempts=attempts,
+                errors=[{"path": "planner.request", "code": "planner_request_failed", "received": str(exc), "expected": "one plan response"}],
+                repairs=0,
+                attempts=[],
                 binding=binding,
                 vision=False,
                 planning_input="scene_metadata",
-                elapsed_s=elapsed,
-                response_kind=(attempts[-1].get("response_kind") if attempts else None),
-                image_ids=image_ids,
-                plan_from=result.get("plan_from"),
-                comparison=comparison_record(self.active_profile(), binding, scene_text),
-                telemetry=(attempts[-1].get("telemetry") if attempts else {}) or {},
-                candidate_resolution=result.get("candidate_resolution") or [],
+                elapsed_s=time.monotonic() - started,
             )
-            if result["status"] != "ok" or result["plan"] is None:
-                self._fail_run(episode, "PLANNING_FAILED")
-                return
-            plan = result["plan"]
-            plan["planner_stage"] = "ok"
-            plan["request_id"] = attempts[-1].get("request_id") if attempts else None
+            self._fail_run(episode, f"PLANNING_FAILED {exc}")
+            return
+        elapsed = time.monotonic() - started
+        self._note(
+            run_id,
+            "planner_response",
+            "ok" if result.get("status") == "ok" else "failed",
+            code=result.get("stage") or "",
+            detail=(result.get("attempts") or [{}])[-1].get("request_id") or "",
+        )
+        attempts = _public_attempts(result.get("attempts") or [])
+        self._store_attempts(attempts, result)
+        self._emit_planner(
+            plan_source=result.get("plan_source"),
+            stage=result.get("stage") or "validation_failed",
+            summary=scene_text[:500],
+            output="",
+            errors=result.get("errors") or [],
+            repairs=result.get("repairs") or 0,
+            attempts=attempts,
+            binding=binding,
+            vision=False,
+            planning_input="scene_metadata",
+            elapsed_s=elapsed,
+            response_kind=(attempts[-1].get("response_kind") if attempts else None),
+            image_ids=image_ids,
+            plan_from=result.get("plan_from"),
+            comparison=comparison_record(self.active_profile(), binding, scene_text),
+            telemetry=(attempts[-1].get("telemetry") if attempts else {}) or {},
+            candidate_resolution=result.get("candidate_resolution") or [],
+        )
+        if result["status"] != "ok" or result["plan"] is None:
+            self._note(run_id, "validate", "failed", code=result.get("stage") or "validation_failed", detail="PLANNING_FAILED")
+            self._fail_run(episode, "PLANNING_FAILED")
+            return
+        self._note(run_id, "validate", "ok", detail=result.get("stage") or "ok")
+        plan = result["plan"]
+        plan["planner_stage"] = "ok"
+        plan["request_id"] = attempts[-1].get("request_id") if attempts else None
         plan["episode_id"] = episode
         if plan_source in {"model", "replay"}:
             plan["planner_stage"] = "ok"
+        self._note(run_id, "compile", "ok", detail=str(len(plan.get("steps") or [])))
+        self.broadcast({"type": "state", "phase": "validating", "detail": f"{len(plan.get('steps') or [])} steps", "mode": "live", "run_id": run_id})
         self.log(f"plan_source={plan.get('plan_source')} steps={len(plan['steps'])}")
         if not execute:
             self.broadcast({"type": "state", "phase": "plan_ready", "detail": "只规划，不执行", "mode": "live", "plan_source": plan.get("plan_source")})
@@ -962,10 +1151,22 @@ class App:
                 return None
             return verdict
 
+        deadline = None
+        if isinstance(deadline_s, (int, float)) and not isinstance(deadline_s, bool) and float(deadline_s) > 0:
+            deadline = time.monotonic() + min(float(deadline_s), 240.0)
+        elif DIAGNOSTIC_S > 0:
+            deadline = time.monotonic() + DIAGNOSTIC_S
+        else:
+            deadline = time.monotonic() + RUN_LIMIT_S
+        seen_tool = {"done": False}
+
         def on_event(event: dict) -> None:
+            if not seen_tool["done"] and event.get("skill"):
+                seen_tool["done"] = True
+                self._note(run_id, "first_tool", "ok", detail=str(event.get("skill")))
             if event.get("skill") in {"pi0_pick", "move_to", "set_gripper"} or event.get("detail") == "local replan":
                 self.binding = None
-            self.broadcast({"type": "state", **event, "mode": "live"})
+            self.broadcast({"type": "state", **event, "mode": "live", "run_id": run_id})
             self.log(json.dumps(event, ensure_ascii=False)[:500])
             if event.get("phase") in {"executing", "failed"}:
                 self.broadcast_frame(
@@ -981,11 +1182,6 @@ class App:
                     }
                 )
 
-        deadline = None
-        if isinstance(deadline_s, (int, float)) and not isinstance(deadline_s, bool) and float(deadline_s) > 0:
-            deadline = time.monotonic() + min(float(deadline_s), 240.0)
-        elif DIAGNOSTIC_S > 0:
-            deadline = time.monotonic() + DIAGNOSTIC_S
         result = run_plan(
             plan,
             self.backend,
@@ -1303,30 +1499,39 @@ def _public_attempts(attempts: list[dict]) -> list[dict]:
 
 
 APP = App()
-PROBE = {"planner": "unknown", "detail": "", "checked_at": 0.0}
+PROBE = {
+    "edge": {"status": "unknown", "detail": "", "model_ids": []},
+    "cloud": {"status": "unknown", "detail": "", "model_ids": []},
+}
 PROBE_TIMEOUT_S = 1.5
 
 
 def _probe_planner() -> None:
-    profile = APP.active_profile()
-    url = str(profile.get("base_url") or PLANNER_URL).rstrip("/") + "/models"
-    request = urllib.request.Request(
-        url,
-        headers={"Authorization": f"Bearer {profile.get('api_key') or 'EMPTY'}"},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=PROBE_TIMEOUT_S) as response:
-            PROBE["planner"] = "ok" if response.status == 200 else "down"
-            PROBE["detail"] = f"HTTP {response.status} {profile.get('id')} {profile.get('model')}"
-    except TimeoutError:
-        PROBE["planner"] = "timeout"
-        PROBE["detail"] = f"planner probe exceeded {PROBE_TIMEOUT_S}s"
-    except Exception as exc:
-        PROBE["planner"] = "down" if not isinstance(exc, TimeoutError) else "timeout"
-        PROBE["detail"] = str(exc)
-        if "timed out" in str(exc).lower():
-            PROBE["planner"] = "timeout"
-    PROBE["checked_at"] = time.time()
+    """GET /models only. This does not send a generation request."""
+    for key, profile in profiles().items():
+        if not profile.get("available") or not profile.get("base_url"):
+            PROBE[key] = {"status": "unconfigured", "detail": "未配置", "model_ids": []}
+            continue
+        url = str(profile["base_url"]).rstrip("/") + "/models"
+        request = urllib.request.Request(url, headers={"Authorization": f"Bearer {profile.get('api_key') or 'EMPTY'}"})
+        try:
+            with urllib.request.urlopen(request, timeout=PROBE_TIMEOUT_S) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+                ids = [
+                    item.get("id")
+                    for item in (payload.get("data") or [])
+                    if isinstance(item, dict) and item.get("id")
+                ]
+                PROBE[key] = {
+                    "status": "ok" if response.status == 200 else "down",
+                    "detail": f"HTTP {response.status}",
+                    "model_ids": ids,
+                }
+        except TimeoutError:
+            PROBE[key] = {"status": "timeout", "detail": f"probe exceeded {PROBE_TIMEOUT_S}s", "model_ids": []}
+        except Exception as exc:
+            status = "timeout" if "timed out" in str(exc).lower() else "down"
+            PROBE[key] = {"status": status, "detail": str(exc), "model_ids": []}
 
 
 def _planner_probe_loop() -> None:

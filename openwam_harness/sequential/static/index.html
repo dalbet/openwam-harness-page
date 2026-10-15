@@ -48,7 +48,7 @@
   <div class="ctrl">
     <label for="suite">套件</label>
     <select id="suite" disabled></select>
-    <button id="load" class="primary" disabled>加载场景</button>
+    <button id="load" class="primary" type="button" disabled>加载场景</button>
     <label for="task">任务</label>
     <input id="task" type="text" placeholder="用中文描述要做的事" disabled />
     <label for="planner-profile">模型</label>
@@ -56,8 +56,9 @@
       <option value="edge">边缘</option>
       <option value="cloud">云端</option>
     </select>
-    <button id="start" class="primary" disabled>开始</button>
-    <button id="stop" disabled>停止</button>
+    <button id="start" class="primary" type="button" disabled>开始</button>
+    <span id="start-reason" class="hint"></span>
+    <button id="stop" type="button" disabled>停止</button>
   </div>
   <div id="goal" class="hint">加载后在这里显示当前中文目标。</div>
   <div id="status"><span class="phase">就绪</span></div>
@@ -96,6 +97,6 @@
     <pre id="log"></pre>
   </details>
 </div>
-<script src="static/app.js?v=view5"></script>
+<script src="static/app.js?v=view6"></script>
 </body>
 </html>

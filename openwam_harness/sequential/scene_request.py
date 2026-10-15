@@ -81,6 +81,7 @@ def resolve_load(message, suites: list[dict]) -> dict:
         "suite": suite,
         "task_id": task_id,
         "seed": seed,
+        "init_state_id": seed,
         "task_source": source,
         "goal": task["language"],
         "task": task["language"],
