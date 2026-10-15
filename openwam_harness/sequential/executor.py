@@ -386,6 +386,25 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
         goal_relation=plan.get("goal_relation"),
         before=before,
     )
+    if (
+        verdict["reason_code"] == "NEED_STABILITY_SAMPLE"
+        and step.get("completion_check") == "grasp_held"
+        and (verdict.get("metrics") or {}).get("lifted")
+    ):
+        holder = getattr(backend, "hold_for_grasp", None)
+        if holder is not None:
+            post.extend(_observations_from_samples(holder(4), scene_epoch))
+            verdict = verify_step(
+                step,
+                outcome,
+                post,
+                scene_epoch=scene_epoch,
+                min_step=min_step,
+                objects=plan.get("objects") or {},
+                support_z=support_z,
+                goal_relation=plan.get("goal_relation"),
+                before=before,
+            )
     if verdict["reason_code"] == "NEED_STABILITY_SAMPLE" and step.get("completion_check") != "grasp_held":
         post.extend(_hold_window(backend, scene_epoch))
         verdict = verify_step(

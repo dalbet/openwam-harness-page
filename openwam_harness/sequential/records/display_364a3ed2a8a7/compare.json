@@ -1,0 +1,197 @@
+{
+  "observation": "post-hold raw_obs still loaded in env 35223; this is the tool_end capture source, not an earlier chunk buffer",
+  "episode_id": "364a3ed2a8a7",
+  "request_note": "seq-99492def1372 has no episode on disk. This replay reused planner_last.json and stopped at grasp_held.",
+  "display": {
+    "source": "raw_obs.agentview_image",
+    "src_h": 256,
+    "src_w": 256,
+    "out_h": 256,
+    "out_w": 256,
+    "channels": "RGB",
+    "flip": "vertical",
+    "jpeg_quality": 85,
+    "jpeg_subsampling": 0,
+    "max_edge": 512
+  },
+  "wrist": {
+    "source": "raw_obs.robot0_eye_in_hand_image",
+    "src_h": 256,
+    "src_w": 256,
+    "out_h": 256,
+    "out_w": 256,
+    "channels": "RGB",
+    "flip": "vertical",
+    "jpeg_quality": 85,
+    "jpeg_subsampling": 0,
+    "max_edge": 512
+  },
+  "chunk_jpeg_sha_equals_tool_end": true,
+  "chunk_jpeg_bytes": 11775,
+  "saved_tool_record_png": "agentview.png/01.png is raw vertically flipped at pi0_pick dump, before hold steps",
+  "mean_abs": {
+    "live_display_vs_saved_agentview_01": 3.7891,
+    "policy_vs_saved_agentview": 45.7949,
+    "policy_hflip_vs_saved": 0.0,
+    "policy_rot180_vs_saved": 59.4946,
+    "high_box_vs_saved": 1.2227
+  },
+  "shapes": {
+    "saved_agentview": [
+      256,
+      256,
+      3
+    ],
+    "policy": [
+      256,
+      256,
+      3
+    ],
+    "high": [
+      1024,
+      1024,
+      3
+    ],
+    "live_display": [
+      256,
+      256,
+      3
+    ]
+  },
+  "poses": {
+    "akita_black_bowl_1_pos": [
+      -0.02168535696090444,
+      0.18619685228587463,
+      0.9513086156750169
+    ],
+    "akita_black_bowl_1_to_robot0_eef_pos": [
+      -0.0017848239562103796,
+      -0.03634558519607378,
+      0.06372336036179782
+    ],
+    "akita_black_bowl_1_to_robot0_eef_quat": [
+      0.7210853695869446,
+      -0.6795729398727417,
+      0.10172479599714279,
+      0.08870545774698257
+    ],
+    "akita_black_bowl_2_pos": [
+      -0.18872204348873958,
+      0.3203476055682616,
+      0.8984041501888531
+    ],
+    "akita_black_bowl_2_to_robot0_eef_pos": [
+      -0.1971193034517823,
+      -0.1242638958052617,
+      0.11674575620631644
+    ],
+    "akita_black_bowl_2_to_robot0_eef_quat": [
+      -0.6068970561027527,
+      0.7943907380104065,
+      0.024267321452498436,
+      0.005514909978955984
+    ],
+    "cookies_1_pos": [
+      0.057859587539025564,
+      0.0264329413431314,
+      0.9093709548372153
+    ],
+    "cookies_1_to_robot0_eef_pos": [
+      0.11786638075270511,
+      0.09490617822408048,
+      0.10919015225419748
+    ],
+    "cookies_1_to_robot0_eef_quat": [
+      -0.6068965196609497,
+      0.7943910360336304,
+      0.024266943335533142,
+      0.005542853381484747
+    ],
+    "glazed_rim_porcelain_ramekin_1_pos": [
+      -0.1973835063200973,
+      0.1891407402732042,
+      0.8993413701303519
+    ],
+    "glazed_rim_porcelain_ramekin_1_to_robot0_eef_pos": [
+      -0.170946902753213,
+      0.004527157829484818,
+      0.12110552500536809
+    ],
+    "glazed_rim_porcelain_ramekin_1_to_robot0_eef_quat": [
+      -0.6068965196609497,
+      0.7943910360336304,
+      0.024266790598630905,
+      0.005542765837162733
+    ],
+    "plate_1_pos": [
+      0.06899126779265657,
+      0.19922352413793773,
+      0.9024997953615251
+    ],
+    "plate_1_to_robot0_eef_pos": [
+      0.08325036807155761,
+      -0.07488611900532266,
+      0.10908729803260597
+    ],
+    "plate_1_to_robot0_eef_quat": [
+      -0.5413020849227905,
+      0.8404600620269775,
+      0.024627216160297394,
+      0.0035519388038665056
+    ],
+    "robot0_eef_pos": [
+      -0.0274647010894146,
+      0.15312947360303997,
+      1.0165620313104078
+    ],
+    "robot0_eef_quat": [
+      0.9908598811855411,
+      -0.13257861139149862,
+      -0.013239929344871957,
+      0.021078707963687323
+    ],
+    "robot0_gripper_qpos": [
+      0.002363393175214247,
+      -0.0023992176014418698
+    ],
+    "robot0_gripper_qvel": [
+      -4.3277767165594335e-05,
+      -2.5371274874291763e-05
+    ],
+    "robot0_joint_pos": [
+      0.15694053760888116,
+      0.6293002885517873,
+      0.0941081643081955,
+      -1.7773322580597077,
+      -0.12115357510923878,
+      2.360671801835868,
+      1.3740938031979426
+    ]
+  },
+  "final_grasp": {
+    "when": "after hold window; raw_obs read once, no extra step",
+    "bound_object": "akita_black_bowl_1",
+    "bowl_pos": [
+      -0.02168535696090444,
+      0.18619685228587463,
+      0.9513086156750169
+    ],
+    "other_bowl_pos": [
+      -0.18872204348873958,
+      0.3203476055682616,
+      0.8984041501888531
+    ],
+    "lift_vs_other_bowl_m": 0.0529,
+    "gripper_opening_m": 0.004763,
+    "gripper_opening_meaning": "|qpos[0]|+|qpos[1]|; open about 0.08 m; empty closed about 0",
+    "band_0.008_0.05": "recorded as an object-between-fingers guess; this pinch is 0.0048 m and is reported, not required",
+    "origin_to_eef_m": 0.0734,
+    "horizontal_origin_offset_m": 0.0364,
+    "bowl_horizontal_radius_site_m": 0.035,
+    "contact": null,
+    "contact_note": "raw_obs has no contact or touch key",
+    "verdict_at_runtime": "GRASP_HELD",
+    "transport_started": false,
+    "per_chunk_note": "chunk samples were consumed in process and were not written. Only this final pose and states.json eef/gripper remain."
+  }
+}

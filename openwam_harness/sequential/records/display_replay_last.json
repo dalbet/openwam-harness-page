@@ -1,0 +1,69 @@
+{
+  "frames_received": 26,
+  "live_frames": 15,
+  "stages": [
+    "chunk",
+    "hold",
+    "tool_end"
+  ],
+  "flips": [
+    "vertical"
+  ],
+  "sources": [
+    "raw_obs.agentview_image"
+  ],
+  "sizes": [
+    [
+      256,
+      256,
+      256,
+      256
+    ]
+  ],
+  "max_live_gap_s": 2.1235,
+  "encode_ms": [
+    9.35,
+    8.71,
+    9.34,
+    8.83,
+    8.84,
+    8.8
+  ],
+  "capture_ms": [
+    21.83,
+    21.24,
+    21.55,
+    21.46,
+    21.11,
+    21.1
+  ],
+  "confirmed_unknown": false,
+  "reason": "停在抓取验证 · GRASP_HELD",
+  "status": "stopped_at_check",
+  "episode_id": "364a3ed2a8a7",
+  "server_frames": {
+    "published": 15,
+    "sent": 15,
+    "dropped": 0,
+    "skipped": 0,
+    "max_gap_s": 2.1227,
+    "gaps_s": [
+      0.4641,
+      0.4501,
+      0.4754,
+      0.4742,
+      0.4756,
+      0.4416,
+      0.4772,
+      0.4701,
+      2.1227,
+      0.1217,
+      0.1154,
+      0.1205
+    ]
+  },
+  "execution_reason_code": "GRASP_HELD",
+  "checker": null,
+  "unmet": [],
+  "transport_started": false
+}

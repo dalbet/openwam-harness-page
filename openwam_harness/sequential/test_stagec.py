@@ -195,11 +195,12 @@ class StageCTest(unittest.TestCase):
             support_z={"alphabet_soup_1": 0.45},
             goal_relation="in",
         )
-        self.assertEqual(verdict["status"], "unknown")
-        self.assertEqual(verdict["reason_code"], "INSUFFICIENT_EVIDENCE")
+        self.assertEqual(verdict["status"], "success")
+        self.assertEqual(verdict["reason_code"], "GRASP_HELD")
         self.assertEqual(verdict["evidence_source"], "sim_state")
-        self.assertIn("gripper_opening_m 0.0034 outside [0.008, 0.05]", verdict["metrics"]["error"])
+        self.assertIn("not a contact gap", verdict["metrics"]["gripper_band_note"])
         self.assertIsNone(verdict["metrics"]["contact"])
+        self.assertIn("not contact distance", verdict["metrics"]["origin_note"])
 
     def test_same_snapshot_is_not_a_second_sample(self):
         from executor import _observations_from_samples
@@ -235,6 +236,22 @@ class StageCTest(unittest.TestCase):
         self.assertGreater(bus.dropped, 0)
         self.assertLess(bus.sent, bus.published)
         self.assertGreaterEqual(bus.sent, 1)
+
+    def test_display_flip_is_vertical_once_and_does_not_upscale(self):
+        import numpy as np
+        from display_view import encode_display, prepare_camera
+
+        image = np.zeros((256, 256, 3), dtype=np.uint8)
+        image[0, :, :] = 255
+        view = prepare_camera(image, source="raw_obs.agentview_image")
+        self.assertEqual(view["flip"], "vertical")
+        self.assertEqual(int(view["array"][-1, 0, 0]), 255)
+        self.assertEqual(int(view["array"][0, 0, 0]), 0)
+        jpg, meta = encode_display(view)
+        self.assertGreater(len(jpg), 100)
+        self.assertEqual(meta["out_h"], 256)
+        self.assertEqual(meta["jpeg_quality"], 85)
+        self.assertEqual(meta["max_edge"], 512)
 
 
 def _obs(name, version, opening, stamp):

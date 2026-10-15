@@ -34,7 +34,9 @@ let lastRunStatus = "";
 let framesReceived = 0;
 let framesDrawn = 0;
 let maxFrameGapMs = 0;
+let maxFrameAgeMs = 0;
 let lastFrameMeta = null;
+const drawnFrameIds = new Set();
 
 function clearBuffer(){
   pending = null; decoding = false; lastDisplayedFid = -1; endedFallback = null;
@@ -126,7 +128,8 @@ function handleText(txt){
       acceptEid = m.episode_id; gate = false; curEid = m.episode_id;
       episode = m.episode_id;
       clearBuffer(); terminalReached = false;
-      lastExec = null; framesReceived = 0; framesDrawn = 0; maxFrameGapMs = 0; lastFrameMeta = null;
+      lastExec = null; framesReceived = 0; framesDrawn = 0; maxFrameGapMs = 0; maxFrameAgeMs = 0; lastFrameMeta = null;
+      drawnFrameIds.clear();
       updateMotion();
       stopBtn.disabled = false;
       setStatus(m.mode === "dry" ? "干跑" : "planning", m.plan_source || "");
@@ -191,7 +194,7 @@ function updateMotion(){
   if (prim) parts.push("当前 " + prim);
   if (lastFrameMeta && lastFrameMeta.frame_time) parts.push("最新帧 " + lastFrameMeta.frame_time);
   if (lastExec && lastExec.transport_started === false) parts.push("尚未搬运/放置");
-  if (framesReceived || framesDrawn) parts.push(`收 ${framesReceived} / 绘 ${framesDrawn}`);
+  if (framesReceived || framesDrawn) parts.push(`收 ${framesReceived} / 绘 ${framesDrawn} / 不同帧 ${drawnFrameIds.size}`);
   el.textContent = parts.join(" · ");
 }
 function renderExec(execution){
@@ -423,17 +426,25 @@ function tick(){
   const f = pending;
   pending = null;
   decoding = true;
+  const decodeStarted = performance.now();
   Promise.all([
     createImageBitmap(new Blob([f.aBlob], {type:"image/jpeg"})),
     createImageBitmap(new Blob([f.wBlob], {type:"image/jpeg"}))
   ]).then(([aBmp, wBmp]) => {
+    const decodedAt = performance.now();
     agentCanvas.width = aBmp.width; agentCanvas.height = aBmp.height;
     wristCanvas.width = wBmp.width; wristCanvas.height = wBmp.height;
-    applyAspect(agentView, f.hdr.aw || aBmp.width, f.hdr.ah || aBmp.height);
-    applyAspect(wristView, f.hdr.ww || wBmp.width, f.hdr.wh || wBmp.height);
+    applyAspect(agentView, f.hdr.src_aw || f.hdr.aw || aBmp.width, f.hdr.src_ah || f.hdr.ah || aBmp.height);
+    applyAspect(wristView, f.hdr.src_ww || f.hdr.ww || wBmp.width, f.hdr.src_wh || f.hdr.wh || wBmp.height);
     agCtx.drawImage(aBmp, 0, 0);
     wrCtx.drawImage(wBmp, 0, 0);
     aBmp.close(); wBmp.close();
+    const drawnAt = performance.now();
+    if (f.hdr.frame_id != null) drawnFrameIds.add(f.hdr.frame_id);
+    const ageMs = f.hdr.timestamp ? Math.max(0, Date.now() - f.hdr.timestamp * 1000) : 0;
+    if (ageMs > maxFrameAgeMs) maxFrameAgeMs = ageMs;
+    f.decodeMs = decodedAt - decodeStarted;
+    f.drawMs = drawnAt - decodedAt;
     phAgent.style.display = "none"; phWrist.style.display = "none";
     lastDisplayedFid = f.hdr.fid;
     framesDrawn += 1;
@@ -444,12 +455,14 @@ function tick(){
     if (f.hdr.term || (framesDrawn % 4) === 0){
       send({
         type:"client_perf",
-        decode_ms: 0,
-        draw_ms: 0,
         gap_ms: f.gap || 0,
+        decode_ms: f.decodeMs || 0,
+        draw_ms: f.drawMs || 0,
         frames_received: framesReceived,
         frames_drawn: framesDrawn,
-        max_gap_ms: maxFrameGapMs
+        distinct_drawn: drawnFrameIds.size,
+        max_gap_ms: maxFrameGapMs,
+        max_age_ms: maxFrameAgeMs
       });
     }
     decoding = false;

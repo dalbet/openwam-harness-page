@@ -6,7 +6,6 @@ run here, and a newer snapshot replaces one that has not been sent.
 
 from __future__ import annotations
 
-import io
 import threading
 import time
 from typing import Any, Callable
@@ -67,10 +66,15 @@ class FrameBus:
                 if snap is None:
                     break
                 try:
-                    agent = _jpeg(snap["agent"])
-                    wrist = _jpeg(snap["wrist"])
+                    started = time.perf_counter()
+                    agent, agent_meta = _encode(snap["agent"])
+                    wrist, wrist_meta = _encode(snap["wrist"])
+                    encode_s = time.perf_counter() - started
                 except Exception:
                     continue
+                snap["meta"]["encode_ms"] = round(encode_s * 1000, 2)
+                snap["meta"]["agent"] = agent_meta
+                snap["meta"]["wrist"] = wrist_meta
                 now = time.time()
                 if self._last_sent is not None:
                     self.gaps.append(now - self._last_sent)
@@ -84,17 +88,11 @@ class FrameBus:
                         continue
 
 
-def _jpeg(image) -> bytes:
-    import numpy as np
-    from PIL import Image
+def _encode(view) -> tuple[bytes, dict]:
+    from display_view import encode_display
 
-    array = np.asarray(image)
-    if array.ndim == 3 and array.shape[0] in {1, 3} and array.shape[-1] not in {1, 3}:
-        array = np.moveaxis(array, 0, -1)
-    if array.dtype != np.uint8:
-        array = np.clip(array, 0, 255).astype(np.uint8)
-    picture = Image.fromarray(array).convert("RGB")
-    picture.thumbnail((512, 512))
-    buf = io.BytesIO()
-    picture.save(buf, format="JPEG", quality=70)
-    return buf.getvalue()
+    if isinstance(view, dict) and "array" in view:
+        return encode_display(view)
+    from display_view import prepare_camera
+
+    return encode_display(prepare_camera(view, source="array"))

@@ -257,6 +257,66 @@ class LiveBackend:
             _latest_png(self.output_dir, "wrist_high.png"),
         )
 
+    def capture_display(self) -> dict | None:
+        """Same raw-camera view used between chunks. No extra render."""
+        if self.toolkit is None:
+            return None
+        started = time.perf_counter()
+        from display_view import encode_display, prepare_display_pair
+
+        agent, wrist = prepare_display_pair(self.toolkit.primitives.env.raw_obs())
+        capture_ms = round((time.perf_counter() - started) * 1000, 2)
+        encode_started = time.perf_counter()
+        agent_jpg, agent_meta = encode_display(agent)
+        wrist_jpg, wrist_meta = encode_display(wrist)
+        return {
+            "agent": agent_jpg,
+            "wrist": wrist_jpg,
+            "capture_ms": capture_ms,
+            "encode_ms": round((time.perf_counter() - encode_started) * 1000, 2),
+            "agent_meta": agent_meta,
+            "wrist_meta": wrist_meta,
+            "stage": "tool_end",
+        }
+
+    def hold_for_grasp(self, steps: int = 4) -> list[dict]:
+        """Advance physics while holding the eef and the current gripper command.
+
+        ``+1`` keeps a closed gripper. This is not a repeated ``set_gripper`` tool call.
+        """
+        if self.toolkit is None:
+            return []
+        import numpy as np
+
+        env = self.toolkit.primitives.env
+        prim = self.toolkit.primitives
+        rows = []
+        for index in range(max(0, int(steps))):
+            raw = env.raw_obs()
+            grip = raw.get("robot0_gripper_qpos")
+            opening = None if grip is None else abs(float(grip[0])) + abs(float(grip[1]))
+            command = 1.0 if opening is None or opening < 0.05 else -1.0
+            action = np.zeros(7, dtype=np.float32)
+            action[6] = command
+            env.step(action)
+            version = int(getattr(prim, "_env_action_count", 0)) + 1
+            prim._env_action_count = version
+            sample = sim_sample(env)
+            sample["observation_id"] = f"hold-{version}"
+            sample["timestamp"] = time.time()
+            sample["env_action_count"] = version
+            sample["hold_step"] = index + 1
+            sample["hold_gripper_command"] = command
+            rows.append(sample)
+            publish_raw_display(prim, {
+                "primitive": "hold",
+                "observation_id": sample["observation_id"],
+                "timestamp": sample["timestamp"],
+                "env_action_count": version,
+                "stage": "hold",
+            })
+        return rows
+
     def scene_info(self) -> dict:
         agent, wrist = self.frames()
         if not agent or not wrist:
@@ -458,19 +518,17 @@ def _timed_toolkit(robot_spec, runtime_kwargs, events, config, output_dir):
         sample["env_action_count"] = row.get("env_actions_after")
         primitives._grasp_samples = list(getattr(primitives, "_grasp_samples", []))
         primitives._grasp_samples.append(sample)
-        agent, wrist = _display_images(obs)
-        if agent is None or wrist is None:
-            raw = primitives.env.raw_obs()
-            agent, wrist = _display_images(raw)
-        if agent is None or wrist is None:
-            bus.skipped = getattr(bus, "skipped", 0) + 1
-            return
-        bus.publish(agent, wrist, {
-            "primitive": "pi0_pick",
-            "observation_id": row.get("observation_id"),
-            "timestamp": sample["timestamp"],
-            "env_action_count": row.get("env_actions_after"),
-        })
+        _note_vla_image(primitives, obs)
+        publish_raw_display(
+            primitives,
+            {
+                "primitive": "pi0_pick",
+                "observation_id": row.get("observation_id"),
+                "timestamp": sample["timestamp"],
+                "env_action_count": row.get("env_actions_after"),
+                "stage": "chunk",
+            },
+        )
 
     set_chunk_hook(on_chunk)
     return toolkit, marks
@@ -524,34 +582,40 @@ def _plain(value):
     return None
 
 
-def _display_images(source):
-    pairs = (
-        ("main_images", "wrist_images"),
-        ("agentview_image", "robot0_eye_in_hand_image"),
-        ("agentview_image", "eye_in_hand_image"),
-    )
-    for agent_key, wrist_key in pairs:
-        agent = _image_copy(source, agent_key)
-        wrist = _image_copy(source, wrist_key)
-        if agent is not None and wrist is not None:
-            return agent, wrist
-    return None, None
+def publish_raw_display(primitives, meta: dict) -> None:
+    """Publish the current raw cameras. Caller must already own the env thread."""
+    bus = getattr(primitives, "_display_bus", None)
+    if bus is None:
+        return
+    started = time.perf_counter()
+    try:
+        from display_view import prepare_display_pair
+
+        agent, wrist = prepare_display_pair(primitives.env.raw_obs())
+    except Exception:
+        bus.skipped = getattr(bus, "skipped", 0) + 1
+        return
+    meta = dict(meta)
+    meta["capture_ms"] = round((time.perf_counter() - started) * 1000, 2)
+    meta["stage"] = meta.get("stage") or "raw"
+    bus.publish(agent, wrist, meta)
 
 
-def _image_copy(obs, key: str):
-    if not isinstance(obs, dict) or obs.get(key) is None:
-        return None
+def _note_vla_image(primitives, obs) -> None:
+    """Record that the chunk obs is the VLA view, and do not publish it."""
+    if getattr(primitives, "_vla_image_noted", False) or not isinstance(obs, dict):
+        return
+    image = obs.get("main_images")
+    if image is None:
+        return
     try:
         import numpy as np
 
-        array = np.asarray(obs[key])
-        if array.dtype == object:
-            return None
-        if array.ndim == 4 and array.shape[0] == 1:
-            array = array[0]
-        return np.ascontiguousarray(np.array(array, copy=True))
+        array = np.asarray(image)
     except Exception:
-        return None
+        return
+    primitives._vla_image_noted = True
+    primitives._vla_image_shape = [int(value) for value in array.shape]
 
 
 def _find_xyz(data: dict):

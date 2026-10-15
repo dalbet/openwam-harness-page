@@ -208,7 +208,7 @@ class App:
         header["mode"] = self.mode
         header["plan_source"] = header.get("plan_source") or ""
         header["recovery_attempts"] = self.recovery_attempts
-        if not LIVE or self.backend is None or not hasattr(self.backend, "frames"):
+        if not LIVE or self.backend is None or not hasattr(self.backend, "capture_display"):
             self.broadcast(
                 {
                     "type": "state",
@@ -218,8 +218,11 @@ class App:
                 }
             )
             return
-        agent, wrist = self.backend.frames()
-        if not agent or not wrist:
+        try:
+            snap = self.backend.capture_display()
+        except Exception:
+            snap = None
+        if not snap:
             self.broadcast(
                 {
                     "type": "state",
@@ -229,19 +232,26 @@ class App:
                 }
             )
             return
-        started = time.perf_counter()
-        agent, src_a, (aw, ah) = _ui_jpeg(agent)
-        wrist, src_w, (ww, wh) = _ui_jpeg(wrist)
-        self.last_encode_s = round(time.perf_counter() - started, 3)
+        agent = snap["agent"]
+        wrist = snap["wrist"]
+        agent_meta = snap["agent_meta"]
+        wrist_meta = snap["wrist_meta"]
+        self.last_encode_s = round((snap.get("encode_ms") or 0) / 1000, 3)
         header.update({
-            "aw": aw,
-            "ah": ah,
-            "ww": ww,
-            "wh": wh,
-            "src_aw": src_a[0],
-            "src_ah": src_a[1],
-            "src_ww": src_w[0],
-            "src_wh": src_w[1],
+            "aw": agent_meta["out_w"],
+            "ah": agent_meta["out_h"],
+            "ww": wrist_meta["out_w"],
+            "wh": wrist_meta["out_h"],
+            "src_aw": agent_meta["src_w"],
+            "src_ah": agent_meta["src_h"],
+            "src_ww": wrist_meta["src_w"],
+            "src_wh": wrist_meta["src_h"],
+            "source": agent_meta["source"],
+            "flip": agent_meta["flip"],
+            "jpeg_quality": agent_meta["jpeg_quality"],
+            "capture_ms": snap.get("capture_ms"),
+            "encode_ms": snap.get("encode_ms"),
+            "stage": "tool_end",
             "placeholder": False,
         })
         payload = frame_bytes(header, agent, wrist)
@@ -264,6 +274,20 @@ class App:
             "timestamp": stamp,
             "frame_time": time.strftime("%H:%M:%S", time.localtime(stamp)),
             "env_action_count": meta.get("env_action_count"),
+            "stage": meta.get("stage"),
+            "capture_ms": meta.get("capture_ms"),
+            "encode_ms": meta.get("encode_ms"),
+            "source": (meta.get("agent") or {}).get("source"),
+            "flip": (meta.get("agent") or {}).get("flip"),
+            "jpeg_quality": (meta.get("agent") or {}).get("jpeg_quality"),
+            "aw": (meta.get("agent") or {}).get("out_w"),
+            "ah": (meta.get("agent") or {}).get("out_h"),
+            "ww": (meta.get("wrist") or {}).get("out_w"),
+            "wh": (meta.get("wrist") or {}).get("out_h"),
+            "src_aw": (meta.get("agent") or {}).get("src_w"),
+            "src_ah": (meta.get("agent") or {}).get("src_h"),
+            "src_ww": (meta.get("wrist") or {}).get("src_w"),
+            "src_wh": (meta.get("wrist") or {}).get("src_h"),
             "phase": "executing",
             "detail": meta.get("primitive") or "",
             "term": False,
@@ -1192,7 +1216,11 @@ async def websocket(request):
                 APP.client_frames = {
                     "frames_received": data.get("frames_received"),
                     "frames_drawn": data.get("frames_drawn"),
+                    "distinct_drawn": data.get("distinct_drawn"),
                     "max_gap_ms": data.get("max_gap_ms"),
+                    "max_age_ms": data.get("max_age_ms"),
+                    "decode_ms": data.get("decode_ms"),
+                    "draw_ms": data.get("draw_ms"),
                     "gap_ms": data.get("gap_ms"),
                 }
     finally:

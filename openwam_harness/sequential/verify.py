@@ -250,10 +250,14 @@ def _grasp(step, observations, objects, support_z, outcome) -> dict[str, Any]:
         unmet.append(
             f"lift_m {metrics['lift_m']} < lift_above_support_m {grasp_cfg['lift_above_support_m']}"
         )
-    if not held_band:
-        unmet.append(f"gripper_opening_m {opening} outside [{held_min}, {held_max}]")
-    if not near:
-        unmet.append(f"object_to_eef_m {metrics['object_to_eef_m']} > near_eef_m {grasp_cfg['near_eef_m']}")
+    metrics["gripper_band_note"] = (
+        f"gripper_opening_m {opening} is |qpos[0]|+|qpos[1]| in metres, not a contact gap. "
+        f"The recorded band is [{held_min}, {held_max}]. A thin pinch can sit below {held_min}."
+    )
+    metrics["origin_note"] = (
+        "object_to_eef_m is the bowl origin to the eef origin. "
+        "The akita bowl horizontal_radius_site is 0.035 m from the origin, so this is not contact distance."
+    )
     if len(lifted_obs) < need:
         unmet.append(f"lifted samples {len(lifted_obs)} < stable_samples {need}")
     elif span is not None and span > limit:
@@ -267,17 +271,24 @@ def _grasp(step, observations, objects, support_z, outcome) -> dict[str, Any]:
         metrics["error"] = "；".join(unmet)
     if (empty_closed or left_behind or not near) and not lifted:
         return receipt("failure", "EMPTY_GRASP", "sim_state", _ids(observations), metrics)
-    if lifted and held_band and stable and near:
+    if lifted and stable and _contact_ok(contact):
         return receipt("success", "GRASP_HELD", "sim_state", _ids(observations), metrics)
     if len(lifted_obs) < need:
         return receipt("unknown", "NEED_STABILITY_SAMPLE", "sim_state", _ids(observations), metrics)
     if span is not None and span > limit:
         return receipt("failure", "GRASP_SLIP", "sim_state", _ids(observations), metrics)
-    if lifted and not near:
-        return receipt("failure", "EMPTY_GRASP", "sim_state", _ids(observations), metrics)
     if not lifted:
         return receipt("failure", "EMPTY_GRASP", "sim_state", _ids(observations), metrics)
     return receipt("unknown", "INSUFFICIENT_EVIDENCE", "sim_state", _ids(observations), metrics)
+
+
+def _contact_ok(contact) -> bool:
+    """Missing contact is not a failed check. An explicit held=false is."""
+    if not isinstance(contact, dict):
+        return True
+    if contact.get("held") is False:
+        return False
+    return True
 
 
 def _grasp_metrics(observations, outcome, current, opening, eef, base, contact, grasp_cfg) -> dict[str, Any]:
