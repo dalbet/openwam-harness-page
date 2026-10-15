@@ -1,14 +1,15 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
-const suiteSel = $("suite"), taskSel = $("task-id"), seedIn = $("seed"),
-  loadBtn = $("load"), taskIn = $("task"),
-  startBtn = $("start"), planBtn = $("plan-only"), manualBtn = $("manual"), longBtn = $("long"),
+const suiteSel = $("suite"),
+  loadBtn = $("load"), taskIn = $("task"), profileSel = $("planner-profile"),
+  startBtn = $("start"),
   restartBtn = $("restart"), stopBtn = $("stop"),
   okBtn = $("ok"), badBtn = $("bad"), unkBtn = $("unk"),
+  confirmBox = $("confirm"), goalEl = $("goal"),
   agentCanvas = $("agent"), wristCanvas = $("wrist"),
   agentView = $("agent-view"), wristView = $("wrist-view"),
   phAgent = $("ph-agent"), phWrist = $("ph-wrist"), statusEl = $("status"),
-  healthEl = $("health"), badge = $("badge"),
+  healthEl = $("health"),
   plannerMeta = $("planner-meta"), plannerBrief = $("planner-brief"), plannerFull = $("planner-full"),
   execMeta = $("exec-meta"), execBrief = $("exec-brief"), execFull = $("exec-full");
 
@@ -38,28 +39,18 @@ let maxFrameAgeMs = 0;
 let lastFrameMeta = null;
 let runBusy = false;
 let clockOffset = null;
+let taskEdited = false;
 const drawnFrameIds = new Set();
 
 function plannerReady(){
   return !!(lastHealth && lastHealth.can_model_plan);
 }
 function syncRunButtons(){
-  const taskReady = !!taskIn.value.trim();
   const sceneReady = !!episode;
   const model = plannerReady();
-  if (runBusy) {
-    startBtn.disabled = true;
-    planBtn.disabled = true;
-    return;
-  }
-  const canModel = sceneReady && taskReady && model;
-  const canReplay = sceneReady && taskReady && !model;
-  startBtn.disabled = !(canModel || canReplay);
-  planBtn.disabled = !canModel;
-  startBtn.textContent = canReplay ? "开始（复用计划）" : "开始";
-  startBtn.title = canReplay
-    ? "Planner 未连接。点击后复用已保存并通过校验的计划，不会重新请求 Planner。"
-    : "";
+  startBtn.disabled = runBusy || !(sceneReady && model);
+  startBtn.textContent = "开始";
+  startBtn.title = model ? "" : "Planner 未连接。开始不会复用已保存计划。";
 }
 
 function clearBuffer(){
@@ -76,6 +67,7 @@ function escapeHtml(value){
 }
 function setConfirm(on){
   waiting = on;
+  confirmBox.hidden = !on;
   okBtn.disabled = !on;
   badBtn.disabled = !on;
   unkBtn.disabled = !on;
@@ -131,11 +123,9 @@ function handleText(txt){
     case "loaded":
       curEid = null; acceptEid = null; gate = false; clearBuffer();
       episode = m.episode_id; sceneEpoch = m.scene_epoch; planVersion = m.plan_version || 1;
-      taskIn.value = m.instruction || "";
-      $("summary").textContent = m.summary_zh ? `中文摘要：${m.summary_zh}` : "";
-      taskIn.disabled = false; manualBtn.disabled = false;
-      longBtn.disabled = !currentTask().long_candidate;
-      restartBtn.disabled = true; loadBtn.disabled = false;
+      goalEl.textContent = m.summary_zh ? `当前目标：${m.summary_zh}` : `当前目标：${m.instruction || ""}`;
+      taskIn.disabled = false;
+      restartBtn.disabled = false; loadBtn.disabled = false;
       runBusy = false;
       syncRunButtons();
       setConfirm(false);
@@ -144,8 +134,8 @@ function handleText(txt){
         phAgent.textContent = "干跑，无图像"; phWrist.textContent = "干跑，无图像";
       } else {
         const scene = m.scene || {};
-        const loadedDetail = `${m.env_id} · step ${scene.env_step ?? "?"} · ${ (scene.object_names||[]).join(", ") }`;
-        const plannerNote = plannerReady() ? "" : " · Planner 未连接，开始将复用已保存计划";
+        const loadedDetail = `${m.env_id || ""} · step ${scene.env_step ?? "?"}`;
+        const plannerNote = plannerReady() ? "" : " · Planner 未连接";
         setStatus("场景已加载", loadedDetail + plannerNote, plannerReady() ? "good" : "warn");
         phAgent.textContent = "等待画面"; phWrist.textContent = "等待画面";
       }
@@ -180,8 +170,6 @@ function handleText(txt){
       } else if (!terminalReached && lastPlannerStage === "ok" && m.phase === "waiting_confirmation") {
         setStatus("规划通过，执行暂停", (m.execution && m.execution.reason) || m.detail || "", "warn");
       } else if (!terminalReached) setStatus(PHASES[m.phase] || m.phase || "state", statusDetail(m), m.phase === "failed" ? "bad" : "");
-      const verify = m.verification_status ? ` · 验证 ${m.verification_status}` : "";
-      badge.textContent = `plan_source=${m.plan_source || "—"} · 恢复 ${m.recovery_attempts || 0} 次${verify}`;
       break;
     case "planner_io":
       renderPlanner(m);
@@ -192,6 +180,12 @@ function handleText(txt){
     case "log":
       $("log").textContent += (m.text || "") + "\n";
       break;
+    case "clarify":
+      setStatus("需要确认", m.question || "请说明要哪一个物体", "warn");
+      runBusy = false;
+      loadBtn.disabled = false;
+      syncRunButtons();
+      break;
     case "ended":
       if (acceptEid && m.episode_id && m.episode_id !== acceptEid) break;
       if (m.planner_stage) lastPlannerStage = m.planner_stage;
@@ -200,7 +194,7 @@ function handleText(txt){
       endedFallback = m;
       setConfirm(false);
       runBusy = false;
-      loadBtn.disabled = false; manualBtn.disabled = false; restartBtn.disabled = false; stopBtn.disabled = true;
+      loadBtn.disabled = false; restartBtn.disabled = false; stopBtn.disabled = true;
       syncRunButtons();
       break;
     case "pong": break;
@@ -274,53 +268,21 @@ function statusDetail(m){
   const bits = [m.detail || "", m.reason || "", m.reason_code || "", m.step_id || "", m.skill || "", m.evidence_source || "", timing].filter(Boolean);
   return bits.join(" · ");
 }
-function currentTask(){
-  const suite = suites.find(item => item.id === suiteSel.value);
-  const task = suite && (suite.tasks || []).find(item => String(item.id) === taskSel.value);
-  return task || {};
-}
 function applyCatalog(items){
   suites = items || [];
   if (!suites.length) return;
-  fillSuites();
-  suiteSel.disabled = false;
-  taskSel.disabled = false;
-  seedIn.disabled = false;
-  loadBtn.disabled = false;
-  if (suitePoll) { clearInterval(suitePoll); suitePoll = null; }
-}
-function fillSuites(){
+  const previous = suiteSel.value;
   suiteSel.innerHTML = "";
   suites.forEach(suite => {
     const option = document.createElement("option");
     option.value = suite.id;
-    option.textContent = `${suite.label} / ${suite.id}`;
+    option.textContent = suite.label || suite.id;
     suiteSel.appendChild(option);
   });
-  fillTasks();
-}
-function fillTasks(){
-  const suite = suites.find(item => item.id === suiteSel.value);
-  taskSel.innerHTML = "";
-  (suite && suite.tasks || []).forEach(task => {
-    const option = document.createElement("option");
-    option.value = String(task.id);
-    option.textContent = `t${task.id} ${task.summary_zh || task.language}`;
-    option.title = `${task.task_key || ""} ${task.language}`;
-    taskSel.appendChild(option);
-  });
-  applyTask();
-}
-function applyTask(){
-  const task = currentTask();
-  taskIn.value = task.language || "";
-  $("summary").textContent = task.summary_zh
-    ? `${task.task_key || ""} · ${task.summary_zh} · 英文原文：${task.language}`
-    : "";
-  const maxSeed = Math.max(0, (task.init_states || 1) - 1);
-  seedIn.max = String(maxSeed);
-  if (Number(seedIn.value) > maxSeed) seedIn.value = "0";
-  longBtn.disabled = !task.long_candidate || !episode;
+  if (previous && suites.some(item => item.id === previous)) suiteSel.value = previous;
+  suiteSel.disabled = false;
+  loadBtn.disabled = false;
+  if (suitePoll) { clearInterval(suitePoll); suitePoll = null; }
 }
 
 function renderHealth(m){
@@ -369,7 +331,8 @@ function renderPlanner(m){
   ].filter(Boolean).join("\n");
   plannerFull.hidden = true;
   plannerFull.textContent = JSON.stringify({attempts, errors: m.errors || [], binding}, null, 2);
-  badge.textContent = `plan_source=${m.plan_source || "—"} · ${stage}`;
+  const telem = m.telemetry || {};
+  if (telem.ttft_s != null) plannerBrief.textContent += `\n排队 ${telem.queue_s ?? "—"}s · 首 token ${telem.ttft_s}s · 总 ${telem.total_s}s · ${telem.endpoint || ""}`;
   if (m.stage === "binding_unresolved") renderBinding(binding);
 }
 function renderBinding(binding){
@@ -449,7 +412,7 @@ function showResult(success, reason, status){
     setStatus("执行失败", reason || "", "bad");
   }
   runBusy = false;
-  manualBtn.disabled = false; restartBtn.disabled = false; loadBtn.disabled = false;
+  restartBtn.disabled = false; loadBtn.disabled = false;
   syncRunButtons();
   setConfirm(false);
   endedFallback = null;
@@ -513,44 +476,34 @@ function tick(){
   }).catch(() => { decoding = false; setStatus("failed", "画面解码失败", "bad"); });
 }
 
-suiteSel.onchange = fillTasks;
-taskSel.onchange = applyTask;
 loadBtn.onclick = () => {
   if (!wsConnected) return;
   if (!suiteSel.value) return;
   runBusy = true;
-  loadBtn.disabled = true; startBtn.disabled = true; manualBtn.disabled = true; longBtn.disabled = true; restartBtn.disabled = true;
+  loadBtn.disabled = true; startBtn.disabled = true; restartBtn.disabled = true;
   taskIn.disabled = true;
   clearBuffer(); terminalReached = false; curEid = null; acceptEid = null; gate = false;
   setConfirm(false);
   phAgent.style.display = ""; phWrist.style.display = "";
-  setStatus("加载中", `${suiteSel.value} t${taskSel.value} seed ${seedIn.value}`);
-  send({type:"load", suite: suiteSel.value, task_id: Number(taskSel.value), seed: Number(seedIn.value || 0)});
+  setStatus("加载中", suiteSel.value);
+  send({type:"load", suite: suiteSel.value});
 };
 function begin(source){
   if (!wsConnected) return;
   const task = taskIn.value.trim();
-  if (!task) return;
   runBusy = true;
-  startBtn.disabled = true; planBtn.disabled = true; manualBtn.disabled = true; longBtn.disabled = true; restartBtn.disabled = true; loadBtn.disabled = true;
+  startBtn.disabled = true; restartBtn.disabled = true; loadBtn.disabled = true;
   clearBuffer(); terminalReached = false; curEid = null; acceptEid = null; gate = false;
   setConfirm(false);
   stopBtn.disabled = false;
-  const reuse = source === "model" && !plannerReady();
-  const planSource = source === "manual" || source === "long" ? "manual" : (reuse ? "replay" : "model");
-  const manualScope = source === "long" ? "long" : "single";
-  const type = source === "restart" ? "restart" : (source === "plan" ? "plan_only" : (reuse ? "replay" : "start"));
-  const payload = {type, task, plan_source: planSource, manual_scope: manualScope};
-  if (reuse) payload.stop_after = null;
-  send(payload);
-  setStatus(planSource === "manual" ? "人工计划" : (reuse ? "复用已保存计划" : "规划中"), source === "plan" ? "只规划，不执行" : planSource);
+  const type = source === "restart" ? "restart" : "start";
+  send({type, task, plan_source: "model", planner_profile: profileSel.value});
+  setStatus(source === "restart" ? "重置" : "规划中", task || goalEl.textContent);
 }
 startBtn.onclick = () => begin("model");
-planBtn.onclick = () => begin("plan");
-manualBtn.onclick = () => begin("manual");
-longBtn.onclick = () => begin("long");
 restartBtn.onclick = () => begin("restart");
 stopBtn.onclick = () => { send({type:"stop"}); setConfirm(false); stopBtn.disabled = true; };
+profileSel.onchange = () => send({type:"set_planner", profile: profileSel.value});
 function confirm(verdict){
   if (!waiting) return;
   send({type:"confirm", verdict, episode_id: episode, scene_epoch: sceneEpoch, plan_version: planVersion});
@@ -563,7 +516,7 @@ unkBtn.onclick = () => confirm("unknown");
 $("planner-expand").onclick = () => { plannerFull.hidden = !plannerFull.hidden; };
 $("exec-expand").onclick = () => { execFull.hidden = !execFull.hidden; };
 taskIn.addEventListener("input", ()=>{
-  manualBtn.disabled = !taskIn.value.trim();
+  taskEdited = true;
   syncRunButtons();
 });
 $("bind-apply").onclick = () => {

@@ -48,37 +48,27 @@
   <div class="ctrl">
     <label for="suite">套件</label>
     <select id="suite" disabled></select>
-    <label for="task-id">任务</label>
-    <select id="task-id" disabled></select>
-    <label for="seed">seed</label>
-    <input id="seed" type="number" min="0" value="0" disabled />
     <button id="load" class="primary" disabled>加载场景</button>
     <label for="task">任务</label>
-    <input id="task" type="text" placeholder="输入任务指令" disabled />
+    <input id="task" type="text" placeholder="用中文描述要做的事" disabled />
+    <label for="planner-profile">模型</label>
+    <select id="planner-profile">
+      <option value="edge">边缘</option>
+      <option value="cloud">云端</option>
+    </select>
     <button id="start" class="primary" disabled>开始</button>
-    <button id="plan-only" disabled>只规划</button>
-    <button id="manual" disabled>人工计划</button>
-    <button id="long" disabled>长任务人工计划</button>
-    <button id="restart" disabled>重新开始</button>
     <button id="stop" disabled>停止</button>
   </div>
-  <div class="ctrl">
-    <button id="ok" disabled>确认成功</button>
-    <button id="bad" disabled>确认失败</button>
-    <button id="unk" disabled>确认未知</button>
-    <span class="hint" id="badge">子任务确认只在真实动作之后出现。</span>
-    <span class="hint" id="summary"></span>
-  </div>
+  <div id="goal" class="hint">加载后在这里显示当前中文目标。</div>
+  <div id="status"><span class="phase">就绪</span></div>
   <div id="views">
     <div class="view" id="agent-view"><span class="tag">Agent</span><canvas id="agent"></canvas><span class="placeholder" id="ph-agent">未加载场景</span></div>
     <div class="view" id="wrist-view"><span class="tag">Wrist</span><canvas id="wrist"></canvas><span class="placeholder" id="ph-wrist">未加载场景</span></div>
   </div>
-  <div id="status"><span class="phase">就绪</span></div>
-  <div id="motion" class="hint"></div>
-  <div id="bind-box" class="ctrl" hidden>
-    <span class="hint" id="bind-note">对象未唯一绑定。请显式选择，不会默认第一个，也不会开始动作。</span>
-    <select id="bind-choice"></select>
-    <button id="bind-apply" type="button">确认目标</button>
+  <div id="confirm" class="ctrl" hidden>
+    <button id="ok" type="button">确认成功</button>
+    <button id="bad" type="button">确认失败</button>
+    <button id="unk" type="button">确认未知</button>
   </div>
   <details id="planner-box">
     <summary>Planner输入/输出</summary>
@@ -94,11 +84,18 @@
     <pre id="exec-full" hidden></pre>
     <button id="exec-expand" type="button">展开参数和返回</button>
   </details>
-  <details id="log-box">
-    <summary>详细日志</summary>
+  <details id="perf-box">
+    <summary>性能、绑定和重置</summary>
+    <div id="motion" class="hint"></div>
+    <div id="bind-box" class="ctrl">
+      <span class="hint" id="bind-note">还没有绑定。</span>
+      <select id="bind-choice"></select>
+      <button id="bind-apply" type="button">确认目标</button>
+    </div>
+    <div class="ctrl"><button id="restart" type="button" disabled>重置当前场景</button></div>
     <pre id="log"></pre>
   </details>
 </div>
-<script src="static/app.js?v=view3"></script>
+<script src="static/app.js?v=view4"></script>
 </body>
 </html>

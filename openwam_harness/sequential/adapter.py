@@ -575,11 +575,12 @@ class App:
             matched = re.fullmatch(r"(libero_spatial|libero_object|libero_goal|libero_10)_t(\d+)(?:_s(\d+))?", scene_id)
             if not matched:
                 raise ValueError(f"unknown scene {scene_id}")
-            suite, task_id, seed = matched.group(1), int(matched.group(2)), int(matched.group(3) or 0)
+            suite, task_id = matched.group(1), int(matched.group(2))
         else:
             suite = str(message.get("suite") or "")
-            task_id = int(message.get("task_id"))
-            seed = int(message.get("seed") or 0)
+            task_id = int(message.get("task_id") or 0)
+        seed = 0
+        self.log(f"seed fixed={seed} suite={suite} task={task_id}")
         task = task_record(self.suites, suite, task_id)
         if seed < 0 or seed >= int(task["init_states"]):
             raise ValueError(f"seed {seed} 超出该任务初始状态数量 {task['init_states']}")
@@ -615,6 +616,10 @@ class App:
                 "plan_source": plan_source,
             })
             return
+        requested = message.get("planner_profile")
+        if requested in {"edge", "cloud"}:
+            self.planner_profile = requested
+            self.planner = self._make_planner()
         profile = self.active_profile()
         if not profile.get("available"):
             self.broadcast({
