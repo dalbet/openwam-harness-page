@@ -9,12 +9,57 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
 
 from executor import ToolOutcome
 from frame_bus import FrameBus
+
+def _install_vla_experiment(primitives, controller) -> None:
+    """One background predict during chunk_step. Its actions are not executed.
+
+    The env thread still owns chunk_step. The prefetch is dropped because this
+    server has no RTC alignment, and the next chunk is predicted synchronously.
+    """
+    if getattr(primitives, "_vla_async_installed", False):
+        return
+    primitives._vla_async_installed = True
+    env = primitives.env
+    original_chunk = env.chunk_step
+    original_vlm = primitives._vlm_chunk
+
+    def chunk_step(actions, *args, **kwargs):
+        version = int(getattr(primitives, "_env_action_count", 0))
+        token = controller.token
+        if token is not None and controller.begin_predict(version, token):
+            def work() -> None:
+                try:
+                    predicted = primitives.model.predict(getattr(primitives, "_last_obs", {}), options={"mode": "eval"})
+                    rows = list(predicted) if predicted is not None else []
+                except Exception as exc:
+                    controller.inflight = None
+                    controller.events.append({"kind": "prefetch_error", "error": str(exc), "rtc": False})
+                    return
+                controller.finish_predict(rows, version, token, apply=False)
+            threading.Thread(target=work, name="vla-prefetch", daemon=True).start()
+        result = original_chunk(actions, *args, **kwargs)
+        controller.mark_env(version + len(list(actions)))
+        return result
+
+    def _vlm_chunk(instruction: str):
+        waited = 0.0
+        while controller.inflight is not None and waited < 30:
+            time.sleep(0.01)
+            waited += 0.01
+        if waited:
+            controller.underrun_waits.append({"queue_depth": len(controller.queue), "wait_s": round(waited, 4)})
+        return original_vlm(instruction)
+
+    env.chunk_step = chunk_step
+    primitives._vlm_chunk = _vlm_chunk
+
 
 HARNESS = Path(__file__).resolve().parents[1]
 RPENT = HARNESS / "RPent"
@@ -395,6 +440,9 @@ class LiveBackend:
         from robots.libero.tools import dump_state
 
         started = time.perf_counter()
+        from vla_async import get_controller
+
+        get_controller().clear("reset")
         self.toolkit._solved = False
         self.toolkit.primitives.reset()
         reset_s = round(time.perf_counter() - started, 3)
@@ -519,6 +567,10 @@ def _timed_toolkit(robot_spec, runtime_kwargs, events, config, output_dir):
     from chunk_trace import attach_chunk_trace, set_chunk_hook
 
     attach_chunk_trace(toolkit.primitives)
+    from vla_async import execution_mode, get_controller
+
+    if execution_mode() == "async":
+        _install_vla_experiment(toolkit.primitives, get_controller())
     bus = FrameBus()
     toolkit.primitives._display_bus = bus
 

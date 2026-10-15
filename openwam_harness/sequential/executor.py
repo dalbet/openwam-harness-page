@@ -20,6 +20,18 @@ from verify import THRESHOLDS, call_failure_receipt, receipt, verify_step
 WORLD_SKILLS = frozenset({"pi0_pick", "move_to", "set_gripper"})
 
 
+def _vla_arm(episode_id: str, scene_epoch: int, plan_version: int, skill: str) -> None:
+    from vla_async import get_controller
+
+    get_controller().arm(episode_id, scene_epoch, plan_version, skill)
+
+
+def _vla_clear(reason: str) -> None:
+    from vla_async import get_controller
+
+    get_controller().clear(reason)
+
+
 class StaleResult(RuntimeError):
     pass
 
@@ -136,6 +148,7 @@ def run_plan(
     while index < len(queue):
         step = queue[index]
         if stale():
+            _vla_clear("cancel")
             return _discard("cancelled or epoch/plan_version changed", session, steps)
         if deadline_s is not None and clock() >= deadline_s:
             return _finish(
@@ -148,7 +161,9 @@ def run_plan(
                 backend,
                 llm_calls,
             )
+        _vla_arm(session.episode_id, started_epoch, started_version, step.get("skill") or "")
         if _native(backend):
+            _vla_clear("terminated")
             emit(
                 "executing",
                 step_id=step["step_id"],
@@ -289,6 +304,7 @@ def run_plan(
             verification = _as_native_success(verification)
         _write_trace(backend, step, verification)
         if verification.get("reason_code") == "NATIVE_SUCCESS":
+            _vla_clear("terminated")
             if post:
                 last_obs = post[-1]
             steps.append(_step_record(step, outcome, verification, last_obs))
@@ -353,6 +369,7 @@ def run_plan(
                 replacement = validate_plan(replacement, task=plan.get("goal"))
                 session.plan_version += 1
                 started_version = session.plan_version
+                _vla_clear("replan")
                 _invalidate_broken(steps, last_obs, plan, support_z, started_epoch)
                 queue[index + 1 :] = replacement["steps"]
                 emit("executing", detail="local replan", plan_version=started_version, recovery_attempts=recovery.attempts.get(step["step_id"], 0))

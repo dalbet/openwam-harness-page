@@ -651,6 +651,9 @@ class App:
         ).start()
 
     def stop(self) -> None:
+        from vla_async import get_controller
+
+        get_controller().clear("cancel")
         cancel = getattr(self.planner, "cancel", None)
         if cancel is not None:
             cancel()

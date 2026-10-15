@@ -179,6 +179,16 @@ Planner 收到带编号的场景图。同类型多实例都保留。SAM3 的 `se
 
 中文输入匹配到英文规范指令。多条都像时只问一个问题。自由输入若对应另一个任务，会显式加载该任务并改用它的 `env.terminated`；对不上时提示当前场景不支持，不沿用原来的成功标准。
 
+## VLA 异步
+
+`robots/libero/tools.py` 的 `_vlm_chunk` 在环境线程上先 `model.predict`（内部是 `vla.predict` RPC），返回后才 `env.chunk_step`。这两步不重叠。画面线程只编码和发送 512 JPEG，不能算 VLA 异步。用户看到的两段停顿，一段是这次推理加 RPC，一段是同线程上的 512 渲染或工具切换。
+
+`VLA_ASYNC=sync` 是默认，不包一层。`VLA_ASYNC=async` 在 `chunk_step` 期间最多起一个预取线程。当前 Pi0.5 `predict(obs, options)` 只把 `mode` 传给 `predict_action_batch`，没有动作前缀、推理延迟或 RTC 参数，所以预取结果直接丢弃，下一步仍同步预测。普通线程预取不会标成 RTC，也不会把两段动作块拼起来。
+
+reset、取消、重规划、技能切换和原生成功会清空队列，并丢掉旧 `episode_id` / `scene_epoch` / `plan_version` 的结果。环境线程是唯一的 `chunk_step` 调用者。checkpoint、归一化、采样和 `action_chunk` 没有改。
+
+本轮没有做同步/异步各一次的实机诊断：`127.0.0.1:8000` 没有 Planner，8766 上仍是旧的 live 进程。CPU 队列回放在 `test_stage_d.py`。
+
 ## 本轮验证
 
 记录在 `openwam_harness/sequential/records/planner_speed.json`。没有第三次 Planner 请求，也没有批量评测。
