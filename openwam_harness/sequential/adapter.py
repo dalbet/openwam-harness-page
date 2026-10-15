@@ -20,6 +20,7 @@ from aiohttp import web, WSMsgType
 
 from executor import Session, ToolOutcome, run_plan
 from planner import SHORT_MEMORY, load_human_plan, make_openai_client, request_plan
+from planner_profiles import comparison_record, profiles, public_profile
 
 ROOT = Path(__file__).resolve().parent
 PLAN_PATH = ROOT / "plans" / "two_object.json"
@@ -136,7 +137,36 @@ class App:
         self.binding = None
         self.display_seq = 0
         self.client_frames = None
-        self.planner = make_openai_client(PLANNER_URL, PLANNER_MODEL)
+        self.planner_profile = os.environ.get("PLANNER_PROFILE", "edge")
+        if self.planner_profile not in {"edge", "cloud"}:
+            self.planner_profile = "edge"
+        self.planner = self._make_planner()
+
+    def active_profile(self) -> dict:
+        catalog = profiles()
+        profile = catalog.get(self.planner_profile) or catalog["edge"]
+        return profile
+
+    def _make_planner(self):
+        profile = self.active_profile()
+        if profile.get("id") != self.planner_profile and profile.get("id"):
+            self.planner_profile = profile["id"]
+        return make_openai_client(
+            str(profile.get("base_url") or PLANNER_URL),
+            str(profile.get("model") or PLANNER_MODEL),
+            api_key=str(profile.get("api_key") or "EMPTY"),
+            input_mode=str(profile.get("input_mode") or "scene_metadata"),
+        )
+
+    def select_profile(self, name: str) -> None:
+        if name not in profiles():
+            self.broadcast({"type": "state", "phase": "failed", "detail": f"未知 Planner {name}"})
+            return
+        self.planner_profile = name
+        self.planner = self._make_planner()
+        _probe_planner()
+        self.broadcast({"type": "planner_profile", "profile": public_profile(self.active_profile())})
+        self.broadcast(self.health())
 
     def scenes(self) -> list[dict]:
         return [
@@ -185,7 +215,10 @@ class App:
             "planner": planner,
             "planner_ok": planner == "ok",
             "planner_detail": PROBE["detail"],
-            "planner_url": PLANNER_URL,
+            "planner_url": self.active_profile().get("base_url") or PLANNER_URL,
+            "planner_model": self.active_profile().get("model") or PLANNER_MODEL,
+            "planner_profile": self.planner_profile,
+            "planner_profiles": {key: public_profile(value) for key, value in profiles().items()},
             "checkpoints": checkpoints,
             "components": components,
             "env": env_state,
@@ -193,7 +226,8 @@ class App:
             "suites": "ready" if self.suites else ("failed" if self.suite_error else "loading"),
             "suite_error": self.suite_error,
             "can_select_scene": True,
-            "can_manual_plan": True,
+            "can_manual_plan": False,
+            "saved_plan_fallback": False,
             "can_model_plan": planner == "ok",
             "silent_dry_fallback": False,
             "error": error,
@@ -573,8 +607,21 @@ class App:
             self.broadcast({"type": "state", "phase": "failed", "detail": "already running"})
             return
         plan_source = message.get("plan_source") or "model"
-        if plan_source not in {"model", "manual", "replay"}:
-            self.broadcast({"type": "state", "phase": "failed", "detail": f"unknown plan_source {plan_source}"})
+        if plan_source != "model":
+            self.broadcast({
+                "type": "state",
+                "phase": "failed",
+                "detail": "开始只发起新的模型规划，不使用保存计划、人工计划或隐藏回退",
+                "plan_source": plan_source,
+            })
+            return
+        profile = self.active_profile()
+        if not profile.get("available"):
+            self.broadcast({
+                "type": "state",
+                "phase": "failed",
+                "detail": f"{profile.get('label') or self.planner_profile} Planner 未配置，没有改用另一端或已保存计划",
+            })
             return
         self.run_id += 1
         run_id = self.run_id
@@ -712,76 +759,16 @@ class App:
             )
             self._fail_run(episode, "BINDING_UNRESOLVED")
             return
-        if plan_source == "manual":
-            try:
-                plan = self._manual_plan(spec, manual_scope, binding)
-            except Exception as exc:
-                self._emit_planner(
-                    plan_source=None,
-                    stage="validation_failed",
-                    summary=str(exc),
-                    output="",
-                    errors=[{"path": "plan", "code": "manual_rejected", "received": str(exc), "expected": "one bound transfer"}],
-                    repairs=0,
-                    attempts=[],
-                    binding=binding,
-                    vision=False,
-                    planning_input="scene_metadata",
-                    elapsed_s=0,
-                )
-                self._fail_run(episode, f"PLANNING_FAILED {exc}")
-                return
-            self._emit_planner(
-                plan_source="manual",
-                stage="ok",
-                summary=f"用户选择人工计划 scope={manual_scope}",
-                output=json.dumps({"plan_id": plan.get("plan_id"), "semantic_step_ids": plan.get("semantic_step_ids"), "steps": [step["step_id"] for step in plan["steps"]]}, ensure_ascii=False),
-                errors=[],
-                repairs=0,
-                attempts=[],
-                binding=binding,
-                vision=False,
-                planning_input="scene_metadata",
-                elapsed_s=0,
-            )
-        elif plan_source == "replay":
-            try:
-                plan = self._saved_plan(spec, binding, scene_objects)
-            except Exception as exc:
-                self._emit_planner(
-                    plan_source="replay",
-                    stage="validation_failed",
-                    summary=str(exc),
-                    output="",
-                    errors=[{"path": "plan", "code": "replay_rejected", "received": str(exc), "expected": "the saved object_ref still bound"}],
-                    repairs=0,
-                    attempts=[],
-                    binding=binding,
-                    vision=False,
-                    planning_input="scene_metadata",
-                    elapsed_s=0,
-                )
-                self._fail_run(episode, str(exc))
-                return
-            self._emit_planner(
-                plan_source="replay",
-                stage="ok",
-                summary=plan.get("replay_note") or "",
-                output=json.dumps({"request_id": plan.get("request_id"), "steps": [step["step_id"] for step in plan["steps"]]}, ensure_ascii=False),
-                errors=[],
-                repairs=0,
-                attempts=[{"role": "saved", "request_id": plan.get("request_id"), "finish_reason": "reused", "usage": {}}],
-                binding=binding,
-                vision=False,
-                planning_input="scene_metadata",
-                elapsed_s=0,
-                plan_from="saved",
-            )
+        if plan_source != "model":
+            self._fail_run(episode, "开始只发起新的模型规划，不使用保存计划、人工计划或隐藏回退")
+            return
         else:
             if PROBE["planner"] != "ok":
                 self._fail_run(episode, f"planner {PROBE['planner']}: {PROBE['detail'] or 'unavailable'}")
                 return
-            self.broadcast({"type": "state", "phase": "planning", "detail": PLANNER_MODEL, "mode": "live", "plan_source": "model"})
+            profile = self.active_profile()
+            self.planner = self._make_planner()
+            self.broadcast({"type": "state", "phase": "planning", "detail": profile.get("model") or PLANNER_MODEL, "mode": "live", "plan_source": "model"})
             image_ids = [f"agentview:{info.get('env_step')}", f"wrist:{info.get('env_step')}"]
             from schema import transfer_slots
 
@@ -867,6 +854,8 @@ class App:
                 response_kind=(attempts[-1].get("response_kind") if attempts else None),
                 image_ids=image_ids,
                 plan_from=result.get("plan_from"),
+                comparison=comparison_record(self.active_profile(), binding, scene_text),
+                telemetry=(attempts[-1].get("telemetry") if attempts else {}) or {},
             )
             if result["status"] != "ok" or result["plan"] is None:
                 self._fail_run(episode, "PLANNING_FAILED")
@@ -1173,6 +1162,7 @@ def _public_attempts(attempts: list[dict]) -> list[dict]:
                 "usage": item.get("usage") or {},
                 "response_kind": item.get("response_kind"),
                 "finish_reason": item.get("finish_reason"),
+                "telemetry": item.get("telemetry") or {},
                 "errors": item.get("errors") or [],
                 "tool_calls": item.get("tool_calls"),
                 "content": None if item.get("tool_calls") else item.get("content"),
@@ -1187,10 +1177,16 @@ PROBE_TIMEOUT_S = 1.5
 
 
 def _probe_planner() -> None:
+    profile = APP.active_profile()
+    url = str(profile.get("base_url") or PLANNER_URL).rstrip("/") + "/models"
+    request = urllib.request.Request(
+        url,
+        headers={"Authorization": f"Bearer {profile.get('api_key') or 'EMPTY'}"},
+    )
     try:
-        with urllib.request.urlopen(PLANNER_URL.rstrip("/") + "/models", timeout=PROBE_TIMEOUT_S) as response:
+        with urllib.request.urlopen(request, timeout=PROBE_TIMEOUT_S) as response:
             PROBE["planner"] = "ok" if response.status == 200 else "down"
-            PROBE["detail"] = f"HTTP {response.status}"
+            PROBE["detail"] = f"HTTP {response.status} {profile.get('id')} {profile.get('model')}"
     except TimeoutError:
         PROBE["planner"] = "timeout"
         PROBE["detail"] = f"planner probe exceeded {PROBE_TIMEOUT_S}s"
@@ -1329,10 +1325,13 @@ async def websocket(request):
             elif kind == "plan_only":
                 APP.start("start", data, execute=False)
             elif kind == "replay":
-                data["plan_source"] = "replay"
-                if "stop_after" not in data:
-                    data["stop_after"] = "grasp_held"
-                APP.start("start", data, execute=True)
+                await ws.send_str(json.dumps({
+                    "type": "state",
+                    "phase": "failed",
+                    "detail": "开始只发起新的模型规划，不使用保存计划、人工计划或隐藏回退",
+                }, ensure_ascii=False))
+            elif kind == "set_planner":
+                APP.select_profile(str(data.get("profile") or "edge"))
             elif kind == "bind":
                 APP.choose_binding(data)
             elif kind == "stop":

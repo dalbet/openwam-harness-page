@@ -148,6 +148,25 @@ def run_plan(
                 backend,
                 llm_calls,
             )
+        if _native(backend):
+            emit(
+                "executing",
+                step_id=step["step_id"],
+                skill=step.get("skill"),
+                detail="NATIVE_SUCCESS",
+                reason_code="NATIVE_SUCCESS",
+                evidence_source="libero_terminated",
+            )
+            return _finish(
+                "completed",
+                "NATIVE_SUCCESS",
+                session,
+                started_epoch,
+                started_version,
+                steps,
+                backend,
+                llm_calls,
+            )
         skill = step["skill"]
         emit("executing", step_id=step["step_id"], skill=skill, detail=step.get("subtask") or skill)
         if skill == "pause_for_confirm":
@@ -420,6 +439,10 @@ def _remember_support(obs: dict | None, support_z: dict[str, float]) -> None:
 def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_z):
     if not outcome.executed:
         return [], call_failure_receipt(outcome)
+    if _native(backend):
+        # Official success already happened inside the tool. Do not sample,
+        # recover, close the gripper, or replace that result with a later check.
+        return [], _native_stop_receipt()
     sampled = _observations_from_samples((outcome.raw or {}).get("samples"), scene_epoch)
     post = sampled or [_capture(backend, scene_epoch)]
     verdict = verify_step(
@@ -478,6 +501,16 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
 def _native(backend: Any) -> bool:
     checker = getattr(backend, "native_success", None)
     return bool(checker()) if checker is not None else False
+
+
+def _native_stop_receipt() -> dict:
+    return receipt(
+        "success",
+        "NATIVE_SUCCESS",
+        "libero_terminated",
+        [],
+        {"stopped_before_extra_motion": True, "truncated_is_success": False},
+    )
 
 
 def _as_native_success(verification: dict) -> dict:

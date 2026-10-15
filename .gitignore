@@ -34,3 +34,4 @@ models/
 *.env
 .env*
 secrets.*
+openwam_harness/sequential/planner_profiles.local.json

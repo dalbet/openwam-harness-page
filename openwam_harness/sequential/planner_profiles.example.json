@@ -1,0 +1,12 @@
+{
+  "edge": {
+    "base_url": "http://127.0.0.1:8000/v1",
+    "model": "Qwen3.5-9B",
+    "api_key": "EMPTY"
+  },
+  "cloud": {
+    "base_url": "https://example.invalid/v1",
+    "model": "replace-with-cloud-model",
+    "api_key": "set CLOUD_PLANNER_API_KEY in the environment; do not commit a real key"
+  }
+}

@@ -6,6 +6,7 @@ A failed repair returns PLANNING_FAILED. It does not substitute a human plan.
 from __future__ import annotations
 
 import json
+import time
 from typing import Any, Callable
 
 from budget import OUTPUT_BUDGET, budget_check, slim_prompt
@@ -147,6 +148,7 @@ def _normalize(result: dict[str, Any] | str) -> dict[str, Any]:
             "finish_reason": "stop",
             "usage": {},
             "reasoning": None,
+            "telemetry": {},
         }
     return {
         "content": result.get("content"),
@@ -156,6 +158,7 @@ def _normalize(result: dict[str, Any] | str) -> dict[str, Any]:
         "reasoning": result.get("reasoning"),
         "request_id": result.get("request_id"),
         "incomplete": bool(result.get("incomplete")),
+        "telemetry": result.get("telemetry") or {},
     }
 
 
@@ -189,6 +192,7 @@ def _attempt(index: int, role: str, message: dict[str, Any], parts, counter) -> 
         "content": content,
         "tool_calls": tool_calls,
         "usage": message.get("usage") or {},
+        "telemetry": message.get("telemetry") or {},
         "preflight": budget_check(parts, counter=counter),
     }
 
@@ -239,7 +243,13 @@ def _emit(options: dict[str, Any], phase: str, detail: str) -> None:
         callback(phase, detail)
 
 
-def make_openai_client(base_url: str, model: str = "Qwen3.5-9B", timeout_s: float = 180.0):
+def make_openai_client(
+    base_url: str,
+    model: str = "Qwen3.5-9B",
+    timeout_s: float = 180.0,
+    api_key: str = "EMPTY",
+    input_mode: str = "scene_metadata",
+):
     """Streaming chat client. Closing the socket aborts only this request id.
 
     The 180s cap is a safety bound. It is not a performance fix. The previous
@@ -278,14 +288,34 @@ def make_openai_client(base_url: str, model: str = "Qwen3.5-9B", timeout_s: floa
             body["tools"] = options["tools"]
             body["tool_choice"] = options.get("tool_choice")
         try:
-            return _stream(url, body, timeout_s, request_id, options.get("on_event"), state)
+            return _stream(
+                url,
+                body,
+                timeout_s,
+                request_id,
+                options.get("on_event"),
+                state,
+                api_key=api_key,
+                model=model,
+                input_mode=options.get("input_mode") or input_mode,
+            )
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")[:500]
             if exc.code == 400 and "tools" in body and _tools_rejected(detail):
                 reduced = dict(body)
                 reduced.pop("tools", None)
                 reduced.pop("tool_choice", None)
-                message = _stream(url, reduced, timeout_s, request_id, options.get("on_event"), state)
+                message = _stream(
+                    url,
+                    reduced,
+                    timeout_s,
+                    request_id,
+                    options.get("on_event"),
+                    state,
+                    api_key=api_key,
+                    model=model,
+                    input_mode=options.get("input_mode") or input_mode,
+                )
                 message["tool_transport"] = "unsupported"
                 return message
             raise RuntimeError(f"planner HTTP {exc.code}: {detail}") from exc
@@ -295,21 +325,36 @@ def make_openai_client(base_url: str, model: str = "Qwen3.5-9B", timeout_s: floa
     return client
 
 
-def _stream(url, body, timeout_s, request_id, on_event, state) -> dict[str, Any]:
+def _stream(
+    url,
+    body,
+    timeout_s,
+    request_id,
+    on_event,
+    state,
+    *,
+    api_key: str = "EMPTY",
+    model: str = "",
+    input_mode: str = "scene_metadata",
+) -> dict[str, Any]:
     import urllib.request
+
+    from planner_profiles import build_telemetry
 
     request = urllib.request.Request(
         url,
         data=json.dumps(body).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
-            "Authorization": "Bearer EMPTY",
+            "Authorization": f"Bearer {api_key or 'EMPTY'}",
             "X-Request-Id": request_id,
         },
     )
+    sent_at = time.perf_counter()
     if on_event:
         on_event("queued", request_id)
     response = urllib.request.urlopen(request, timeout=timeout_s)
+    response_at = time.perf_counter()
     state["response"] = response
     if on_event:
         on_event("processing_input", request_id)
@@ -319,6 +364,7 @@ def _stream(url, body, timeout_s, request_id, on_event, state) -> dict[str, Any]
     finish = None
     usage: dict[str, Any] = {}
     started = False
+    first_token_at = None
     try:
         for raw in response:
             line = raw.decode("utf-8", errors="replace").strip()
@@ -340,6 +386,7 @@ def _stream(url, body, timeout_s, request_id, on_event, state) -> dict[str, Any]
             piece = delta.get("content") or delta.get("reasoning") or delta.get("reasoning_content")
             if not started and (piece or delta.get("tool_calls")):
                 started = True
+                first_token_at = time.perf_counter()
                 if on_event:
                     on_event("generating", request_id)
             if delta.get("content"):
@@ -359,7 +406,18 @@ def _stream(url, body, timeout_s, request_id, on_event, state) -> dict[str, Any]
     finally:
         state["response"] = None
         response.close()
+    done_at = time.perf_counter()
     calls = [tool_calls[index] for index in sorted(tool_calls)]
+    telemetry = build_telemetry(
+        endpoint=url,
+        model=model or str(body.get("model") or ""),
+        input_mode=input_mode,
+        usage=usage,
+        sent_at=sent_at,
+        response_at=response_at,
+        first_token_at=first_token_at,
+        done_at=done_at,
+    )
     return {
         "content": "".join(content),
         "tool_calls": calls or None,
@@ -368,6 +426,7 @@ def _stream(url, body, timeout_s, request_id, on_event, state) -> dict[str, Any]
         "reasoning": "".join(reasoning),
         "request_id": request_id,
         "incomplete": finish is None,
+        "telemetry": telemetry,
     }
 
 
