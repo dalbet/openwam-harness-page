@@ -165,11 +165,14 @@ def _actions(event: str, step: dict, *, holding: bool, released: bool, attempt_i
 
 
 def _phrase(step: dict) -> str:
+    query = step.get("grounding_query")
+    if isinstance(query, str) and query.strip():
+        return query.strip()
     args = step.get("args") or {}
-    source = args.get("xyz_from")
-    if isinstance(source, str) and source.startswith("segment:"):
-        return source.split(":", 1)[1]
     prompt = args.get("prompt")
     if isinstance(prompt, str) and prompt.strip():
         return prompt.strip()
+    source = args.get("xyz_from")
+    if isinstance(source, str) and source.startswith("segment:"):
+        return source.split(":", 1)[1]
     return str(step.get("object_ref") or "")

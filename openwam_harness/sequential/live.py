@@ -262,9 +262,20 @@ class LiveBackend:
         if self.toolkit is None:
             return None
         started = time.perf_counter()
-        from display_view import encode_display, prepare_display_pair
+        from display_view import encode_display, prepare_camera, prepare_display_pair
 
-        agent, wrist = prepare_display_pair(self.toolkit.primitives.env.raw_obs())
+        env = self.toolkit.primitives.env
+        try:
+            agent = prepare_camera(
+                env.render_camera(camera_name="agentview", height=512, width=512, depth=False),
+                source="render_camera.agentview",
+            )
+            wrist = prepare_camera(
+                env.render_camera(camera_name="robot0_eye_in_hand", height=512, width=512, depth=False),
+                source="render_camera.robot0_eye_in_hand",
+            )
+        except Exception:
+            agent, wrist = prepare_display_pair(env.raw_obs())
         capture_ms = round((time.perf_counter() - started) * 1000, 2)
         encode_started = time.perf_counter()
         agent_jpg, agent_meta = encode_display(agent)
@@ -402,7 +413,7 @@ class LiveBackend:
 
     def retarget(self, scene: dict, output_dir: Path) -> dict:
         """Replace the env for a different task. VLA and SAM3 stay up."""
-        self._stop_named("env")
+        self._stop_named("env_server")
         bus = getattr(self, "frame_bus", None)
         if bus is not None:
             bus.close()

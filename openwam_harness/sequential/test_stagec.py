@@ -10,7 +10,7 @@ from executor import Session, run_plan
 from planner import load_human_plan
 from recovery import RecoveryBudget, propose, signature
 from store import LocalizationCache, candidate_card
-from test_contract import PLAN, Scripted
+from test_contract import PLAN, Scripted, _run
 from verify import native_success, verify_step
 
 
@@ -237,6 +237,79 @@ class StageCTest(unittest.TestCase):
         self.assertLess(bus.sent, bus.published)
         self.assertGreaterEqual(bus.sent, 1)
 
+    def test_transport_tracks_relative_pose_not_origin_distance(self):
+        step = {
+            "completion_check": "object_transported",
+            "object_ref": "bowl",
+            "target_ref": "plate",
+            "args": {"motion": "travel"},
+        }
+        objects = {
+            "bowl": {"sim_name": "akita_black_bowl_1"},
+            "plate": {"sim_name": "plate_1", "role": "container"},
+        }
+        before = _scene("a", [0.0, 0.0, 1.0], [0.0, 0.04, 1.06], 1)
+        after = _scene("b", [0.05, 0.16, 1.0], [0.05, 0.2, 1.06], 2)
+        outcome = type("O", (), {"executed": True, "grasp_signal": None, "xyz": None, "error": None})()
+        held = verify_step(
+            step, outcome, [after], scene_epoch=1, min_step=None, objects=objects,
+            support_z={}, goal_relation="on", before=before,
+        )
+        self.assertEqual(held["reason_code"], "TRANSPORTED")
+        self.assertGreater(held["metrics"]["origin_to_eef_m"], 0.03)
+        slipped = _scene("c", [0.05, 0.16, 0.9], [0.05, 0.2, 1.06], 3)
+        lost = verify_step(
+            step, outcome, [slipped], scene_epoch=1, min_step=None, objects=objects,
+            support_z={}, goal_relation="on", before=before,
+        )
+        self.assertEqual(lost["reason_code"], "GRASP_LOST")
+
+    def test_carry_offset_moves_the_object_onto_the_target(self):
+        from schema import resolve_args
+
+        resolved = resolve_args(
+            {
+                "xyz_from": "segment:plate",
+                "z_offset": 0.12,
+                "gripper": 1,
+                "carry_offset": "bowl",
+                "motion": "vertical",
+                "object_ref": "bowl",
+            },
+            {"segment:plate": [0.05, 0.2, 0.9], "carry:bowl": [0.0, -0.04, -0.06]},
+        )
+        self.assertEqual(resolved["xyz"], [0.05, 0.24, 1.08])
+        self.assertNotIn("carry_offset", resolved)
+
+    def test_native_release_completes_without_closing_again(self):
+        class NativeOnRelease(Scripted):
+            def execute(self, action, args):
+                self.gripper_commands.append(args.get("gripper") if action == "set_gripper" else None)
+                outcome = super().execute(action, args)
+                if action == "set_gripper" and float(args.get("gripper") or 0) < 0:
+                    self.native = True
+                return outcome
+
+            def __init__(self):
+                super().__init__()
+                self.gripper_commands = []
+
+        backend = NativeOnRelease()
+        result = _run(load_human_plan(PLAN, "libero_10_t0"), backend, lambda _subtask: "unknown")
+        self.assertEqual(result["status"], "completed")
+        self.assertTrue(result["native_success"])
+        self.assertEqual(result["reason"], "NATIVE_SUCCESS")
+        opened = [value for value in backend.gripper_commands if value is not None]
+        self.assertEqual(opened, [-1.0])
+
+    def test_recovery_uses_the_object_phrase(self):
+        from recovery import _phrase
+
+        self.assertEqual(
+            _phrase({"grounding_query": "black bowl", "args": {"xyz_from": "segment:plate"}}),
+            "black bowl",
+        )
+
     def test_display_flip_is_vertical_once_and_does_not_upscale(self):
         import numpy as np
         from display_view import encode_display, prepare_camera
@@ -252,6 +325,26 @@ class StageCTest(unittest.TestCase):
         self.assertEqual(meta["out_h"], 256)
         self.assertEqual(meta["jpeg_quality"], 85)
         self.assertEqual(meta["max_edge"], 512)
+
+
+def _scene(name, obj, eef, version):
+    return {
+        "observation_id": name,
+        "scene_epoch": 1,
+        "env_step": version,
+        "timestamp": version,
+        "cameras": {"agentview": {"id": name}, "wrist": {"id": name}},
+        "sim": {
+            "objects": {
+                "akita_black_bowl_1": {"pos": obj, "identified": True},
+                "plate_1": {"pos": [0.05, 0.2, 0.9], "identified": True},
+            },
+            "eef_pos": eef,
+            "gripper_opening_m": 0.004,
+            "contact": None,
+            "evidence_source": "sim_state",
+        },
+    }
 
 
 def _obs(name, version, opening, stamp):

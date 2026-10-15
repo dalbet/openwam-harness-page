@@ -204,6 +204,27 @@ def run_plan(
             index += 1
             continue
 
+        _ensure_carry_offset(bindings, last_obs, step, plan)
+        if _release_blocked(step, last_obs, plan, bindings):
+            outcome = ToolOutcome(
+                executed=False,
+                error="释放前相对位姿已偏离抓取时的对象-末端关系",
+                real=True,
+                error_class="plan",
+            )
+            verification = receipt("failure", "GRASP_SLIP", "sim_state", [], {"error": outcome.error})
+            _write_trace(backend, step, verification)
+            steps.append(_step_record(step, outcome, verification, last_obs))
+            emit(
+                "failed",
+                step_id=step["step_id"],
+                skill=skill,
+                reason=outcome.error,
+                reason_code="GRASP_SLIP",
+                detail=outcome.error,
+                execution=_diagnosis(step, outcome, verification, last_obs, plan),
+            )
+            return _finish("no_progress", outcome.error, session, started_epoch, started_version, steps, backend, llm_calls)
         try:
             args = resolve_args(step.get("args") or {}, bindings)
         except PlanError as exc:
@@ -245,6 +266,32 @@ def run_plan(
         post, verification = _judge(
             step, outcome, backend, last_obs, started_epoch, before_step, plan, support_z,
         )
+        if outcome.executed and _native(backend):
+            verification = _as_native_success(verification)
+        _write_trace(backend, step, verification)
+        if verification.get("reason_code") == "NATIVE_SUCCESS":
+            if post:
+                last_obs = post[-1]
+            steps.append(_step_record(step, outcome, verification, last_obs))
+            emit(
+                "executing",
+                step_id=step["step_id"],
+                skill=skill,
+                detail="NATIVE_SUCCESS",
+                verification_status="success",
+                reason_code="NATIVE_SUCCESS",
+                evidence_source="libero_terminated",
+            )
+            return _finish(
+                "completed",
+                "NATIVE_SUCCESS",
+                session,
+                started_epoch,
+                started_version,
+                steps,
+                backend,
+                llm_calls,
+            )
         if post:
             last_obs = post[-1]
             _remember_support(last_obs, support_z)
@@ -405,8 +452,15 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
                 goal_relation=plan.get("goal_relation"),
                 before=before,
             )
-    if verdict["reason_code"] == "NEED_STABILITY_SAMPLE" and step.get("completion_check") != "grasp_held":
-        post.extend(_hold_window(backend, scene_epoch))
+    if (
+        verdict["reason_code"] == "NEED_STABILITY_SAMPLE"
+        and step.get("completion_check") != "grasp_held"
+        and not _native(backend)
+    ):
+        # Keep the gripper where this step left it. A placement window must
+        # not close the gripper, and a finished episode must not be stepped.
+        gripper = float((step.get("args") or {}).get("gripper", -1.0))
+        post.extend(_hold_window(backend, scene_epoch, gripper))
         verdict = verify_step(
             step,
             outcome,
@@ -421,12 +475,30 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
     return post, verdict
 
 
-def _hold_window(backend: Any, scene_epoch: int) -> list[dict[str, Any]]:
-    """Advance a non-grasp check. Grasp checks use chunk snapshots instead of set_gripper."""
+def _native(backend: Any) -> bool:
+    checker = getattr(backend, "native_success", None)
+    return bool(checker()) if checker is not None else False
+
+
+def _as_native_success(verification: dict) -> dict:
+    """The LIBERO terminated flag is the task result. Keep the geometric reason beside it."""
+    metrics = dict(verification.get("metrics") or {})
+    metrics["geometric_reason_code"] = verification.get("reason_code")
+    upgraded = receipt(
+        "success",
+        "NATIVE_SUCCESS",
+        "libero_terminated",
+        verification.get("observation_ids") or [],
+        metrics,
+    )
+    return upgraded
+
+
+def _hold_window(backend: Any, scene_epoch: int, gripper: float = -1.0) -> list[dict[str, Any]]:
+    """Advance a non-grasp check without changing the gripper command."""
     grasp = THRESHOLDS["grasp"]
     calls = int(grasp.get("window_calls", 2))
     steps = int(grasp.get("window_steps", 4))
-    gripper = float(grasp.get("window_gripper", 1.0))
     samples = []
     for _ in range(calls):
         try:
@@ -455,6 +527,7 @@ def _observations_from_samples(samples, scene_epoch: int) -> list[dict[str, Any]
             "scene_epoch": scene_epoch,
             "env_step": version,
             "timestamp": sample.get("timestamp"),
+            "hold_step": sample.get("hold_step"),
             "cameras": {
                 "agentview": {"id": f"agentview:{version}"},
                 "wrist": {"id": f"wrist:{version}"},
@@ -619,6 +692,71 @@ def _confirm_unknown(step, verification, confirm, emit, stale, session, outcome,
         verification["status"] = "failure"
         verification["reason_code"] = f"manual_{user}"
     return verification, outcome, post
+
+
+def _ensure_carry_offset(bindings, obs, step, plan) -> None:
+    """Record object-minus-eef so later targets move the object, not the eef origin."""
+    ref = (step.get("args") or {}).get("carry_offset")
+    if not isinstance(ref, str) or not ref:
+        return
+    spec = (plan.get("objects") or {}).get(ref) or {}
+    sim_name = spec.get("sim_name") or ref
+    item = (((obs or {}).get("sim") or {}).get("objects") or {}).get(sim_name) or {}
+    pos = item.get("pos") if isinstance(item, dict) else None
+    eef = ((obs or {}).get("sim") or {}).get("eef_pos")
+    if not isinstance(pos, list) or not isinstance(eef, list) or len(pos) < 3 or len(eef) < 3:
+        return
+    bindings[f"carry:{ref}"] = [float(pos[i]) - float(eef[i]) for i in range(3)]
+
+
+def _release_blocked(step, obs, plan, bindings) -> bool:
+    if step.get("skill") != "set_gripper" or step.get("completion_check") != "object_placed":
+        return False
+    if float((step.get("args") or {}).get("gripper") or 0) >= 0:
+        return False
+    ref = step.get("object_ref")
+    offset = bindings.get(f"carry:{ref}")
+    if not isinstance(offset, list) or len(offset) < 3:
+        return False
+    spec = (plan.get("objects") or {}).get(ref) or {}
+    sim_name = spec.get("sim_name") or ref
+    item = (((obs or {}).get("sim") or {}).get("objects") or {}).get(sim_name) or {}
+    pos = item.get("pos") if isinstance(item, dict) else None
+    eef = ((obs or {}).get("sim") or {}).get("eef_pos")
+    if not isinstance(pos, list) or not isinstance(eef, list):
+        return False
+    delta = sum((float(pos[i]) - float(eef[i]) - float(offset[i])) ** 2 for i in range(3)) ** 0.5
+    return delta > float(THRESHOLDS["transport"]["hold_relative_m"])
+
+
+def _write_trace(backend, step, verification) -> None:
+    out = getattr(backend, "output_dir", None)
+    if out is None or not isinstance(verification, dict):
+        return
+    if step.get("completion_check") not in {"grasp_held", "object_transported", "object_placed"}:
+        return
+    import json
+    from pathlib import Path
+
+    path = Path(out) / "verification_trace.jsonl"
+    metrics = verification.get("metrics") or {}
+    row = {
+        "step_id": step.get("step_id"),
+        "skill": step.get("skill"),
+        "status": verification.get("status"),
+        "reason_code": verification.get("reason_code"),
+        "evidence_source": verification.get("evidence_source"),
+        "relative_span_m": metrics.get("relative_span_m"),
+        "relative_delta_m": metrics.get("relative_delta_m"),
+        "support_object": metrics.get("support_object"),
+        "support_baseline": metrics.get("support_baseline"),
+        "possible_external_support": metrics.get("possible_external_support"),
+        "contact_status": metrics.get("contact_status"),
+        "samples": metrics.get("samples"),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 def _holding(obs, step, plan, support_z) -> bool:
@@ -806,8 +944,6 @@ def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, 
     # Official success is only the backend's LIBERO terminated flag.
     # Truncation, an unfinished plan, and planner finish do not set it.
     native = bool(backend.native_success())
-    if status != "completed":
-        native = False
     return {
         "status": status,
         "reason": reason,

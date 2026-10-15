@@ -1,0 +1,66 @@
+{
+  "frames_received": 63,
+  "motion_frames": 30,
+  "distinct_motion_ids": 30,
+  "motion_fps": 2.566,
+  "max_motion_gap_s": 2.5962,
+  "sources": [
+    "raw_obs.agentview_image",
+    "render_camera.agentview"
+  ],
+  "sizes": [
+    [
+      256,
+      256,
+      256,
+      256
+    ],
+    [
+      512,
+      512,
+      512,
+      512
+    ]
+  ],
+  "render_ms": [],
+  "action_ms": [],
+  "encode_ms": [
+    10.14,
+    6.85,
+    7.22,
+    7.59,
+    7.57,
+    3.45,
+    4.96,
+    3.16
+  ],
+  "confirmed_unknown": true,
+  "reason": "manual_unknown",
+  "status": "no_progress",
+  "native_success": false,
+  "episode_id": "0e3f12ca6d06",
+  "execution_reason_code": "manual_unknown",
+  "unmet": null,
+  "transport_started": true,
+  "server_frames": {
+    "published": 15,
+    "sent": 15,
+    "dropped": 0,
+    "skipped": 0,
+    "max_gap_s": 2.0623,
+    "gaps_s": [
+      0.495,
+      0.4653,
+      0.5234,
+      0.5132,
+      0.5013,
+      0.4933,
+      0.5152,
+      0.5128,
+      2.0623,
+      0.065,
+      0.0891,
+      0.093
+    ]
+  }
+}

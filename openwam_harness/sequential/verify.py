@@ -267,12 +267,21 @@ def _grasp(step, observations, objects, support_z, outcome) -> dict[str, Any]:
     metrics["held_band"] = held_band
     metrics["stable"] = stable
     metrics["relative_span_m"] = None if span is None else round(span, 4)
+    metrics["support_baseline"] = "same_object_initial_z"
+    metrics["support_object"] = sim_name
+    metrics["samples"] = [_sample_row(obs, sim_name) for obs in observations]
+    supports = _nearby_supports(observations[-1], sim_name, current)
+    metrics["nearby_supports"] = supports
+    metrics["possible_external_support"] = bool(supports)
     if unmet:
         metrics["error"] = "；".join(unmet)
     if (empty_closed or left_behind or not near) and not lifted:
         return receipt("failure", "EMPTY_GRASP", "sim_state", _ids(observations), metrics)
-    if lifted and stable and _contact_ok(contact):
+    if lifted and stable and _contact_ok(contact) and not supports:
         return receipt("success", "GRASP_HELD", "sim_state", _ids(observations), metrics)
+    if lifted and stable and supports:
+        metrics["error"] = "对象高度接近其他表面，接触字段未提供，不能把支撑当成夹爪持有"
+        return receipt("unknown", "INSUFFICIENT_EVIDENCE", "sim_state", _ids(observations), metrics)
     if len(lifted_obs) < need:
         return receipt("unknown", "NEED_STABILITY_SAMPLE", "sim_state", _ids(observations), metrics)
     if span is not None and span > limit:
@@ -303,7 +312,8 @@ def _grasp_metrics(observations, outcome, current, opening, eef, base, contact, 
         "lift_m": lift,
         "object_to_eef_m": gap,
         "contact": contact,
-        "contact_note": None if contact else "环境没有提供接触字段",
+        "contact_status": "provided" if isinstance(contact, dict) else "not_provided",
+        "contact_note": "环境提供了接触字段" if isinstance(contact, dict) else "环境没有提供接触字段，不能解释成已测到接触",
         "observation_ids": _ids(observations),
         "timestamps": [obs.get("timestamp") for obs in observations if isinstance(obs, dict)],
         "evidence_source": "sim_state",
@@ -327,11 +337,25 @@ def _transport(step, before_obs, after_obs, objects) -> dict[str, Any]:
         return receipt("unknown", "INSUFFICIENT_EVIDENCE", "sim_state_assisted", ids, {})
     cfg = THRESHOLDS["transport"]
     progress = _xy(before, target) - _xy(after, target)
-    hold = _distance(after, eef)
-    metrics = {"progress_m": round(progress, 4), "hold_m": round(hold, 4), "evidence_mode": "sim_state_assisted"}
-    if hold > float(cfg["hold_relative_m"]):
+    origin = _distance(after, eef)
+    rel_before = _relative(before_obs or {}, sim_name)
+    rel_after = _relative(after_obs or {}, sim_name)
+    delta = None if rel_before is None or rel_after is None else _distance(rel_before, rel_after)
+    metrics = {
+        "progress_m": round(progress, 4),
+        "origin_to_eef_m": round(origin, 4),
+        "relative_before": None if rel_before is None else [round(v, 4) for v in rel_before],
+        "relative_after": None if rel_after is None else [round(v, 4) for v in rel_after],
+        "relative_delta_m": None if delta is None else round(delta, 4),
+        "hold_relative_m": cfg["hold_relative_m"],
+        "evidence_mode": "sim_state_assisted",
+        "hold_note": "hold_relative_m is the change in object-minus-eef, not the origin distance",
+    }
+    if delta is None:
+        return receipt("unknown", "INSUFFICIENT_EVIDENCE", "sim_state_assisted", ids, metrics)
+    if delta > float(cfg["hold_relative_m"]):
         return receipt("failure", "GRASP_LOST", "sim_state_assisted", ids, metrics)
-    if progress < float(cfg["min_progress_m"]):
+    if (step.get("args") or {}).get("motion") != "vertical" and progress < float(cfg["min_progress_m"]):
         return receipt("failure", "NO_PROGRESS", "sim_state_assisted", ids, metrics)
     return receipt("success", "TRANSPORTED", "sim_state_assisted", ids, metrics)
 
@@ -428,6 +452,49 @@ def _distance(a: list[float], b: list[float]) -> float:
 
 def _xy(a: list[float], b: list[float]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _relative(obs: dict, sim_name: str) -> list[float] | None:
+    obj = _object(obs, sim_name)
+    center = _eef(obs)
+    if obj is None or center is None:
+        return None
+    return [obj[i] - center[i] for i in range(3)]
+
+
+def _sample_row(obs: dict, sim_name: str) -> dict[str, Any]:
+    sim = (obs or {}).get("sim") or {}
+    contact = sim.get("contact")
+    rel = _relative(obs, sim_name)
+    return {
+        "timestamp": obs.get("timestamp"),
+        "env_action_count": obs.get("env_step"),
+        "object_pos": _object(obs, sim_name),
+        "eef_pos": _eef(obs),
+        "relative_pos": None if rel is None else [round(v, 4) for v in rel],
+        "gripper_opening_m": _opening(obs),
+        "contact": contact,
+        "contact_status": "provided" if isinstance(contact, dict) else "not_provided",
+        "evidence_source": sim.get("evidence_source") or "sim_state",
+        "hold_step": obs.get("hold_step"),
+    }
+
+
+def _nearby_supports(obs: dict, sim_name: str, pos: list[float] | None) -> list[str]:
+    """Other objects close in xy and z. Their height is not this object's baseline."""
+    if pos is None:
+        return []
+    found = []
+    for name, item in (((obs or {}).get("sim") or {}).get("objects") or {}).items():
+        if name == sim_name or not isinstance(item, dict):
+            continue
+        other = item.get("pos")
+        if not isinstance(other, list) or len(other) < 3:
+            continue
+        other = [float(other[0]), float(other[1]), float(other[2])]
+        if abs(other[2] - pos[2]) <= 0.04 and _xy(other, pos) <= 0.08:
+            found.append(name)
+    return found
 
 
 def _relative_span(observations, sim_name, eef) -> float | None:

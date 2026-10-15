@@ -104,6 +104,14 @@ class DryBackend:
         return None
 
 
+def _component_row(components: list, *names: str):
+    wanted = set(names)
+    for item in components or []:
+        if item.get("name") in wanted:
+            return item
+    return None
+
+
 class App:
     def __init__(self) -> None:
         self.human_plans = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
@@ -150,8 +158,8 @@ class App:
         components = []
         if self.backend is not None and hasattr(self.backend, "component_health"):
             components = self.backend.component_health()
-        env_row = next((item for item in components if item["name"] == "env"), None)
-        vla_row = next((item for item in components if item["name"] == "vla"), None)
+        env_row = _component_row(components, "env", "env_server")
+        vla_row = _component_row(components, "vla", "vla_server")
         if self.loading:
             env_state = "loading"
         elif env_row is None:
@@ -260,6 +268,49 @@ class App:
         for ws in list(self.clients):
             asyncio.run_coroutine_threadsafe(ws.send_bytes(payload), self.loop)
 
+    def note_display(self, header: dict, agent: bytes, wrist: bytes) -> None:
+        """One 512 frame pushed by the env owner. Encoding already happened off that step."""
+        meta = {
+            "primitive": header.get("primitive") or "env_step",
+            "observation_id": f"display-{header.get('frame_id')}",
+            "timestamp": header.get("timestamp"),
+            "stage": header.get("stage") or "motion",
+            "capture_ms": header.get("render_ms"),
+            "render_ms": header.get("render_ms"),
+            "action_ms": header.get("action_ms"),
+            "encode_ms": header.get("encode_ms"),
+            "env_action_count": header.get("env_action_count"),
+            "agent": {
+                "source": header.get("source"),
+                "flip": header.get("flip"),
+                "jpeg_quality": header.get("jpeg_quality"),
+                "out_w": header.get("aw"),
+                "out_h": header.get("ah"),
+                "src_w": header.get("src_aw"),
+                "src_h": header.get("src_ah"),
+            },
+            "wrist": {
+                "source": header.get("source"),
+                "flip": header.get("flip"),
+                "jpeg_quality": header.get("jpeg_quality"),
+                "out_w": header.get("ww"),
+                "out_h": header.get("wh"),
+                "src_w": header.get("src_ww"),
+                "src_h": header.get("src_wh"),
+            },
+        }
+        self.send_display(agent, wrist, meta)
+        self._save_display_jpeg(header, agent)
+
+    def _save_display_jpeg(self, header: dict, agent: bytes) -> None:
+        out = getattr(self.backend, "output_dir", None)
+        if out is None or not agent:
+            return
+        folder = Path(out) / "display"
+        folder.mkdir(parents=True, exist_ok=True)
+        fid = int(header.get("frame_id") or 0)
+        (folder / f"{fid:04d}.jpg").write_bytes(agent)
+
     def send_display(self, agent: bytes, wrist: bytes, meta: dict) -> None:
         """Send one already-encoded snapshot. Called off the environment thread."""
         self.display_seq += 1
@@ -276,6 +327,8 @@ class App:
             "env_action_count": meta.get("env_action_count"),
             "stage": meta.get("stage"),
             "capture_ms": meta.get("capture_ms"),
+            "render_ms": meta.get("render_ms"),
+            "action_ms": meta.get("action_ms"),
             "encode_ms": meta.get("encode_ms"),
             "source": (meta.get("agent") or {}).get("source"),
             "flip": (meta.get("agent") or {}).get("flip"),
@@ -532,7 +585,15 @@ class App:
             self._wake()
         threading.Thread(
             target=self._run,
-            args=(kind, plan_source, run_id, message.get("manual_scope") or "single", execute, message.get("stop_after")),
+            args=(
+                kind,
+                plan_source,
+                run_id,
+                message.get("manual_scope") or "single",
+                execute,
+                message.get("stop_after"),
+                message.get("deadline_s"),
+            ),
             daemon=True,
         ).start()
 
@@ -587,9 +648,9 @@ class App:
         self.binding = chosen
         self.broadcast({"type": "binding", "binding": _public_binding(chosen)})
 
-    def _run(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None) -> None:
+    def _run(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None, deadline_s: float | None = None) -> None:
         try:
-            self._run_inner(kind, plan_source, run_id, manual_scope, execute, stop_after)
+            self._run_inner(kind, plan_source, run_id, manual_scope, execute, stop_after, deadline_s)
         except Exception as exc:
             self.log(f"run failed: {exc}")
             self.broadcast({"type": "state", "phase": "failed", "detail": str(exc)})
@@ -606,7 +667,7 @@ class App:
                 self.running = False
                 self.awaiting_confirm = False
 
-    def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None) -> None:
+    def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None, deadline_s: float | None = None) -> None:
         if kind == "restart":
             self.session.cancel()
             self._wake()
@@ -864,7 +925,9 @@ class App:
                 )
 
         deadline = None
-        if DIAGNOSTIC_S > 0:
+        if isinstance(deadline_s, (int, float)) and not isinstance(deadline_s, bool) and float(deadline_s) > 0:
+            deadline = time.monotonic() + min(float(deadline_s), 240.0)
+        elif DIAGNOSTIC_S > 0:
             deadline = time.monotonic() + DIAGNOSTIC_S
         result = run_plan(
             plan,
@@ -881,18 +944,35 @@ class App:
             return
         if result["status"] == "discarded":
             return
-        native = bool(result["native_success"]) if result["status"] == "completed" else False
+        native = bool(result["native_success"])
         reason = result["reason"] or result["status"]
-        if result["status"] == "stopped_at_check":
+        status = result["status"]
+        code = (result.get("execution") or {}).get("reason_code")
+        if status == "stopped_at_check":
             phase = "stopped"
-            reason = "停在抓取验证 · " + (result["reason"] or "")
+            reason = "诊断停止 · " + (result["reason"] or "")
+        elif status == "diagnostic_saved":
+            phase = "stopped"
+            reason = "预算到时 · " + (result["reason"] or "")
+        elif native or (status == "completed" and result.get("reason") == "NATIVE_SUCCESS"):
+            phase = "completed"
+            status = "completed"
+            reason = "任务完成"
+        elif status == "completed":
+            phase = "incomplete"
+            reason = "计划已执行，环境未判定成功"
+        elif code == "manual_unknown" or str(result.get("reason") or "").startswith("manual_unknown"):
+            phase = "waiting_confirmation"
+            status = "insufficient_evidence"
+            reason = "证据不足 · " + (result["reason"] or "")
         else:
-            phase = "failed" if not native or result["status"] != "completed" else "completed"
+            phase = "failed"
         self.broadcast_frame(
             {
                 "eid": episode,
                 "fid": self._fid(),
                 "phase": phase,
+                "status": status,
                 "detail": result["status"],
                 "term": True,
                 "success": native,
@@ -1138,9 +1218,55 @@ def _suite_loader() -> None:
         APP.suite_error = str(exc)
 
 
+def _display_inlet() -> None:
+    """Accept 512 display frames pushed by the env process. One connection, latest only."""
+    import socket
+
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    os.environ["SEQUENTIAL_DISPLAY_PORT"] = str(server.getsockname()[1])
+    while True:
+        conn, _addr = server.accept()
+        conn.settimeout(2.0)
+        try:
+            while True:
+                payload = _read_exact(conn, 4)
+                if not payload:
+                    break
+                hlen = int.from_bytes(payload, "big")
+                blob = _read_exact(conn, hlen)
+                if blob is None:
+                    break
+                header = json.loads(blob)
+                agent = _read_exact(conn, int(header.get("a_len") or 0))
+                wrist = _read_exact(conn, int(header.get("w_len") or 0))
+                if agent is None or wrist is None:
+                    break
+                APP.note_display(header, agent, wrist)
+        except Exception:
+            pass
+        finally:
+            conn.close()
+
+
+def _read_exact(conn, size: int) -> bytes | None:
+    if size < 0:
+        return None
+    buf = b""
+    while len(buf) < size:
+        chunk = conn.recv(size - len(buf))
+        if not chunk:
+            return None
+        buf += chunk
+    return buf
+
+
 def start_background() -> None:
     threading.Thread(target=_planner_probe_loop, name="planner-probe", daemon=True).start()
     threading.Thread(target=_suite_loader, name="suite-loader", daemon=True).start()
+    threading.Thread(target=_display_inlet, name="display-inlet", daemon=True).start()
 
 
 _NO_STORE = {"Cache-Control": "no-store"}
@@ -1204,7 +1330,8 @@ async def websocket(request):
                 APP.start("start", data, execute=False)
             elif kind == "replay":
                 data["plan_source"] = "replay"
-                data["stop_after"] = data.get("stop_after") or "grasp_held"
+                if "stop_after" not in data:
+                    data["stop_after"] = "grasp_held"
                 APP.start("start", data, execute=True)
             elif kind == "bind":
                 APP.choose_binding(data)

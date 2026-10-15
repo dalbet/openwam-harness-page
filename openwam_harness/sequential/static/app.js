@@ -36,7 +36,31 @@ let framesDrawn = 0;
 let maxFrameGapMs = 0;
 let maxFrameAgeMs = 0;
 let lastFrameMeta = null;
+let runBusy = false;
+let clockOffset = null;
 const drawnFrameIds = new Set();
+
+function plannerReady(){
+  return !!(lastHealth && lastHealth.can_model_plan);
+}
+function syncRunButtons(){
+  const taskReady = !!taskIn.value.trim();
+  const sceneReady = !!episode;
+  const model = plannerReady();
+  if (runBusy) {
+    startBtn.disabled = true;
+    planBtn.disabled = true;
+    return;
+  }
+  const canModel = sceneReady && taskReady && model;
+  const canReplay = sceneReady && taskReady && !model;
+  startBtn.disabled = !(canModel || canReplay);
+  planBtn.disabled = !canModel;
+  startBtn.textContent = canReplay ? "开始（复用计划）" : "开始";
+  startBtn.title = canReplay
+    ? "Planner 未连接。点击后复用已保存并通过校验的计划，不会重新请求 Planner。"
+    : "";
+}
 
 function clearBuffer(){
   pending = null; decoding = false; lastDisplayedFid = -1; endedFallback = null;
@@ -110,32 +134,38 @@ function handleText(txt){
       taskIn.value = m.instruction || "";
       $("summary").textContent = m.summary_zh ? `中文摘要：${m.summary_zh}` : "";
       taskIn.disabled = false; manualBtn.disabled = false;
-      startBtn.disabled = !(lastHealth && lastHealth.can_model_plan);
-      planBtn.disabled = startBtn.disabled;
       longBtn.disabled = !currentTask().long_candidate;
       restartBtn.disabled = true; loadBtn.disabled = false;
+      runBusy = false;
+      syncRunButtons();
       setConfirm(false);
       if (m.placeholder || m.mode === "dry"){
         setStatus("干跑", "未创建真实环境，没有新图像", "bad");
         phAgent.textContent = "干跑，无图像"; phWrist.textContent = "干跑，无图像";
       } else {
         const scene = m.scene || {};
-        setStatus("场景已加载", `${m.env_id} · step ${scene.env_step ?? "?"} · ${ (scene.object_names||[]).join(", ") }`, "good");
+        const loadedDetail = `${m.env_id} · step ${scene.env_step ?? "?"} · ${ (scene.object_names||[]).join(", ") }`;
+        const plannerNote = plannerReady() ? "" : " · Planner 未连接，开始将复用已保存计划";
+        setStatus("场景已加载", loadedDetail + plannerNote, plannerReady() ? "good" : "warn");
         phAgent.textContent = "等待画面"; phWrist.textContent = "等待画面";
       }
       break;
     case "started":
+      runBusy = true;
       acceptEid = m.episode_id; gate = false; curEid = m.episode_id;
       episode = m.episode_id;
       clearBuffer(); terminalReached = false;
       lastExec = null; framesReceived = 0; framesDrawn = 0; maxFrameGapMs = 0; maxFrameAgeMs = 0; lastFrameMeta = null;
       drawnFrameIds.clear();
+      clockOffset = null;
       updateMotion();
       stopBtn.disabled = false;
       setStatus(m.mode === "dry" ? "干跑" : "planning", m.plan_source || "");
       break;
     case "load_failed":
-      loadBtn.disabled = false; startBtn.disabled = false;
+      runBusy = false;
+      loadBtn.disabled = false;
+      syncRunButtons();
       setStatus("failed", m.detail || "加载失败", "bad");
       break;
     case "state":
@@ -169,7 +199,9 @@ function handleText(txt){
       if (m.execution) rememberExec(m.execution);
       endedFallback = m;
       setConfirm(false);
-      loadBtn.disabled = false; startBtn.disabled = false; manualBtn.disabled = false; restartBtn.disabled = false; stopBtn.disabled = true;
+      runBusy = false;
+      loadBtn.disabled = false; manualBtn.disabled = false; restartBtn.disabled = false; stopBtn.disabled = true;
+      syncRunButtons();
       break;
     case "pong": break;
   }
@@ -301,7 +333,7 @@ function renderHealth(m){
   healthEl.style.color = m.mode === "live" ? "var(--dim)" : "var(--warn)";
   if (m.error || m.planner_detail) healthEl.title = [m.error, m.planner_detail].filter(Boolean).join("\n");
   $("retry").hidden = true;
-  if (m.can_model_plan === false && !startBtn.disabled && taskIn.value.trim()) startBtn.disabled = true;
+  syncRunButtons();
 }
 
 const STAGES = {
@@ -397,17 +429,28 @@ function handleBinary(ab){
   else if (!pending || !pending.hdr.term) pending = frame;
 }
 
-function showResult(success, reason){
+function showResult(success, reason, status){
   terminalReached = true;
   const text = (lastExec && lastExec.reason) || reason || "";
-  if (!success && lastPlannerStage === "ok" && (lastRunStatus === "stopped_at_check" || String(reason || "").includes("停在抓取验证"))) {
-    setStatus("规划通过，执行停在抓取验证", text, "warn");
-  } else if (!success && lastPlannerStage === "ok") {
+  const kind = status || lastRunStatus;
+  if (kind === "stopped_at_check" || kind === "diagnostic_saved" || kind === "stopped") {
+    setStatus(kind === "diagnostic_saved" ? "预算到时" : "诊断停止", text, "warn");
+  } else if (kind === "waiting_confirmation") {
+    setStatus("等待确认", text, "warn");
+  } else if (kind === "insufficient_evidence") {
+    setStatus("证据不足", text, "warn");
+  } else if (kind === "incomplete") {
+    setStatus("计划已执行，环境未判定成功", text, "warn");
+  } else if (success || kind === "completed") {
+    setStatus("任务完成", text, "good");
+  } else if (lastPlannerStage === "ok") {
     setStatus("规划通过，执行失败", text, "bad");
   } else {
-    setStatus(success ? "完成" : "failed", reason || "", success ? "good" : "bad");
+    setStatus("执行失败", reason || "", "bad");
   }
-  startBtn.disabled = false; manualBtn.disabled = false; restartBtn.disabled = false; loadBtn.disabled = false;
+  runBusy = false;
+  manualBtn.disabled = false; restartBtn.disabled = false; loadBtn.disabled = false;
+  syncRunButtons();
   setConfirm(false);
   endedFallback = null;
 }
@@ -419,7 +462,7 @@ function applyAspect(view, width, height){
 function tick(){
   requestAnimationFrame(tick);
   if (endedFallback && !pending && !decoding && performance.now() - (endedFallback._at || (endedFallback._at = performance.now())) > 800){
-    showResult(!!endedFallback.success, endedFallback.reason);
+    showResult(!!endedFallback.success, endedFallback.reason, endedFallback.status);
     return;
   }
   if (decoding || !pending) return;
@@ -441,7 +484,8 @@ function tick(){
     aBmp.close(); wBmp.close();
     const drawnAt = performance.now();
     if (f.hdr.frame_id != null) drawnFrameIds.add(f.hdr.frame_id);
-    const ageMs = f.hdr.timestamp ? Math.max(0, Date.now() - f.hdr.timestamp * 1000) : 0;
+    if (clockOffset === null && f.hdr.timestamp) clockOffset = Date.now() - f.hdr.timestamp * 1000;
+    const ageMs = f.hdr.timestamp ? Math.max(0, Date.now() - f.hdr.timestamp * 1000 - (clockOffset || 0)) : 0;
     if (ageMs > maxFrameAgeMs) maxFrameAgeMs = ageMs;
     f.decodeMs = decodedAt - decodeStarted;
     f.drawMs = drawnAt - decodedAt;
@@ -450,7 +494,7 @@ function tick(){
     framesDrawn += 1;
     updateMotion();
     if (f.hdr.phase === "waiting_confirmation") setConfirm(true);
-    if (f.hdr.term) showResult(!!f.hdr.success, f.hdr.reason);
+    if (f.hdr.term) showResult(!!f.hdr.success, f.hdr.reason, f.hdr.status || f.hdr.phase);
     else if (!terminalReached && !lastExec) setStatus(f.hdr.phase || "executing", f.hdr.detail || "");
     if (f.hdr.term || (framesDrawn % 4) === 0){
       send({
@@ -474,6 +518,7 @@ taskSel.onchange = applyTask;
 loadBtn.onclick = () => {
   if (!wsConnected) return;
   if (!suiteSel.value) return;
+  runBusy = true;
   loadBtn.disabled = true; startBtn.disabled = true; manualBtn.disabled = true; longBtn.disabled = true; restartBtn.disabled = true;
   taskIn.disabled = true;
   clearBuffer(); terminalReached = false; curEid = null; acceptEid = null; gate = false;
@@ -486,15 +531,19 @@ function begin(source){
   if (!wsConnected) return;
   const task = taskIn.value.trim();
   if (!task) return;
+  runBusy = true;
   startBtn.disabled = true; planBtn.disabled = true; manualBtn.disabled = true; longBtn.disabled = true; restartBtn.disabled = true; loadBtn.disabled = true;
   clearBuffer(); terminalReached = false; curEid = null; acceptEid = null; gate = false;
   setConfirm(false);
   stopBtn.disabled = false;
-  const planSource = source === "manual" || source === "long" ? "manual" : "model";
+  const reuse = source === "model" && !plannerReady();
+  const planSource = source === "manual" || source === "long" ? "manual" : (reuse ? "replay" : "model");
   const manualScope = source === "long" ? "long" : "single";
-  const type = source === "restart" ? "restart" : (source === "plan" ? "plan_only" : "start");
-  send({type, task, plan_source: planSource, manual_scope: manualScope});
-  setStatus(planSource === "manual" ? "人工计划" : "规划中", source === "plan" ? "只规划，不执行" : planSource);
+  const type = source === "restart" ? "restart" : (source === "plan" ? "plan_only" : (reuse ? "replay" : "start"));
+  const payload = {type, task, plan_source: planSource, manual_scope: manualScope};
+  if (reuse) payload.stop_after = null;
+  send(payload);
+  setStatus(planSource === "manual" ? "人工计划" : (reuse ? "复用已保存计划" : "规划中"), source === "plan" ? "只规划，不执行" : planSource);
 }
 startBtn.onclick = () => begin("model");
 planBtn.onclick = () => begin("plan");
@@ -514,10 +563,8 @@ unkBtn.onclick = () => confirm("unknown");
 $("planner-expand").onclick = () => { plannerFull.hidden = !plannerFull.hidden; };
 $("exec-expand").onclick = () => { execFull.hidden = !execFull.hidden; };
 taskIn.addEventListener("input", ()=>{
-  const ready = !!taskIn.value.trim();
-  manualBtn.disabled = !ready;
-  startBtn.disabled = !ready || !(lastHealth && lastHealth.can_model_plan);
-  planBtn.disabled = startBtn.disabled;
+  manualBtn.disabled = !taskIn.value.trim();
+  syncRunButtons();
 });
 $("bind-apply").onclick = () => {
   const ref = $("bind-choice").value;
@@ -566,6 +613,12 @@ async function refreshSuites(){
 }
 $("retry").onclick = () => bootstrap();
 setInterval(()=>{ send({type:"ping"}); }, 20000);
+setInterval(async () => {
+  try {
+    const response = await fetch("/health", {cache: "no-store"});
+    if (response.ok) renderHealth(await response.json());
+  } catch (err) {}
+}, 5000);
 connect();
 bootstrap();
 requestAnimationFrame(tick);
