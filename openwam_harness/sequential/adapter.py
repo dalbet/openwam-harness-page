@@ -1445,6 +1445,10 @@ class App:
             if isinstance(item, dict) and isinstance(item.get("pos"), list):
                 poses[name] = item["pos"]
         names = list(info.get("object_names") or [])
+        for item in list(spec.get("instances") or []) + list(spec.get("fixtures") or []):
+            name = item.get("name") if isinstance(item, dict) else None
+            if name and name not in names:
+                names.append(name)
         for name in poses:
             if name not in names:
                 names.append(name)
