@@ -64,6 +64,12 @@ SEMANTIC_PLAN_KEYS = frozenset(
         "task",
         "plan_source",
         "semantic_step_ids",
+        "execution_mode",
+        "interpretation",
+        "subgoals",
+        "failure_branches",
+        "predicates",
+        "user_text",
     }
 )
 SEMANTIC_STEP_KEYS = frozenset(
@@ -97,6 +103,9 @@ PLAN_KEYS = frozenset(
         "task",
         "plan_source",
         "semantic_step_ids",
+        "execution_mode",
+        "predicates",
+        "user_text",
     }
 )
 EXECUTABLE_KEYS = frozenset({"code", "python", "script", "exec", "eval"})
@@ -335,6 +344,55 @@ def planner_parameters_schema() -> dict[str, Any]:
     }
 
 
+def free_submit_plan_tools() -> list[dict[str, Any]]:
+    """One plan for the user's own goal. Relations may differ across steps."""
+    schema = planner_parameters_schema()
+    schema["required"] = ["plan_id", "goal", "steps"]
+    schema["properties"]["interpretation"] = {"type": "string"}
+    schema["properties"]["failure_branches"] = {
+        "type": "array",
+        "maxItems": 2,
+        "items": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["step_id", "action"],
+            "properties": {
+                "step_id": {"type": "string"},
+                "action": {"type": "string", "enum": ["stop", "recover"]},
+            },
+        },
+    }
+    step = schema["properties"]["steps"]["items"]
+    step["required"] = [
+        "step_id",
+        "skill",
+        "object_n",
+        "target_n",
+        "object_ref",
+        "target_ref",
+        "relation",
+        "prompt",
+        "depends_on",
+        "completion_check",
+        "budget",
+        "on_failure",
+    ]
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "submit_plan",
+                "description": (
+                    "Submit ordered transfer steps for the user goal on the current scene. "
+                    "Use candidate numbers. Do not invent tools, do not send code, and do not "
+                    "replace the user goal with an official task sentence."
+                ),
+                "parameters": schema,
+            },
+        }
+    ]
+
+
 def submit_plan_tools() -> list[dict[str, Any]]:
     return [
         {
@@ -407,12 +465,12 @@ def validate_plan(plan: dict[str, Any], *, task: str | None = None) -> dict[str,
     goal = plan.get("goal")
     if not isinstance(goal, str) or not goal.strip():
         errors.append(_err("plan.goal", "missing", goal, "non-empty string"))
-    elif task is not None and goal.strip() != task.strip():
+    elif task is not None and plan.get("execution_mode") != "free" and goal.strip() != task.strip():
         errors.append(_err("plan.goal", "task_mismatch", goal, task.strip()))
     if isinstance(plan.get("task"), str) and isinstance(goal, str) and plan["task"].strip() != goal.strip():
         errors.append(_err("plan.task", "goal_mismatch", plan.get("task"), "same text as goal"))
     relation = plan.get("goal_relation")
-    if relation not in RELATIONS:
+    if plan.get("execution_mode") != "free" and relation not in RELATIONS:
         errors.append(_err("plan.goal_relation", "relation", relation, "in|on|inside_drawer"))
     objects = plan.get("objects")
     if not isinstance(objects, dict) or not objects:
@@ -637,7 +695,7 @@ def _arg_errors(path: str, skill: str, args: dict[str, Any], plan: dict[str, Any
             goal = plan.get("goal_relation")
             if relation not in RELATIONS:
                 errors.append(_err(f"{path}.relation", "relation", relation, "in|on|inside_drawer"))
-            elif relation != goal:
+            elif plan.get("execution_mode") != "free" and relation != goal:
                 errors.append(_err(f"{path}.relation", "relation_mismatch", relation, f"scene goal_relation {goal}"))
         extra = set(args) - {"gripper", "steps", "object_ref"}
         for key in extra:
@@ -825,8 +883,12 @@ def validate_semantic_plan(
     task: str | None = None,
     scene_objects: dict[str, Any] | None = None,
     required_object_ref: str | None = None,
+    execution_mode: str = "benchmark",
+    predicates: list[dict[str, Any]] | None = None,
+    ordered: bool = False,
 ) -> dict[str, Any]:
     errors: list[dict[str, Any]] = []
+    free = execution_mode == "free"
     if not isinstance(plan, dict):
         raise PlanError([_err("plan", "type", type(plan).__name__, "object")])
     for key in plan:
@@ -837,10 +899,21 @@ def validate_semantic_plan(
         errors.append(_err("plan.plan_id", "missing", plan.get("plan_id"), "non-empty string"))
     if not isinstance(goal, str) or not goal.strip():
         errors.append(_err("plan.goal", "missing", goal, "non-empty string"))
-    elif task is not None and goal.strip() != task.strip():
+    elif task is not None and not free and goal.strip() != task.strip():
         errors.append(_err("plan.goal", "task_mismatch", goal, task.strip()))
-    if plan.get("goal_relation") not in RELATIONS:
+    if not free and plan.get("goal_relation") not in RELATIONS:
         errors.append(_err("plan.goal_relation", "relation", plan.get("goal_relation"), "in|on|inside_drawer"))
+    elif free and "goal_relation" in plan and plan.get("goal_relation") not in RELATIONS:
+        errors.append(_err("plan.goal_relation", "relation", plan.get("goal_relation"), "omit it, or in|on|inside_drawer"))
+    if free and plan.get("failure_branches") not in (None, []):
+        branches = plan.get("failure_branches")
+        if not isinstance(branches, list) or len(branches) > 2:
+            errors.append(_err("plan.failure_branches", "type", branches, "at most two stop|recover branches"))
+        elif isinstance(branches, list):
+            for index, branch in enumerate(branches):
+                action = branch.get("action") if isinstance(branch, dict) else None
+                if action not in {"stop", "recover"}:
+                    errors.append(_err(f"plan.failure_branches[{index}].action", "on_failure", action, "stop|recover"))
     objects = scene_objects or {}
     if scene_objects is not None:
         for ref, spec in objects.items():
@@ -871,7 +944,12 @@ def validate_semantic_plan(
             errors.append(_err(f"{path}.step_id", "duplicate_step_id", step_id, "unique step_id"))
         seen.add(str(step_id))
         if skill != "transfer":
-            errors.append(_err(f"{path}.skill", "skill_not_registered", skill, "transfer"))
+            if free:
+                from skills import skill_rejection
+
+                errors.append(_err(f"{path}.skill", "skill_unimplemented", skill, skill_rejection(str(skill)) or "transfer"))
+            else:
+                errors.append(_err(f"{path}.skill", "skill_not_registered", skill, "transfer"))
         object_ref = step.get("object_ref")
         target_ref = step.get("target_ref")
         args = {
@@ -904,7 +982,7 @@ def validate_semantic_plan(
                     f"can_be_target for relation {step.get('relation')}",
                 )
             )
-        if args.get("relation") != plan.get("goal_relation"):
+        if not free and args.get("relation") != plan.get("goal_relation"):
             errors.append(_err(f"{path}.args.relation", "relation_mismatch", args.get("relation"), plan.get("goal_relation")))
         if not isinstance(args.get("prompt"), str) or not str(args.get("prompt") or "").strip():
             errors.append(_err(f"{path}.args.prompt", "missing", args.get("prompt"), "non-empty grasp prompt"))
@@ -941,7 +1019,11 @@ def validate_semantic_plan(
                 )
             )
         triples.append(triple)
-    if task is not None:
+    if free:
+        from free_task import coverage_errors
+
+        errors.extend(coverage_errors(plan, predicates or [], ordered=ordered))
+    elif task is not None:
         slots = transfer_slots(task)
         if not slots:
             errors.append(_err("plan.goal", "task_form", task, "a registered pick-and-place instruction"))
@@ -994,6 +1076,11 @@ def validate_semantic_plan(
     normalized = {key: plan[key] for key in plan if key in SEMANTIC_PLAN_KEYS}
     normalized["objects"] = {ref: _with_role(objects[ref]) for ref in used if ref in objects}
     normalized["steps"] = normalized_steps
+    if free:
+        normalized["execution_mode"] = "free"
+        normalized["predicates"] = list(predicates or [])
+        if not normalized.get("goal_relation") and normalized_steps:
+            normalized["goal_relation"] = normalized_steps[0].get("relation")
     return normalized
 
 
@@ -1168,23 +1255,39 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "subtask": item["step_id"],
             }
         )
-        steps.append(
-            {
-                "step_id": pause,
-                "skill": "pause_for_confirm",
-                "args": {},
-                "depends_on": [retreat],
-                "preconditions": [],
-                "completion_check": "user_confirmed",
-                "budget": {"max_s": 180, "max_attempts": 1},
-                "on_failure": "stop",
-                "subtask": item["step_id"],
-            }
-        )
-        previous = pause
+        if plan.get("execution_mode") == "free":
+            previous = retreat
+        else:
+            steps.append(
+                {
+                    "step_id": pause,
+                    "skill": "pause_for_confirm",
+                    "args": {},
+                    "depends_on": [retreat],
+                    "preconditions": [],
+                    "completion_check": "user_confirmed",
+                    "budget": {"max_s": 180, "max_attempts": 1},
+                    "on_failure": "stop",
+                    "subtask": item["step_id"],
+                }
+            )
+            previous = pause
     expanded = {
         key: plan[key]
-        for key in ("plan_id", "goal", "goal_relation", "objects", "scene_id", "suite", "task_id", "seed", "task")
+        for key in (
+            "plan_id",
+            "goal",
+            "goal_relation",
+            "objects",
+            "scene_id",
+            "suite",
+            "task_id",
+            "seed",
+            "task",
+            "execution_mode",
+            "predicates",
+            "user_text",
+        )
         if key in plan
     }
     expanded["steps"] = steps
@@ -1213,6 +1316,9 @@ def prepare_plan(
     task: str | None = None,
     scene_objects: dict[str, Any] | None = None,
     required_object_ref: str | None = None,
+    execution_mode: str = "benchmark",
+    predicates: list[dict[str, Any]] | None = None,
+    ordered: bool = False,
 ) -> dict[str, Any]:
     """Accept a semantic plan or a primitive plan. Illegal plans raise."""
     if not isinstance(plan, dict):
@@ -1231,6 +1337,9 @@ def prepare_plan(
             task=task,
             scene_objects=scene_objects,
             required_object_ref=required_object_ref,
+            execution_mode=execution_mode,
+            predicates=predicates,
+            ordered=ordered,
         )
         expanded = expand_semantic_plan(semantic)
         if plan.get("plan_source"):
@@ -1260,6 +1369,9 @@ def parse_model_message(
     task: str | None = None,
     scene_objects: dict[str, Any] | None = None,
     required_object_ref: str | None = None,
+    execution_mode: str = "benchmark",
+    predicates: list[dict[str, Any]] | None = None,
+    ordered: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     """Return (response kind, plan). Tool calls are not also parsed as text."""
     finish = message.get("finish_reason")
@@ -1322,6 +1434,9 @@ def parse_model_message(
             task=task,
             scene_objects=scene_objects,
             required_object_ref=required_object_ref,
+            execution_mode=execution_mode,
+            predicates=predicates,
+            ordered=ordered,
         )
     content = message.get("content")
     if not isinstance(content, str):
@@ -1349,6 +1464,9 @@ def parse_model_message(
         task=task,
         scene_objects=scene_objects,
         required_object_ref=required_object_ref,
+        execution_mode=execution_mode,
+        predicates=predicates,
+        ordered=ordered,
     )
 
 

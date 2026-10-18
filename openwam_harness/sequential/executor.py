@@ -162,7 +162,20 @@ def run_plan(
                 llm_calls,
             )
         _vla_arm(session.episode_id, started_epoch, started_version, step.get("skill") or "")
-        if _native(backend):
+        gate = native_execution_gate(plan, backend)
+        if gate == "stop_uncontinuable":
+            return _finish(
+                "failed",
+                "episode_not_continuable",
+                session,
+                started_epoch,
+                started_version,
+                steps,
+                backend,
+                llm_calls,
+                plan=plan,
+            )
+        if gate == "stop_native":
             _vla_clear("terminated")
             emit(
                 "executing",
@@ -181,6 +194,16 @@ def run_plan(
                 steps,
                 backend,
                 llm_calls,
+                plan=plan,
+            )
+        if gate == "record_native":
+            emit(
+                "executing",
+                step_id=step["step_id"],
+                skill=step.get("skill"),
+                detail="native_task_success",
+                reason_code="NATIVE_GOAL",
+                evidence_source="libero_terminated",
             )
         skill = step["skill"]
         emit("executing", step_id=step["step_id"], skill=skill, detail=step.get("subtask") or skill)
@@ -300,10 +323,10 @@ def run_plan(
         post, verification = _judge(
             step, outcome, backend, last_obs, started_epoch, before_step, plan, support_z,
         )
-        if outcome.executed and _native(backend):
+        if outcome.executed and native_execution_gate(plan, backend) == "stop_native":
             verification = _as_native_success(verification)
         _write_trace(backend, step, verification)
-        if verification.get("reason_code") == "NATIVE_SUCCESS":
+        if verification.get("reason_code") == "NATIVE_SUCCESS" and plan.get("execution_mode") != "free":
             _vla_clear("terminated")
             if post:
                 last_obs = post[-1]
@@ -326,6 +349,7 @@ def run_plan(
                 steps,
                 backend,
                 llm_calls,
+                plan=plan,
             )
         if post:
             last_obs = post[-1]
@@ -395,7 +419,7 @@ def run_plan(
                     execution=diag,
                 )
                 status = "RECOVERY_EXHAUSTED" if verification.get("reason_code") == "RECOVERY_EXHAUSTED" else "no_progress"
-                return _finish(status, diag["reason"] or "failed", session, started_epoch, started_version, steps, backend, llm_calls, execution=diag)
+                return _finish(status, diag["reason"] or "failed", session, started_epoch, started_version, steps, backend, llm_calls, execution=diag, plan=plan)
         steps.append(_step_record(step, outcome, verification, last_obs))
         if stop_after and step.get("completion_check") == stop_after:
             diag = _diagnosis(step, outcome, verification, last_obs, plan)
@@ -435,7 +459,7 @@ def run_plan(
         )
         index += 1
 
-    return _finish("completed", "", session, started_epoch, started_version, steps, backend, llm_calls)
+    return _finish("completed", "", session, started_epoch, started_version, steps, backend, llm_calls, plan=plan)
 
 
 def _capture(backend: Any, scene_epoch: int) -> dict[str, Any]:
@@ -470,7 +494,7 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
         min_step=min_step,
         objects=plan.get("objects") or {},
         support_z=support_z,
-        goal_relation=plan.get("goal_relation"),
+        goal_relation=_relation_for(plan, step),
         before=before,
     )
     if (
@@ -489,13 +513,13 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
                 min_step=min_step,
                 objects=plan.get("objects") or {},
                 support_z=support_z,
-                goal_relation=plan.get("goal_relation"),
+                goal_relation=_relation_for(plan, step),
                 before=before,
             )
     if (
         verdict["reason_code"] == "NEED_STABILITY_SAMPLE"
         and step.get("completion_check") != "grasp_held"
-        and not _native(backend)
+        and native_execution_gate(plan, backend) not in {"stop_native", "stop_uncontinuable"}
     ):
         # Keep the gripper where this step left it. A placement window must
         # not close the gripper, and a finished episode must not be stepped.
@@ -509,10 +533,28 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
             min_step=min_step,
             objects=plan.get("objects") or {},
             support_z=support_z,
-            goal_relation=plan.get("goal_relation"),
+            goal_relation=_relation_for(plan, step),
             before=before,
         )
     return post, verdict
+
+
+def _relation_for(plan: dict[str, Any], step: dict[str, Any]) -> str | None:
+    if plan.get("execution_mode") == "free":
+        return step.get("relation") or plan.get("goal_relation")
+    return plan.get("goal_relation")
+
+
+def native_execution_gate(plan: dict[str, Any], backend: Any) -> str:
+    """Benchmark mode stops on the native goal. Free mode records it and continues."""
+    checker = getattr(backend, "episode_continuable", None)
+    if checker is not None and not bool(checker()):
+        return "stop_uncontinuable"
+    if _native(backend) and plan.get("execution_mode") != "free":
+        return "stop_native"
+    if _native(backend):
+        return "record_native"
+    return "continue"
 
 
 def _native(backend: Any) -> bool:
@@ -672,7 +714,7 @@ def _recover_or_confirm(
             min_step=before_step,
             objects=plan.get("objects") or {},
             support_z=support_z,
-            goal_relation=plan.get("goal_relation"),
+            goal_relation=_relation_for(plan, step),
             before=post[0] if post else None,
         )
         mapped = event_for(verification, outcome)
@@ -990,11 +1032,11 @@ def _diagnosis(step, outcome, verification, observation, plan) -> dict[str, Any]
     }
 
 
-def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, execution=None) -> dict[str, Any]:
+def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, execution=None, plan=None) -> dict[str, Any]:
     # Official success is only the backend's LIBERO terminated flag.
     # Truncation, an unfinished plan, and planner finish do not set it.
     native = bool(backend.native_success())
-    return {
+    payload = {
         "status": status,
         "reason": reason,
         "episode_id": session.episode_id,
@@ -1002,8 +1044,20 @@ def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, 
         "plan_version": version,
         "steps": steps,
         "native_success": native,
+        "native_task_success": native,
+        "user_goal_success": None,
+        "subgoal_results": None,
         "llm_calls_during_execution": llm_calls,
         "tool_results": [step.get("tool_result") for step in steps],
         "subtask_results": [step.get("verification") for step in steps],
         "execution": execution,
     }
+    if plan and plan.get("execution_mode") == "free":
+        from free_task import judge_user_goal
+
+        sim = backend.sim_state() if hasattr(backend, "sim_state") else {}
+        judged = judge_user_goal(plan.get("predicates") or [], sim)
+        payload["user_goal_success"] = judged["user_goal_success"]
+        payload["subgoal_results"] = judged["subgoal_results"]
+        payload["goal_evidence_source"] = "sim_state"
+    return payload

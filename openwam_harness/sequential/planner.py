@@ -14,6 +14,7 @@ from schema import (
     TOOL_SCHEMA,
     PlanError,
     failure_stage,
+    free_submit_plan_tools,
     parse_model_message,
     semantic_example,
     submit_plan_tools,
@@ -33,6 +34,17 @@ OUTPUT_FORMAT = (
     "This request contains scene metadata and image ids only, not image bytes. "
     "A sim_state binding is not a visual judgment."
 )
+FREE_OUTPUT_FORMAT = (
+    "Call submit_plan once for the user goal on the already loaded scene. "
+    "Do not switch tasks and do not rewrite the goal into an official task sentence. "
+    "Each placement is one transfer, in the user's order. A later transfer lists the earlier "
+    "step_id in depends_on. Different targets are not duplicate transfers. "
+    "Set object_n and target_n to candidate numbers, and object_ref/target_ref to those instance ids. "
+    "Only the transfer skill is available. Do not invent tools or send code. "
+    "This request is scene metadata, vision=false, evidence_source=sim_state. image_id is not image content."
+)
+
+
 SHORT_MEMORY = (
     "Earlier original-mode episodes failed before pi0_pick, from a planner timeout or a "
     "32768-token context overflow. Do not reload those transcripts."
@@ -59,8 +71,14 @@ def request_plan(
     required_object_ref: str | None = None,
     numbered_candidates: list[dict[str, Any]] | None = None,
     on_event: Callable[[str, str], None] | None = None,
+    execution_mode: str = "benchmark",
+    predicates: list[dict[str, Any]] | None = None,
+    ordered: bool = False,
 ) -> dict[str, Any]:
     example = json.dumps(semantic_example(), ensure_ascii=False)
+    output_format = OUTPUT_FORMAT
+    if execution_mode == "free":
+        output_format = FREE_OUTPUT_FORMAT
     observation = scene_observation.strip()
     if image_ids:
         observation += "\nimage_ids: " + ", ".join(image_ids)
@@ -69,12 +87,14 @@ def request_plan(
         scene_observation=observation,
         tool_schema=TOOL_SCHEMA,
         short_memory=short_memory,
-        output_format=OUTPUT_FORMAT,
+        output_format=output_format,
         example=example,
     )
     instruction_report = budget_check(parts, counter=counter)
     messages = [{"role": "user", "content": _join(parts)}]
     options = _request_options()
+    if execution_mode == "free":
+        options["tools"] = free_submit_plan_tools()
     if on_event is not None:
         options["on_event"] = on_event
     attempts = []
@@ -88,6 +108,9 @@ def request_plan(
             scene_objects=scene_objects,
             required_object_ref=required_object_ref,
             numbered_candidates=numbered_candidates,
+            execution_mode=execution_mode,
+            predicates=predicates,
+            ordered=ordered,
         )
         plan["plan_source"] = "model"
         return _ok("model", plan, attempts, instruction_report, kind, resolution)
@@ -113,6 +136,9 @@ def request_plan(
             scene_objects=scene_objects,
             required_object_ref=required_object_ref,
             numbered_candidates=numbered_candidates,
+            execution_mode=execution_mode,
+            predicates=predicates,
+            ordered=ordered,
         )
         plan["plan_source"] = "model"
         return _ok("model_repair", plan, attempts, instruction_report, kind, resolution)
@@ -231,13 +257,18 @@ def _parsed(message, **kwargs) -> tuple[str, dict[str, Any], list[dict[str, Any]
 
 def _parse_numbered(message, numbered, kwargs) -> tuple[str, dict[str, Any]]:
     """Resolve candidate numbers before schema validation, and keep the evidence beside the plan."""
-    kind, plan = parse_model_message(_with_resolved_arguments(message, numbered), **kwargs)
+    require_numbers = kwargs.get("execution_mode") == "free"
+    kind, plan = parse_model_message(
+        _with_resolved_arguments(message, numbered, require_numbers=require_numbers),
+        **kwargs,
+    )
     plan["_candidate_resolution"] = getattr(_with_resolved_arguments, "last_evidence", [])
     return kind, plan
 
 
-def _with_resolved_arguments(message, numbered):
+def _with_resolved_arguments(message, numbered, require_numbers: bool = False):
     from candidates import resolve_numbers
+    from free_task import candidate_number_errors
 
     copied = dict(message)
     calls = []
@@ -253,6 +284,10 @@ def _with_resolved_arguments(message, numbered):
             except json.JSONDecodeError:
                 payload = None
         if isinstance(payload, dict):
+            if require_numbers:
+                errors = candidate_number_errors(payload)
+                if errors:
+                    raise PlanError(errors)
             resolved, found = resolve_numbers(payload, numbered)
             evidence.extend(found)
             function["arguments"] = resolved if not isinstance(raw, str) else json.dumps(resolved, ensure_ascii=False)
@@ -266,6 +301,10 @@ def _with_resolved_arguments(message, numbered):
         except json.JSONDecodeError:
             payload = None
         if isinstance(payload, dict):
+            if require_numbers:
+                errors = candidate_number_errors(payload)
+                if errors:
+                    raise PlanError(errors)
             resolved, found = resolve_numbers(payload, numbered)
             evidence.extend(found)
             copied["content"] = json.dumps(resolved, ensure_ascii=False)
