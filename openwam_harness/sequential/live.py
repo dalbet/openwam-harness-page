@@ -93,7 +93,35 @@ class LiveBackend:
         self._sam3 = None
         self.timings: dict = {}
         self._on_phase = on_phase
+        self.execution_mode = "benchmark"
+        self._flags = None
         self._open()
+
+    def set_execution_mode(self, mode: str) -> None:
+        from free_task import EpisodeFlags
+
+        if mode not in {"benchmark", "free"}:
+            raise ValueError(mode)
+        self.execution_mode = mode
+        self._flags = EpisodeFlags(mode)
+
+    def _episode_flags(self):
+        if self._flags is None or self._flags.mode != self.execution_mode:
+            from free_task import EpisodeFlags
+
+            self._flags = EpisodeFlags(self.execution_mode)
+        return self._flags
+
+    def _absorb_terminal(self) -> None:
+        if self.toolkit is None:
+            return
+        env = self.toolkit.primitives.env
+        decision = self._episode_flags().absorb(bool(env.terminated), bool(env.truncated))
+        if decision["clear_terminated"]:
+            env.terminated = False
+
+    def episode_continuable(self) -> bool:
+        return self._episode_flags().continuable()
 
     def scene_key(self) -> tuple:
         from scene_request import require_int
@@ -185,6 +213,13 @@ class LiveBackend:
                 real=False,
                 error_class="plan",
             )
+        if not self.episode_continuable():
+            return ToolOutcome(
+                executed=False,
+                error="环境已结束，不再 step",
+                real=False,
+                error_class="plan",
+            )
         try:
             tool_args = tool_arguments(args)
             result = self.toolkit.execute_tool(action, tool_args)
@@ -210,6 +245,7 @@ class LiveBackend:
         if action == "pi0_pick":
             data = attach_saved_pick_result(data, _saved_record_result(self.toolkit))
         parsed = interpret_tool_data(action, data)
+        self._absorb_terminal()
         env = self.toolkit.primitives.env
         eef = None
         state = data.get("state") if isinstance(data.get("state"), dict) else {}
@@ -264,6 +300,13 @@ class LiveBackend:
     def native_success(self) -> bool:
         if self.toolkit is None:
             return False
+        flags = self._episode_flags()
+        if flags.truncated:
+            return False
+        if self.execution_mode == "free":
+            # The client latch is cleared so later steps stay legal.
+            # The native goal itself is still recorded.
+            return bool(flags.native_goal_met)
         env = self.toolkit.primitives.env
         # env.terminated sticks on the official LIBERO success check.
         # truncated is a horizon/budget stop and is not success.
@@ -313,7 +356,7 @@ class LiveBackend:
 
         ``+1`` keeps a closed gripper. This is not a repeated ``set_gripper`` tool call.
         """
-        if self.toolkit is None:
+        if self.toolkit is None or not self.episode_continuable():
             return []
         import numpy as np
 
@@ -344,6 +387,9 @@ class LiveBackend:
                 "env_action_count": version,
                 "stage": "hold",
             })
+            self._absorb_terminal()
+            if not self.episode_continuable():
+                break
         return rows
 
     def scene_info(self) -> dict:
@@ -420,6 +466,7 @@ class LiveBackend:
 
         get_controller().clear("reset")
         self.toolkit._solved = False
+        self._flags = None
         self.toolkit.primitives.reset()
         reset_s = round(time.perf_counter() - started, 3)
         started = time.perf_counter()

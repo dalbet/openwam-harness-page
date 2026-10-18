@@ -61,6 +61,7 @@
     <button id="stop" type="button" disabled>停止</button>
   </div>
   <div id="goal" class="hint">加载后在这里显示当前中文目标。</div>
+  <div id="progress" class="hint"></div>
   <div id="status"><span class="phase">就绪</span></div>
   <div id="views">
     <div class="view" id="agent-view"><span class="tag">Agent</span><canvas id="agent"></canvas><span class="placeholder" id="ph-agent">未加载场景</span></div>
@@ -93,10 +94,17 @@
       <select id="bind-choice"></select>
       <button id="bind-apply" type="button">确认目标</button>
     </div>
-    <div class="ctrl"><button id="restart" type="button" disabled>重置当前场景</button></div>
+    <div class="ctrl">
+      <label for="execution-mode">模式</label>
+      <select id="execution-mode">
+        <option value="free" selected>自由</option>
+        <option value="benchmark">基准</option>
+      </select>
+      <button id="restart" type="button" disabled>重置当前场景</button>
+    </div>
     <pre id="log"></pre>
   </details>
 </div>
-<script src="static/app.js?v=view6"></script>
+<script src="static/app.js?v=view7"></script>
 </body>
 </html>

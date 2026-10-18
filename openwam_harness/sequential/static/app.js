@@ -1,6 +1,6 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
-const suiteSel = $("suite"),
+const suiteSel = $("suite"), modeSel = $("execution-mode"), progressEl = $("progress"),
   loadBtn = $("load"), taskIn = $("task"), profileSel = $("planner-profile"),
   startBtn = $("start"),
   restartBtn = $("restart"), stopBtn = $("stop"),
@@ -200,6 +200,7 @@ function handleText(txt){
       } else if (!terminalReached && lastPlannerStage === "ok" && m.phase === "waiting_confirmation") {
         setStatus("规划通过，执行暂停", (m.execution && m.execution.reason) || m.detail || "", "warn");
       } else if (!terminalReached) setStatus(PHASES[m.phase] || m.phase || "state", statusDetail(m), m.phase === "failed" ? "bad" : "");
+      if (m.phase === "executing" && progressEl) progressEl.textContent = `子目标：${m.subtask || m.step_id || m.detail || "执行中"}`;
       break;
     case "planner_io":
       renderPlanner(m);
@@ -221,6 +222,11 @@ function handleText(txt){
       if (m.planner_stage) lastPlannerStage = m.planner_stage;
       if (m.status) lastRunStatus = m.status;
       if (m.execution) rememberExec(m.execution);
+      if (progressEl && (m.native_task_success != null || m.user_goal_success != null)) {
+        const nativeText = m.native_task_success ? "原生目标已达成" : "原生目标未达成";
+        const userText = m.user_goal_success == null ? "" : (m.user_goal_success ? "用户目标已完成" : "用户目标未完成");
+        progressEl.textContent = [m.execution_mode === "free" ? "自由模式" : "", nativeText, userText].filter(Boolean).join(" · ");
+      }
       endedFallback = m;
       setConfirm(false);
       runBusy = false;
@@ -315,6 +321,7 @@ function applyCatalog(items){
     suiteSel.appendChild(option);
   });
   if (previous && suites.some(item => item.id === previous)) suiteSel.value = previous;
+  else if (suites.some(item => item.id === "libero_goal")) suiteSel.value = "libero_goal";
   suiteSel.disabled = false;
   loadBtn.disabled = false;
   if (suitePoll) { clearInterval(suitePoll); suitePoll = null; }
@@ -441,9 +448,9 @@ function showResult(success, reason, status){
   } else if (kind === "insufficient_evidence") {
     setStatus("证据不足", text, "warn");
   } else if (kind === "incomplete") {
-    setStatus("计划已执行，环境未判定成功", text, "warn");
+    setStatus(String(text).indexOf("原生目标") >= 0 ? "原生目标已达成" : "计划已执行，环境未判定成功", text, "warn");
   } else if (success || kind === "completed") {
-    setStatus("任务完成", text, "good");
+    setStatus(String(text).indexOf("用户目标") >= 0 ? "用户目标完成" : "任务完成", text, "good");
   } else if (lastPlannerStage === "ok") {
     setStatus("规划通过，执行失败", text, "bad");
   } else {
@@ -560,7 +567,8 @@ function begin(source){
     plan_source: "model",
     planner_profile: profileSel.value,
     client_request_id,
-    scene_epoch: sceneEpoch
+    scene_epoch: sceneEpoch,
+    execution_mode: modeSel ? modeSel.value : "free"
   });
   setStatus(source === "restart" ? "重置" : "检查任务", client_request_id);
 }

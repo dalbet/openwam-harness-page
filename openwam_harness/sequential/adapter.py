@@ -33,7 +33,7 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
-STATIC_VERSION = "view6"
+STATIC_VERSION = "view7"
 RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
 
@@ -154,6 +154,7 @@ class App:
         self.awaiting_confirm = False
         self.logs: list[str] = []
         self.mode = "live" if LIVE else "dry"
+        self.execution_mode = "benchmark"
         self.load_token = 0
         self.recovery_attempts = 0
         self.binding = None
@@ -722,6 +723,7 @@ class App:
             self.run_id = attempt
             self.active_request_id = request_id
             self.planner_profile = ack["profile"]
+            self.execution_mode = ack.get("execution_mode") or "benchmark"
             self.planner = self._make_planner()
             if kind == "restart":
                 self.session.cancel()
@@ -753,6 +755,9 @@ class App:
             return {**base, "status": "rejected", "code": "plan_source", "detail": "开始只发起新的模型规划，不使用保存计划、人工计划或隐藏回退"}
         if not isinstance(request_id, str) or not request_id.strip():
             return {**base, "status": "rejected", "code": "request_id_missing", "detail": "开始请求缺少 client_request_id"}
+        mode = message.get("execution_mode", "benchmark") if isinstance(message, dict) else "benchmark"
+        if mode not in {"benchmark", "free"}:
+            return {**base, "status": "rejected", "code": "execution_mode", "detail": f"未知执行模式 {mode}"}
         if self.loading:
             return {**base, "status": "rejected", "code": "busy_loading", "detail": "正在加载"}
         if self.running:
@@ -801,6 +806,7 @@ class App:
             "goal": spec.get("goal") or "",
             "used_loaded_goal": text == "",
             "profile": profile_name,
+            "execution_mode": mode,
         }
 
     def stop(self) -> None:
@@ -910,61 +916,109 @@ class App:
         else:
             spec["user_text"] = user_text
         self.scene_spec = spec
+        free = self.execution_mode == "free"
+        predicates = []
+        ordered = False
+        if self.backend is not None and hasattr(self.backend, "set_execution_mode"):
+            self.backend.set_execution_mode(self.execution_mode)
         self._note(run_id, "task_check", "running", detail=typed or spec.get("summary_zh") or "")
         self.broadcast({"type": "state", "phase": "checking_task", "detail": spec.get("summary_zh") or "", "mode": "live", "run_id": run_id})
-        decision = self._instruction_decision(typed, spec)
-        if decision["status"] == "ambiguous":
-            self._note(run_id, "task_check", "rejected", code="ambiguous", detail=decision.get("question") or "")
-            self.broadcast({"type": "clarify", "question": decision["question"], "candidates": decision.get("candidates") or []})
-            self._fail_run(episode, decision["question"])
-            return
-        if decision["status"] == "unsupported":
-            self._note(run_id, "task_check", "rejected", code="unsupported", detail=decision.get("reason") or "")
-            self._fail_run(episode, decision["reason"])
-            return
-        self._note(run_id, "task_check", "ok", detail=decision.get("language") or "")
-        if typed:
+        if free:
+            scene_objects, binding, info = self._scene_objects(spec)
+            from free_task import prepare_free_request
+
+            prepared = prepare_free_request(
+                typed or spec.get("summary_zh") or "",
+                scene_objects,
+                binding.get("positions") or {},
+            )
+            if prepared["status"] == "clarify":
+                self._note(run_id, "task_check", "rejected", code="ambiguous_reference", detail=prepared.get("question") or "")
+                self.broadcast({"type": "clarify", "question": prepared["question"], "candidates": prepared.get("candidates") or []})
+                self._fail_run(episode, prepared["question"])
+                return
+            if prepared["status"] != "ready":
+                self._note(run_id, "task_check", "rejected", code=prepared.get("code") or "rejected", detail=prepared.get("reason") or "")
+                self._fail_run(episode, prepared.get("reason") or "无法执行")
+                return
+            predicates = prepared["predicates"]
+            ordered = bool(prepared.get("ordered"))
+            canonical = typed or spec.get("summary_zh") or ""
+            self._note(run_id, "task_check", "ok", detail=canonical)
             self.broadcast({
                 "type": "task_bound",
-                "used_loaded_goal": False,
-                "user_text": user_text,
-                "summary_zh": decision.get("summary_zh") or spec.get("summary_zh") or "",
-                "goal": decision.get("language") or "",
+                "used_loaded_goal": not bool(typed),
+                "user_text": user_text if typed else "",
+                "summary_zh": canonical,
+                "goal": canonical,
                 "run_id": run_id,
+                "execution_mode": "free",
             })
-        if decision.get("changed"):
-            task_id = decision.get("task_id")
-            if isinstance(task_id, bool) or not isinstance(task_id, int):
-                self._note(run_id, "task_switch", "rejected", code="task_id", detail=repr(task_id))
-                self._fail_run(episode, f"task_id 无效（收到 {task_id!r}），不会猜测或切换任务。")
-                return
-            self._note(run_id, "task_switch", "running", detail=decision.get("summary_zh") or "")
-            self.broadcast({
-                "type": "state",
-                "phase": "switching",
-                "detail": decision.get("summary_zh") or "",
-                "mode": "live",
-                "run_id": run_id,
-            })
-            spec = self._adopt_task(task_id)
             spec = dict(spec)
-            spec["user_text"] = user_text
-            episode = self.session.episode_id
-            epoch = self.session.scene_epoch
-        canonical = decision.get("language") or spec.get("goal") or ""
-        row = decision.get("capability") or {}
-        from capabilities import reject_reason
+            spec["native_goal"] = spec.get("goal") or ""
+            spec["user_goal"] = canonical
+            binding = {
+                "status": "resolved",
+                "evidence_source": "sim_state",
+                "vision": False,
+                "object_ref": predicates[0]["object_ref"],
+                "positions": binding.get("positions") or {},
+                "note": "仿真位姿辅助，不是视觉判断。自由模式不切换任务。",
+            }
+        else:
+            decision = self._instruction_decision(typed, spec)
+            if decision["status"] == "ambiguous":
+                self._note(run_id, "task_check", "rejected", code="ambiguous", detail=decision.get("question") or "")
+                self.broadcast({"type": "clarify", "question": decision["question"], "candidates": decision.get("candidates") or []})
+                self._fail_run(episode, decision["question"])
+                return
+            if decision["status"] == "unsupported":
+                self._note(run_id, "task_check", "rejected", code="unsupported", detail=decision.get("reason") or "")
+                self._fail_run(episode, decision["reason"])
+                return
+            self._note(run_id, "task_check", "ok", detail=decision.get("language") or "")
+            if typed:
+                self.broadcast({
+                    "type": "task_bound",
+                    "used_loaded_goal": False,
+                    "user_text": user_text,
+                    "summary_zh": decision.get("summary_zh") or spec.get("summary_zh") or "",
+                    "goal": decision.get("language") or "",
+                    "run_id": run_id,
+                })
+            if decision.get("changed"):
+                task_id = decision.get("task_id")
+                if isinstance(task_id, bool) or not isinstance(task_id, int):
+                    self._note(run_id, "task_switch", "rejected", code="task_id", detail=repr(task_id))
+                    self._fail_run(episode, f"task_id 无效（收到 {task_id!r}），不会猜测或切换任务。")
+                    return
+                self._note(run_id, "task_switch", "running", detail=decision.get("summary_zh") or "")
+                self.broadcast({
+                    "type": "state",
+                    "phase": "switching",
+                    "detail": decision.get("summary_zh") or "",
+                    "mode": "live",
+                    "run_id": run_id,
+                })
+                spec = self._adopt_task(task_id)
+                spec = dict(spec)
+                spec["user_text"] = user_text
+                episode = self.session.episode_id
+                epoch = self.session.scene_epoch
+            canonical = decision.get("language") or spec.get("goal") or ""
+            row = decision.get("capability") or {}
+            from capabilities import reject_reason
 
-        reason = reject_reason(row) if row else None
-        if reason:
-            self._note(run_id, "capability", "rejected", code="unsupported_skill", detail=reason)
-            self._fail_run(episode, reason)
-            return
-        spec = dict(spec)
-        spec["goal"] = canonical
-        spec["task"] = canonical
+            reason = reject_reason(row) if row else None
+            if reason:
+                self._note(run_id, "capability", "rejected", code="unsupported_skill", detail=reason)
+                self._fail_run(episode, reason)
+                return
+            spec = dict(spec)
+            spec["goal"] = canonical
+            spec["task"] = canonical
+            scene_objects, binding, info = self._scene_binding(spec)
         self.scene_spec = spec
-        scene_objects, binding, info = self._scene_binding(spec)
         self._note(run_id, "binding", binding.get("status") or "unknown", detail=binding.get("object_ref") or binding.get("evidence_source") or "")
         self.broadcast({"type": "state", "phase": "binding", "detail": binding.get("evidence_source") or "", "mode": "live", "run_id": run_id})
         self.broadcast({"type": "binding", "binding": _public_binding(binding)})
@@ -1009,17 +1063,26 @@ class App:
         from candidates import number_candidates, scene_graph
         from schema import transfer_slots
 
-        slots = transfer_slots(spec.get("goal") or "") or []
-        required_ref = binding.get("object_ref") if len(slots) == 1 else None
+        from skills import implemented_skills, unimplemented_skills
+
+        slots = [] if free else (transfer_slots(spec.get("goal") or "") or [])
+        required_ref = None if free else (binding.get("object_ref") if len(slots) == 1 else None)
         numbered = number_candidates(scene_objects)
         graph = scene_graph(scene_objects, (binding or {}).get("positions"))
         scene_text = json.dumps(
             {
                 "planning_input": "scene_metadata",
                 "vision": False,
-                "goal_relation": spec.get("goal_relation"),
+                "evidence_source": "sim_state",
+                "execution_mode": self.execution_mode,
+                "goal_relation": None if free else spec.get("goal_relation"),
                 "canonical_goal": canonical,
+                "native_goal": spec.get("native_goal") or spec.get("goal"),
                 "user_text": user_text,
+                "predicates": predicates,
+                "implemented_skills": implemented_skills(),
+                "unimplemented_skills": unimplemented_skills(),
+                "left_right_frame": "仿真世界坐标 x，较小为左，较大为右。不是相机画面的左右。",
                 "scene_graph": graph,
                 "candidates": numbered,
                 "allowed_refs": sorted(scene_objects),
@@ -1054,7 +1117,7 @@ class App:
 
         try:
             result = request_plan(
-                task=spec["goal"],
+                task=canonical if free else spec["goal"],
                 scene_observation=scene_text,
                 client=self.planner,
                 short_memory=SHORT_MEMORY,
@@ -1063,6 +1126,9 @@ class App:
                 required_object_ref=required_ref,
                 numbered_candidates=numbered,
                 on_event=on_planner,
+                execution_mode=self.execution_mode,
+                predicates=predicates,
+                ordered=ordered,
             )
         except Exception as exc:
             self._note(run_id, "planner_response", "failed", code="planner_request_failed", detail=str(exc))
@@ -1152,12 +1218,14 @@ class App:
             return verdict
 
         deadline = None
+        run_cap = 300.0 if free else RUN_LIMIT_S
+        client_cap = 360.0 if free else 240.0
         if isinstance(deadline_s, (int, float)) and not isinstance(deadline_s, bool) and float(deadline_s) > 0:
-            deadline = time.monotonic() + min(float(deadline_s), 240.0)
+            deadline = time.monotonic() + min(float(deadline_s), client_cap)
         elif DIAGNOSTIC_S > 0:
             deadline = time.monotonic() + DIAGNOSTIC_S
         else:
-            deadline = time.monotonic() + RUN_LIMIT_S
+            deadline = time.monotonic() + run_cap
         seen_tool = {"done": False}
 
         def on_event(event: dict) -> None:
@@ -1207,6 +1275,21 @@ class App:
         elif status == "diagnostic_saved":
             phase = "stopped"
             reason = "预算到时 · " + (result["reason"] or "")
+        elif self.execution_mode == "free":
+            user_ok = result.get("user_goal_success") is True
+            native_ok = bool(result.get("native_task_success"))
+            if user_ok:
+                phase = "completed"
+                status = "completed"
+                reason = "用户目标完成"
+            elif native_ok:
+                phase = "incomplete"
+                reason = "原生目标已达成，用户组合目标未完成"
+            elif status == "completed":
+                phase = "incomplete"
+                reason = "计划已执行，用户目标未完成"
+            else:
+                phase = "failed"
         elif native or (status == "completed" and result.get("reason") == "NATIVE_SUCCESS"):
             phase = "completed"
             status = "completed"
@@ -1228,7 +1311,9 @@ class App:
                 "status": status,
                 "detail": result["status"],
                 "term": True,
-                "success": native,
+                "success": bool(result.get("user_goal_success")) if self.execution_mode == "free" else native,
+                "native_task_success": bool(result.get("native_task_success")),
+                "user_goal_success": result.get("user_goal_success"),
                 "reason": reason,
                 "plan_source": plan.get("plan_source"),
             }
@@ -1237,9 +1322,13 @@ class App:
             {
                 "type": "ended",
                 "episode_id": episode,
-                "success": native,
+                "success": bool(result.get("user_goal_success")) if self.execution_mode == "free" else native,
                 "reason": reason,
                 "native_success": native,
+                "native_task_success": bool(result.get("native_task_success")),
+                "user_goal_success": result.get("user_goal_success"),
+                "subgoal_results": result.get("subgoal_results"),
+                "execution_mode": self.execution_mode,
                 "plan_source": plan.get("plan_source"),
                 "status": result["status"],
                 "planner_stage": plan.get("planner_stage"),
@@ -1345,6 +1434,22 @@ class App:
             }
         )
         return spec
+
+    def _scene_objects(self, spec: dict) -> tuple[dict, dict, dict]:
+        from suites import objects_for_names
+
+        info = self.backend.scene_info()
+        sim = self.backend.sim_state()
+        poses = {}
+        for name, item in (sim.get("objects") or {}).items():
+            if isinstance(item, dict) and isinstance(item.get("pos"), list):
+                poses[name] = item["pos"]
+        names = list(info.get("object_names") or [])
+        for name in poses:
+            if name not in names:
+                names.append(name)
+        objects = objects_for_names(names, spec)
+        return objects, {"status": "scene", "positions": poses, "evidence_source": "sim_state", "vision": False}, info
 
     def _scene_binding(self, spec: dict) -> tuple[dict, dict, dict]:
         from binding import bind_task, positions_moved
