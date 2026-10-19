@@ -6,13 +6,12 @@ the nearest official task, and it does not change ``task_id``.
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from schema import THRESHOLDS, _err
-from skills import skill_rejection
 
-# Longer phrases first. These names are scene vocabulary, not a task whitelist.
+# Optional context for the planner. Matching a phrase does not bind an instance
+# and does not reject an unknown wording such as 奶酪 or 那盒乳酪.
 _ZH = (
     ("奶油奶酪", ("cream cheese",)),
     ("黑碗", ("black bowl", "akita black bowl")),
@@ -24,15 +23,6 @@ _ZH = (
     ("柜子", ("cabinet", "wooden cabinet")),
     ("碗", ("bowl", "black bowl")),
 )
-
-_SKILL_INTENTS = (
-    (re.compile(r"打开[^。；]*抽屉|拉开[^。；]*抽屉"), "open_drawer"),
-    (re.compile(r"关[上闭][^。；]*抽屉|合上[^。；]*抽屉"), "close"),
-    (re.compile(r"推动|推到|把[^。；]{0,12}推"), "push"),
-    (re.compile(r"打开炉灶|拧[^。；]*旋钮|转动旋钮"), "turn_on_stove"),
-)
-
-_PLACE = re.compile(r"把(?P<obj>.+?)放(?:到|在|进)(?P<dst>.+?)(?:上|里|内|中)?$")
 
 
 class EpisodeFlags:
@@ -69,68 +59,17 @@ def prepare_free_request(
     objects: dict[str, Any],
     poses: dict[str, list[float]] | None = None,
 ) -> dict[str, Any]:
-    """Compile a user sentence into predicates. Never selects another task."""
+    """Let the planner read the sentence. Do not bind or reject names here."""
+    del poses
     typed = text.strip()
-    blocked = _unsupported_skill(typed)
-    if blocked:
-        return {"status": "rejected", "changed": False, "reason": blocked, "code": "skill_unimplemented"}
-    clauses = _clauses(typed)
-    if not clauses:
-        return {
-            "status": "rejected",
-            "changed": False,
-            "code": "no_transfer",
-            "reason": "这句话没有当前场景可执行的搬运目标，没有改写成相近的预设任务。",
-        }
-    predicates = []
-    for index, clause in enumerate(clauses):
-        parsed = _PLACE.search(_compact(clause))
-        if parsed is None:
-            return {
-                "status": "rejected",
-                "changed": False,
-                "code": "no_transfer",
-                "reason": f"无法从“{clause.strip()}”确定搬运对象和目标，没有改写成相近的预设任务。",
-            }
-        relation = "in" if any(mark in clause for mark in ("放进", "里", "内")) else "on"
-        obj = _resolve_mention(parsed.group("obj"), objects, poses, role="对象")
-        dst = _resolve_mention(parsed.group("dst"), objects, poses, role="目标")
-        for item in (obj, dst):
-            if item["status"] != "resolved":
-                item["changed"] = False
-                return item
-        if not objects[obj["object_ref"]].get("movable"):
-            return {
-                "status": "rejected",
-                "changed": False,
-                "code": "not_movable",
-                "reason": f"{obj['object_ref']} 不能被搬运。",
-            }
-        relations = objects[dst["object_ref"]].get("target_relations") or []
-        if relation not in relations:
-            return {
-                "status": "rejected",
-                "changed": False,
-                "code": "relation_unsupported",
-                "reason": f"{dst['object_ref']} 不支持 {relation}。",
-            }
-        predicates.append(
-            {
-                "object_ref": obj["object_ref"],
-                "target_ref": dst["object_ref"],
-                "relation": relation,
-                "hold": "end",
-                "order": index,
-                "source": "user_text",
-            }
-        )
-    ordered = len(clauses) > 1 and any(mark in typed for mark in ("先", "再", "然后"))
     return {
         "status": "ready",
         "changed": False,
         "user_text": typed,
-        "predicates": predicates,
-        "ordered": ordered,
+        "predicates": [],
+        "ordered": any(mark in typed for mark in ("先", "再", "然后")),
+        "alias_hints": _alias_hints(typed, objects),
+        "pre_gate": False,
         "evidence_source": "sim_state",
         "vision": False,
     }
@@ -180,9 +119,10 @@ def coverage_errors(plan: dict[str, Any], predicates: list[dict[str, Any]], *, o
             continue
         open_steps.remove(found)
         chosen.append(found)
-    if ordered and len(chosen) > 1:
-        earlier = chosen[0].get("step_id")
-        for step in chosen[1:]:
+    chain = chosen if predicates else [step for step in steps if step.get("skill") == "transfer"]
+    if ordered and len(chain) > 1:
+        earlier = chain[0].get("step_id")
+        for step in chain[1:]:
             depends = step.get("depends_on") or []
             if earlier not in depends:
                 errors.append(
@@ -236,77 +176,19 @@ def judge_user_goal(predicates: list[dict[str, Any]], sim: dict[str, Any] | None
     }
 
 
-def _unsupported_skill(text: str) -> str | None:
-    for pattern, name in _SKILL_INTENTS:
-        if pattern.search(text):
-            return skill_rejection(name)
-    return None
-
-
-def _clauses(text: str) -> list[str]:
-    match = re.search(r"先(?P<a>.+?)(?:，|,)?再(?P<b>.+)", text)
-    if match:
-        return [match.group("a"), match.group("b")]
-    parts = re.split(r"然后|，|。|；", text)
-    return [part.strip() for part in parts if "把" in part and "放" in part]
-
-
-def _compact(text: str) -> str:
-    return re.sub(r"[\s。！？，、,.]+", "", text.strip())
-
-
-def _resolve_mention(
-    text: str,
-    objects: dict[str, Any],
-    poses: dict[str, list[float]] | None,
-    *,
-    role: str,
-) -> dict[str, Any]:
-    phrase = text.strip()
-    keys = _alias_keys(phrase)
-    matches = []
-    for ref, spec in objects.items():
-        hay = " ".join(
-            [str(spec.get("semantic_type") or ""), *(str(item) for item in spec.get("phrases") or [])]
-        ).lower()
-        if keys and any(key in hay for key in keys):
-            matches.append(ref)
-        elif phrase and phrase.lower() in hay:
-            matches.append(ref)
-    if not matches:
-        return {
-            "status": "rejected",
-            "code": "object_missing",
-            "reason": f"当前场景没有“{phrase}”，不能执行。",
-        }
-    if len(matches) > 1:
-        side = "left" if "左" in phrase else "right" if "右" in phrase else None
-        poses = poses or {}
-        if side and all(ref in poses and len(poses[ref]) >= 1 for ref in matches):
-            ordered = sorted(matches, key=lambda ref: float(poses[ref][0]))
-            chosen = ordered[0] if side == "left" else ordered[-1]
-            return {
-                "status": "resolved",
-                "object_ref": chosen,
-                "note": "左右参照系是仿真世界坐标 x，较小为左。evidence_source=sim_state，不是相机画面。",
-            }
-        shown = "、".join(matches)
-        return {
-            "status": "clarify",
-            "code": "ambiguous_reference",
-            "question": f"哪一个{role}是“{phrase}”？候选 {shown}。不会默认第一个。",
-            "candidates": matches,
-        }
-    return {"status": "resolved", "object_ref": matches[0]}
-
-
-def _alias_keys(phrase: str) -> list[str]:
-    keys = []
+def _alias_hints(text: str, objects: dict[str, Any]) -> list[dict[str, Any]]:
+    """Catalog phrases the sentence happens to contain. Not a binding."""
+    hints = []
     for zh, english in _ZH:
-        if zh in phrase:
-            keys.extend(english)
-            break
-    return keys
+        if zh not in text:
+            continue
+        refs = []
+        for ref, spec in objects.items():
+            hay = " ".join(str(item) for item in (spec.get("phrases") or [])).lower()
+            if any(key in hay for key in english):
+                refs.append(ref)
+        hints.append({"user_phrase": zh, "candidate_refs": refs, "binding": "hint"})
+    return hints
 
 
 def _pos(objects: dict[str, Any], ref: str) -> list[float] | None:

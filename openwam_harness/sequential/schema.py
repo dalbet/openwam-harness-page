@@ -87,6 +87,9 @@ SEMANTIC_STEP_KEYS = frozenset(
         "completion_check",
         "budget",
         "on_failure",
+        "user_phrase",
+        "grounding_query",
+        "vla_prompt",
     }
 )
 PLAN_KEYS = frozenset(
@@ -363,6 +366,9 @@ def free_submit_plan_tools() -> list[dict[str, Any]]:
         },
     }
     step = schema["properties"]["steps"]["items"]
+    step["properties"]["user_phrase"] = {"type": "string"}
+    step["properties"]["grounding_query"] = {"type": "string"}
+    step["properties"]["vla_prompt"] = {"type": "string"}
     step["required"] = [
         "step_id",
         "skill",
@@ -389,7 +395,20 @@ def free_submit_plan_tools() -> list[dict[str, Any]]:
                 ),
                 "parameters": schema,
             },
-        }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "ask_clarification",
+                "description": "Ask one concrete question when a mention does not map to one candidate.",
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["question"],
+                    "properties": {"question": {"type": "string"}},
+                },
+            },
+        },
     ]
 
 
@@ -678,7 +697,15 @@ def _arg_errors(path: str, skill: str, args: dict[str, Any], plan: dict[str, Any
         carry = args.get("carry_offset")
         if carry is not None and not isinstance(carry, str):
             errors.append(_err(f"{path}.args.carry_offset", "type", carry, "object_ref"))
-        extra = set(args) - {"xyz", "xyz_from", "z_offset", "gripper", "object_ref", "max_steps", "motion", "carry_offset"}
+        xy_offset = args.get("xy_offset")
+        if xy_offset is not None:
+            if (
+                not isinstance(xy_offset, list)
+                or len(xy_offset) != 2
+                or any(isinstance(v, bool) or not isinstance(v, (int, float)) or abs(float(v)) > 0.08 for v in xy_offset)
+            ):
+                errors.append(_err(f"{path}.args.xy_offset", "range", xy_offset, "two meters, each within 0.08"))
+        extra = set(args) - {"xyz", "xyz_from", "z_offset", "gripper", "object_ref", "max_steps", "motion", "carry_offset", "xy_offset"}
         for key in extra:
             errors.append(_err(f"{path}.args.{key}", "unexpected_arg", key, "xyz source, gripper"))
         if "max_steps" in args and (isinstance(args["max_steps"], bool) or not isinstance(args["max_steps"], int) or not 1 <= args["max_steps"] <= 80):
@@ -1071,6 +1098,9 @@ def validate_semantic_plan(
             "relation": step.get("relation"),
             "prompt": step.get("prompt"),
         }
+        for key in ("user_phrase", "grounding_query", "vla_prompt"):
+            if isinstance(step.get(key), str) and step.get(key).strip():
+                item["args"][key] = step[key].strip()
         used.extend([step.get("object_ref"), step.get("target_ref")])
         normalized_steps.append(item)
     normalized = {key: plan[key] for key in plan if key in SEMANTIC_PLAN_KEYS}
@@ -1078,7 +1108,22 @@ def validate_semantic_plan(
     normalized["steps"] = normalized_steps
     if free:
         normalized["execution_mode"] = "free"
-        normalized["predicates"] = list(predicates or [])
+        if predicates:
+            normalized["predicates"] = list(predicates)
+            normalized["predicate_source"] = "request"
+        else:
+            normalized["predicates"] = [
+                {
+                    "object_ref": step.get("object_ref"),
+                    "target_ref": step.get("target_ref"),
+                    "relation": step.get("relation"),
+                    "hold": "end",
+                    "order": index,
+                    "source": "plan_steps",
+                }
+                for index, step in enumerate(normalized_steps)
+            ]
+            normalized["predicate_source"] = "plan_steps"
         if not normalized.get("goal_relation") and normalized_steps:
             normalized["goal_relation"] = normalized_steps[0].get("relation")
     return normalized
@@ -1133,13 +1178,17 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
     ]
     segmented: set[str] = set()
     previous = "observe"
+    placed_on: dict[str, int] = {}
     for item in plan["steps"]:
         args = item["args"]
         obj = args["object_ref"]
         target = args["target_ref"]
-        obj_query = _grounding_query(objects[obj])
+        obj_query = args.get("grounding_query") or _grounding_query(objects[obj])
         target_query = _grounding_query(objects[target])
-        vla_prompt = str(args["prompt"])
+        vla_prompt = _short_pick(args.get("vla_prompt") or args.get("prompt") or "", obj_query)
+        slot = placed_on.get(target, 0)
+        placed_on[target] = slot + 1
+        xy_offset = [round(0.04 * slot, 3), 0.0] if slot else None
         if obj not in segmented:
             steps.append(_segment_step(obj, obj_query, previous))
             segmented.add(obj)
@@ -1158,6 +1207,8 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "skill": "pi0_pick",
                 "args": {"prompt": vla_prompt, "max_chunks": 12, "object_ref": obj},
                 "vla_prompt": vla_prompt,
+                "user_phrase": args.get("user_phrase") or "",
+                "grounding_query": obj_query,
                 "depends_on": [f"seg_{obj}", previous] if previous != "observe" else [f"seg_{obj}"],
                 "preconditions": ["object_localized"],
                 "completion_check": "grasp_held",
@@ -1178,6 +1229,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                     "object_ref": obj,
                     "carry_offset": obj,
                     "motion": "travel",
+                    **({} if xy_offset is None else {"xy_offset": xy_offset}),
                 },
                 "grounding_query": obj_query,
                 "depends_on": [pick, f"seg_{target}"],
@@ -1202,6 +1254,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                     "object_ref": obj,
                     "carry_offset": obj,
                     "motion": "vertical",
+                    **({} if xy_offset is None else {"xy_offset": xy_offset}),
                 },
                 "grounding_query": obj_query,
                 "depends_on": [move],
@@ -1243,6 +1296,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                     "object_ref": obj,
                     "carry_offset": obj,
                     "motion": "vertical",
+                    **({} if xy_offset is None else {"xy_offset": xy_offset}),
                 },
                 "depends_on": [place],
                 "preconditions": ["grasp_held"],
@@ -1294,6 +1348,16 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
     return expanded
 
 
+def _short_pick(prompt: str, grounding: str) -> str:
+    """One English grasp sentence. Chinese user text is not sent to Pi0."""
+    text = str(prompt or "").strip()
+    english = bool(text) and len(text) <= 80 and "\n" not in text and all(ord(ch) < 128 for ch in text)
+    if english and text.lower().startswith(("pick up", "grasp", "lift")):
+        return text
+    phrase = grounding.strip() or "object"
+    return f"pick up the {phrase}"
+
+
 def _segment_step(ref: str, phrase: str, previous: str) -> dict[str, Any]:
     return {
         "step_id": f"seg_{ref}",
@@ -1306,6 +1370,7 @@ def _segment_step(ref: str, phrase: str, previous: str) -> dict[str, Any]:
         "on_failure": "stop",
         "object_ref": ref,
         "grounding_query": phrase,
+        "user_phrase": phrase,
         "subtask": ref,
     }
 
@@ -1489,6 +1554,10 @@ def resolve_args(args: dict[str, Any], bindings: dict[str, list[float]]) -> dict
         if len(xyz) != 3 or not all(math.isfinite(v) for v in xyz):
             raise PlanError([_err("args.xyz_from", "binding", key, "finite xyz")])
         xyz[2] += z_offset
+        xy_offset = out.pop("xy_offset", None)
+        if isinstance(xy_offset, list) and len(xy_offset) >= 2:
+            xyz[0] += float(xy_offset[0])
+            xyz[1] += float(xy_offset[1])
         carry_ref = out.pop("carry_offset", None)
         if carry_ref:
             offset = bindings.get(f"carry:{carry_ref}")

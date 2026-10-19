@@ -52,37 +52,51 @@ class FreeTaskTest(unittest.TestCase):
         )
         self.assertEqual(prepared["status"], "ready")
         self.assertFalse(prepared["changed"])
-        self.assertEqual(
-            [(item["object_ref"], item["target_ref"]) for item in prepared["predicates"]],
-            [("cream_cheese_1", "plate_1"), ("akita_black_bowl_1", "flat_stove_1")],
-        )
+        self.assertEqual(prepared["predicates"], [])
+        self.assertTrue(prepared["ordered"])
+        self.assertFalse(prepared["pre_gate"])
         loaded = {"suite": "libero_goal", "task_id": 1, "goal": "put the bowl on the stove", "summary_zh": "把碗放到炉灶上。"}
         benchmark = resolve_instruction("飞到月球", loaded)
         self.assertEqual(benchmark["status"], "unsupported")
 
-    def test_unimplemented_skill_missing_object_and_ambiguity(self):
+    def test_wording_reaches_planner_without_a_name_gate(self):
         objects = _goal_objects()
         objects["akita_black_bowl_2"] = dict(objects["akita_black_bowl_1"])
         objects["akita_black_bowl_2"]["sim_name"] = "akita_black_bowl_2"
-        blocked = prepare_free_request("打开中间抽屉", objects)
-        self.assertEqual(blocked["code"], "skill_unimplemented")
-        self.assertIn("open_drawer", blocked["reason"])
-        missing = prepare_free_request("把苹果放到炉灶上", objects)
-        self.assertEqual(missing["code"], "object_missing")
-        ambiguous = prepare_free_request("把碗放到盘子上", objects)
-        self.assertEqual(ambiguous["status"], "clarify")
-        self.assertIn("akita_black_bowl_2", ambiguous["question"])
-        self.assertNotIn("默认第一个", ambiguous["question"].split("。")[0] + "选择")
-        sided = prepare_free_request(
-            "把左边的碗放到盘子上",
-            objects,
-            {"akita_black_bowl_1": [0.2, 0.0, 0.4], "akita_black_bowl_2": [-0.2, 0.0, 0.4], "plate_1": [0.0, 0.2, 0.4]},
-        )
-        self.assertEqual(sided["predicates"][0]["object_ref"], "akita_black_bowl_2")
+        for text in ("把奶酪放到盘子上", "把奶油奶酪放到盘子上", "把那盒乳酪放到盘子上", "打开中间抽屉", "把苹果放到炉灶上", "把碗放到盘子上", "把左边的碗放到盘子上"):
+            prepared = prepare_free_request(text, objects, {"akita_black_bowl_1": [0.2, 0.0, 0.4], "akita_black_bowl_2": [-0.2, 0.0, 0.4]})
+            self.assertEqual(prepared["status"], "ready", text)
+            self.assertEqual(prepared["predicates"], [], text)
+            self.assertNotIn("object_ref", prepared)
+        cheese = prepare_free_request("把奶酪放到盘子上", objects)
+        self.assertFalse(any(item["user_phrase"] == "奶酪" for item in cheese["alias_hints"]))
+        hinted = prepare_free_request("把奶油奶酪放到盘子上", objects)
+        self.assertEqual(hinted["alias_hints"][0]["candidate_refs"], ["cream_cheese_1"])
+        self.assertEqual(hinted["alias_hints"][0]["binding"], "hint")
+        with self.assertRaises(PlanError) as raised:
+            validate_semantic_plan(
+                {"plan_id": "bad", "goal": "打开抽屉", "steps": [{**_step("drawer", "cream_cheese_1", "plate_1", "on", []), "skill": "open_drawer"}]},
+                scene_objects=objects,
+                execution_mode="free",
+                ordered=False,
+            )
+        self.assertTrue(any(item["code"] == "skill_unimplemented" for item in raised.exception.errors))
+        with self.assertRaises(PlanError) as missing:
+            validate_semantic_plan(
+                {"plan_id": "apple", "goal": "把苹果放到炉灶上", "steps": [_step("apple", "apple_1", "flat_stove_1", "on", [])]},
+                scene_objects=objects,
+                execution_mode="free",
+                ordered=False,
+            )
+        self.assertTrue(any(item["code"] == "object_ref" for item in missing.exception.errors))
 
     def test_sequence_is_not_a_duplicate_and_native_does_not_cover_user_goal(self):
         objects = _goal_objects()
-        predicates = prepare_free_request("先把碗放到炉灶上，再把奶油奶酪放到盘子上", objects)["predicates"]
+        predicates = [
+            {"object_ref": "akita_black_bowl_1", "target_ref": "flat_stove_1", "relation": "on", "hold": "end"},
+            {"object_ref": "cream_cheese_1", "target_ref": "plate_1", "relation": "on", "hold": "end"},
+        ]
+        self.assertEqual(prepare_free_request("先把碗放到炉灶上，再把奶油奶酪放到盘子上", objects)["predicates"], [])
         plan = {
             "plan_id": "combo",
             "goal": "先把碗放到炉灶上，再把奶油奶酪放到盘子上",

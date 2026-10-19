@@ -354,6 +354,44 @@ def run_plan(
         if post:
             last_obs = post[-1]
             _remember_support(last_obs, support_z)
+        if (
+            plan.get("execution_mode") == "free"
+            and skill == "segment"
+            and verification.get("reason_code") == "TARGET_NOT_IDENTIFIED"
+            and not step.get("_point_retried")
+        ):
+            step["_point_retried"] = True
+            projector = getattr(backend, "project_instance", None)
+            point = projector(step.get("object_ref")) if projector else None
+            if isinstance(point, dict) and point.get("ok"):
+                emit(
+                    "executing",
+                    step_id=step["step_id"],
+                    skill="segment",
+                    detail="point retry",
+                    evidence_source="sim_state",
+                    reason_code="POINT_RETRY",
+                )
+                outcome = _execute_with_one_retry(
+                    backend,
+                    [(
+                        "segment",
+                        {
+                            "point": [int(point["row"]), int(point["col"])],
+                            "camera": str((step.get("args") or {}).get("camera") or "agentview"),
+                            "object_ref": step.get("object_ref"),
+                        },
+                    )],
+                )
+                if outcome.xyz is not None:
+                    prompt = str((step.get("args") or {}).get("prompt") or step.get("grounding_query") or "")
+                    if prompt:
+                        bindings[f"segment:{prompt}"] = outcome.xyz
+                post, verification = _judge(
+                    step, outcome, backend, last_obs, started_epoch, before_step, plan, support_z,
+                )
+                if post:
+                    last_obs = post[-1]
         verification, outcome, post = _recover_or_confirm(
             step=step,
             outcome=outcome,
@@ -651,6 +689,14 @@ def _recover_or_confirm(
 ):
     if outcome.executed and not outcome.real:
         failed = receipt("failure", "NOT_REAL", "tool_return", [], {"real": False})
+        return failed, outcome, post
+    if (
+        plan.get("execution_mode") == "free"
+        and verification.get("reason_code") == "TARGET_NOT_IDENTIFIED"
+        and verification.get("status") != "success"
+    ):
+        failed = dict(verification)
+        failed["status"] = "failure"
         return failed, outcome, post
     if verification["status"] == "unknown":
         return _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post)

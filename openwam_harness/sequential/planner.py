@@ -35,12 +35,18 @@ OUTPUT_FORMAT = (
     "A sim_state binding is not a visual judgment."
 )
 FREE_OUTPUT_FORMAT = (
-    "Call submit_plan once for the user goal on the already loaded scene. "
-    "Do not switch tasks and do not rewrite the goal into an official task sentence. "
-    "Each placement is one transfer, in the user's order. A later transfer lists the earlier "
-    "step_id in depends_on. Different targets are not duplicate transfers. "
-    "Set object_n and target_n to candidate numbers, and object_ref/target_ref to those instance ids. "
-    "Only the transfer skill is available. Do not invent tools or send code. "
+    "Call submit_plan once for the user's own goal on the already loaded scene. "
+    "The user may use Chinese aliases, descriptions, and spatial references. "
+    "Do not require a catalog sentence and do not switch tasks. "
+    "Choose object_n and target_n from the current candidate list. "
+    "Do not guess an instance number from a name. "
+    "Keep the user's objects, relations, and order. depends_on records that order. "
+    "Separate a process request from a condition that must still hold at the end. "
+    "If one phrase matches more than one candidate, return one concrete clarification instead of a plan. "
+    "Only the implemented transfer skill is available. Do not invent tools, code, or coordinates. "
+    "user_phrase is the user's wording for that step. grounding_query is a short English visual phrase "
+    "for the chosen candidate. vla_prompt is one short English grasp sentence for that same object. "
+    "A self-reported done flag is not execution success. "
     "This request is scene metadata, vision=false, evidence_source=sim_state. image_id is not image content."
 )
 
@@ -95,12 +101,16 @@ def request_plan(
     options = _request_options()
     if execution_mode == "free":
         options["tools"] = free_submit_plan_tools()
+        options["tool_choice"] = "auto"
     if on_event is not None:
         options["on_event"] = on_event
     attempts = []
     message = _normalize(client(messages, OUTPUT_BUDGET, options))
     _emit(options, "validating", "initial")
     attempts.append(_attempt(1, "initial", message, parts, counter))
+    question = _clarification(message) if execution_mode == "free" else None
+    if question:
+        return _clarify(question, attempts, instruction_report)
     try:
         kind, plan, resolution = _parsed(
             message,
@@ -129,6 +139,9 @@ def request_plan(
     message = _normalize(client(messages, OUTPUT_BUDGET, options))
     _emit(options, "validating", "format_repair")
     attempts.append(_attempt(2, "format_repair", message, repair_parts, counter))
+    question = _clarification(message) if execution_mode == "free" else None
+    if question:
+        return _clarify(question, attempts, instruction_report)
     try:
         kind, plan, resolution = _parsed(
             message,
@@ -145,6 +158,42 @@ def request_plan(
     except PlanError as exc:
         attempts[-1]["errors"] = exc.errors
         return _failed(attempts, exc.errors, repairs=1)
+
+
+def _clarification(message: dict[str, Any]) -> str | None:
+    for call in message.get("tool_calls") or []:
+        function = call.get("function") or {}
+        if function.get("name") != "ask_clarification":
+            continue
+        raw = function.get("arguments")
+        payload = raw
+        if isinstance(raw, str):
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                return None
+        question = payload.get("question") if isinstance(payload, dict) else None
+        if isinstance(question, str) and question.strip():
+            return question.strip()
+    return None
+
+
+def _clarify(question: str, attempts: list[dict], instruction_report: dict) -> dict[str, Any]:
+    return {
+        "status": "clarify",
+        "plan": None,
+        "question": question,
+        "source": "model",
+        "plan_source": "model",
+        "attempts": attempts,
+        "errors": [],
+        "budgets": [item["preflight"] for item in attempts],
+        "output_budget": OUTPUT_BUDGET,
+        "repairs": max(0, len(attempts) - 1),
+        "stage": "clarify",
+        "plan_from": None,
+        "instruction_report": instruction_report,
+    }
 
 
 def _failed(attempts: list[dict], errors: list[dict], *, repairs: int) -> dict[str, Any]:

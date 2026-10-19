@@ -113,15 +113,65 @@ class LiveBackend:
         return self._flags
 
     def _absorb_terminal(self) -> None:
+        """The RPC server does not latch success and auto_reset is false.
+
+        LIBERO returns ``done`` from the current goal check. RLinf keeps that
+        flag because ``ignore_terminations`` is false, then returns it. The
+        sticky refusal is ``LiberoEnvClient.step`` / ``chunk_step``. Free mode
+        clears only that client latch. ``truncated`` stays sticky, and a later
+        call still refuses to step an uncontinuable episode.
+        """
         if self.toolkit is None:
             return
         env = self.toolkit.primitives.env
         decision = self._episode_flags().absorb(bool(env.terminated), bool(env.truncated))
-        if decision["clear_terminated"]:
+        if decision["clear_terminated"] and not bool(env.truncated):
             env.terminated = False
 
     def episode_continuable(self) -> bool:
         return self._episode_flags().continuable()
+
+    def project_instance(self, object_ref: str, camera: str = "agentview") -> dict | None:
+        """One pixel on the visible surface of this instance. Not a visual label."""
+        if self.toolkit is None or camera != "agentview":
+            return None
+        sim = self.sim_state()
+        objects = sim.get("objects") or {}
+        target = (objects.get(object_ref) or {}).get("pos")
+        if not isinstance(target, list) or len(target) < 3:
+            return None
+        others = []
+        for name, item in objects.items():
+            if name == object_ref or not isinstance(item, dict):
+                continue
+            pos = item.get("pos")
+            if isinstance(pos, list) and len(pos) >= 3:
+                others.append(pos)
+        try:
+            record = self.toolkit.state.latest_record()
+            step = None if record is None else record.step_idx
+        except Exception:
+            return None
+        world = None
+        artifact = None
+        for name in ("agentview_world_high.npz", "agentview_world.npz"):
+            try:
+                world = self.toolkit.state.load(name, step=step)
+                artifact = name
+                break
+            except Exception:
+                continue
+        if world is None:
+            return None
+        from localize import pixel_for_instance
+
+        found = pixel_for_instance(world, target, others)
+        if not found:
+            return None
+        found["artifact"] = artifact
+        found["object_ref"] = object_ref
+        found["camera"] = camera
+        return found
 
     def scene_key(self) -> tuple:
         from scene_request import require_int
