@@ -195,6 +195,8 @@ def preplace_gate(step, obs, plan, bindings) -> dict[str, Any]:
     sources["target_region"] = surface_source or "pose_not_provided"
     if surface is None:
         unmet.append("target_region_pose 缺失")
+    elif _orientation_block(obs, surface_key, surface) is not None:
+        unmet.append(_orientation_block(obs, surface_key, surface)["reason"])
     baseline = bindings.get(f"hold:{ref}") if isinstance(ref, str) else None
     if obj is not None and eef is not None and isinstance(baseline, list) and len(baseline) >= 3:
         delta = _distance([obj[i] - eef[i] for i in range(3)], baseline)
@@ -233,6 +235,31 @@ def preplace_gate(step, obs, plan, bindings) -> dict[str, Any]:
         "geometry": geometry,
         "released_required": False,
         "placed_required": False,
+    }
+
+
+def _orientation_block(obs: dict | None, surface_key: str | None, surface: list[float]) -> dict | None:
+    """A rotated fixture site cannot be placed by translation. Missing geometry stays measurable."""
+    if not surface_key:
+        return None
+    named = (obs or {}).get("named_poses") if isinstance(obs, dict) else None
+    geometry = (named or {}).get("site_geometry") if isinstance(named, dict) else None
+    row = geometry.get(surface_key) if isinstance(geometry, dict) else None
+    if not isinstance(row, dict) or not row.get("quat_wxyz"):
+        return None
+    from regions import placement_mode
+
+    mode = placement_mode({"quat_wxyz": row.get("quat_wxyz"), "size": row.get("size"), "xyz": surface})
+    if mode.get("ok"):
+        return None
+    return {
+        "ok": False,
+        "code": mode["code"],
+        "reason": mode["reason"],
+        "stage": "place_motion",
+        "evidence_source": "mujoco_site",
+        "region_key": surface_key,
+        "placement": mode,
     }
 
 
@@ -287,6 +314,9 @@ def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
             "evidence_source": surface_source,
             "region_key": surface_key,
         }
+    oriented = _orientation_block(obs, surface_key, surface)
+    if oriented is not None:
+        return oriented
     z_offset = float(args.get("z_offset") or 0.0)
     low, high = THRESHOLDS["approach_z_offset_m"]
     if not low <= z_offset <= high:

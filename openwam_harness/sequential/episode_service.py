@@ -177,7 +177,8 @@ def _attach_named_poses_class(cls) -> None:
             data = sim.data
             bodies = _indexed_xyz(model, data, "nbody", "body_xpos", "body_names", getattr(model, "body_id2name", None))
             sites = _indexed_xyz(model, data, "nsite", "site_xpos", "site_names", getattr(model, "site_id2name", None))
-            return {"bodies": bodies, "sites": sites, "evidence_source": "mujoco_site"}
+            geometry = _site_geometry(model, data)
+            return {"bodies": bodies, "sites": sites, "site_geometry": geometry, "evidence_source": "mujoco_site"}
         except Exception as exc:
             return {"bodies": {}, "sites": {}, "error": f"{type(exc).__name__}: {exc}"}
 
@@ -207,6 +208,48 @@ def _indexed_xyz(model, data, count_name, xpos_name, names_attr, id2name) -> dic
         except Exception:
             continue
     return found
+
+
+def _site_geometry(model, data) -> dict[str, dict]:
+    """World pose of each site. quat is MuJoCo wxyz. size is the site half-extent."""
+    from regions import mat_to_quat_wxyz
+
+    count = int(getattr(model, "nsite"))
+    names = _site_names(model, count)
+    xpos = getattr(data, "site_xpos")
+    xmat = getattr(data, "site_xmat")
+    size = getattr(model, "site_size", None)
+    found = {}
+    for index, name in enumerate(names):
+        if not name:
+            continue
+        try:
+            mat = [float(v) for v in list(xmat[index])]
+            row = xpos[index]
+            half = [float(v) for v in list(size[index][:3])] if size is not None else None
+            found[name] = {
+                "xyz": [float(row[0]), float(row[1]), float(row[2])],
+                "quat_wxyz": [round(v, 6) for v in mat_to_quat_wxyz(mat)],
+                "mat": [round(v, 6) for v in mat],
+                "size": None if half is None else [round(v, 6) for v in half],
+            }
+        except Exception:
+            continue
+    return found
+
+
+def _site_names(model, count: int) -> list[str]:
+    raw_names = getattr(model, "site_names", None)
+    names = [str(item) for item in list(raw_names)[:count]] if raw_names is not None else []
+    id2name = getattr(model, "site_id2name", None)
+    if len(names) < count and callable(id2name):
+        names = []
+        for index in range(count):
+            try:
+                names.append(str(id2name(index) or ""))
+            except Exception:
+                names.append("")
+    return names
 
 
 def _read_worker_poses(facade) -> dict[str, Any]:
