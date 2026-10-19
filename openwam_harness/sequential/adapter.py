@@ -33,7 +33,7 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
-STATIC_VERSION = "view11"
+STATIC_VERSION = "view12"
 RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
 
@@ -163,6 +163,8 @@ class App:
         self.load_token = 0
         self.recovery_attempts = 0
         self.binding = None
+        self._resetting = False
+        self._reset_error = ""
         self.display_seq = 0
         self.client_frames = None
         self.run_journal: list[dict] = []
@@ -341,6 +343,10 @@ class App:
         probe = (PROBE.get(self.planner_profile) or {}).get("status")
         if self.loading:
             reason, code = "正在加载", "busy_loading"
+        elif self._resetting:
+            reason, code = "正在重置", "busy_reset"
+        elif self._reset_error:
+            reason, code = self._reset_error, "reset_failed"
         elif phase == "cancelling" or (producer and self.runs.finished):
             reason, code = "正在停止", "producer_alive"
         elif phase == "waiting_confirmation":
@@ -358,11 +364,13 @@ class App:
             reason, code = "模型未就绪", "profile_offline"
         else:
             reason, code = "", ""
-        busy = code in {"busy_loading", "producer_alive", "waiting_confirmation", "busy_running"}
+        busy = code in {"busy_loading", "producer_alive", "waiting_confirmation", "busy_running", "busy_reset"}
+        loaded = scene["loaded"] and not (LIVE and self.backend is None)
         return {
             "can_start": code == "",
-            "can_load": not busy,
-            "can_stop": busy and code != "busy_loading",
+            "can_load": not busy and not self._resetting,
+            "can_stop": busy and code not in {"busy_loading", "busy_reset"},
+            "can_reset": loaded and not self.loading,
             "block_reason": reason,
             "block_code": code,
             "planner_status": probe or "unknown",
@@ -937,6 +945,125 @@ class App:
         self._command_ack("stop_ack", "accepted", "cancelling", "正在停止", request_id)
         self.broadcast({"type": "state", "phase": "cancelling", "detail": "正在停止", "mode": "live", "root_error": self.runs.root_error})
         self.broadcast(self.snapshot())
+
+    def reset_scene(self, message: dict | None = None) -> None:
+        threading.Thread(target=self._reset_scene, args=(message or {},), daemon=True).start()
+
+    def _reset_scene(self, message: dict) -> None:
+        """Stop the current producer, then warm-reset the same scene. History and the typed task stay."""
+        request_id = message.get("client_request_id") if isinstance(message, dict) else None
+        with self.lock:
+            if self._resetting:
+                self._command_ack("reset_ack", "accepted", "already_resetting", "重置已在进行，没有再次重置", request_id)
+                return
+            gates = self.command_gates()
+            if not gates["can_reset"]:
+                self._command_ack("reset_ack", "rejected", gates["block_code"] or "scene_missing", gates["block_reason"] or "当前不能重置", request_id)
+                return
+            self._resetting = True
+            self._reset_error = ""
+        self.broadcast({"type": "state", "phase": "resetting", "detail": "正在重置场景", "mode": self.mode})
+        self.broadcast(self.snapshot())
+        try:
+            if self.runs.producer_alive() or self.runs.active():
+                self._stop_for_reset(request_id)
+                deadline = time.time() + 20.0
+                while self.runs.producer_alive() and time.time() < deadline:
+                    time.sleep(0.05)
+                if self.runs.producer_alive():
+                    self._fail_reset("动作尚未退出，场景没有重置", request_id, ended=False)
+                    return
+            previous_epoch = self.session.scene_epoch
+            previous_episode = self.session.episode_id
+            if self.runs.run_id and not any(item.get("run_id") == self.runs.run_id for item in self.run_history):
+                archived = self.runs.public()
+                archived["archived"] = True
+                self.run_history.append(archived)
+                self.run_history = self.run_history[-8:]
+            self.binding = None
+            self._active_plan = None
+            self.runs = RunContext()
+            self.session.plan_version += 1
+            episode = self.session.begin_episode()
+            if not LIVE:
+                self._command_ack(
+                    "reset_ack",
+                    "accepted",
+                    "dry_reset",
+                    "干跑只更新回合，没有环境图像",
+                    request_id,
+                    episode_id=episode,
+                    scene_epoch=self.session.scene_epoch,
+                    previous_episode_id=previous_episode,
+                    previous_scene_epoch=previous_epoch,
+                )
+                self.broadcast(self.snapshot())
+                return
+            if self.backend is None:
+                self._fail_reset("场景未加载，没有重置", request_id)
+                return
+            self.backend.scene_epoch = self.session.scene_epoch
+            timings = self.backend.warm_reset()
+            self.backend.scene_epoch = self.session.scene_epoch
+            obs = self.backend.observe()
+            cameras = (obs or {}).get("cameras") or {}
+            named = (obs or {}).get("named_poses") or {}
+            if not cameras.get("agentview") or not cameras.get("wrist") or named.get("error"):
+                self._fail_reset(f"重置后没有新状态：{named.get('error') or '缺少相机'}", request_id)
+                return
+            self.last_payload = None
+            self.broadcast_frame({
+                "eid": episode,
+                "fid": int(obs.get("env_step") or 0),
+                "phase": "loaded",
+                "detail": "reset",
+                "term": False,
+                "success": False,
+                "reason": "",
+            })
+            if self.last_payload is None:
+                self._fail_reset("重置后没有首帧", request_id)
+                return
+            self._reset_error = ""
+            self._command_ack(
+                "reset_ack",
+                "accepted",
+                "reset",
+                "场景已重置",
+                request_id,
+                episode_id=episode,
+                scene_epoch=self.session.scene_epoch,
+                previous_episode_id=previous_episode,
+                previous_scene_epoch=previous_epoch,
+                timings=timings,
+            )
+            self.broadcast({"type": "state", "phase": "idle", "detail": "场景已重置", "mode": "live", "scene_epoch": self.session.scene_epoch})
+            self.broadcast(self.snapshot())
+        except Exception as exc:
+            self._fail_reset(f"重置失败：{exc}", request_id)
+        finally:
+            self._resetting = False
+            self.broadcast(self.snapshot())
+
+    def _stop_for_reset(self, request_id) -> None:
+        from vla_async import get_controller
+
+        get_controller().clear("cancel")
+        cancel = getattr(self.planner, "cancel", None)
+        if cancel is not None:
+            cancel()
+        self.session.cancel()
+        self.runs.cancel()
+        self._command_ack("stop_ack", "accepted", "cancelling", "重置前正在停止", request_id)
+
+    def _fail_reset(self, detail: str, request_id, *, ended: bool = True) -> None:
+        self._reset_error = detail
+        if ended:
+            self.session.cancel()
+        self.binding = None
+        self._active_plan = None
+        self._command_ack("reset_ack", "rejected", "reset_failed", detail, request_id, scene_epoch=self.session.scene_epoch)
+        self.broadcast({"type": "state", "phase": "failed", "detail": detail, "mode": self.mode, "reason": detail})
 
     def confirm(self, message: dict) -> None:
         request_id = message.get("client_request_id") if isinstance(message, dict) else None
@@ -1848,6 +1975,8 @@ class App:
             "can_start": gates["can_start"],
             "can_load": gates["can_load"],
             "can_stop": gates["can_stop"],
+            "can_reset": gates["can_reset"],
+            "reset_error": self._reset_error,
             "scene_loaded": scene["loaded"],
             "phase": self.runs.phase,
             "run_id": self.runs.run_id,
@@ -2083,6 +2212,8 @@ async def websocket(request):
                 APP.choose_binding(data)
             elif kind == "stop":
                 APP.stop(data)
+            elif kind == "reset":
+                APP.reset_scene(data)
             elif kind == "confirm":
                 APP.confirm(data)
             elif kind == "client_perf":

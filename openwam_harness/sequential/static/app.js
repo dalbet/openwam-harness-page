@@ -3,7 +3,7 @@ const $ = (id) => document.getElementById(id);
 const suiteSel = $("suite"), modeSel = $("execution-mode"), progressEl = $("progress"),
   loadBtn = $("load"), taskIn = $("task"), profileSel = $("planner-profile"),
   startBtn = $("start"),
-  restartBtn = $("restart"), stopBtn = $("stop"),
+  restartBtn = $("restart"), stopBtn = $("stop"), resetBtn = $("reset"),
   okBtn = $("ok"), badBtn = $("bad"), unkBtn = $("unk"),
   confirmBox = $("confirm"), goalEl = $("goal"),
   agentCanvas = $("agent"), wristCanvas = $("wrist"),
@@ -60,6 +60,9 @@ function syncRunButtons(){
   startBtn.title = reason;
   if (loadBtn && lastSnapshot) loadBtn.disabled = !connected || !lastSnapshot.can_load;
   if (stopBtn && lastSnapshot) stopBtn.disabled = !connected || !lastSnapshot.can_stop;
+  const canReset = connected && lastSnapshot && lastSnapshot.can_reset;
+  if (resetBtn) resetBtn.disabled = !canReset;
+  if (restartBtn) restartBtn.disabled = !canReset;
 }
 function noteInstance(m){
   if (!m || !m.server_instance_id) return true;
@@ -210,6 +213,14 @@ function handleText(txt){
         setStatus("场景已加载", loadedDetail + plannerNote, plannerReady() ? "good" : "warn");
         phAgent.textContent = "等待画面"; phWrist.textContent = "等待画面";
       }
+      break;
+    case "reset_ack":
+      if (m.scene_epoch != null) sceneEpoch = m.scene_epoch;
+      if (m.episode_id) episode = m.episode_id;
+      if (m.status === "rejected") setStatus("重置失败", m.detail || m.code || "", "bad");
+      else if (m.code === "already_resetting") setStatus("重置场景", "重置已在进行", "warn");
+      else setStatus("场景已重置", m.detail || "", m.code === "dry_reset" ? "warn" : "good");
+      taskIn.disabled = false;
       break;
     case "start_ack":
       if (m.status === "rejected") {
@@ -682,8 +693,17 @@ function begin(source){
   });
   setStatus(source === "restart" ? "重置" : "检查任务", client_request_id);
 }
+function resetScene(){
+  if (!ws || ws.readyState !== 1) {
+    setStatus("失败", "连接未就绪", "bad");
+    return;
+  }
+  send({type:"reset", client_request_id: `reset-${Date.now()}`, scene_epoch: sceneEpoch});
+  setStatus("重置场景", "");
+}
 startBtn.onclick = () => begin("model");
-restartBtn.onclick = () => begin("restart");
+restartBtn.onclick = resetScene;
+if (resetBtn) resetBtn.onclick = resetScene;
 stopBtn.onclick = () => { send({type:"stop", client_request_id: `stop-${Date.now()}`}); };
 profileSel.onchange = () => send({type:"set_planner", profile: profileSel.value});
 function confirm(verdict){
