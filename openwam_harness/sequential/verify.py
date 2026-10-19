@@ -86,6 +86,8 @@ def verify_step(
         return _transport(step, before, current, objects)
     if check == "object_placed":
         return _place(step, observations, objects, goal_relation)
+    if check == "retreated":
+        return receipt("success", "RETREATED", "sim_state", _ids(observations), {"applied_hold_offset": False})
     if check == "user_confirmed":
         return receipt("unknown", "NEEDS_CONFIRMATION", "manual", _ids(observations), {})
     return receipt("unknown", "NO_CHECKER", "tool_return", _ids(observations), {"check": check})

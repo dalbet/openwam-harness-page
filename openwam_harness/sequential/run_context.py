@@ -28,6 +28,10 @@ class RunContext:
         self.execution = None
         self.native_task_success = None
         self.user_goal_success = None
+        self.user_goal_status = None
+        self.execution_status = None
+        self.retreat_error = None
+        self.evidence_source = None
         self.subgoal_results = None
         self.confirm_q: Queue = Queue()
         self.thread: threading.Thread | None = None
@@ -55,6 +59,10 @@ class RunContext:
         self.execution = None
         self.native_task_success = None
         self.user_goal_success = None
+        self.user_goal_status = None
+        self.execution_status = None
+        self.retreat_error = None
+        self.evidence_source = None
         self.subgoal_results = None
         self.confirm_q = Queue()
         self.finished = False
@@ -182,6 +190,10 @@ class RunContext:
             "execution": self.execution,
             "native_task_success": self.native_task_success,
             "user_goal_success": self.user_goal_success,
+            "user_goal_status": self.user_goal_status,
+            "execution_status": self.execution_status,
+            "retreat_error": self.retreat_error,
+            "evidence_source": self.evidence_source,
             "subgoal_results": self.subgoal_results,
             "execution_mode": self.execution_mode,
             "awaiting_confirm": self.phase == "waiting_confirmation",

@@ -30,6 +30,7 @@ CHECKERS = frozenset(
         "grasp_held",
         "object_transported",
         "object_placed",
+        "retreated",
         "user_confirmed",
     }
 )
@@ -551,7 +552,9 @@ def validate_plan(plan: dict[str, Any], *, task: str | None = None) -> dict[str,
         if skill == "set_gripper":
             gripper = args.get("gripper") if isinstance(args, dict) else None
             expected = "object_placed" if _gripper_value(gripper) == -1.0 else "grasp_held"
-        if skill == "move_to" and isinstance(args, dict) and _gripper_value(args.get("gripper")) == -1.0:
+        if skill == "move_to" and isinstance(args, dict) and args.get("motion") == "retreat":
+            expected = "retreated"
+        elif skill == "move_to" and isinstance(args, dict) and _gripper_value(args.get("gripper")) == -1.0:
             expected = "object_placed"
         if check not in CHECKERS:
             errors.append(_err(f"{path}.completion_check", "checker", check, ",".join(sorted(CHECKERS))))
@@ -672,7 +675,11 @@ def _arg_errors(path: str, skill: str, args: dict[str, Any], plan: dict[str, Any
         need_ref()
         has_xyz = "xyz" in args
         has_from = "xyz_from" in args
-        if has_xyz == has_from:
+        retreat = args.get("motion") == "retreat"
+        if retreat:
+            if has_xyz or has_from or "hold_offset" in args or "carry_offset" in args or "xy_offset" in args:
+                errors.append(_err(f"{path}.args", "retreat_args", list(args), "gripper and object_ref only; retreat has no xyz and no hold offset"))
+        elif has_xyz == has_from:
             errors.append(_err(f"{path}.args", "xyz_source", list(args), "exactly one of xyz or xyz_from"))
         if has_xyz:
             xyz = args.get("xyz")
@@ -692,11 +699,17 @@ def _arg_errors(path: str, skill: str, args: dict[str, Any], plan: dict[str, Any
         if _gripper_value(args.get("gripper")) is None:
             errors.append(_err(f"{path}.args.gripper", "gripper", args.get("gripper"), "-1 open or +1 close"))
         motion = args.get("motion", "travel")
-        if motion not in {"travel", "vertical"}:
-            errors.append(_err(f"{path}.args.motion", "motion", motion, "travel|vertical"))
-        carry = args.get("carry_offset")
+        if motion not in {"travel", "vertical", "retreat"}:
+            errors.append(_err(f"{path}.args.motion", "motion", motion, "travel|vertical|retreat"))
+        if args.get("placement") not in {None, "support_region"}:
+            errors.append(_err(f"{path}.args.placement", "placement", args.get("placement"), "support_region"))
+        if args.get("placement") == "support_region" and args.get("xy_offset") is not None:
+            errors.append(_err(f"{path}.args.xy_offset", "fixed_offset", args.get("xy_offset"), "occupancy check inside the support region"))
+        carry = args.get("carry_offset", args.get("hold_offset"))
         if carry is not None and not isinstance(carry, str):
-            errors.append(_err(f"{path}.args.carry_offset", "type", carry, "object_ref"))
+            errors.append(_err(f"{path}.args.hold_offset", "type", carry, "object_ref"))
+        if args.get("carry_offset") and args.get("hold_offset"):
+            errors.append(_err(f"{path}.args", "hold_offset", [args.get("carry_offset"), args.get("hold_offset")], "one hold offset"))
         xy_offset = args.get("xy_offset")
         if xy_offset is not None:
             if (
@@ -705,7 +718,7 @@ def _arg_errors(path: str, skill: str, args: dict[str, Any], plan: dict[str, Any
                 or any(isinstance(v, bool) or not isinstance(v, (int, float)) or abs(float(v)) > 0.08 for v in xy_offset)
             ):
                 errors.append(_err(f"{path}.args.xy_offset", "range", xy_offset, "two meters, each within 0.08"))
-        extra = set(args) - {"xyz", "xyz_from", "z_offset", "gripper", "object_ref", "max_steps", "motion", "carry_offset", "xy_offset"}
+        extra = set(args) - {"xyz", "xyz_from", "z_offset", "gripper", "object_ref", "max_steps", "motion", "carry_offset", "hold_offset", "xy_offset", "placement"}
         for key in extra:
             errors.append(_err(f"{path}.args.{key}", "unexpected_arg", key, "xyz source, gripper"))
         if "max_steps" in args and (isinstance(args["max_steps"], bool) or not isinstance(args["max_steps"], int) or not 1 <= args["max_steps"] <= 80):
@@ -1178,7 +1191,6 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
     ]
     segmented: set[str] = set()
     previous = "observe"
-    placed_on: dict[str, int] = {}
     for item in plan["steps"]:
         args = item["args"]
         obj = args["object_ref"]
@@ -1186,9 +1198,6 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
         obj_query = args.get("grounding_query") or _grounding_query(objects[obj])
         target_query = _grounding_query(objects[target])
         vla_prompt = _short_pick(args.get("vla_prompt") or args.get("prompt") or "", obj_query)
-        slot = placed_on.get(target, 0)
-        placed_on[target] = slot + 1
-        xy_offset = [round(0.04 * slot, 3), 0.0] if slot else None
         if obj not in segmented:
             steps.append(_segment_step(obj, obj_query, previous))
             segmented.add(obj)
@@ -1227,9 +1236,9 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                     "z_offset": 0.12,
                     "gripper": 1,
                     "object_ref": obj,
-                    "carry_offset": obj,
+                    "hold_offset": obj,
+                    "placement": "support_region",
                     "motion": "travel",
-                    **({} if xy_offset is None else {"xy_offset": xy_offset}),
                 },
                 "grounding_query": obj_query,
                 "depends_on": [pick, f"seg_{target}"],
@@ -1252,9 +1261,9 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                     "z_offset": 0.03,
                     "gripper": 1,
                     "object_ref": obj,
-                    "carry_offset": obj,
+                    "hold_offset": obj,
+                    "placement": "support_region",
                     "motion": "vertical",
-                    **({} if xy_offset is None else {"xy_offset": xy_offset}),
                 },
                 "grounding_query": obj_query,
                 "depends_on": [move],
@@ -1290,17 +1299,13 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "step_id": retreat,
                 "skill": "move_to",
                 "args": {
-                    "xyz_from": f"segment:{target_query}",
-                    "z_offset": 0.12,
                     "gripper": -1,
                     "object_ref": obj,
-                    "carry_offset": obj,
-                    "motion": "vertical",
-                    **({} if xy_offset is None else {"xy_offset": xy_offset}),
+                    "motion": "retreat",
                 },
                 "depends_on": [place],
-                "preconditions": ["grasp_held"],
-                "completion_check": "object_placed",
+                "preconditions": [],
+                "completion_check": "retreated",
                 "target_ref": target,
                 "relation": args["relation"],
                 "budget": {"max_s": 30, "max_attempts": 1},
@@ -1558,9 +1563,14 @@ def resolve_args(args: dict[str, Any], bindings: dict[str, list[float]]) -> dict
         if isinstance(xy_offset, list) and len(xy_offset) >= 2:
             xyz[0] += float(xy_offset[0])
             xyz[1] += float(xy_offset[1])
+        hold_ref = out.pop("hold_offset", None)
         carry_ref = out.pop("carry_offset", None)
+        if hold_ref and carry_ref and hold_ref != carry_ref:
+            raise PlanError([_err("args.hold_offset", "duplicate", [hold_ref, carry_ref], "one object reference")])
+        carry_ref = hold_ref or carry_ref
+        out.pop("placement", None)
         if carry_ref:
-            offset = bindings.get(f"carry:{carry_ref}")
+            offset = bindings.get(f"carry:{carry_ref}") or bindings.get(f"hold_offset:{carry_ref}")
             if not isinstance(offset, list) or len(offset) < 3:
                 raise PlanError([_err("args.carry_offset", "missing_binding", carry_ref, "object-minus-eef from the current grasp")])
             xyz = [xyz[i] - float(offset[i]) for i in range(3)]

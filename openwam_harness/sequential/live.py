@@ -98,12 +98,14 @@ class LiveBackend:
         self._open()
 
     def set_execution_mode(self, mode: str) -> None:
+        from episode_service import publish_mode
         from free_task import EpisodeFlags
 
         if mode not in {"benchmark", "free"}:
             raise ValueError(mode)
         self.execution_mode = mode
         self._flags = EpisodeFlags(mode)
+        publish_mode(mode)
 
     def _episode_flags(self):
         if self._flags is None or self._flags.mode != self.execution_mode:
@@ -113,20 +115,42 @@ class LiveBackend:
         return self._flags
 
     def _absorb_terminal(self) -> None:
-        """The RPC server does not latch success and auto_reset is false.
+        """Record the service's native-goal event. Do not clear the client latch.
 
-        LIBERO returns ``done`` from the current goal check. RLinf keeps that
-        flag because ``ignore_terminations`` is false, then returns it. The
-        sticky refusal is ``LiberoEnvClient.step`` / ``chunk_step``. Free mode
-        clears only that client latch. ``truncated`` stays sticky, and a later
-        call still refuses to step an uncontinuable episode.
+        Benchmark mode still stops when the client has latched ``terminated``.
+        Free mode reads ``env.native_goal`` from the env service. Truncation
+        stays final. This method does not assign ``env.terminated`` and does
+        not reset.
         """
         if self.toolkit is None:
             return
         env = self.toolkit.primitives.env
-        decision = self._episode_flags().absorb(bool(env.terminated), bool(env.truncated))
-        if decision["clear_terminated"] and not bool(env.truncated):
-            env.terminated = False
+        truncated = bool(env.truncated)
+        if self.execution_mode == "free":
+            self._episode_flags().absorb(self._query_native_goal(), truncated)
+            return
+        self._episode_flags().absorb(bool(env.terminated), truncated)
+
+    def _query_native_goal(self) -> bool:
+        env = self.toolkit.primitives.env if self.toolkit is not None else None
+        client = getattr(env, "_client", None)
+        if client is None:
+            return False
+        try:
+            payload = client.call("env.native_goal", timeout_s=2.0)
+        except Exception:
+            return False
+        return bool(isinstance(payload, dict) and payload.get("native_goal"))
+
+    def _ended_reason(self) -> str | None:
+        env = self.toolkit.primitives.env if self.toolkit is not None else None
+        if env is not None and bool(getattr(env, "truncated", False)):
+            return "环境已到时间上限，不再 step"
+        if self.execution_mode != "free" and env is not None and bool(getattr(env, "terminated", False)):
+            return "环境已按原生规则结束，不再 step"
+        if not self.episode_continuable():
+            return "环境已结束，不再 step"
+        return None
 
     def episode_continuable(self) -> bool:
         return self._episode_flags().continuable()
@@ -263,10 +287,11 @@ class LiveBackend:
                 real=False,
                 error_class="plan",
             )
-        if not self.episode_continuable():
+        ended = self._ended_reason()
+        if ended:
             return ToolOutcome(
                 executed=False,
-                error="环境已结束，不再 step",
+                error=ended,
                 real=False,
                 error_class="plan",
             )
@@ -354,8 +379,6 @@ class LiveBackend:
         if flags.truncated:
             return False
         if self.execution_mode == "free":
-            # The client latch is cleared so later steps stay legal.
-            # The native goal itself is still recorded.
             return bool(flags.native_goal_met)
         env = self.toolkit.primitives.env
         # env.terminated sticks on the official LIBERO success check.

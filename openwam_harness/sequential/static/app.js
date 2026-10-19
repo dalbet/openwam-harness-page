@@ -260,10 +260,11 @@ function handleText(txt){
       if (m.planner_stage) lastPlannerStage = m.planner_stage;
       if (m.status) lastRunStatus = m.status;
       if (m.execution) rememberExec(m.execution);
-      if (progressEl && (m.native_task_success != null || m.user_goal_success != null)) {
-        const nativeText = m.native_task_success ? "原生目标已达成" : "原生目标未达成";
-        const userText = m.user_goal_success == null ? "" : (m.user_goal_success ? "用户目标已完成" : "用户目标未完成");
-        progressEl.textContent = [m.execution_mode === "free" ? "自由模式" : "", nativeText, userText].filter(Boolean).join(" · ");
+      if (progressEl && (m.native_task_success != null || m.user_goal_status || m.retreat_error)) {
+        const nativeText = m.native_task_success == null ? "" : (m.native_task_success ? "原生目标已达成" : "原生目标未达成");
+        const userText = m.user_goal_status === "met" ? "用户目标已完成" : (m.user_goal_status === "unmet" ? "用户目标未完成" : (m.user_goal_status === "unknown" ? "用户目标未复查" : ""));
+        const retreatText = m.retreat_error ? "退离异常" : "";
+        progressEl.textContent = [m.execution_mode === "free" ? "自由模式" : "", m.execution_status || "", nativeText, userText, retreatText].filter(Boolean).join(" · ");
       }
       if (!rootError && m.success !== true) rootError = m.root_error || m.reason || "";
       endedFallback = m;
@@ -591,8 +592,9 @@ function applySnapshot(m){
   if (run.user_text) goalEl.textContent = `输入保留：${run.user_text}` + (run.plan_summary ? ` · 计划：${run.plan_summary}` : "");
   if (progressEl && run.phase && run.phase !== "idle") {
     const nativeText = run.native_task_success == null ? "" : (run.native_task_success ? "原生目标已达成" : "原生目标未达成");
-    const userText = run.user_goal_success == null ? "" : (run.user_goal_success ? "用户目标已完成" : "用户目标未完成");
-    const bits = [run.execution_mode === "free" ? "自由模式" : "", run.phase, nativeText, userText].filter(Boolean);
+    const userText = run.user_goal_status === "met" ? "用户目标已完成" : (run.user_goal_status === "unmet" ? "用户目标未完成" : (run.user_goal_status === "unknown" ? "用户目标未复查" : (run.user_goal_success == null ? "" : (run.user_goal_success ? "用户目标已完成" : "用户目标未完成"))));
+    const retreatText = run.retreat_error ? "退离异常" : "";
+    const bits = [run.execution_mode === "free" ? "自由模式" : "", run.execution_status || run.phase, nativeText, userText, retreatText].filter(Boolean);
     progressEl.textContent = bits.join(" · ");
   }
   if (rootError && (run.phase === "failed" || run.phase === "cancelled" || run.phase === "waiting_confirmation")) {

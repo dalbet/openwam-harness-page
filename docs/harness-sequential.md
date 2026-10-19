@@ -230,3 +230,33 @@ CPU 测试通过只说明契约，不表示整条系统完成。没有批量评�
 刷新时连接会收到当前快照和 `last_payload`。收到帧后 `scheduleDraw()` 会排进下一帧绘制，不等下一次机器人动作。
 
 2026-10-19 审计时，8766 上的 live 进程是 pid 3195、commit `9c159a8`。当时快照是 `block_reason=""`、场景已加载、`producer_alive=false`、Planner `ok`。没有浏览器，不能把这次推算当成按钮点击通过。原始快照在 `openwam_harness/sequential/records/audit_pre_lifecycle.json`。代码上会禁用开始的条件是：正在加载、正在停止、等待确认、正在执行、场景未加载、回合已结束、模型未就绪。其中「正在停止」会在收尾快照里一直留着，直到生产者线程真正退出后又发一次快照。加载解析失败不再先把当前回合标成 `cancelled`。
+
+## 坐标
+
+三个世界坐标分开命名。`support_origin` 是目标表面物体原点。`object_origin` 是被放物体原点。`eef_origin` 是末端原点。`hold_offset = object_origin - eef_origin`，只在仍抓着物体的 `travel` / `descend` 里使用。释放之后的 `retreat` 不再减这个偏移。
+
+落点在支持半径内做占用检查：先试中心，再试 0.04 m 和 `min(radius, 0.055)` 的八个方向，与已有物体保持 0.05 m。没有通过检查的点就返回 `support_occupied`，不会让两个物体共用一个未验证落点。物体目标的 z 是表面 z 加 `z_offset`（接近 0.12 m，下降 0.03 m）。末端目标是 `object_origin - hold_offset`。超出 `thresholds.json` 的 `workspace_m` 直接失败，不把目标夹进上限。
+
+退离从释放时的真实 `eef_origin` 出发。候选是向上 0.04 / 0.08 / 0.12 m，以及远离刚释放物体的水平 0.04 / 0.08 m 和斜向。候选必须留在工作空间里、比释放点更远离该物体，并且不靠近其他物体 0.05 m。没有这样的路径时 code 是 `retreat_no_feasible_path`。
+
+回合 `2b2a7e4b1d0d` 的 `retreat_step2` 旧公式是 `support + [0.04, 0] + 0.12 - hold_offset`。表面 `[0.0466, -0.0276, 0.9097]`，持物偏移 z 为 `-0.12636852116610497`，得到末端 z `1.156068521166105`，被工作空间 z 上限 1.1 拒绝。这组数在 `placement.RECORDED_RETREAT`。按释放末端 `[0.0835, -0.0633, 1.0495]` 向上 0.04 m 得到 z 约 1.0895，留在工作空间内，且不再减持物偏移。
+
+放置、退离和最终复查分开记在 `place_records`、`retreat_records` 和 `final_check`。退离失败后如果 `sim_state()` 仍能只读，就做最终复查，`extra_step` 为 false。
+
+## 成功判据
+
+五个字段分开：
+
+| 字段 | 含义 |
+|---|---|
+| `execution_status` | 计划执行是否走完。退离失败时是 `retreat_error` |
+| `user_goal_status` | `met` / `unmet` / `unknown`。只读仿真状态，不看退离是否成功 |
+| `native_task_success` | 原生 LIBERO 目标是否已经出现 |
+| `retreat_error` | 退离自己的原因。空表示没有退离错误 |
+| `evidence_source` | 用户目标证据从哪来。读不到状态时是 `unavailable` |
+
+退离错误不把用户目标改成失败或成功。自由模式里用户目标 `met` 时相位是完成；`unmet` 时是未完成。原生目标已达成而用户组合还没完成，原因是「原生目标已达成，用户组合目标未完成」。
+
+终止分层：Gym / RLinf 在 `ignore_terminations=false` 时原样返回 `terminated`，`truncated` 是时间上限。`LiberoEnvFacade` 原样转发。客户端 `LiberoEnvClient` 用 `|=` 闩住这两个标志，之后 `step` 会拒绝。工具层看到客户端 `terminated` 或 `truncated` 就停。自由模式不再把 `env.terminated = False`。`episode_service` 在 env server 进程里包装 facade：基准模式原样返回；自由模式把原生成功记成 `native_goal`，返回给客户端的 `terminated=false`，不 reset。`truncated` 仍然结束且不能继续。只读 RPC 是 `env.native_goal`。模式文件是 `sequential/records/episode_mode.json`，适配器启动时写成 `benchmark`，每次 `set_execution_mode` 再写。
+
+本轮没有真实跑到「原生目标先达成、用户组合目标仍未完成」。这一条未验收。

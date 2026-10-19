@@ -90,7 +90,13 @@ class RunLifeTest(unittest.TestCase):
         expanded = expand_semantic_plan(plan)
         moves = [step for step in expanded["steps"] if step["skill"] == "move_to" and step["args"].get("motion") == "travel"]
         self.assertNotIn("xy_offset", moves[0]["args"])
-        self.assertEqual(moves[1]["args"]["xy_offset"], [0.04, 0.0])
+        self.assertNotIn("xy_offset", moves[1]["args"])
+        self.assertEqual(moves[0]["args"]["placement"], "support_region")
+        self.assertEqual(moves[1]["args"]["placement"], "support_region")
+        retreats = [step for step in expanded["steps"] if step["args"].get("motion") == "retreat"]
+        self.assertTrue(retreats)
+        self.assertNotIn("hold_offset", retreats[0]["args"])
+        self.assertNotIn("carry_offset", retreats[0]["args"])
         pick = next(step for step in expanded["steps"] if step["skill"] == "pi0_pick")
         self.assertEqual(pick["vla_prompt"], "pick up the cream cheese")
         self.assertNotIn("奶酪", pick["vla_prompt"])
@@ -112,8 +118,8 @@ class RunLifeTest(unittest.TestCase):
         self.assertIn('"ignore_terminations": False', server)
         self.assertIn("env.step called after the episode signaled term/trunc", client)
         live = (ROOT / "live.py").read_text(encoding="utf-8")
-        self.assertIn("clears only that client latch", live)
-        self.assertIn("env.terminated = False", live)
+        self.assertIn("env.native_goal", live)
+        self.assertNotIn("env.terminated = False", live)
 
 
 def _transfer(step_id, obj, depends):

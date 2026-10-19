@@ -282,22 +282,46 @@ def run_plan(
                 execution=_diagnosis(step, outcome, verification, last_obs, plan),
             )
             return _finish("no_progress", outcome.error, session, started_epoch, started_version, steps, backend, llm_calls)
-        try:
-            args = resolve_args(step.get("args") or {}, bindings)
-        except PlanError as exc:
-            outcome = ToolOutcome(executed=False, error=str(exc), real=False, error_class="plan")
-            steps.append(_step_record(step, outcome, None))
-            emit("failed", step_id=step["step_id"], reason=str(exc))
+        from placement import resolve_motion_step
+
+        prepared = resolve_motion_step(step, bindings, last_obs, plan) if skill == "move_to" else {"ok": True, "args": None}
+        if skill != "move_to":
+            try:
+                prepared = {"ok": True, "args": resolve_args(step.get("args") or {}, bindings), "stage": skill}
+            except PlanError as exc:
+                prepared = {"ok": False, "code": "plan", "reason": str(exc), "stage": skill}
+        if not prepared["ok"]:
+            outcome = ToolOutcome(executed=False, error=prepared.get("reason") or "motion rejected", real=False, error_class="plan")
+            record = _step_record(step, outcome, None)
+            record["stage"] = prepared.get("stage") or skill
+            record["motion"] = {key: value for key, value in prepared.items() if key != "args"}
+            steps.append(record)
+            emit("failed", step_id=step["step_id"], reason=outcome.error, reason_code=prepared.get("code"))
+            if (step.get("args") or {}).get("motion") == "retreat":
+                return _finish(
+                    "retreat_error",
+                    outcome.error,
+                    session,
+                    started_epoch,
+                    started_version,
+                    steps,
+                    backend,
+                    llm_calls,
+                    plan=plan,
+                    retreat_error=outcome.error,
+                )
             return _finish(
                 "no_progress",
-                str(exc),
+                outcome.error,
                 session,
                 started_epoch,
                 started_version,
                 steps,
                 backend,
                 llm_calls,
+                plan=plan,
             )
+        args = prepared["args"]
         before_step = _env_step(backend)
         calls = _calls_for(skill, args, eef)
         outcome = _execute_with_one_retry(backend, calls)
@@ -456,9 +480,48 @@ def run_plan(
                     recovery_attempts=recovery.attempts.get(step["step_id"], 0),
                     execution=diag,
                 )
-                status = "RECOVERY_EXHAUSTED" if verification.get("reason_code") == "RECOVERY_EXHAUSTED" else "no_progress"
-                return _finish(status, diag["reason"] or "failed", session, started_epoch, started_version, steps, backend, llm_calls, execution=diag, plan=plan)
-        steps.append(_step_record(step, outcome, verification, last_obs))
+                if (step.get("args") or {}).get("motion") == "retreat":
+                    status = "retreat_error"
+                elif verification.get("reason_code") == "RECOVERY_EXHAUSTED":
+                    status = "RECOVERY_EXHAUSTED"
+                else:
+                    status = "no_progress"
+                return _finish(
+                    status,
+                    diag["reason"] or "failed",
+                    session,
+                    started_epoch,
+                    started_version,
+                    steps,
+                    backend,
+                    llm_calls,
+                    execution=diag,
+                    plan=plan,
+                    retreat_error=diag["reason"] if status == "retreat_error" else None,
+                )
+        record = _step_record(step, outcome, verification, last_obs)
+        if skill == "set_gripper" and step.get("completion_check") == "object_placed":
+            record["stage"] = "place"
+        elif (step.get("args") or {}).get("motion") == "retreat":
+            record["stage"] = "retreat"
+            record["retreat"] = prepared.get("retreat")
+        elif prepared.get("stage"):
+            record["stage"] = prepared.get("stage")
+            record["motion"] = {key: prepared[key] for key in ("object_origin", "eef_origin", "hold_offset", "support_origin", "applied_hold_offset") if key in prepared}
+        steps.append(record)
+        if (step.get("args") or {}).get("motion") == "retreat" and verification.get("status") != "success":
+            return _finish(
+                "retreat_error",
+                verification.get("reason_code") or "retreat failed",
+                session,
+                started_epoch,
+                started_version,
+                steps,
+                backend,
+                llm_calls,
+                plan=plan,
+                retreat_error=verification.get("reason_code") or "retreat failed",
+            )
         if stop_after and step.get("completion_check") == stop_after:
             diag = _diagnosis(step, outcome, verification, last_obs, plan)
             diag["stopped"] = stop_after
@@ -1078,12 +1141,14 @@ def _diagnosis(step, outcome, verification, observation, plan) -> dict[str, Any]
     }
 
 
-def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, execution=None, plan=None) -> dict[str, Any]:
+def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, execution=None, plan=None, retreat_error=None) -> dict[str, Any]:
     # Official success is only the backend's LIBERO terminated flag.
     # Truncation, an unfinished plan, and planner finish do not set it.
-    native = bool(backend.native_success())
+    # A retreat error does not assign the user goal.
+    native = bool(backend.native_success()) if hasattr(backend, "native_success") else False
     payload = {
         "status": status,
+        "execution_status": "retreat_error" if retreat_error else status,
         "reason": reason,
         "episode_id": session.episode_id,
         "scene_epoch": epoch,
@@ -1092,7 +1157,12 @@ def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, 
         "native_success": native,
         "native_task_success": native,
         "user_goal_success": None,
+        "user_goal_status": None,
         "subgoal_results": None,
+        "retreat_error": retreat_error,
+        "evidence_source": None,
+        "place_records": [step for step in steps if step.get("stage") in {"place", "place_motion"}],
+        "retreat_records": [step for step in steps if step.get("stage") == "retreat"],
         "llm_calls_during_execution": llm_calls,
         "tool_results": [step.get("tool_result") for step in steps],
         "subtask_results": [step.get("verification") for step in steps],
@@ -1101,9 +1171,29 @@ def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, 
     if plan and plan.get("execution_mode") == "free":
         from free_task import judge_user_goal
 
-        sim = backend.sim_state() if hasattr(backend, "sim_state") else {}
-        judged = judge_user_goal(plan.get("predicates") or [], sim)
-        payload["user_goal_success"] = judged["user_goal_success"]
-        payload["subgoal_results"] = judged["subgoal_results"]
-        payload["goal_evidence_source"] = "sim_state"
+        sim = None
+        evidence = "unavailable"
+        if hasattr(backend, "sim_state"):
+            try:
+                sim = backend.sim_state()
+                evidence = "sim_state"
+            except Exception:
+                sim = None
+                evidence = "unavailable"
+        if sim is None:
+            payload["user_goal_status"] = "unknown"
+            payload["evidence_source"] = evidence
+        else:
+            judged = judge_user_goal(plan.get("predicates") or [], sim)
+            payload["user_goal_success"] = judged["user_goal_success"]
+            payload["user_goal_status"] = "met" if judged["user_goal_success"] else "unmet"
+            payload["subgoal_results"] = judged["subgoal_results"]
+            payload["evidence_source"] = judged.get("evidence_source") or evidence
+        payload["final_check"] = {
+            "user_goal_status": payload["user_goal_status"],
+            "native_task_success": native,
+            "retreat_error": retreat_error,
+            "evidence_source": payload["evidence_source"],
+            "extra_step": False,
+        }
     return payload

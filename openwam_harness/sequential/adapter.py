@@ -157,6 +157,9 @@ class App:
         self.logs: list[str] = []
         self.mode = "live" if LIVE else "dry"
         self.execution_mode = "benchmark"
+        from episode_service import publish_mode
+
+        publish_mode(self.execution_mode)
         self.load_token = 0
         self.recovery_attempts = 0
         self.binding = None
@@ -1394,15 +1397,21 @@ class App:
             phase = "stopped"
             reason = "预算到时 · " + (result["reason"] or "")
         elif self.execution_mode == "free":
-            user_ok = result.get("user_goal_success") is True
+            user_status = result.get("user_goal_status")
             native_ok = bool(result.get("native_task_success"))
-            if user_ok:
+            if user_status == "met":
                 phase = "completed"
                 status = "completed"
                 reason = "用户目标完成"
-            elif native_ok:
+            elif user_status == "unmet" and native_ok:
                 phase = "incomplete"
                 reason = "原生目标已达成，用户组合目标未完成"
+            elif user_status == "unmet":
+                phase = "incomplete"
+                reason = "用户目标未完成"
+            elif result.get("retreat_error"):
+                phase = "incomplete"
+                reason = "退离未完成，用户目标未能复查"
             elif status == "completed":
                 phase = "incomplete"
                 reason = "计划已执行，用户目标未完成"
@@ -1423,12 +1432,19 @@ class App:
             phase = "failed"
         self.runs.native_task_success = bool(result.get("native_task_success"))
         self.runs.user_goal_success = result.get("user_goal_success")
+        self.runs.user_goal_status = result.get("user_goal_status")
+        self.runs.execution_status = result.get("execution_status")
+        self.runs.retreat_error = result.get("retreat_error")
+        self.runs.evidence_source = result.get("evidence_source")
         self.runs.subgoal_results = result.get("subgoal_results")
         self.runs.execution = result.get("execution")
         self.runs.plan_summary = str(plan.get("goal") or "")[:200]
         terminal = "succeeded" if phase == "completed" else "cancelled" if phase == "stopped" else "failed"
-        if terminal != "succeeded":
-            self.runs.note_error(reason, code or "")
+        if terminal == "succeeded":
+            self.runs.root_error = ""
+            self.runs.root_code = ""
+        else:
+            self.runs.note_error(reason, code or result.get("execution_status") or "")
         self.broadcast_frame(
             {
                 "eid": episode,
@@ -1455,6 +1471,10 @@ class App:
                 "native_success": native,
                 "native_task_success": bool(result.get("native_task_success")),
                 "user_goal_success": result.get("user_goal_success"),
+                "user_goal_status": result.get("user_goal_status"),
+                "execution_status": result.get("execution_status"),
+                "retreat_error": result.get("retreat_error"),
+                "evidence_source": result.get("evidence_source"),
                 "subgoal_results": result.get("subgoal_results"),
                 "execution_mode": self.execution_mode,
                 "plan_source": plan.get("plan_source"),

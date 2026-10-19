@@ -12,7 +12,9 @@ if os.environ.get("SEQUENTIAL_DISPLAY_HOOK") == "1" and any(
 ):
     try:
         import env_display_hook
+        import episode_service
 
         env_display_hook.install()
+        episode_service.install()
     except Exception:
         pass
