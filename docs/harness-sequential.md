@@ -75,6 +75,22 @@ HARNESS_LIVE=1 bash /root/Page_dmh/openwam_harness/sequential/start_adapter.sh
 
 原 Page UI 仍用 `page_ui` 的 8765。顺序页是 8766。
 
+## 回归
+
+协议回归不连接 LIBERO，也不占用 8766。环境、Planner 和分割都是替身。没有浏览器，所以不能把结果说成按钮点击通过。
+
+```bash
+cd /root/Page_dmh/openwam_harness/sequential
+/root/Page_dmh/openwam_harness/envs/rpent/bin/python -m unittest \
+  test_protocol_regression.py test_retreat_geometry.py \
+  test_lifecycle.py test_run_life.py test_start_contract.py test_load_contract.py \
+  test_free_task.py test_contract.py test_stagec.py
+```
+
+`test_protocol_regression.py` 走适配器的 `/ws`：加载、刷新、开始门闩、Planner 离线后恢复、规划失败后重新加载、双击开始、低分分割后停止和确认超时、执行异常后生产者退出再加载、旧 `ended`、重连。报告写到 `openwam_harness/sequential/records/protocol_regression_report.json`。`test_retreat_geometry.py` 用回合 `2b2a7e4b1d0d` 的坐标，不读被忽略的 `runs/` 目录。
+
+加载结束时会再发一次快照。这次 `loading` 已经是 false，所以不刷新也能看到真实的 `can_start`。刷新仍然会收到当前快照和最后一帧。生产者还没退出时，重复停止的回执是 `already_stopping`。确认超时写的根因是「确认超时，已结束等待」，不会被进入等待时的低分原因盖住。
+
 ## Windows 转发
 
 容器里的 `SSH_CONNECTION` 是 `127.0.0.1`，公网 SSH 端口不在环境变量中。当前实例区域是 `bj-B2`。仓库里原 Page UI 记录的例子来自另一台 `bjb1`：

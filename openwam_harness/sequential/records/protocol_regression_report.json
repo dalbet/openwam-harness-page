@@ -1,0 +1,96 @@
+{
+  "libero_connected": false,
+  "browser_click": false,
+  "port": 45963,
+  "driver": "aiohttp TestClient websocket to adapter.websocket; LiveBackend and request_plan are stubs",
+  "paths": [
+    {
+      "name": "加载→刷新→开始前",
+      "result": "pass",
+      "driver": "websocket stub",
+      "libero": false,
+      "browser": false,
+      "detail": "刷新后的快照 can_start 与空 block_reason 一致，并带最后一帧"
+    },
+    {
+      "name": "Planner离线→恢复",
+      "result": "pass",
+      "driver": "websocket stub",
+      "libero": false,
+      "browser": false,
+      "detail": "离线时 start_ack 为 profile_offline；探测恢复后允许下一次开始"
+    },
+    {
+      "name": "Planner失败→重新加载",
+      "result": "pass",
+      "driver": "websocket stub",
+      "libero": false,
+      "browser": false,
+      "detail": "失败留在 history，新场景 can_start"
+    },
+    {
+      "name": "双击开始",
+      "result": "pass",
+      "driver": "websocket stub",
+      "libero": false,
+      "browser": false,
+      "detail": "第一次计划还停在 request_plan 时，第二次 start_ack 被拒绝"
+    },
+    {
+      "name": "分割低分→停止等待确认",
+      "result": "pass",
+      "driver": "websocket stub",
+      "libero": false,
+      "browser": false,
+      "detail": "低分分割进入等待；第一次停止接受，重复停止是 already_stopping"
+    },
+    {
+      "name": "重复停止",
+      "result": "pass",
+      "driver": "websocket stub",
+      "libero": false,
+      "browser": false,
+      "detail": "第二条 stop_ack code 为 already_stopping"
+    },
+    {
+      "name": "分割低分→确认超时",
+      "result": "pass",
+      "driver": "websocket stub",
+      "libero": false,
+      "browser": false,
+      "detail": "没有确认消息，wait_confirm 返回超时并结束这一轮"
+    },
+    {
+      "name": "执行异常→生产者退出→重新加载",
+      "result": "pass",
+      "driver": "websocket stub",
+      "libero": false,
+      "browser": false,
+      "detail": "execute 抛出后生产者退出，再次 load_ack accepted"
+    },
+    {
+      "name": "旧 ended 消息迟到",
+      "result": "pass",
+      "driver": "websocket stub",
+      "libero": false,
+      "browser": false,
+      "detail": "服务端快照不被这条消息改写；app.js 有对应过滤。没有执行浏览器"
+    },
+    {
+      "name": "WS重连",
+      "result": "pass",
+      "driver": "websocket stub",
+      "libero": false,
+      "browser": false,
+      "detail": "新连接收到快照和最后一帧"
+    },
+    {
+      "name": "退离几何回归输入",
+      "result": "pass",
+      "driver": "placement.legacy_retreat_eef(RECORDED_RETREAT)",
+      "libero": false,
+      "browser": false,
+      "detail": "记录中的 retreat_step2 仍复现 z=1.156，且不在工作空间内"
+    }
+  ]
+}

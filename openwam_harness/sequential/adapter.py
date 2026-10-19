@@ -612,6 +612,7 @@ class App:
         finally:
             with self.lock:
                 self.loading = False
+            self.broadcast(self.snapshot())
 
     def _load_locked(self, message, token: int) -> None:
         try:
@@ -918,11 +919,12 @@ class App:
         from vla_async import get_controller
 
         request_id = message.get("client_request_id") if isinstance(message, dict) else None
-        if self.runs.phase == "cancelling":
+        gates = self.command_gates()
+        if self.runs.phase == "cancelling" or gates["block_code"] == "producer_alive":
             self._command_ack("stop_ack", "rejected", "already_stopping", "已经在停止", request_id)
             self.broadcast(self.snapshot())
             return
-        if not self.command_gates()["can_stop"]:
+        if not gates["can_stop"]:
             self._command_ack("stop_ack", "rejected", "idle", "没有正在执行的动作", request_id)
             self.broadcast(self.snapshot())
             return
@@ -1345,7 +1347,7 @@ class App:
                 self.runs.set_phase("waiting_confirmation")
             if event.get("execution"):
                 self.runs.execution = event.get("execution")
-            if event.get("phase") in {"failed", "waiting_confirmation"}:
+            if event.get("phase") == "failed":
                 self.runs.note_error(str(event.get("reason") or event.get("detail") or ""), str(event.get("reason_code") or ""))
             if not seen_tool["done"] and event.get("skill"):
                 seen_tool["done"] = True
