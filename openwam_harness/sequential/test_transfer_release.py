@@ -191,6 +191,14 @@ class TransferReleaseTest(unittest.TestCase):
         reached = arrival([-0.2402, 0.2403, 1.0562], [-0.2389, 0.2487, 1.0568])
         self.assertTrue(reached["ok"])
 
+    def test_motion_rereads_when_the_current_observation_has_no_site(self):
+        from placement import region_pose_ready
+
+        step = {"target_ref": "flat_stove_1", "skill": "move_to"}
+        plan = {"objects": OBJECTS}
+        self.assertFalse(region_pose_ready(step, {"sim": {}, "named_poses": {"sites": {}}}, plan))
+        self.assertTrue(region_pose_ready(step, {"named_poses": {"sites": {"flat_stove_1_cook_region": list(SITE)}}}, plan))
+
 
 if __name__ == "__main__":
     unittest.main()

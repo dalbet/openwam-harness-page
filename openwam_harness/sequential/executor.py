@@ -341,8 +341,10 @@ def run_plan(
                 execution=_diagnosis(step, outcome, verification, last_obs, plan),
             )
             return _finish("no_progress", outcome.error, session, started_epoch, started_version, steps, backend, llm_calls)
-        from placement import resolve_motion_step
+        from placement import region_pose_ready, resolve_motion_step
 
+        if skill == "move_to" and not region_pose_ready(step, last_obs, plan):
+            last_obs = _capture(backend, started_epoch)
         prepared = resolve_motion_step(step, bindings, last_obs, plan) if skill == "move_to" else {"ok": True, "args": None}
         if skill != "move_to":
             try:
@@ -355,7 +357,29 @@ def run_plan(
             record["stage"] = prepared.get("stage") or skill
             record["motion"] = {key: value for key, value in prepared.items() if key != "args"}
             steps.append(record)
-            emit("failed", step_id=step["step_id"], reason=outcome.error, reason_code=prepared.get("code"))
+            verification = receipt(
+                "failure",
+                prepared.get("code") or "pose_not_provided",
+                prepared.get("evidence_source") or "per_item",
+                [],
+                {
+                    "summary": outcome.error,
+                    "error": outcome.error,
+                    "missing": ["target_region_pose"],
+                    "unmet": [outcome.error],
+                    "actual": {"target_region_pose": None, "region_key": prepared.get("region_key")},
+                    "condition": "区域运动前必须读到本次观测中的放置 site，不能用分割点或设施原点代替",
+                    "evidence_sources": {"target_region": prepared.get("evidence_source") or "pose_not_provided"},
+                },
+            )
+            emit(
+                "failed",
+                step_id=step["step_id"],
+                skill=skill,
+                reason=outcome.error,
+                reason_code=prepared.get("code"),
+                execution=_diagnosis(step, outcome, verification, last_obs, plan),
+            )
             if (step.get("args") or {}).get("motion") == "retreat":
                 return _finish(
                     "retreat_error",

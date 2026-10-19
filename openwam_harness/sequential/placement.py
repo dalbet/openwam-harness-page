@@ -236,6 +236,15 @@ def preplace_gate(step, obs, plan, bindings) -> dict[str, Any]:
     }
 
 
+def region_pose_ready(step, obs, plan) -> bool:
+    """True when this move does not need a site, or the current observation already has it."""
+    spec = (plan.get("objects") or {}).get(step.get("target_ref") or "")
+    if not isinstance(spec, dict) or not spec.get("place_site"):
+        return True
+    surface, _source, _key = _support_surface(step, {}, obs, plan)
+    return surface is not None
+
+
 def _support_surface(step, bindings, obs, plan):
     args = dict(step.get("args") or {})
     source = str(args.get("xyz_from") or "")
@@ -276,6 +285,7 @@ def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
             "reason": f"没有目标区域的世界坐标 {surface_key or source}",
             "stage": "place_motion",
             "evidence_source": surface_source,
+            "region_key": surface_key,
         }
     z_offset = float(args.get("z_offset") or 0.0)
     low, high = THRESHOLDS["approach_z_offset_m"]
