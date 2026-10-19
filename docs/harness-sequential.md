@@ -84,7 +84,7 @@ cd /root/Page_dmh/openwam_harness/sequential
 /root/Page_dmh/openwam_harness/envs/rpent/bin/python -m unittest \
   test_protocol_regression.py test_retreat_geometry.py \
   test_lifecycle.py test_run_life.py test_start_contract.py test_load_contract.py \
-  test_free_task.py test_contract.py test_stagec.py
+  test_free_task.py test_contract.py test_stagec.py test_binding_chain.py
 ```
 
 `test_protocol_regression.py` 走适配器的 `/ws`：加载、刷新、开始门闩、Planner 离线后恢复、规划失败后重新加载、双击开始、低分分割后停止和确认超时、执行异常后生产者退出再加载、旧 `ended`、重连。报告写到 `openwam_harness/sequential/records/protocol_regression_report.json`。`test_retreat_geometry.py` 用回合 `2b2a7e4b1d0d` 的坐标，不读被忽略的 `runs/` 目录。
@@ -276,3 +276,44 @@ CPU 测试通过只说明契约，不表示整条系统完成。没有批量评�
 终止分层：Gym / RLinf 在 `ignore_terminations=false` 时原样返回 `terminated`，`truncated` 是时间上限。`LiberoEnvFacade` 原样转发。客户端 `LiberoEnvClient` 用 `|=` 闩住这两个标志，之后 `step` 会拒绝。工具层看到客户端 `terminated` 或 `truncated` 就停。自由模式不再把 `env.terminated = False`。`episode_service` 在 env server 进程里包装 facade：基准模式原样返回；自由模式把原生成功记成 `native_goal`，返回给客户端的 `terminated=false`，不 reset。`truncated` 仍然结束且不能继续。只读 RPC 是 `env.native_goal`。模式文件是 `sequential/records/episode_mode.json`，适配器启动时写成 `benchmark`，每次 `set_execution_mode` 再写。
 
 本轮没有真实跑到「原生目标先达成、用户组合目标仍未完成」。这一条未验收。
+
+`finalize_run` 是成功、失败、停止、确认超时、预算到时和异常的同一出口。它只读复查，不调用 `env.step`。读失败时五个字段仍然写出：`user_goal_status=unknown`，`evidence_source=unavailable`，并带 `unknown_reason`。`completed_subgoals` 只表示步骤曾经 `PLACED`，`subgoal_results` 才是最终条件。`first_error` 和 `verification_error` 分开保留。finalize 自己出错也不挡住运行所有权释放。
+
+## 自由模式字段流
+
+原句直接进入 Planner，不经过名称正则或任务目录门槛。Planner 只提交 `object_n` / `target_n`。`resolve_plan_bindings` 用同一次 `scene_graph` 派生实例，不另建映射。
+
+每条语义步骤记下 `candidate_id`、`instance_ref`、`canonical_name`、`grounding_query`、`vla_prompt`、`evidence_source`。候选表和计划同时记下 `scene_epoch`、`observation_id`、`candidate_set_version`。位姿带 `sampled_at`，状态是 `not_sampled` 直到当次查询，不当成永久坐标。
+
+绑定缺编号、编号和实例不一致、类型名冒充实例、候选版本过期，或设施没有唯一 BDDL 放置区域时，返回契约错误，动作不会开始。
+
+页面「绑定对象」读 `plan_bindings`。自由模式进 Planner 前的 `binding.object_ref` 仍是空的，不能用来显示未绑定。
+
+## 状态查询与错误
+
+`query_bound_state` 按已绑定的 `instance_ref` 读当前观测。可动物体的查询键就是实例名，对应观测里的 `{instance}_pos`。炉灶这类目标的查询键是 BDDL goal atom。`put_the_bowl_on_the_stove` 的原子是 `flat_stove_1_cook_region`，由 `flat_stove_1` 和 `cook_region` 按 liberopro `get_regions` 的 `target + "_" + region` 组成，并且该原子已经写在 `:goal` 里。不截后缀，也不用设施 body 原点。
+
+只读 RPC 是 `env.named_poses`。位姿成功时证据是 `sim_state` 或 `mujoco_site`。场景清单里有名字不算已经有位姿。
+
+错误码分开：
+
+| 码 | 含义 | 去向 |
+|---|---|---|
+| `instance_not_found` | 实例不在当前场景，或拿到的是类型名 | 失败，不请求抓取确认 |
+| `pose_not_provided` | 实例在，但没有位姿或放置区域坐标 | 失败。状态可读时最多再读一次 |
+| `stale_observation` | 观测的 `scene_epoch` 与计划不一致 | 失败 |
+| `state_service_error` | 状态服务报错或缺字段 | 失败。最多再读一次 |
+| `visual_instance_ambiguous` | 定位无法区分多个同类实例 | `awaiting_clarification`，列出候选 |
+
+抓取证据仍走原来的持有验证和有限采样。点提示沿用现有的一次重试，不降低 SAM3 阈值，也不默认第一只。
+
+第一项动作之后，对象、目标和空间关系仍按原有 `invalidate` 规则失效，下一步重新 `observe`。
+
+## 最小回归
+
+```bash
+cd /root/Page_dmh/openwam_harness/sequential
+/root/Page_dmh/openwam_harness/envs/rpent/bin/python -m unittest test_binding_chain.py
+```
+
+`test_binding_chain.py` 回放 `records/planner_last.json` 里的 `seq-68c884edeb80`，不请求模型，不执行动作。
