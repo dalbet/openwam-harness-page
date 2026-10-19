@@ -1258,6 +1258,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "on_failure": failure,
                 "object_ref": obj,
                 "subtask": item["step_id"],
+                "transfer_phase": "grasp_verified",
             }
         )
         steps.append(
@@ -1282,6 +1283,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "on_failure": failure,
                 "object_ref": obj,
                 "subtask": item["step_id"],
+                "transfer_phase": "transporting",
             }
         )
         descend = f"descend_{item['step_id']}"
@@ -1307,6 +1309,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "on_failure": failure,
                 "object_ref": obj,
                 "subtask": item["step_id"],
+                "transfer_phase": "descending",
             }
         )
         steps.append(
@@ -1324,6 +1327,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "object_ref": obj,
                 "relation": args["relation"],
                 "subtask": item["step_id"],
+                "transfer_phase": "releasing",
             }
         )
         retreat = f"retreat_{item['step_id']}"
@@ -1345,6 +1349,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "on_failure": "stop",
                 "object_ref": obj,
                 "subtask": item["step_id"],
+                "transfer_phase": "retreat",
             }
         )
         if plan.get("execution_mode") == "free":

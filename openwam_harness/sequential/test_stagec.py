@@ -175,7 +175,7 @@ class StageCTest(unittest.TestCase):
             support_z={},
             goal_relation="in",
         )
-        self.assertEqual(verdict["status"], "unknown")
+        self.assertEqual(verdict["status"], "failure")
         self.assertEqual(verdict["reason_code"], "STALE_OBSERVATION")
 
     def test_gripper_outside_band_names_the_condition(self):

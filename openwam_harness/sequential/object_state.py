@@ -104,20 +104,30 @@ def goal_evidence(
                 }
             else:
                 missing.append(found)
+    sources = {item.get("instance_ref"): item.get("evidence_source") for item in rows}
     if missing:
         return {
             "status": "unknown",
             "reason_code": missing[0]["reason_code"],
             "reason": missing[0]["reason"],
-            "evidence_source": missing[0]["reason_code"],
+            "evidence_source": "per_item",
+            "evidence_sources": sources,
             "queries": rows,
             "sim": None,
         }
+    kinds = {item.get("evidence_source") for item in rows}
+    if kinds == {"sim_state"}:
+        aggregate = "sim_state"
+    elif kinds == {"mujoco_site"}:
+        aggregate = "mujoco_site"
+    else:
+        aggregate = "per_item"
     return {
         "status": "ready",
         "reason_code": "",
         "reason": "",
-        "evidence_source": "sim_state" if not any(item["evidence_source"] == "mujoco_site" for item in rows) else "mujoco_site",
+        "evidence_source": aggregate,
+        "evidence_sources": sources,
         "queries": rows,
         "sim": {"objects": sim_objects},
     }

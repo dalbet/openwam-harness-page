@@ -274,6 +274,53 @@ def run_plan(
             continue
 
         _ensure_carry_offset(bindings, last_obs, step, plan)
+        if _needs_preplace(step, plan):
+            from placement import preplace_gate
+
+            gate_result = preplace_gate(step, last_obs, plan, bindings)
+            if not gate_result.get("ok"):
+                outcome = ToolOutcome(
+                    executed=False,
+                    error=gate_result.get("summary") or gate_result.get("reason") or "preplace blocked",
+                    real=False,
+                    error_class="plan",
+                )
+                verification = receipt(
+                    "failure",
+                    "preplace_blocked",
+                    "per_item",
+                    [],
+                    {
+                        "summary": gate_result.get("summary"),
+                        "error": gate_result.get("summary"),
+                        "unmet": gate_result.get("unmet"),
+                        "missing": gate_result.get("unmet"),
+                        "evidence_sources": gate_result.get("evidence_sources"),
+                        "released_required": False,
+                        "placed_required": False,
+                    },
+                )
+                steps.append(_step_record(step, outcome, verification, last_obs))
+                emit(
+                    "failed",
+                    step_id=step["step_id"],
+                    skill=skill,
+                    reason=outcome.error,
+                    reason_code="preplace_blocked",
+                    execution=_diagnosis(step, outcome, verification, last_obs, plan),
+                )
+                return _finish(
+                    "no_progress",
+                    outcome.error,
+                    session,
+                    started_epoch,
+                    started_version,
+                    steps,
+                    backend,
+                    llm_calls,
+                    plan=plan,
+                    execution=_diagnosis(step, outcome, verification, last_obs, plan),
+                )
         if _release_blocked(step, last_obs, plan, bindings):
             outcome = ToolOutcome(
                 executed=False,
@@ -337,9 +384,7 @@ def run_plan(
         before_step = _env_step(backend)
         calls = _calls_for(skill, args, eef)
         outcome = _execute_with_one_retry(backend, calls)
-        if outcome.executed and skill == "move_to":
-            eef = list(args["xyz"])
-        elif outcome.eef_pos is not None:
+        if outcome.eef_pos is not None and skill != "move_to":
             eef = outcome.eef_pos
         if skill == "segment" and outcome.xyz is not None:
             prompt = str((step.get("args") or {}).get("prompt", step["step_id"]))
@@ -359,6 +404,34 @@ def run_plan(
         post, verification = _judge(
             step, outcome, backend, last_obs, started_epoch, before_step, plan, support_z,
         )
+        if outcome.executed and skill == "move_to":
+            from placement import arrival
+            from verify import _eef as _observed_eef
+
+            observed = _observed_eef(post[-1]) if post else None
+            check = arrival(args.get("xyz"), observed)
+            metrics = dict((verification or {}).get("metrics") or {})
+            metrics["arrival"] = check
+            if isinstance(verification, dict):
+                verification["metrics"] = metrics
+            if not check["ok"]:
+                verification = receipt(
+                    "failure",
+                    check["code"] or "MOTION_NOT_ARRIVED",
+                    "sim_state",
+                    (verification or {}).get("observation_ids") or [],
+                    {
+                        "summary": "动作后暂停：末端没有到达要求位置",
+                        "error": check["reason"],
+                        "unmet": [check["reason"]],
+                        "actual": {"eef_pos": check.get("actual"), "requested_eef": check.get("requested")},
+                        "condition": f"gap_m <= {check.get('tolerance_m')}",
+                        "arrival": check,
+                        "evidence_sources": {"eef": "sim_state"},
+                    },
+                )
+            elif observed is not None:
+                eef = observed
         if outcome.executed and native_execution_gate(plan, backend) == "stop_native":
             verification = _as_native_success(verification)
         _write_trace(backend, step, verification)
@@ -447,6 +520,12 @@ def run_plan(
             session=session,
             eef=eef,
         )
+        if isinstance(verification, dict) and verification.get("status") == "success" and verification.get("reason_code") == "GRASP_HELD":
+            samples = (verification.get("metrics") or {}).get("samples") or []
+            relative = samples[-1].get("relative_pos") if samples and isinstance(samples[-1], dict) else None
+            ref = step.get("object_ref")
+            if isinstance(ref, str) and isinstance(relative, list) and len(relative) >= 3:
+                bindings[f"hold:{ref}"] = [float(value) for value in relative[:3]]
         if isinstance(verification, dict) and skill == "segment":
             place_xyz = (verification.get("metrics") or {}).get("place_xyz")
             prompt = str((step.get("args") or {}).get("prompt") or "")
@@ -625,8 +704,14 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
         # Official success already happened inside the tool. Do not sample,
         # recover, close the gripper, or replace that result with a later check.
         return [], _native_stop_receipt()
+    fresh = _capture(backend, scene_epoch)
     sampled = _observations_from_samples((outcome.raw or {}).get("samples"), scene_epoch)
-    post = sampled or [_capture(backend, scene_epoch)]
+    poses = fresh.get("named_poses") if isinstance(fresh, dict) else None
+    if isinstance(poses, dict):
+        for row in sampled:
+            row.setdefault("named_poses", poses)
+            row.setdefault("site_observation_id", fresh.get("observation_id"))
+    post = sampled or [fresh]
     verdict = verify_step(
         step,
         outcome,
@@ -664,19 +749,27 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
     ):
         # Keep the gripper where this step left it. A placement window must
         # not close the gripper, and a finished episode must not be stepped.
-        gripper = float((step.get("args") or {}).get("gripper", -1.0))
-        post.extend(_hold_window(backend, scene_epoch, gripper))
-        verdict = verify_step(
-            step,
-            outcome,
-            post,
-            scene_epoch=scene_epoch,
-            min_step=min_step,
-            objects=plan.get("objects") or {},
-            support_z=support_z,
-            goal_relation=_relation_for(plan, step),
-            before=before,
-        )
+        if not step.get("_stability_window"):
+            step["_stability_window"] = True
+            gripper = float((step.get("args") or {}).get("gripper", -1.0))
+            post.extend(_hold_window(backend, scene_epoch, gripper))
+            verdict = verify_step(
+                step,
+                outcome,
+                post,
+                scene_epoch=scene_epoch,
+                min_step=min_step,
+                objects=plan.get("objects") or {},
+                support_z=support_z,
+                goal_relation=_relation_for(plan, step),
+                before=before,
+            )
+        if verdict["reason_code"] == "NEED_STABILITY_SAMPLE":
+            metrics = dict(verdict.get("metrics") or {})
+            metrics["summary"] = "放置后失败：稳定样本来自同一环境状态"
+            metrics["error"] = metrics["summary"]
+            metrics["unmet"] = (metrics.get("unmet") or []) + ["distinct env_step samples < stable_samples"]
+            verdict = receipt("failure", "stable_sample_unchanged", verdict.get("evidence_source") or "per_item", verdict.get("observation_ids") or [], metrics)
     return post, verdict
 
 
@@ -970,13 +1063,25 @@ def _ensure_carry_offset(bindings, obs, step, plan) -> None:
     bindings[f"carry:{ref}"] = [float(pos[i]) - float(eef[i]) for i in range(3)]
 
 
+def _needs_preplace(step, plan) -> bool:
+    """Fixture regions use the new gate. Older movable targets keep their own checks."""
+    args = step.get("args") or {}
+    target = (plan.get("objects") or {}).get(step.get("target_ref") or "")
+    regional = isinstance(target, dict) and bool(target.get("place_site"))
+    if not regional:
+        return False
+    if step.get("skill") == "move_to" and args.get("motion") == "vertical":
+        return True
+    return step.get("skill") == "set_gripper" and step.get("completion_check") == "object_placed" and float(args.get("gripper") or 0) < 0
+
+
 def _release_blocked(step, obs, plan, bindings) -> bool:
     if step.get("skill") != "set_gripper" or step.get("completion_check") != "object_placed":
         return False
     if float((step.get("args") or {}).get("gripper") or 0) >= 0:
         return False
     ref = step.get("object_ref")
-    offset = bindings.get(f"carry:{ref}")
+    offset = bindings.get(f"hold:{ref}") or bindings.get(f"carry:{ref}")
     if not isinstance(offset, list) or len(offset) < 3:
         return False
     spec = (plan.get("objects") or {}).get(ref) or {}
@@ -1014,6 +1119,16 @@ def _write_trace(backend, step, verification) -> None:
         "possible_external_support": metrics.get("possible_external_support"),
         "contact_status": metrics.get("contact_status"),
         "samples": metrics.get("samples"),
+        "missing": metrics.get("missing"),
+        "unmet": metrics.get("unmet"),
+        "actual": metrics.get("actual"),
+        "condition": metrics.get("condition"),
+        "summary": metrics.get("summary"),
+        "evidence_sources": metrics.get("evidence_sources"),
+        "observation_ids": verification.get("observation_ids"),
+        "validator_version": verification.get("validator_version"),
+        "parent_step_id": step.get("subtask"),
+        "check_name": step.get("completion_check"),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
@@ -1167,11 +1282,17 @@ def _diagnosis(step, outcome, verification, observation, plan) -> dict[str, Any]
     obs = _public_observation(observation) or {}
     args = {key: value for key, value in (step.get("args") or {}).items() if key != "code"}
     return {
+        "parent_step_id": step.get("subtask"),
         "step_id": step.get("step_id"),
+        "primitive": step.get("skill"),
         "skill": step.get("skill"),
+        "check_name": step.get("completion_check"),
+        "transfer_phase": step.get("transfer_phase"),
         "category": category,
-        "reason": reason,
+        "reason": metrics.get("summary") or reason,
+        "summary": metrics.get("summary") or reason,
         "reason_code": code,
+        "error_code": code,
         "checker_reason_code": checker_reason,
         "args": args,
         "object_ref": step.get("object_ref") or args.get("object_ref"),
@@ -1198,6 +1319,10 @@ def _diagnosis(step, outcome, verification, observation, plan) -> dict[str, Any]
         "transport_started": step.get("completion_check") in {"object_transported", "object_placed"},
         "missing": metrics.get("missing"),
         "unmet": metrics.get("unmet"),
+        "unmet_conditions": metrics.get("unmet"),
+        "evidence_sources": metrics.get("evidence_sources"),
+        "actual": metrics.get("actual"),
+        "condition": metrics.get("condition"),
     }
 
 

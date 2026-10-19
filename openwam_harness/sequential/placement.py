@@ -156,14 +156,127 @@ def _resolve_retreat(step, obs, plan) -> dict[str, Any]:
     }
 
 
+def arrival(requested, actual, tolerance_m: float | None = None) -> dict[str, Any]:
+    """The commanded xyz is not evidence that the arm arrived."""
+    limit = float(THRESHOLDS["place"]["drift_m"] if tolerance_m is None else tolerance_m)
+    if not isinstance(requested, list) or len(requested) < 3:
+        return {"ok": False, "code": "pose_not_provided", "reason": "没有要求到达的末端位置", "requested": requested, "actual": actual}
+    if not isinstance(actual, list) or len(actual) < 3:
+        return {"ok": False, "code": "pose_not_provided", "reason": "动作后没有读到末端位姿", "requested": requested, "actual": actual, "tolerance_m": limit}
+    gap = _distance(requested, actual)
+    return {
+        "ok": gap <= limit,
+        "code": "" if gap <= limit else "MOTION_NOT_ARRIVED",
+        "reason": "" if gap <= limit else f"末端距离目标 {round(gap, 4)} m，大于 {limit} m",
+        "requested": [round(float(value), 4) for value in requested[:3]],
+        "actual": [round(float(value), 4) for value in actual[:3]],
+        "gap_m": round(gap, 4),
+        "tolerance_m": limit,
+        "evidence_source": "sim_state",
+    }
+
+
+def preplace_gate(step, obs, plan, bindings) -> dict[str, Any]:
+    """Conditions before descent or release. Does not require the object to be released."""
+    args = dict(step.get("args") or {})
+    phase = "release" if step.get("skill") == "set_gripper" else "descend"
+    ref = step.get("object_ref") or args.get("object_ref")
+    unmet = []
+    sources = {}
+    obj = _object_origin(obs, plan, ref)
+    eef = _eef(obs)
+    sources["object"] = "sim_state" if obj is not None else "pose_not_provided"
+    sources["eef"] = "sim_state" if eef is not None else "pose_not_provided"
+    if obj is None:
+        unmet.append("object_pos 缺失")
+    if eef is None:
+        unmet.append("eef_pos 缺失")
+    surface, surface_source, surface_key = _support_surface(step, bindings, obs, plan)
+    sources["target_region"] = surface_source or "pose_not_provided"
+    if surface is None:
+        unmet.append("target_region_pose 缺失")
+    baseline = bindings.get(f"hold:{ref}") if isinstance(ref, str) else None
+    if obj is not None and eef is not None and isinstance(baseline, list) and len(baseline) >= 3:
+        delta = _distance([obj[i] - eef[i] for i in range(3)], baseline)
+        if delta > float(THRESHOLDS["transport"]["hold_relative_m"]):
+            unmet.append(f"relative_delta_m {round(delta, 4)} > hold_relative_m {THRESHOLDS['transport']['hold_relative_m']}")
+    elif not isinstance(baseline, list):
+        unmet.append("grasp_baseline 缺失")
+    if surface is not None and obj is not None and phase == "release":
+        release_z = float(surface[2]) + 0.03
+        if abs(float(obj[2]) - release_z) > float(THRESHOLDS["place"]["support_z_tolerance_m"]) and abs(float(obj[2]) - float(surface[2])) > float(THRESHOLDS["place"]["support_z_tolerance_m"]):
+            unmet.append(f"object_z {round(float(obj[2]), 4)} 仍不在释放高度 {round(release_z, 4)} 或区域表面 {round(float(surface[2]), 4)}")
+    geometry = None
+    if not unmet and phase == "descend":
+        geometry = _resolve_support(step, bindings, obs, plan)
+        if not geometry.get("ok"):
+            unmet.append(geometry.get("reason") or geometry.get("code") or "落点不可用")
+    if unmet:
+        summary = "放置前暂停：" + unmet[0]
+        return {
+            "ok": False,
+            "code": "preplace_blocked",
+            "reason": summary,
+            "summary": summary,
+            "unmet": unmet,
+            "evidence_sources": sources,
+            "surface_key": surface_key,
+            "released_required": False,
+            "placed_required": False,
+            "stage": "preplace_ready",
+        }
+    return {
+        "ok": True,
+        "stage": "preplace_ready",
+        "evidence_sources": sources,
+        "surface": [round(float(value), 4) for value in surface[:3]],
+        "geometry": geometry,
+        "released_required": False,
+        "placed_required": False,
+    }
+
+
+def _support_surface(step, bindings, obs, plan):
+    args = dict(step.get("args") or {})
+    source = str(args.get("xyz_from") or "")
+    target_ref = step.get("target_ref")
+    spec = (plan.get("objects") or {}).get(target_ref) if isinstance(target_ref, str) else None
+    site_name = spec.get("place_site") if isinstance(spec, dict) else None
+    sites = ((obs or {}).get("named_poses") or {}).get("sites") if isinstance(obs, dict) else None
+    if isinstance(site_name, str) and site_name:
+        named = (obs or {}).get("named_poses") if isinstance(obs, dict) else None
+        if isinstance(named, dict) and named.get("error"):
+            return None, "state_service_error", site_name
+        site = sites.get(site_name) if isinstance(sites, dict) else None
+        if isinstance(site, list) and len(site) >= 3:
+            return [float(site[0]), float(site[1]), float(site[2])], "mujoco_site", site_name
+        return None, "pose_not_provided", site_name
+    surface = bindings.get(source) if source else None
+    if isinstance(surface, list) and len(surface) >= 3:
+        return [float(surface[0]), float(surface[1]), float(surface[2])], "segment_binding", source
+    sim_name = spec.get("sim_name") if isinstance(spec, dict) else None
+    item = (((obs or {}).get("sim") or {}).get("objects") or {}).get(sim_name) if sim_name else None
+    pos = item.get("pos") if isinstance(item, dict) else None
+    if isinstance(pos, list) and len(pos) >= 3:
+        return [float(pos[0]), float(pos[1]), float(pos[2])], "sim_state", sim_name
+    return None, "pose_not_provided", source or sim_name
+
+
 def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
     from schema import PlanError
 
     args = dict(step.get("args") or {})
     source = str(args.get("xyz_from") or "")
-    surface = bindings.get(source)
-    if not isinstance(surface, list) or len(surface) < 3:
-        return {"ok": False, "code": "missing_binding", "reason": f"没有目标表面的世界坐标 {source}", "stage": "place_motion"}
+    surface, surface_source, surface_key = _support_surface(step, bindings, obs, plan)
+    if surface is None:
+        code = "state_service_error" if surface_source == "state_service_error" else "pose_not_provided"
+        return {
+            "ok": False,
+            "code": code,
+            "reason": f"没有目标区域的世界坐标 {surface_key or source}",
+            "stage": "place_motion",
+            "evidence_source": surface_source,
+        }
     z_offset = float(args.get("z_offset") or 0.0)
     low, high = THRESHOLDS["approach_z_offset_m"]
     if not low <= z_offset <= high:
@@ -215,6 +328,9 @@ def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
         "object_origin": [round(value, 4) for value in object_target],
         "hold_offset": [round(value, 4) for value in hold],
         "support_origin": [round(float(value), 4) for value in surface[:3]],
+        "region_source": surface_source,
+        "region_key": surface_key,
+        "object_z_rule": "region_z + z_offset once; hold_offset is applied once from the object origin to the eef",
         "args": {key: value for key, value in resolved.items() if value is not None or key == "gripper"},
     }
 

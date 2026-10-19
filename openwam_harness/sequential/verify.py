@@ -13,7 +13,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent
 THRESHOLDS = json.loads((ROOT / "thresholds.json").read_text(encoding="utf-8"))
-VALIDATOR_VERSION = "sequential-verify-1"
+VALIDATOR_VERSION = "sequential-verify-2"
 
 
 def receipt(
@@ -70,11 +70,18 @@ def verify_step(
     current = observations[-1] if observations else None
     if not observation_ok(current, scene_epoch=scene_epoch, min_step=min_step):
         return receipt(
-            "unknown",
+            "failure",
             "STALE_OBSERVATION",
             "sim_state_assisted",
             _ids(observations),
-            {"scene_epoch": scene_epoch, "min_step": min_step},
+            {
+                "scene_epoch": scene_epoch,
+                "min_step": min_step,
+                "observation_id": (current or {}).get("observation_id") if isinstance(current, dict) else None,
+                "actual_epoch": (current or {}).get("scene_epoch") if isinstance(current, dict) else None,
+                "summary": "观测已过期，不能用来确认抓取或放置",
+                "error": "观测已过期，不能用来确认抓取或放置",
+            },
         )
     if check == "observe_ready":
         return receipt("success", "OBSERVE_READY", "sim_state_assisted", _ids(observations), {})
@@ -338,41 +345,124 @@ def _grasp_metrics(observations, outcome, current, opening, eef, base, contact, 
 
 
 def _transport(step, before_obs, after_obs, objects) -> dict[str, Any]:
+    """Hold is the change from the grasp baseline. A site pose is only the target region."""
     spec = objects.get(step.get("object_ref") or "")
-    container = _target_sim(step, objects)
     ids = _ids([obs for obs in (before_obs, after_obs) if isinstance(obs, dict)])
-    if not isinstance(spec, dict) or container is None:
-        return receipt("unknown", "TARGET_AMBIGUOUS", "sim_state_assisted", ids, {})
+    if not isinstance(spec, dict) or not spec.get("sim_name"):
+        return _gap(
+            "failure",
+            "TARGET_AMBIGUOUS",
+            ids,
+            missing=["object_spec"],
+            actual={"object_ref": step.get("object_ref")},
+            condition="搬运需要已绑定对象的 sim_name",
+            summary="搬运失败：对象规格缺失",
+        )
     sim_name = spec["sim_name"]
+    if _epoch_mismatch(before_obs, after_obs):
+        return _gap(
+            "failure",
+            "stale_observation",
+            ids,
+            missing=["current_observation"],
+            actual={
+                "before_epoch": (before_obs or {}).get("scene_epoch") if isinstance(before_obs, dict) else None,
+                "after_epoch": (after_obs or {}).get("scene_epoch") if isinstance(after_obs, dict) else None,
+                "before_id": (before_obs or {}).get("observation_id") if isinstance(before_obs, dict) else None,
+                "after_id": (after_obs or {}).get("observation_id") if isinstance(after_obs, dict) else None,
+            },
+            condition="搬运前后必须是同一次 scene_epoch，且后观测不早于前观测",
+            summary="搬运失败：使用了旧观测",
+            sources={"object": "stale_observation", "target_region": "stale_observation", "eef": "stale_observation"},
+        )
     before = _object(before_obs or {}, sim_name)
     after = _object(after_obs or {}, sim_name)
-    target = _object(after_obs or {}, container)
-    eef = _eef(after_obs or {})
-    if before is None or after is None or target is None or eef is None:
-        return receipt("unknown", "INSUFFICIENT_EVIDENCE", "sim_state_assisted", ids, {})
+    eef_before = _eef(before_obs or {})
+    eef_after = _eef(after_obs or {})
+    target = _target_reading(step, objects, after_obs or {})
+    opening = _opening(after_obs or {})
+    contact = ((after_obs or {}).get("sim") or {}).get("contact") if isinstance(after_obs, dict) else None
+    sources = {
+        "object": "sim_state" if before is not None and after is not None else "pose_not_provided",
+        "target_region": target.get("evidence_source") or "pose_not_provided",
+        "eef": "sim_state" if eef_before is not None and eef_after is not None else "pose_not_provided",
+        "gripper": "sim_state" if opening is not None else "pose_not_provided",
+        "contact": "provided" if isinstance(contact, dict) else "not_provided",
+    }
+    missing = []
+    actual = {
+        "object_pos_before": before,
+        "object_pos_after": after,
+        "eef_pos_before": eef_before,
+        "eef_pos_after": eef_after,
+        "target_region_pose": target.get("xyz"),
+        "target_query_key": target.get("query_key"),
+        "gripper_opening_m": opening,
+        "contact": contact,
+        "observation_id": (after_obs or {}).get("observation_id") if isinstance(after_obs, dict) else None,
+        "sampled_at": (after_obs or {}).get("timestamp") if isinstance(after_obs, dict) else None,
+    }
+    if before is None:
+        missing.append("object_pos_before")
+    if after is None:
+        missing.append("object_pos_after")
+    if eef_before is None:
+        missing.append("eef_pos_before")
+    if eef_after is None:
+        missing.append("eef_pos_after")
+    if target.get("status") != "ok":
+        missing.append("target_region_pose")
+    read_error = target.get("reason_code") == "state_service_error"
+    if read_error or missing:
+        code = "state_service_error" if read_error else "pose_not_provided"
+        phase = "下降前" if (step.get("args") or {}).get("motion") == "vertical" else "搬运后"
+        return _gap(
+            "failure",
+            code,
+            ids,
+            missing=missing,
+            actual=actual,
+            condition="搬运比较抓取基准的对象-末端变化，并需要目标区域位姿；不把炉灶 site 当作碗或整项结果的来源",
+            summary=f"{phase}暂停：{target.get('reason') or '目标区域状态缺失'}",
+            sources=sources,
+            extra={"read_error": target.get("reason"), "released_required": False, "placed_required": False},
+        )
     cfg = THRESHOLDS["transport"]
-    progress = _xy(before, target) - _xy(after, target)
-    origin = _distance(after, eef)
-    rel_before = _relative(before_obs or {}, sim_name)
-    rel_after = _relative(after_obs or {}, sim_name)
-    delta = None if rel_before is None or rel_after is None else _distance(rel_before, rel_after)
+    progress = _xy(before, target["xyz"]) - _xy(after, target["xyz"])
+    origin = _distance(after, eef_after)
+    rel_before = [before[i] - eef_before[i] for i in range(3)]
+    rel_after = [after[i] - eef_after[i] for i in range(3)]
+    delta = _distance(rel_before, rel_after)
     metrics = {
         "progress_m": round(progress, 4),
         "origin_to_eef_m": round(origin, 4),
-        "relative_before": None if rel_before is None else [round(v, 4) for v in rel_before],
-        "relative_after": None if rel_after is None else [round(v, 4) for v in rel_after],
-        "relative_delta_m": None if delta is None else round(delta, 4),
+        "relative_before": [round(v, 4) for v in rel_before],
+        "relative_after": [round(v, 4) for v in rel_after],
+        "relative_delta_m": round(delta, 4),
         "hold_relative_m": cfg["hold_relative_m"],
-        "evidence_mode": "sim_state_assisted",
+        "min_progress_m": cfg["min_progress_m"],
+        "evidence_sources": sources,
+        "missing": [],
+        "actual": actual,
+        "condition": "relative_delta_m 是相对抓取时对象减末端的变化，不是对象原点到末端的绝对距离",
         "hold_note": "hold_relative_m is the change in object-minus-eef, not the origin distance",
+        "released_required": False,
+        "placed_required": False,
+        "contact_status": sources["contact"],
     }
-    if delta is None:
-        return receipt("unknown", "INSUFFICIENT_EVIDENCE", "sim_state_assisted", ids, metrics)
     if delta > float(cfg["hold_relative_m"]):
-        return receipt("failure", "GRASP_LOST", "sim_state_assisted", ids, metrics)
+        metrics["unmet"] = [f"relative_delta_m {round(delta, 4)} > hold_relative_m {cfg['hold_relative_m']}"]
+        metrics["summary"] = "搬运失败：相对抓取基准已经偏离，对象未保持持有"
+        metrics["error"] = metrics["summary"]
+        return receipt("failure", "GRASP_LOST", "per_item", ids, metrics)
     if (step.get("args") or {}).get("motion") != "vertical" and progress < float(cfg["min_progress_m"]):
-        return receipt("failure", "NO_PROGRESS", "sim_state_assisted", ids, metrics)
-    return receipt("success", "TRANSPORTED", "sim_state_assisted", ids, metrics)
+        metrics["unmet"] = [f"progress_m {round(progress, 4)} < min_progress_m {cfg['min_progress_m']}"]
+        metrics["summary"] = "搬运失败：对象没有向目标区域前进"
+        metrics["error"] = metrics["summary"]
+        return receipt("failure", "NO_PROGRESS", "per_item", ids, metrics)
+    metrics["unmet"] = []
+    metrics["summary"] = "搬运通过：仍按抓取基准持有，并已接近目标区域"
+    return receipt("success", "TRANSPORTED", "per_item", ids, metrics)
 
 
 def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
@@ -386,39 +476,148 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
             {"relation": relation, "goal_relation": goal_relation},
         )
     spec = objects.get(step.get("object_ref") or "")
-    container = _target_sim(step, objects)
-    if not isinstance(spec, dict) or container is None:
-        return receipt("unknown", "TARGET_AMBIGUOUS", "sim_state_assisted", _ids(observations), {})
-    obj = _object(observations[-1], spec["sim_name"])
-    target = _object(observations[-1], container)
-    opening = _opening(observations[-1])
-    if obj is None or target is None or opening is None:
-        return receipt("unknown", "PLACEMENT_UNVERIFIED", "sim_state_assisted", _ids(observations), {})
+    current = observations[-1] if observations else {}
+    ids = _ids(observations)
+    if not isinstance(spec, dict) or not spec.get("sim_name"):
+        return _gap("failure", "TARGET_AMBIGUOUS", ids, missing=["object_spec"], actual={}, condition="放置后需要对象规格", summary="放置失败：对象规格缺失")
+    obj = _object(current, spec["sim_name"])
+    target = _target_reading(step, objects, current)
+    opening = _opening(current)
+    sources = {
+        "object": "sim_state" if obj is not None else "pose_not_provided",
+        "target_region": target.get("evidence_source") or "pose_not_provided",
+        "gripper": "sim_state" if opening is not None else "pose_not_provided",
+        "eef": "sim_state" if _eef(current) is not None else "pose_not_provided",
+    }
+    missing = []
+    if obj is None:
+        missing.append("object_pos")
+    if target.get("status") != "ok":
+        missing.append("target_region_pose")
+    if opening is None:
+        missing.append("gripper_opening_m")
+    if missing or target.get("reason_code") == "state_service_error":
+        return _gap(
+            "failure",
+            "state_service_error" if target.get("reason_code") == "state_service_error" else "pose_not_provided",
+            ids,
+            missing=missing,
+            actual={"object_pos": obj, "target_region_pose": target.get("xyz"), "gripper_opening_m": opening},
+            condition="释放后才比较对象与目标区域；缺失字段不能交给人工确认补齐",
+            summary="放置后暂停：对象或目标区域状态缺失",
+            sources=sources,
+        )
     cfg = THRESHOLDS["place"]
     radius = {"in": cfg["in_radius_m"], "on": cfg["on_radius_m"], "inside_drawer": cfg["inside_drawer_radius_m"]}[relation]
-    xy = _xy(obj, target)
-    supported = abs(obj[2] - target[2]) <= float(cfg["support_z_tolerance_m"])
+    xy = _xy(obj, target["xyz"])
+    supported = abs(obj[2] - target["xyz"][2]) <= float(cfg["support_z_tolerance_m"])
     released = opening >= float(cfg["gripper_open_min_m"])
     stable = _drift(observations, spec["sim_name"], int(cfg["stable_samples"]), float(cfg["drift_m"]))
     metrics = {
         "relation": relation,
         "xy_m": round(xy, 4),
-        "z_delta_m": round(obj[2] - target[2], 4),
+        "z_delta_m": round(obj[2] - target["xyz"][2], 4),
         "gripper_opening_m": opening,
-        "evidence_mode": "sim_state_assisted",
+        "radius_m": radius,
+        "support_z_tolerance_m": cfg["support_z_tolerance_m"],
+        "gripper_open_min_m": cfg["gripper_open_min_m"],
+        "evidence_sources": sources,
+        "missing": [],
+        "released_required": True,
+        "condition": "释放后检查对象原点是否落在目标区域内，site 原点不是末端目标",
     }
     if not stable:
-        return receipt("unknown", "NEED_STABILITY_SAMPLE", "sim_state_assisted", _ids(observations), metrics)
-    if xy <= float(radius) and supported and released:
-        return receipt("success", "PLACED", "sim_state_assisted", _ids(observations), metrics)
+        metrics["unmet"] = [f"distinct stable samples < {cfg['stable_samples']}"]
+        metrics["summary"] = "放置后需要来自不同环境状态的稳定样本"
+        metrics["error"] = metrics["summary"]
+        return receipt("unknown", "NEED_STABILITY_SAMPLE", "per_item", ids, metrics)
+    unmet = []
+    if xy > float(radius):
+        unmet.append(f"xy_m {round(xy, 4)} > radius_m {radius}")
+    if not supported:
+        unmet.append(f"z_delta_m {metrics['z_delta_m']} > support_z_tolerance_m {cfg['support_z_tolerance_m']}")
     if not released:
-        return receipt("unknown", "PLACEMENT_UNVERIFIED", "sim_state_assisted", _ids(observations), metrics)
-    return receipt("failure", "WRONG_PLACEMENT", "sim_state_assisted", _ids(observations), metrics)
+        unmet.append(f"gripper_opening_m {opening} < gripper_open_min_m {cfg['gripper_open_min_m']}")
+    metrics["unmet"] = unmet
+    if not unmet:
+        metrics["summary"] = "放置通过：对象已在目标区域并且夹爪已打开"
+        return receipt("success", "PLACED", "per_item", ids, metrics)
+    if not released:
+        metrics["summary"] = "放置失败：夹爪尚未打开"
+        metrics["error"] = metrics["summary"]
+        return receipt("failure", "GRIPPER_NOT_OPEN", "per_item", ids, metrics)
+    metrics["summary"] = "放置失败：对象与目标区域关系不成立"
+    metrics["error"] = metrics["summary"]
+    return receipt("failure", "WRONG_PLACEMENT", "per_item", ids, metrics)
 
 
 def native_success(terminated: bool, truncated: bool) -> bool:
     """LIBERO official success is terminated. Truncation is not success."""
     return bool(terminated) and not bool(truncated)
+
+
+def _gap(status, code, ids, *, missing, actual, condition, summary, sources=None, extra=None) -> dict[str, Any]:
+    metrics = {
+        "missing": missing,
+        "actual": actual,
+        "condition": condition,
+        "summary": summary,
+        "error": summary,
+        "unmet": [f"{name} 缺失" for name in missing],
+        "evidence_sources": sources or {},
+        "validator_version": VALIDATOR_VERSION,
+    }
+    if extra:
+        metrics.update(extra)
+    return receipt(status, code, "per_item", ids, metrics)
+
+
+def _epoch_mismatch(before, after) -> bool:
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return False
+    if before.get("scene_epoch") != after.get("scene_epoch"):
+        return True
+    left = before.get("env_step")
+    right = after.get("env_step")
+    return isinstance(left, int) and isinstance(right, int) and right < left
+
+
+def _target_reading(step: dict, objects: dict[str, Any], obs: dict) -> dict[str, Any]:
+    """A fixture region is a site. A movable target stays in sim.objects."""
+    ref = step.get("target_ref")
+    spec = objects.get(ref) if isinstance(ref, str) else None
+    if isinstance(spec, dict) and spec.get("place_site"):
+        from object_state import query_bound_state
+
+        found = query_bound_state(
+            ref,
+            spec,
+            obs if isinstance(obs, dict) else None,
+            scene_epoch=(obs or {}).get("scene_epoch") if isinstance(obs, dict) else None,
+            role="target",
+        )
+        return found
+    name = _target_sim(step, objects)
+    pos = _object(obs or {}, name) if name else None
+    if pos is None:
+        return {
+            "status": "error",
+            "reason_code": "pose_not_provided",
+            "reason": "目标实例没有仿真位姿",
+            "xyz": None,
+            "query_key": name,
+            "evidence_source": "pose_not_provided",
+            "observation_id": (obs or {}).get("observation_id") if isinstance(obs, dict) else None,
+        }
+    return {
+        "status": "ok",
+        "reason_code": "",
+        "reason": "",
+        "xyz": pos,
+        "query_key": name,
+        "evidence_source": "sim_state",
+        "observation_id": (obs or {}).get("observation_id") if isinstance(obs, dict) else None,
+    }
 
 
 def _target_sim(step: dict, objects: dict[str, Any]) -> str | None:
