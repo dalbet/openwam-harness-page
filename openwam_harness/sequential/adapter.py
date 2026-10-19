@@ -946,6 +946,62 @@ class App:
         self.broadcast({"type": "state", "phase": "cancelling", "detail": "正在停止", "mode": "live", "root_error": self.runs.root_error})
         self.broadcast(self.snapshot())
 
+    def inspect_regions(self) -> dict:
+        """Read current region geometry. Does not step the environment or call the planner."""
+        if not LIVE or self.backend is None or not self.scene_context()["loaded"]:
+            return {"type": "inspect_regions", "status": "rejected", "reason": "场景未加载"}
+        if self.runs.producer_alive() or self.runs.active() or self._resetting:
+            return {"type": "inspect_regions", "status": "rejected", "reason": "执行或重置中，不读取"}
+        before = self.backend.env_step()
+        obs = self.backend.observe()
+        after = self.backend.env_step()
+        from regions import placement_mode, query_region
+
+        registry = (self.scene_spec or {}).get("scene_regions") or {}
+        region_ids = [
+            "flat_stove_1_cook_region",
+            "wine_rack_1_top_region",
+            "wooden_cabinet_1_top_region",
+            "main_table_wine_rack_region",
+        ]
+        regions = {region_id: query_region(region_id, obs, registry) for region_id in region_ids}
+        for row in regions.values():
+            if row.get("status") == "ok":
+                row["placement"] = placement_mode(row)
+                geometry = ((obs.get("named_poses") or {}).get("site_geometry") or {}).get(row["region_id"]) or {}
+                mat = geometry.get("mat")
+                if isinstance(mat, list) and len(mat) >= 9:
+                    row["axes_world"] = {
+                        "x": mat[0:3],
+                        "y": mat[3:6],
+                        "z": mat[6:9],
+                    }
+                    row["half_extent"] = geometry.get("size")
+        objects = {}
+        sim_objects = ((obs.get("sim") or {}).get("objects") or {})
+        for name in ("akita_black_bowl_1", "wine_bottle_1"):
+            item = sim_objects.get(name) if isinstance(sim_objects, dict) else None
+            pos = item.get("pos") if isinstance(item, dict) else None
+            objects[name] = {
+                "xyz": pos,
+                "source": "sim_state" if isinstance(pos, list) else "pose_not_provided",
+                "scene_epoch": obs.get("scene_epoch"),
+                "observation_id": obs.get("observation_id"),
+            }
+        return {
+            "type": "inspect_regions",
+            "status": "ok",
+            "actions": 0,
+            "env_step_before": before,
+            "env_step_after": after,
+            "step_clock": obs.get("step_clock"),
+            "scene_epoch": obs.get("scene_epoch"),
+            "episode_id": self.session.episode_id,
+            "registry_version": registry.get("version"),
+            "objects": objects,
+            "regions": regions,
+        }
+
     def reset_scene(self, message: dict | None = None) -> None:
         threading.Thread(target=self._reset_scene, args=(message or {},), daemon=True).start()
 
@@ -2214,6 +2270,8 @@ async def websocket(request):
                 APP.stop(data)
             elif kind == "reset":
                 APP.reset_scene(data)
+            elif kind == "inspect_regions":
+                await ws.send_str(json.dumps(APP.inspect_regions(), ensure_ascii=False))
             elif kind == "confirm":
                 APP.confirm(data)
             elif kind == "client_perf":
