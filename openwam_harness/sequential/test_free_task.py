@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from executor import native_execution_gate
 from free_task import EpisodeFlags, judge_user_goal, prepare_free_request
@@ -70,6 +71,8 @@ class FreeTaskTest(unittest.TestCase):
             self.assertNotIn("object_ref", prepared)
         cheese = prepare_free_request("把奶酪放到盘子上", objects)
         self.assertFalse(any(item["user_phrase"] == "奶酪" for item in cheese["alias_hints"]))
+        script = (Path(__file__).resolve().parent / "adapter.py").read_text(encoding="utf-8")
+        self.assertIn("if not free and binding.get(\"status\") != \"resolved\"", script)
         hinted = prepare_free_request("把奶油奶酪放到盘子上", objects)
         self.assertEqual(hinted["alias_hints"][0]["candidate_refs"], ["cream_cheese_1"])
         self.assertEqual(hinted["alias_hints"][0]["binding"], "hint")

@@ -429,6 +429,7 @@ class App:
             "placeholder": False,
         })
         payload = frame_bytes(header, agent, wrist)
+        self.last_payload = payload
         if self.loop is None:
             return
         for ws in list(self.clients):
@@ -1050,7 +1051,7 @@ class App:
         self._note(run_id, "binding", binding.get("status") or "unknown", detail=binding.get("object_ref") or binding.get("evidence_source") or "")
         self.broadcast({"type": "state", "phase": "binding", "detail": binding.get("evidence_source") or "", "mode": "live", "run_id": run_id})
         self.broadcast({"type": "binding", "binding": _public_binding(binding)})
-        if binding.get("status") != "resolved":
+        if not free and binding.get("status") != "resolved":
             self._emit_planner(
                 plan_source=None,
                 stage="binding_unresolved",
