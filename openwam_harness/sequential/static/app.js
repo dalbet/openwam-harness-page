@@ -38,6 +38,8 @@ let maxFrameGapMs = 0;
 let maxFrameAgeMs = 0;
 let lastFrameMeta = null;
 let runBusy = false;
+let rootError = "";
+let lastSnapshot = null;
 let clockOffset = null;
 let taskEdited = false;
 const drawnFrameIds = new Set();
@@ -46,7 +48,7 @@ function plannerReady(){
   return !!(lastHealth && lastHealth.can_model_plan);
 }
 function syncRunButtons(){
-  const reason = runBusy ? "正在执行" : ((lastHealth && lastHealth.start_block) || "");
+  const reason = runBusy ? "正在执行" : ((lastSnapshot && lastSnapshot.start_block) || "");
   startBtn.disabled = !!reason;
   startBtn.textContent = "开始";
   const reasonEl = $("start-reason");
@@ -58,8 +60,9 @@ function clearBuffer(){
   pending = null; decoding = false; lastDisplayedFid = -1; endedFallback = null;
 }
 function setStatus(phase, detail, cls){
+  const text = rootError || detail || "";
   const c = cls ? ` ${cls}` : "";
-  statusEl.innerHTML = `<span class="phase${c}">${escapeHtml(phase)}</span>` + (detail ? ` — ${escapeHtml(detail)}` : "");
+  statusEl.innerHTML = `<span class="phase${c}">${escapeHtml(phase)}</span>` + (text ? ` — ${escapeHtml(text)}` : "");
 }
 function escapeHtml(value){
   return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
@@ -100,12 +103,10 @@ function connect(){
   const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/ws`);
   ws.binaryType = "arraybuffer";
-  ws.onopen = () => { wsConnected = true; setStatus("就绪", location.host); send({type:"get_scenes"}); send({type:"get_health"}); };
+  ws.onopen = () => { wsConnected = true; if (!rootError) setStatus("就绪", location.host); send({type:"get_scenes"}); send({type:"get_health"}); send({type:"get_snapshot"}); };
   ws.onclose = () => {
     wsConnected = false;
-    setStatus("断开", "与服务器的连接已断开，尝试重连…", "warn");
-    setConfirm(false);
-    clearBuffer();
+    setStatus("断开", rootError || "与服务器的连接已断开，尝试重连…", rootError ? "bad" : "warn");
     setTimeout(connect, 1500);
   };
   ws.onerror = () => { try{ ws.close(); }catch(e){} };
@@ -121,12 +122,21 @@ function handleText(txt){
   switch(m.type){
     case "health":
       renderHealth(m);
-      applyServerScene(m);
+      break;
+    case "snapshot":
+      applySnapshot(m);
+      break;
+    case "load_rejected":
+      loadBtn.disabled = false;
+      if (!rootError) setStatus("已拒绝", m.detail || "不能加载", "warn");
+      else if ($("start-reason")) $("start-reason").textContent = m.detail || "不能加载";
+      syncRunButtons();
       break;
     case "suites":
       if (m.status === "ready") applyCatalog(m.suites || []);
       break;
     case "loaded":
+      rootError = "";
       curEid = null; acceptEid = null; gate = false; clearBuffer();
       episode = m.episode_id; sceneEpoch = m.scene_epoch; planVersion = m.plan_version || 1;
       goalEl.textContent = m.summary_zh ? `当前目标：${m.summary_zh}` : `当前目标：${m.instruction || ""}`;
@@ -149,10 +159,12 @@ function handleText(txt){
     case "start_ack":
       if (m.status === "rejected") {
         runBusy = false;
-        setStatus("已拒绝", m.detail || m.code || "开始被拒绝", "bad");
+        if (!rootError) setStatus("已拒绝", m.detail || m.code || "开始被拒绝", "bad");
+        else if ($("start-reason")) $("start-reason").textContent = m.detail || m.code || "";
         syncRunButtons();
         break;
       }
+      rootError = "";
       runBusy = true;
       if (m.used_loaded_goal) goalEl.textContent = `实际执行：${m.summary_zh || m.goal || ""}`;
       else goalEl.textContent = `输入保留：${m.user_text || ""} · 规范：${m.summary_zh || m.goal || ""}`;
@@ -195,6 +207,9 @@ function handleText(txt){
       else if (m.phase === "failed" || m.phase === "executing" || m.phase === "planning") setConfirm(false);
       if (m.execution) rememberExec(m.execution);
       if (m.planner_stage) lastPlannerStage = m.planner_stage;
+      if ((m.phase === "failed" || m.phase === "waiting_confirmation") && !rootError) {
+        rootError = (m.root_error || (m.execution && m.execution.reason) || m.reason || m.detail || "");
+      }
       if (!terminalReached && lastPlannerStage === "ok" && m.phase === "failed") {
         setStatus("规划通过，执行失败", (m.execution && m.execution.reason) || m.reason || m.detail || "", "bad");
       } else if (!terminalReached && lastPlannerStage === "ok" && m.phase === "waiting_confirmation") {
@@ -227,6 +242,7 @@ function handleText(txt){
         const userText = m.user_goal_success == null ? "" : (m.user_goal_success ? "用户目标已完成" : "用户目标未完成");
         progressEl.textContent = [m.execution_mode === "free" ? "自由模式" : "", nativeText, userText].filter(Boolean).join(" · ");
       }
+      if (!rootError && m.success !== true) rootError = m.root_error || m.reason || "";
       endedFallback = m;
       setConfirm(false);
       runBusy = false;
@@ -340,7 +356,6 @@ function renderHealth(m){
   $("retry").hidden = true;
   syncRunButtons();
   updateMotion();
-  applyServerScene(m);
 }
 
 const STAGES = {
@@ -524,15 +539,42 @@ function tick(){
 loadBtn.onclick = () => {
   if (!wsConnected) return;
   if (!suiteSel.value) return;
-  runBusy = true;
-  loadBtn.disabled = true; startBtn.disabled = true; restartBtn.disabled = true;
-  taskIn.disabled = true;
-  clearBuffer(); terminalReached = false; curEid = null; acceptEid = null; gate = false;
-  setConfirm(false);
-  phAgent.style.display = ""; phWrist.style.display = "";
+  loadBtn.disabled = true;
   setStatus("加载中", suiteSel.value);
-  send({type:"load", suite: suiteSel.value});
+  send({type:"load", suite: suiteSel.value, client_request_id: `load-${Date.now()}`});
 };
+function applySnapshot(m){
+  lastSnapshot = m || null;
+  const scene = m && m.scene;
+  if (scene && scene.loaded) {
+    episode = scene.episode_id;
+    sceneEpoch = scene.scene_epoch;
+    if (scene.plan_version) planVersion = scene.plan_version;
+    if (scene.user_text) goalEl.textContent = `输入保留：${scene.user_text}`;
+    else if (!taskEdited && scene.summary_zh) goalEl.textContent = `当前目标：${scene.summary_zh}`;
+    taskIn.disabled = false;
+  }
+  const run = (m && m.run) || {};
+  if (run.root_error) rootError = run.root_error;
+  if (run.phase === "waiting_confirmation") setConfirm(true);
+  else if (run.phase === "succeeded" || run.phase === "failed" || run.phase === "cancelled" || run.phase === "idle") setConfirm(false);
+  if (run.execution) rememberExec(run.execution);
+  if (run.user_text) goalEl.textContent = `输入保留：${run.user_text}` + (run.plan_summary ? ` · 计划：${run.plan_summary}` : "");
+  if (progressEl && run.phase && run.phase !== "idle") {
+    const nativeText = run.native_task_success == null ? "" : (run.native_task_success ? "原生目标已达成" : "原生目标未达成");
+    const userText = run.user_goal_success == null ? "" : (run.user_goal_success ? "用户目标已完成" : "用户目标未完成");
+    const bits = [run.execution_mode === "free" ? "自由模式" : "", run.phase, nativeText, userText].filter(Boolean);
+    progressEl.textContent = bits.join(" · ");
+  }
+  runBusy = !!(m && m.start_block && m.start_block !== "等待确认" && m.start_block !== "回合已结束" && m.start_block !== "场景未加载" && m.start_block !== "模型未就绪" && m.start_block !== "云端未配置");
+  if (run.phase === "waiting_confirmation") runBusy = true;
+  if (rootError && (run.phase === "failed" || run.phase === "cancelled" || run.phase === "waiting_confirmation")) {
+    setStatus(run.phase === "waiting_confirmation" ? "等待确认" : (run.phase === "cancelled" ? "已取消" : "失败"), rootError, run.phase === "waiting_confirmation" ? "warn" : "bad");
+  }
+  loadBtn.disabled = !!(m && (m.start_block === "正在执行" || m.start_block === "正在取消" || m.start_block === "等待确认" || m.loading));
+  stopBtn.disabled = !(run.phase === "preparing" || run.phase === "planning" || run.phase === "executing" || run.phase === "waiting_confirmation" || run.phase === "cancelling");
+  syncRunButtons();
+}
 function applyServerScene(m){
   const scene = m && m.scene;
   if (!scene || !scene.loaded) {

@@ -16,13 +16,12 @@ import time
 import traceback
 import urllib.request
 from pathlib import Path
-from queue import Empty, Queue
-
 from aiohttp import web, WSMsgType
 
 from executor import Session, ToolOutcome, run_plan
 from planner import SHORT_MEMORY, load_human_plan, make_openai_client, request_plan
 from planner_profiles import comparison_record, profiles, public_profile
+from run_context import RunContext
 
 ROOT = Path(__file__).resolve().parent
 PLAN_PATH = ROOT / "plans" / "two_object.json"
@@ -33,7 +32,7 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
-STATIC_VERSION = "view7"
+STATIC_VERSION = "view8"
 RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
 
@@ -145,13 +144,12 @@ class App:
         self.loading = False
         self.session = Session("none")
         self.backend = None
-        self.confirm_q: Queue = Queue()
+        self.runs = RunContext()
         self.clients = set()
         self.loop = None
         self.lock = threading.Lock()
-        self.running = False
         self.run_id = 0
-        self.awaiting_confirm = False
+        self.last_payload: bytes | None = None
         self.logs: list[str] = []
         self.mode = "live" if LIVE else "dry"
         self.execution_mode = "benchmark"
@@ -167,6 +165,35 @@ class App:
         if self.planner_profile not in {"edge", "cloud"}:
             self.planner_profile = "edge"
         self.planner = self._make_planner()
+
+    @property
+    def running(self) -> bool:
+        return self.runs.active() or self.runs.producer_alive()
+
+    @running.setter
+    def running(self, value: bool) -> None:
+        if value:
+            if not self.runs.active():
+                self.runs.begin(self.run_id, self.session.episode_id, self.session.scene_epoch, "", self.execution_mode)
+            return
+        if self.runs.active():
+            self.runs.finish("cancelled", self.runs.root_error or "cleared")
+        self.runs.thread = None
+
+    @property
+    def awaiting_confirm(self) -> bool:
+        return self.runs.phase == "waiting_confirmation"
+
+    @awaiting_confirm.setter
+    def awaiting_confirm(self, value: bool) -> None:
+        if value and self.runs.active() and self.runs.phase != "cancelling":
+            self.runs.phase = "waiting_confirmation"
+        elif not value and self.runs.phase == "waiting_confirmation":
+            self.runs.phase = "executing"
+
+    @property
+    def confirm_q(self):
+        return self.runs.confirm_q
 
     def active_profile(self) -> dict:
         catalog = profiles()
@@ -241,7 +268,6 @@ class App:
             public["probe"] = row.get("status") or "unknown"
             public["model_ids"] = list(row.get("model_ids") or [])
             shown[key] = public
-        scene = self.scene_context()
         return {
             "type": "health",
             "adapter": "online",
@@ -259,11 +285,7 @@ class App:
             "planner_model": profile.get("model") or PLANNER_MODEL,
             "planner_profile": self.planner_profile,
             "planner_profiles": shown,
-            "scene": scene,
-            "running": self.running,
             "loading": self.loading,
-            "awaiting_confirm": self.awaiting_confirm,
-            "start_block": self.start_block_reason(),
             "checkpoints": checkpoints,
             "components": components,
             "env": env_state,
@@ -302,10 +324,12 @@ class App:
     def start_block_reason(self) -> str:
         if self.loading:
             return "正在加载"
+        if self.runs.phase == "cancelling" or (self.runs.producer_alive() and self.runs.finished):
+            return "正在取消"
+        if self.runs.phase == "waiting_confirmation":
+            return "等待确认"
         if self.running:
             return "正在执行"
-        if self.awaiting_confirm:
-            return "等待确认"
         scene = self.scene_context()
         if not scene["loaded"] or (LIVE and self.backend is None):
             return "场景未加载"
@@ -319,6 +343,8 @@ class App:
         return ""
 
     def _note(self, run_id: int, stage: str, status: str, code: str = "", detail: str = "", request_id: str | None = None) -> None:
+        if self.runs.run_id == run_id:
+            self.runs.add_event(stage, status, detail, code)
         row = {
             "run_id": run_id,
             "client_request_id": self.active_request_id if request_id is None else request_id,
@@ -490,6 +516,7 @@ class App:
             "mode": self.mode,
         }
         payload = frame_bytes(header, agent, wrist)
+        self.last_payload = payload
         if self.loop is None:
             return
         for ws in list(self.clients):
@@ -498,15 +525,22 @@ class App:
     def load(self, message) -> None:
         with self.lock:
             if self.running:
+                cancelling = self.runs.phase == "cancelling" or (self.runs.producer_alive() and self.runs.finished)
                 self.broadcast({
-                    "type": "load_failed",
-                    "detail": "正在执行，不能同时加载。",
+                    "type": "load_rejected",
+                    "code": "busy_cancelling" if cancelling else "busy_running",
+                    "detail": "正在取消，动作结束后才能加载。" if cancelling else "正在执行，不能同时加载。",
+                    "client_request_id": message.get("client_request_id") if isinstance(message, dict) else None,
+                    "run_phase": self.runs.phase,
+                    "root_error": self.runs.root_error,
                 })
                 return
             if self.loading:
                 self.broadcast({
-                    "type": "load_failed",
+                    "type": "load_rejected",
+                    "code": "busy_loading",
                     "detail": "已有加载在进行，不会再创建环境。",
+                    "client_request_id": message.get("client_request_id") if isinstance(message, dict) else None,
                 })
                 return
             self.loading = True
@@ -668,6 +702,9 @@ class App:
         timings = dict(box.get("timings") or {})
         timings["encode_transfer_s"] = getattr(self, "last_encode_s", None)
         self.broadcast({"type": "state", "phase": "loaded", "detail": scene_id, "timings": timings, "mode": "live"})
+        if self.runs.finished and not self.runs.producer_alive():
+            self.runs = RunContext()
+        self.broadcast(self.snapshot())
         self.log("load timings " + json.dumps(timings, ensure_ascii=False))
 
     def _begin_session(self, scene_id: str) -> str:
@@ -719,21 +756,21 @@ class App:
                 self._note(attempt, "rejected", "rejected", code=ack.get("code") or "", detail=ack.get("detail") or "", request_id=request_id)
                 self.broadcast(ack)
                 return
-            self.running = True
             self.run_id = attempt
             self.active_request_id = request_id
             self.planner_profile = ack["profile"]
             self.execution_mode = ack.get("execution_mode") or "benchmark"
+            raw_task = message.get("task") if isinstance(message.get("task"), str) else ""
+            self.runs.begin(attempt, self.session.episode_id, self.session.scene_epoch, raw_task, self.execution_mode)
             self.planner = self._make_planner()
             if kind == "restart":
                 self.session.cancel()
-                self.awaiting_confirm = False
                 self._wake()
         self._note(attempt, "received", "ok", detail=kind)
         self._note(attempt, "accepted", "ok", detail=ack.get("detail") or "")
         self.broadcast(ack)
         raw_task = message.get("task") if isinstance(message.get("task"), str) else ""
-        threading.Thread(
+        thread = threading.Thread(
             target=self._run,
             args=(
                 kind,
@@ -746,7 +783,9 @@ class App:
                 raw_task,
             ),
             daemon=True,
-        ).start()
+        )
+        self.runs.attach(thread)
+        thread.start()
 
     def _ack_start(self, kind: str, message: dict, plan_source) -> dict:
         request_id = message.get("client_request_id") if isinstance(message, dict) else None
@@ -812,21 +851,17 @@ class App:
     def stop(self) -> None:
         from vla_async import get_controller
 
+        if not self.running:
+            self.broadcast(self.snapshot())
+            return
         get_controller().clear("cancel")
         cancel = getattr(self.planner, "cancel", None)
         if cancel is not None:
             cancel()
         self.session.cancel()
-        self.awaiting_confirm = False
-        self._wake()
-        self.broadcast(
-            {
-                "type": "ended",
-                "episode_id": self.session.episode_id,
-                "success": False,
-                "reason": "stopped",
-            }
-        )
+        self.runs.cancel()
+        self.broadcast({"type": "state", "phase": "cancelling", "detail": "正在取消", "mode": "live", "root_error": self.runs.root_error})
+        self.broadcast(self.snapshot())
 
     def confirm(self, message: dict) -> None:
         if not self.awaiting_confirm:
@@ -844,7 +879,9 @@ class App:
         if version is not None and int(version) != self.session.plan_version:
             self.log("discard confirm: plan_version mismatch")
             return
-        self.confirm_q.put(message.get("verdict"))
+        if not self.runs.submit_confirm(message.get("verdict")):
+            self.broadcast({"type": "state", "phase": self.runs.phase, "detail": "确认已失效", "root_error": self.runs.root_error})
+            return
 
     def choose_binding(self, message: dict) -> None:
         current = self.binding or {}
@@ -867,19 +904,15 @@ class App:
             self._run_inner(kind, plan_source, run_id, manual_scope, execute, stop_after, deadline_s, user_text)
         except Exception as exc:
             self.log(f"run failed: {exc}")
-            self.broadcast({"type": "state", "phase": "failed", "detail": str(exc)})
-            self.broadcast(
-                {
-                    "type": "ended",
-                    "episode_id": self.session.episode_id,
-                    "success": False,
-                    "reason": str(exc),
-                }
-            )
+            self.runs.note_error(str(exc), "exception")
+            self._close_run("failed", str(exc), code="exception")
         finally:
-            if self.run_id == run_id:
-                self.running = False
-                self.awaiting_confirm = False
+            if self.runs.run_id == run_id and not self.runs.finished:
+                phase = "cancelled" if self.session.cancelled or self.runs.phase == "cancelling" else "failed"
+                self._close_run(phase, self.runs.root_error or phase)
+            self.runs.release(threading.current_thread())
+            self._persist_run()
+            self.broadcast(self.snapshot())
 
     def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None, deadline_s: float | None = None, user_text: str = "") -> None:
         if kind == "restart":
@@ -919,8 +952,10 @@ class App:
         free = self.execution_mode == "free"
         predicates = []
         ordered = False
+        alias_hints = []
         if self.backend is not None and hasattr(self.backend, "set_execution_mode"):
             self.backend.set_execution_mode(self.execution_mode)
+        self.runs.set_phase("preparing")
         self._note(run_id, "task_check", "running", detail=typed or spec.get("summary_zh") or "")
         self.broadcast({"type": "state", "phase": "checking_task", "detail": spec.get("summary_zh") or "", "mode": "live", "run_id": run_id})
         if free:
@@ -932,17 +967,9 @@ class App:
                 scene_objects,
                 binding.get("positions") or {},
             )
-            if prepared["status"] == "clarify":
-                self._note(run_id, "task_check", "rejected", code="ambiguous_reference", detail=prepared.get("question") or "")
-                self.broadcast({"type": "clarify", "question": prepared["question"], "candidates": prepared.get("candidates") or []})
-                self._fail_run(episode, prepared["question"])
-                return
-            if prepared["status"] != "ready":
-                self._note(run_id, "task_check", "rejected", code=prepared.get("code") or "rejected", detail=prepared.get("reason") or "")
-                self._fail_run(episode, prepared.get("reason") or "无法执行")
-                return
-            predicates = prepared["predicates"]
+            predicates = []
             ordered = bool(prepared.get("ordered"))
+            alias_hints = prepared.get("alias_hints") or []
             canonical = typed or spec.get("summary_zh") or ""
             self._note(run_id, "task_check", "ok", detail=canonical)
             self.broadcast({
@@ -958,12 +985,13 @@ class App:
             spec["native_goal"] = spec.get("goal") or ""
             spec["user_goal"] = canonical
             binding = {
-                "status": "resolved",
+                "status": "unresolved",
                 "evidence_source": "sim_state",
                 "vision": False,
-                "object_ref": predicates[0]["object_ref"],
+                "object_ref": None,
                 "positions": binding.get("positions") or {},
-                "note": "仿真位姿辅助，不是视觉判断。自由模式不切换任务。",
+                "alias_hints": alias_hints,
+                "note": "自由模式不在进 Planner 前绑定名称。仿真位姿不是视觉判断，也不切换任务。",
             }
         else:
             decision = self._instruction_decision(typed, spec)
@@ -1057,6 +1085,7 @@ class App:
             return
         profile = self.active_profile()
         self.planner = self._make_planner()
+        self.runs.set_phase("planning")
         self._note(run_id, "planner_request", "running", detail=profile.get("model") or "")
         self.broadcast({"type": "state", "phase": "planning", "detail": profile.get("model") or PLANNER_MODEL, "mode": "live", "plan_source": "model", "run_id": run_id})
         image_ids = [f"agentview:{info.get('env_step')}", f"wrist:{info.get('env_step')}"]
@@ -1080,6 +1109,8 @@ class App:
                 "native_goal": spec.get("native_goal") or spec.get("goal"),
                 "user_text": user_text,
                 "predicates": predicates,
+                "alias_hints": alias_hints if free else [],
+                "alias_hints_note": "提示不是绑定。未出现在别名表里的措辞仍交给 Planner。",
                 "implemented_skills": implemented_skills(),
                 "unimplemented_skills": unimplemented_skills(),
                 "left_right_frame": "仿真世界坐标 x，较小为左，较大为右。不是相机画面的左右。",
@@ -1176,6 +1207,13 @@ class App:
             telemetry=(attempts[-1].get("telemetry") if attempts else {}) or {},
             candidate_resolution=result.get("candidate_resolution") or [],
         )
+        if result.get("status") == "clarify":
+            question = result.get("question") or "请说明要哪一个物体"
+            self._note(run_id, "validate", "rejected", code="clarify", detail=question)
+            self.runs.note_error(question, "clarify")
+            self.broadcast({"type": "clarify", "question": question, "candidates": []})
+            self._close_run("failed", question, code="clarify")
+            return
         if result["status"] != "ok" or result["plan"] is None:
             self._note(run_id, "validate", "failed", code=result.get("stage") or "validation_failed", detail="PLANNING_FAILED")
             self._fail_run(episode, "PLANNING_FAILED")
@@ -1196,7 +1234,8 @@ class App:
             return
 
         def confirm(subtask: str):
-            self.awaiting_confirm = True
+            self.runs.set_phase("waiting_confirmation")
+            self.broadcast(self.snapshot())
             self.broadcast_frame(
                 {
                     "eid": episode,
@@ -1209,11 +1248,8 @@ class App:
                     "plan_source": plan.get("plan_source"),
                 }
             )
-            with self.lock:
-                queued = self.confirm_q
-            verdict = queued.get()
-            self.awaiting_confirm = False
-            if self.session.scene_epoch != epoch or self.session.cancelled:
+            verdict = self.runs.wait_confirm()
+            if verdict in {None, "timeout"} or self.session.scene_epoch != epoch or self.session.cancelled:
                 return None
             return verdict
 
@@ -1229,6 +1265,14 @@ class App:
         seen_tool = {"done": False}
 
         def on_event(event: dict) -> None:
+            if event.get("phase") == "executing":
+                self.runs.set_phase("executing")
+            if event.get("phase") == "waiting_confirmation":
+                self.runs.set_phase("waiting_confirmation")
+            if event.get("execution"):
+                self.runs.execution = event.get("execution")
+            if event.get("phase") in {"failed", "waiting_confirmation"}:
+                self.runs.note_error(str(event.get("reason") or event.get("detail") or ""), str(event.get("reason_code") or ""))
             if not seen_tool["done"] and event.get("skill"):
                 seen_tool["done"] = True
                 self._note(run_id, "first_tool", "ok", detail=str(event.get("skill")))
@@ -1264,6 +1308,9 @@ class App:
         if result["episode_id"] != episode or result["scene_epoch"] != epoch:
             return
         if result["status"] == "discarded":
+            phase = "cancelled" if self.session.cancelled or self.runs.phase == "cancelling" else "failed"
+            reason = "已取消" if phase == "cancelled" else (self.runs.root_error or result.get("reason") or "确认结束")
+            self._close_run(phase, reason, code="confirm_timeout" if self.runs.root_code == "confirm_timeout" else phase)
             return
         native = bool(result["native_success"])
         reason = result["reason"] or result["status"]
@@ -1303,6 +1350,14 @@ class App:
             reason = "证据不足 · " + (result["reason"] or "")
         else:
             phase = "failed"
+        self.runs.native_task_success = bool(result.get("native_task_success"))
+        self.runs.user_goal_success = result.get("user_goal_success")
+        self.runs.subgoal_results = result.get("subgoal_results")
+        self.runs.execution = result.get("execution")
+        self.runs.plan_summary = str(plan.get("goal") or "")[:200]
+        terminal = "succeeded" if phase == "completed" else "cancelled" if phase == "stopped" else "failed"
+        if terminal != "succeeded":
+            self.runs.note_error(reason, code or "")
         self.broadcast_frame(
             {
                 "eid": episode,
@@ -1318,9 +1373,11 @@ class App:
                 "plan_source": plan.get("plan_source"),
             }
         )
-        self.broadcast(
-            {
-                "type": "ended",
+        self._close_run(
+            terminal,
+            reason,
+            code=code or "",
+            ended={
                 "episode_id": episode,
                 "success": bool(result.get("user_goal_success")) if self.execution_mode == "free" else native,
                 "reason": reason,
@@ -1330,12 +1387,12 @@ class App:
                 "subgoal_results": result.get("subgoal_results"),
                 "execution_mode": self.execution_mode,
                 "plan_source": plan.get("plan_source"),
-                "status": result["status"],
+                "status": status,
                 "planner_stage": plan.get("planner_stage"),
                 "execution": result.get("execution"),
                 "frames": getattr(getattr(self.backend, "frame_bus", None), "stats", lambda: {})(),
                 "client_frames": self.client_frames,
-            }
+            },
         )
 
     def _saved_plan(self, spec: dict, binding: dict, scene_objects: dict) -> dict:
@@ -1554,16 +1611,58 @@ class App:
         )
 
     def _fail_run(self, episode: str, reason: str) -> None:
-        self.broadcast({"type": "state", "phase": "failed", "detail": reason, "mode": "live"})
-        self.broadcast(
-            {
-                "type": "ended",
+        self.runs.note_error(reason)
+        self._close_run(
+            "failed",
+            reason,
+            ended={
                 "episode_id": episode,
                 "success": False,
                 "reason": reason,
                 "native_success": False,
-            }
+                "native_task_success": False,
+                "user_goal_success": False,
+            },
         )
+
+    def _close_run(self, phase: str, reason: str, code: str = "", ended: dict | None = None) -> None:
+        first = self.runs.finish(phase, reason, code)
+        self._persist_run()
+        if not first:
+            self.broadcast(self.snapshot())
+            return
+        self.broadcast({"type": "state", "phase": phase, "detail": self.runs.root_error or reason, "mode": "live", "root_error": self.runs.root_error})
+        payload = {
+            "type": "ended",
+            "episode_id": self.session.episode_id,
+            "success": phase == "succeeded",
+            "reason": self.runs.root_error or reason,
+            "root_error": self.runs.root_error,
+            "run_phase": phase,
+        }
+        if ended:
+            payload.update(ended)
+            payload["type"] = "ended"
+            payload["reason"] = self.runs.root_error or ended.get("reason") or reason
+        self.broadcast(payload)
+        self.broadcast(self.snapshot())
+
+    def _persist_run(self) -> None:
+        try:
+            self.runs.save(ROOT / "records" / "runs")
+        except Exception as exc:
+            self.log(f"run record failed: {exc}")
+
+    def snapshot(self) -> dict:
+        return {
+            "type": "snapshot",
+            "scene": self.scene_context(),
+            "run": self.runs.public(),
+            "loading": self.loading,
+            "start_block": self.start_block_reason(),
+            "execution_mode": self.execution_mode,
+            "has_frame": self.last_payload is not None,
+        }
 
     def _fid(self) -> int:
         if self.backend is None or not hasattr(self.backend, "env_step"):
@@ -1571,9 +1670,7 @@ class App:
         return int(self.backend.env_step() or 0)
 
     def _wake(self) -> None:
-        queued = self.confirm_q
-        self.confirm_q = Queue()
-        queued.put(None)
+        self.runs._wake()
 
     def _close_backend(self) -> None:
         if self.backend is not None:
@@ -1746,6 +1843,9 @@ async def websocket(request):
     APP.clients.add(ws)
     APP.loop = asyncio.get_running_loop()
     await ws.send_str(json.dumps(APP.health(), ensure_ascii=False))
+    await ws.send_str(json.dumps(APP.snapshot(), ensure_ascii=False))
+    if APP.last_payload:
+        await ws.send_bytes(APP.last_payload)
     try:
         async for msg in ws:
             if msg.type != WSMsgType.TEXT:
@@ -1761,6 +1861,10 @@ async def websocket(request):
                     await ws.send_str(json.dumps({"type": "suites", "status": "ready", "suites": APP.suites}, ensure_ascii=False))
             elif kind == "get_health":
                 await ws.send_str(json.dumps(APP.health(), ensure_ascii=False))
+            elif kind == "get_snapshot":
+                await ws.send_str(json.dumps(APP.snapshot(), ensure_ascii=False))
+                if APP.last_payload:
+                    await ws.send_bytes(APP.last_payload)
             elif kind == "ping":
                 await ws.send_str(json.dumps({"type": "pong"}))
             elif kind == "load":

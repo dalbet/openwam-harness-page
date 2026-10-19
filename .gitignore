@@ -36,3 +36,4 @@ models/
 secrets.*
 openwam_harness/sequential/planner_profiles.local.json
 openwam_harness/sequential/records/run_journal.jsonl
+openwam_harness/sequential/records/runs/
