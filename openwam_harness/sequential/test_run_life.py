@@ -60,7 +60,7 @@ class RunLifeTest(unittest.TestCase):
         app.runs.note_error("top score 0.028 is below min_score 0.200", "TARGET_NOT_IDENTIFIED")
         app.runs.phase = "waiting_confirmation"
         app.load({"type": "load", "suite": "libero_goal", "client_request_id": "load-1"})
-        rejected = [item for item in app.sent if item.get("type") == "load_rejected"]
+        rejected = [item for item in app.sent if item.get("type") == "load_ack" and item.get("status") == "rejected"]
         self.assertEqual(rejected[0]["client_request_id"], "load-1")
         self.assertEqual(rejected[0]["root_error"], app.runs.root_error)
         self.assertFalse(any(item.get("type") == "state" for item in app.sent))

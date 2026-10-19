@@ -113,6 +113,23 @@ class RunContext:
             self.finish("failed", "producer exited without a terminal state", "producer_exit")
         return True
 
+    def complete_from_producer(self, callback) -> None:
+        """Join this producer from another thread, then release and notify.
+
+        Calling ``release`` on the producer itself always sees ``is_alive()``.
+        The callback runs only after that check can succeed.
+        """
+        thread = threading.current_thread()
+        if self.thread is not None and thread is not self.thread:
+            callback(False)
+            return
+
+        def watch() -> None:
+            thread.join()
+            callback(self.release(thread))
+
+        threading.Thread(target=watch, name="run-release", daemon=True).start()
+
     def wait_confirm(self, timeout: float = CONFIRM_TIMEOUT_S):
         if self.phase == "cancelling" or self.finished:
             return None

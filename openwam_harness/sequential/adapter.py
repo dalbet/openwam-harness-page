@@ -15,6 +15,7 @@ import threading
 import time
 import traceback
 import urllib.request
+import uuid
 from pathlib import Path
 from aiohttp import web, WSMsgType
 
@@ -32,7 +33,7 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
-STATIC_VERSION = "view8"
+STATIC_VERSION = "view9"
 RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
 
@@ -147,7 +148,10 @@ class App:
         self.runs = RunContext()
         self.clients = set()
         self.loop = None
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
+        self.server_instance_id = uuid.uuid4().hex
+        self.state_revision = 0
+        self.run_history: list[dict] = []
         self.run_id = 0
         self.last_payload: bytes | None = None
         self.logs: list[str] = []
@@ -176,9 +180,13 @@ class App:
             if not self.runs.active():
                 self.runs.begin(self.run_id, self.session.episode_id, self.session.scene_epoch, "", self.execution_mode)
             return
+        if self.runs.producer_alive():
+            self.runs.cancel()
+            return
         if self.runs.active():
             self.runs.finish("cancelled", self.runs.root_error or "cleared")
-        self.runs.thread = None
+        if self.runs.thread is not None and not self.runs.producer_alive():
+            self.runs.release(self.runs.thread)
 
     @property
     def awaiting_confirm(self) -> bool:
@@ -321,26 +329,44 @@ class App:
             "ended": bool(loaded and self.session.cancelled),
         }
 
-    def start_block_reason(self) -> str:
-        if self.loading:
-            return "正在加载"
-        if self.runs.phase == "cancelling" or (self.runs.producer_alive() and self.runs.finished):
-            return "正在取消"
-        if self.runs.phase == "waiting_confirmation":
-            return "等待确认"
-        if self.running:
-            return "正在执行"
+    def command_gates(self) -> dict:
+        """One calculation for start, load, and stop. History is not an input."""
+        producer = self.runs.producer_alive()
+        phase = self.runs.phase
         scene = self.scene_context()
-        if not scene["loaded"] or (LIVE and self.backend is None):
-            return "场景未加载"
-        if scene["ended"]:
-            return "回合已结束"
         profile = self.active_profile()
-        if not profile.get("available"):
-            return "云端未配置" if profile.get("id") == "cloud" else "模型未就绪"
-        if (PROBE.get(self.planner_profile) or {}).get("status") != "ok":
-            return "模型未就绪"
-        return ""
+        probe = (PROBE.get(self.planner_profile) or {}).get("status")
+        if self.loading:
+            reason, code = "正在加载", "busy_loading"
+        elif phase == "cancelling" or (producer and self.runs.finished):
+            reason, code = "正在停止", "producer_alive"
+        elif phase == "waiting_confirmation":
+            reason, code = "等待确认", "waiting_confirmation"
+        elif self.running:
+            reason, code = "正在执行", "busy_running"
+        elif not scene["loaded"] or (LIVE and self.backend is None):
+            reason, code = "场景未加载", "scene_missing"
+        elif scene["ended"]:
+            reason, code = "回合已结束", "episode_ended"
+        elif not profile.get("available"):
+            reason = "云端未配置" if profile.get("id") == "cloud" else "模型未就绪"
+            code = "profile_unconfigured"
+        elif probe != "ok":
+            reason, code = "模型未就绪", "profile_offline"
+        else:
+            reason, code = "", ""
+        busy = code in {"busy_loading", "producer_alive", "waiting_confirmation", "busy_running"}
+        return {
+            "can_start": code == "",
+            "can_load": not busy,
+            "can_stop": busy and code != "busy_loading",
+            "block_reason": reason,
+            "block_code": code,
+            "planner_status": probe or "unknown",
+        }
+
+    def start_block_reason(self) -> str:
+        return self.command_gates()["block_reason"]
 
     def _note(self, run_id: int, stage: str, status: str, code: str = "", detail: str = "", request_id: str | None = None) -> None:
         if self.runs.run_id == run_id:
@@ -365,12 +391,29 @@ class App:
             pass
         self.broadcast({"type": "run_stage", **row})
 
+    def _stamp(self, message: dict) -> dict:
+        with self.lock:
+            self.state_revision += 1
+            revision = self.state_revision
+            epoch = self.session.scene_epoch if self.session.scene_id != "none" else None
+            run_id = self.runs.run_id or None
+        stamped = dict(message)
+        stamped["server_instance_id"] = self.server_instance_id
+        stamped["state_revision"] = revision
+        stamped.setdefault("scene_epoch", epoch)
+        stamped.setdefault("run_id", run_id)
+        return stamped
+
     def broadcast(self, message: dict) -> None:
+        message = self._stamp(message)
         if self.loop is None:
+            self.logs.append(json.dumps({"undelivered": message.get("type"), "revision": message.get("state_revision")}, ensure_ascii=False))
+            self._last_broadcast = message
             return
         data = json.dumps(message, ensure_ascii=False)
         for ws in list(self.clients):
             asyncio.run_coroutine_threadsafe(ws.send_str(data), self.loop)
+        self._last_broadcast = message
 
     def log(self, text: str) -> None:
         self.logs.append(text)
@@ -482,7 +525,7 @@ class App:
         """Send one already-encoded snapshot. Called off the environment thread."""
         self.display_seq += 1
         stamp = meta.get("timestamp") or time.time()
-        header = {
+        header = self._stamp({
             "type": "frame",
             "eid": self.session.episode_id,
             "fid": self.display_seq,
@@ -515,7 +558,7 @@ class App:
             "placeholder": False,
             "live_chunk": True,
             "mode": self.mode,
-        }
+        })
         payload = frame_bytes(header, agent, wrist)
         self.last_payload = payload
         if self.loop is None:
@@ -523,33 +566,44 @@ class App:
         for ws in list(self.clients):
             asyncio.run_coroutine_threadsafe(ws.send_bytes(payload), self.loop)
 
+    def _command_ack(self, kind: str, status: str, code: str, detail: str, request_id, **extra) -> dict:
+        payload = {
+            "type": kind,
+            "status": status,
+            "code": code,
+            "detail": detail,
+            "client_request_id": request_id if isinstance(request_id, str) else None,
+            "root_error": self.runs.root_error,
+            "block_reason": self.command_gates()["block_reason"],
+        }
+        payload.update(extra)
+        self.broadcast(payload)
+        return payload
+
     def load(self, message) -> None:
+        request_id = message.get("client_request_id") if isinstance(message, dict) else None
         with self.lock:
-            if self.running:
-                cancelling = self.runs.phase == "cancelling" or (self.runs.producer_alive() and self.runs.finished)
-                self.broadcast({
-                    "type": "load_rejected",
-                    "code": "busy_cancelling" if cancelling else "busy_running",
-                    "detail": "正在取消，动作结束后才能加载。" if cancelling else "正在执行，不能同时加载。",
-                    "client_request_id": message.get("client_request_id") if isinstance(message, dict) else None,
-                    "run_phase": self.runs.phase,
-                    "root_error": self.runs.root_error,
-                })
-                return
-            if self.loading:
-                self.broadcast({
-                    "type": "load_rejected",
-                    "code": "busy_loading",
-                    "detail": "已有加载在进行，不会再创建环境。",
-                    "client_request_id": message.get("client_request_id") if isinstance(message, dict) else None,
-                })
+            gates = self.command_gates()
+            if not gates["can_load"]:
+                if gates["block_code"] == "busy_loading":
+                    code, detail = "busy_loading", "已有加载在进行，不会再创建环境。"
+                elif gates["block_code"] == "producer_alive" or self.runs.phase == "cancelling":
+                    code, detail = "busy_cancelling", "正在停止，动作结束后才能加载。"
+                else:
+                    code, detail = "busy_running", "正在执行，不能同时加载。"
+                self._command_ack(
+                    "load_ack",
+                    "rejected",
+                    code,
+                    detail,
+                    request_id,
+                    run_phase=self.runs.phase,
+                )
+                self.broadcast(self.snapshot())
                 return
             self.loading = True
             self.load_token += 1
             token = self.load_token
-            self.session.cancel()
-            self._wake()
-            self.awaiting_confirm = False
         try:
             self._load_locked(message, token)
         finally:
@@ -703,8 +757,17 @@ class App:
         timings = dict(box.get("timings") or {})
         timings["encode_transfer_s"] = getattr(self, "last_encode_s", None)
         self.broadcast({"type": "state", "phase": "loaded", "detail": scene_id, "timings": timings, "mode": "live"})
-        if self.runs.finished and not self.runs.producer_alive():
-            self.runs = RunContext()
+        if self.runs.producer_alive():
+            self._command_ack("load_ack", "rejected", "producer_alive", "正在停止，动作结束后才能加载。", None, run_phase=self.runs.phase)
+            self.broadcast(self.snapshot())
+            return
+        if self.runs.run_id:
+            archived = self.runs.public()
+            archived["archived"] = True
+            self.run_history.append(archived)
+            self.run_history = self.run_history[-8:]
+        self.runs = RunContext()
+        self._command_ack("load_ack", "accepted", "loaded", scene_id, None, episode_id=episode)
         self.broadcast(self.snapshot())
         self.log("load timings " + json.dumps(timings, ensure_ascii=False))
 
@@ -798,14 +861,13 @@ class App:
         mode = message.get("execution_mode", "benchmark") if isinstance(message, dict) else "benchmark"
         if mode not in {"benchmark", "free"}:
             return {**base, "status": "rejected", "code": "execution_mode", "detail": f"未知执行模式 {mode}"}
-        if self.loading:
-            return {**base, "status": "rejected", "code": "busy_loading", "detail": "正在加载"}
-        if self.running:
-            return {**base, "status": "rejected", "code": "busy_running", "detail": "正在执行"}
+        gates = self.command_gates()
+        if gates["block_code"] in {"busy_loading", "producer_alive", "waiting_confirmation", "busy_running"}:
+            return {**base, "status": "rejected", "code": gates["block_code"], "detail": gates["block_reason"]}
         spec = self.scene_spec or {}
-        if self.session.scene_id == "none" or not spec or (LIVE and self.backend is None):
+        if gates["block_code"] == "scene_missing":
             return {**base, "status": "rejected", "code": "scene_missing", "detail": "场景未加载"}
-        if kind != "restart" and self.session.cancelled:
+        if kind != "restart" and gates["block_code"] == "episode_ended":
             return {**base, "status": "rejected", "code": "episode_ended", "detail": "回合已结束"}
         if not isinstance(message, dict) or "scene_epoch" not in message or message.get("scene_epoch") is None:
             return {**base, "status": "rejected", "code": "epoch_missing", "detail": "scene_epoch 缺失，不会把 null 当成 0"}
@@ -849,10 +911,16 @@ class App:
             "execution_mode": mode,
         }
 
-    def stop(self) -> None:
+    def stop(self, message: dict | None = None) -> None:
         from vla_async import get_controller
 
-        if not self.running:
+        request_id = message.get("client_request_id") if isinstance(message, dict) else None
+        if self.runs.phase == "cancelling":
+            self._command_ack("stop_ack", "rejected", "already_stopping", "已经在停止", request_id)
+            self.broadcast(self.snapshot())
+            return
+        if not self.command_gates()["can_stop"]:
+            self._command_ack("stop_ack", "rejected", "idle", "没有正在执行的动作", request_id)
             self.broadcast(self.snapshot())
             return
         get_controller().clear("cancel")
@@ -861,28 +929,31 @@ class App:
             cancel()
         self.session.cancel()
         self.runs.cancel()
-        self.broadcast({"type": "state", "phase": "cancelling", "detail": "正在取消", "mode": "live", "root_error": self.runs.root_error})
+        self._command_ack("stop_ack", "accepted", "cancelling", "正在停止", request_id)
+        self.broadcast({"type": "state", "phase": "cancelling", "detail": "正在停止", "mode": "live", "root_error": self.runs.root_error})
         self.broadcast(self.snapshot())
 
     def confirm(self, message: dict) -> None:
+        request_id = message.get("client_request_id") if isinstance(message, dict) else None
         if not self.awaiting_confirm:
-            self.broadcast({"type": "state", "phase": "failed", "detail": "当前没有等待确认"})
+            self._command_ack("confirm_ack", "rejected", "not_waiting", "当前没有等待确认", request_id)
             return
         epoch = message.get("scene_epoch")
         version = message.get("plan_version")
         episode = message.get("episode_id")
         if episode and episode != self.session.episode_id:
-            self.log("discard confirm: episode mismatch")
+            self._command_ack("confirm_ack", "rejected", "episode_mismatch", "确认属于另一回合", request_id)
             return
         if epoch is not None and int(epoch) != self.session.scene_epoch:
-            self.log("discard confirm: scene_epoch mismatch")
+            self._command_ack("confirm_ack", "rejected", "epoch_stale", "确认属于旧场景", request_id)
             return
         if version is not None and int(version) != self.session.plan_version:
-            self.log("discard confirm: plan_version mismatch")
+            self._command_ack("confirm_ack", "rejected", "plan_mismatch", "确认属于旧计划", request_id)
             return
         if not self.runs.submit_confirm(message.get("verdict")):
-            self.broadcast({"type": "state", "phase": self.runs.phase, "detail": "确认已失效", "root_error": self.runs.root_error})
+            self._command_ack("confirm_ack", "rejected", "confirm_stale", "确认已失效", request_id)
             return
+        self._command_ack("confirm_ack", "accepted", "confirmed", str(message.get("verdict") or ""), request_id)
 
     def choose_binding(self, message: dict) -> None:
         current = self.binding or {}
@@ -911,9 +982,8 @@ class App:
             if self.runs.run_id == run_id and not self.runs.finished:
                 phase = "cancelled" if self.session.cancelled or self.runs.phase == "cancelling" else "failed"
                 self._close_run(phase, self.runs.root_error or phase)
-            self.runs.release(threading.current_thread())
             self._persist_run()
-            self.broadcast(self.snapshot())
+            self.runs.complete_from_producer(lambda _released: self.broadcast(self.snapshot()))
 
     def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None, deadline_s: float | None = None, user_text: str = "") -> None:
         if kind == "restart":
@@ -1655,14 +1725,34 @@ class App:
             self.log(f"run record failed: {exc}")
 
     def snapshot(self) -> dict:
+        gates = self.command_gates()
+        probe = PROBE.get(self.planner_profile) or {}
+        scene = self.scene_context()
         return {
             "type": "snapshot",
-            "scene": self.scene_context(),
+            "server_instance_id": self.server_instance_id,
+            "scene": scene,
             "run": self.runs.public(),
+            "history": list(self.run_history),
             "loading": self.loading,
-            "start_block": self.start_block_reason(),
+            "start_block": gates["block_reason"],
+            "block_reason": gates["block_reason"],
+            "block_code": gates["block_code"],
+            "can_start": gates["can_start"],
+            "can_load": gates["can_load"],
+            "can_stop": gates["can_stop"],
+            "scene_loaded": scene["loaded"],
+            "phase": self.runs.phase,
+            "run_id": self.runs.run_id,
+            "scene_epoch": scene.get("scene_epoch"),
+            "producer_alive": self.runs.producer_alive(),
             "execution_mode": self.execution_mode,
             "has_frame": self.last_payload is not None,
+            "planner": {
+                "profile": self.planner_profile,
+                "status": probe.get("status") or "unknown",
+                "reachable": probe.get("status") == "ok",
+            },
         }
 
     def _fid(self) -> int:
@@ -1843,8 +1933,8 @@ async def websocket(request):
     await ws.prepare(request)
     APP.clients.add(ws)
     APP.loop = asyncio.get_running_loop()
-    await ws.send_str(json.dumps(APP.health(), ensure_ascii=False))
-    await ws.send_str(json.dumps(APP.snapshot(), ensure_ascii=False))
+    await ws.send_str(json.dumps(APP._stamp(APP.health()), ensure_ascii=False))
+    await ws.send_str(json.dumps(APP._stamp(APP.snapshot()), ensure_ascii=False))
     if APP.last_payload:
         await ws.send_bytes(APP.last_payload)
     try:
@@ -1861,9 +1951,9 @@ async def websocket(request):
                 else:
                     await ws.send_str(json.dumps({"type": "suites", "status": "ready", "suites": APP.suites}, ensure_ascii=False))
             elif kind == "get_health":
-                await ws.send_str(json.dumps(APP.health(), ensure_ascii=False))
+                await ws.send_str(json.dumps(APP._stamp(APP.health()), ensure_ascii=False))
             elif kind == "get_snapshot":
-                await ws.send_str(json.dumps(APP.snapshot(), ensure_ascii=False))
+                await ws.send_str(json.dumps(APP._stamp(APP.snapshot()), ensure_ascii=False))
                 if APP.last_payload:
                     await ws.send_bytes(APP.last_payload)
             elif kind == "ping":
@@ -1885,7 +1975,7 @@ async def websocket(request):
             elif kind == "bind":
                 APP.choose_binding(data)
             elif kind == "stop":
-                APP.stop()
+                APP.stop(data)
             elif kind == "confirm":
                 APP.confirm(data)
             elif kind == "client_perf":

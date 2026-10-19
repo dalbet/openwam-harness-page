@@ -35,6 +35,16 @@ def _scene_app():
     return app
 
 
+def _join_run(app):
+    thread = app.runs.thread
+    if thread is not None:
+        thread.join(2)
+    if app.runs.active() and not app.runs.producer_alive():
+        app.runs.finish("cancelled", "test")
+    if app.runs.thread is not None and not app.runs.producer_alive():
+        app.runs.release(app.runs.thread)
+
+
 def _start(task="", epoch=1, profile="edge", request_id="req-1"):
     return {
         "type": "start",
@@ -65,7 +75,7 @@ class StartContractTest(unittest.TestCase):
         self.assertEqual(ack["status"], "accepted")
         self.assertTrue(ack["used_loaded_goal"])
         self.assertIn("黑碗", ack["summary_zh"])
-        app.running = False
+        _join_run(app)
         typed = "请按当前目标执行"
         app.start("start", _start(typed, request_id="typed"))
         kept = next(item for item in reversed(app.sent) if item.get("type") == "start_ack")
@@ -101,7 +111,7 @@ class StartContractTest(unittest.TestCase):
         app.load({"type": "load", "suite": "libero_spatial"})
         self.assertTrue(any(item.get("detail") == "正在执行，不能同时加载。" for item in app.sent))
         self.assertFalse(app.loading)
-        app.running = False
+        _join_run(app)
         app.start("start", _start(request_id="after"))
         self.assertTrue(app.running)
 

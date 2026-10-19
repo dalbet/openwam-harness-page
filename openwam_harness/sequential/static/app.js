@@ -37,9 +37,10 @@ let framesDrawn = 0;
 let maxFrameGapMs = 0;
 let maxFrameAgeMs = 0;
 let lastFrameMeta = null;
-let runBusy = false;
 let rootError = "";
 let lastSnapshot = null;
+let serverInstance = "";
+let stateRevision = -1;
 let clockOffset = null;
 let taskEdited = false;
 const drawnFrameIds = new Set();
@@ -48,12 +49,47 @@ function plannerReady(){
   return !!(lastHealth && lastHealth.can_model_plan);
 }
 function syncRunButtons(){
-  const reason = runBusy ? "正在执行" : ((lastSnapshot && lastSnapshot.start_block) || "");
+  const connected = !!(ws && ws.readyState === 1);
+  let reason = "正在同步";
+  if (!connected) reason = "未连接";
+  else if (lastSnapshot) reason = lastSnapshot.block_reason || lastSnapshot.start_block || "";
   startBtn.disabled = !!reason;
   startBtn.textContent = "开始";
   const reasonEl = $("start-reason");
   if (reasonEl) reasonEl.textContent = reason;
   startBtn.title = reason;
+  if (loadBtn && lastSnapshot) loadBtn.disabled = !connected || !lastSnapshot.can_load;
+  if (stopBtn && lastSnapshot) stopBtn.disabled = !connected || !lastSnapshot.can_stop;
+}
+function noteInstance(m){
+  if (!m || !m.server_instance_id) return true;
+  if (serverInstance && m.server_instance_id !== serverInstance) {
+    serverInstance = m.server_instance_id;
+    stateRevision = -1;
+    sceneEpoch = null;
+    episode = null;
+    lastSnapshot = null;
+    rootError = "";
+    send({type:"get_snapshot"});
+    return false;
+  }
+  serverInstance = m.server_instance_id;
+  return true;
+}
+function acceptControl(m){
+  if (!noteInstance(m)) return false;
+  if (typeof m.state_revision === "number") {
+    if (m.state_revision < stateRevision) return false;
+    stateRevision = m.state_revision;
+  }
+  if (typeof m.scene_epoch === "number" && sceneEpoch !== null && m.scene_epoch < sceneEpoch) return false;
+  if (m.type === "ended") {
+    if (m.scene_epoch != null && sceneEpoch !== null && Number(m.scene_epoch) !== Number(sceneEpoch)) return false;
+    if (episode && m.episode_id && m.episode_id !== episode) return false;
+    const currentRun = lastSnapshot && lastSnapshot.run_id;
+    if (currentRun && m.run_id && m.run_id < currentRun) return false;
+  }
+  return true;
 }
 
 function clearBuffer(){
@@ -119,6 +155,7 @@ function send(obj){ if(ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); 
 
 function handleText(txt){
   let m; try{ m = JSON.parse(txt); }catch(e){ return; }
+  if (!acceptControl(m)) return;
   switch(m.type){
     case "health":
       renderHealth(m);
@@ -126,11 +163,10 @@ function handleText(txt){
     case "snapshot":
       applySnapshot(m);
       break;
+    case "load_ack":
     case "load_rejected":
-      loadBtn.disabled = false;
-      if (!rootError) setStatus("已拒绝", m.detail || "不能加载", "warn");
-      else if ($("start-reason")) $("start-reason").textContent = m.detail || "不能加载";
-      syncRunButtons();
+      if (m.status === "accepted") break;
+      if (!rootError && !(lastSnapshot && lastSnapshot.block_reason)) setStatus("已拒绝", m.detail || "不能加载", "warn");
       break;
     case "suites":
       if (m.status === "ready") applyCatalog(m.suites || []);
@@ -141,9 +177,7 @@ function handleText(txt){
       episode = m.episode_id; sceneEpoch = m.scene_epoch; planVersion = m.plan_version || 1;
       goalEl.textContent = m.summary_zh ? `当前目标：${m.summary_zh}` : `当前目标：${m.instruction || ""}`;
       taskIn.disabled = false;
-      restartBtn.disabled = false; loadBtn.disabled = false;
-      runBusy = false;
-      syncRunButtons();
+      restartBtn.disabled = false;
       setConfirm(false);
       if (m.placeholder || m.mode === "dry"){
         setStatus("干跑", "未创建真实环境，没有新图像", "bad");
@@ -158,14 +192,10 @@ function handleText(txt){
       break;
     case "start_ack":
       if (m.status === "rejected") {
-        runBusy = false;
         if (!rootError) setStatus("已拒绝", m.detail || m.code || "开始被拒绝", "bad");
-        else if ($("start-reason")) $("start-reason").textContent = m.detail || m.code || "";
-        syncRunButtons();
         break;
       }
       rootError = "";
-      runBusy = true;
       if (m.used_loaded_goal) goalEl.textContent = `实际执行：${m.summary_zh || m.goal || ""}`;
       else goalEl.textContent = `输入保留：${m.user_text || ""} · 规范：${m.summary_zh || m.goal || ""}`;
       setStatus("检查任务", m.client_request_id || "");
@@ -182,7 +212,6 @@ function handleText(txt){
       else if (m.stage === "task_check") setStatus("检查任务", m.detail || "", m.status === "rejected" ? "bad" : "");
       break;
     case "started":
-      runBusy = true;
       acceptEid = m.episode_id; gate = false; curEid = m.episode_id;
       episode = m.episode_id;
       clearBuffer(); terminalReached = false;
@@ -194,10 +223,7 @@ function handleText(txt){
       setStatus(m.mode === "dry" ? "干跑" : "planning", m.plan_source || "");
       break;
     case "load_failed":
-      runBusy = false;
-      loadBtn.disabled = false;
       taskIn.disabled = !episode;
-      syncRunButtons();
       setStatus("failed", m.detail || "加载失败", "bad");
       break;
     case "state":
@@ -228,9 +254,6 @@ function handleText(txt){
       break;
     case "clarify":
       setStatus("需要确认", m.question || "请说明要哪一个物体", "warn");
-      runBusy = false;
-      loadBtn.disabled = false;
-      syncRunButtons();
       break;
     case "ended":
       if (acceptEid && m.episode_id && m.episode_id !== acceptEid) break;
@@ -245,9 +268,7 @@ function handleText(txt){
       if (!rootError && m.success !== true) rootError = m.root_error || m.reason || "";
       endedFallback = m;
       setConfirm(false);
-      runBusy = false;
-      loadBtn.disabled = false; restartBtn.disabled = false; stopBtn.disabled = true;
-      syncRunButtons();
+      restartBtn.disabled = false;
       break;
     case "pong": break;
   }
@@ -429,6 +450,7 @@ function handleBinary(ab){
   let hdr; try{ hdr = JSON.parse(new TextDecoder().decode(u8.subarray(4, 4+hlen))); }catch(e){ return; }
   if (gate) return;
   if (acceptEid !== null && hdr.eid && hdr.eid !== acceptEid) return;
+  if (typeof hdr.scene_epoch === "number" && sceneEpoch !== null && hdr.scene_epoch < sceneEpoch) return;
   let off = 4 + hlen;
   const aLen = hdr.a_len|0, wLen = hdr.w_len|0;
   const frame = {
@@ -450,40 +472,9 @@ function handleBinary(ab){
   if (!hdr.term) terminalReached = false;
   if (hdr.term) pending = frame;
   else if (!pending || !pending.hdr.term) pending = frame;
+  scheduleDraw();
 }
-
-function showResult(success, reason, status){
-  terminalReached = true;
-  const text = (lastExec && lastExec.reason) || reason || "";
-  const kind = status || lastRunStatus;
-  if (kind === "stopped_at_check" || kind === "diagnostic_saved" || kind === "stopped") {
-    setStatus(kind === "diagnostic_saved" ? "预算到时" : "诊断停止", text, "warn");
-  } else if (kind === "waiting_confirmation") {
-    setStatus("等待确认", text, "warn");
-  } else if (kind === "insufficient_evidence") {
-    setStatus("证据不足", text, "warn");
-  } else if (kind === "incomplete") {
-    setStatus(String(text).indexOf("原生目标") >= 0 ? "原生目标已达成" : "计划已执行，环境未判定成功", text, "warn");
-  } else if (success || kind === "completed") {
-    setStatus(String(text).indexOf("用户目标") >= 0 ? "用户目标完成" : "任务完成", text, "good");
-  } else if (lastPlannerStage === "ok") {
-    setStatus("规划通过，执行失败", text, "bad");
-  } else {
-    setStatus("执行失败", reason || "", "bad");
-  }
-  runBusy = false;
-  restartBtn.disabled = false; loadBtn.disabled = false;
-  syncRunButtons();
-  setConfirm(false);
-  endedFallback = null;
-}
-
-function applyAspect(view, width, height){
-  if (width > 0 && height > 0) view.style.setProperty("--ar", `${width} / ${height}`);
-}
-
-function tick(){
-  requestAnimationFrame(tick);
+function pumpDraw(){
   if (endedFallback && !pending && !decoding && performance.now() - (endedFallback._at || (endedFallback._at = performance.now())) > 800){
     showResult(!!endedFallback.success, endedFallback.reason, endedFallback.status);
     return;
@@ -533,7 +524,45 @@ function tick(){
       });
     }
     decoding = false;
+    if (pending) scheduleDraw();
   }).catch(() => { decoding = false; setStatus("failed", "画面解码失败", "bad"); });
+}
+function scheduleDraw(){
+  requestAnimationFrame(pumpDraw);
+}
+
+function showResult(success, reason, status){
+  terminalReached = true;
+  const text = (lastExec && lastExec.reason) || reason || "";
+  const kind = status || lastRunStatus;
+  if (kind === "stopped_at_check" || kind === "diagnostic_saved" || kind === "stopped") {
+    setStatus(kind === "diagnostic_saved" ? "预算到时" : "诊断停止", text, "warn");
+  } else if (kind === "waiting_confirmation") {
+    setStatus("等待确认", text, "warn");
+  } else if (kind === "insufficient_evidence") {
+    setStatus("证据不足", text, "warn");
+  } else if (kind === "incomplete") {
+    setStatus(String(text).indexOf("原生目标") >= 0 ? "原生目标已达成" : "计划已执行，环境未判定成功", text, "warn");
+  } else if (success || kind === "completed") {
+    setStatus(String(text).indexOf("用户目标") >= 0 ? "用户目标完成" : "任务完成", text, "good");
+  } else if (lastPlannerStage === "ok") {
+    setStatus("规划通过，执行失败", text, "bad");
+  } else {
+    setStatus("执行失败", reason || "", "bad");
+  }
+  restartBtn.disabled = false;
+  syncRunButtons();
+  setConfirm(false);
+  endedFallback = null;
+}
+
+function applyAspect(view, width, height){
+  if (width > 0 && height > 0) view.style.setProperty("--ar", `${width} / ${height}`);
+}
+
+function tick(){
+  requestAnimationFrame(tick);
+  pumpDraw();
 }
 
 loadBtn.onclick = () => {
@@ -555,7 +584,7 @@ function applySnapshot(m){
     taskIn.disabled = false;
   }
   const run = (m && m.run) || {};
-  if (run.root_error) rootError = run.root_error;
+  rootError = run.root_error || "";
   if (run.phase === "waiting_confirmation") setConfirm(true);
   else if (run.phase === "succeeded" || run.phase === "failed" || run.phase === "cancelled" || run.phase === "idle") setConfirm(false);
   if (run.execution) rememberExec(run.execution);
@@ -566,19 +595,16 @@ function applySnapshot(m){
     const bits = [run.execution_mode === "free" ? "自由模式" : "", run.phase, nativeText, userText].filter(Boolean);
     progressEl.textContent = bits.join(" · ");
   }
-  runBusy = !!(m && m.start_block && m.start_block !== "等待确认" && m.start_block !== "回合已结束" && m.start_block !== "场景未加载" && m.start_block !== "模型未就绪" && m.start_block !== "云端未配置");
-  if (run.phase === "waiting_confirmation") runBusy = true;
   if (rootError && (run.phase === "failed" || run.phase === "cancelled" || run.phase === "waiting_confirmation")) {
     setStatus(run.phase === "waiting_confirmation" ? "等待确认" : (run.phase === "cancelled" ? "已取消" : "失败"), rootError, run.phase === "waiting_confirmation" ? "warn" : "bad");
   }
-  loadBtn.disabled = !!(m && (m.start_block === "正在执行" || m.start_block === "正在取消" || m.start_block === "等待确认" || m.loading));
-  stopBtn.disabled = !(run.phase === "preparing" || run.phase === "planning" || run.phase === "executing" || run.phase === "waiting_confirmation" || run.phase === "cancelling");
   syncRunButtons();
+  scheduleDraw();
 }
 function applyServerScene(m){
   const scene = m && m.scene;
   if (!scene || !scene.loaded) {
-    if (m && (m.loading || m.env === "loading" || runBusy)) return;
+    if (m && (m.loading || m.env === "loading" || (m.can_load === false && m.block_code && m.block_code !== "scene_missing"))) return;
     episode = null;
     sceneEpoch = null;
     return;
@@ -600,9 +626,6 @@ function begin(source){
   }
   const type = source === "restart" ? "restart" : "start";
   const client_request_id = `req-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-  runBusy = true;
-  syncRunButtons();
-  stopBtn.disabled = false;
   send({
     type,
     task: taskIn.value,
@@ -616,7 +639,7 @@ function begin(source){
 }
 startBtn.onclick = () => begin("model");
 restartBtn.onclick = () => begin("restart");
-stopBtn.onclick = () => { send({type:"stop"}); setConfirm(false); stopBtn.disabled = true; };
+stopBtn.onclick = () => { send({type:"stop", client_request_id: `stop-${Date.now()}`}); };
 profileSel.onchange = () => send({type:"set_planner", profile: profileSel.value});
 function confirm(verdict){
   if (!waiting) return;

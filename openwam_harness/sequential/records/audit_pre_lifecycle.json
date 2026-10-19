@@ -1,0 +1,277 @@
+{
+  "health": {
+    "type": "health",
+    "adapter": "online",
+    "mode": "live",
+    "harness_live": true,
+    "port": 8766,
+    "pid": 3195,
+    "commit": "9c159a83204de59ecea9c2a1867af70b2a87e085",
+    "static_version": "view8",
+    "execution": "同步",
+    "planner": "ok",
+    "planner_ok": true,
+    "planner_detail": "HTTP 200",
+    "planner_url": "http://127.0.0.1:8000/v1",
+    "planner_model": "Qwen3.5-9B",
+    "planner_profile": "edge",
+    "planner_profiles": {
+      "edge": {
+        "id": "edge",
+        "label": "边缘",
+        "endpoint": "http://127.0.0.1:8000/v1",
+        "model": "Qwen3.5-9B",
+        "input_mode": "scene_metadata",
+        "available": true,
+        "credential": "env",
+        "host": "127.0.0.1:8000",
+        "reachable": true,
+        "probe": "ok",
+        "model_ids": [
+          "Qwen3.5-9B"
+        ]
+      },
+      "cloud": {
+        "id": "cloud",
+        "label": "云端",
+        "endpoint": "",
+        "model": "",
+        "input_mode": "scene_metadata",
+        "available": false,
+        "credential": "missing",
+        "host": "",
+        "reachable": false,
+        "probe": "unconfigured",
+        "model_ids": []
+      }
+    },
+    "loading": false,
+    "checkpoints": {
+      "pi05": true,
+      "sam3": true,
+      "env": true,
+      "paths": {
+        "pi05": "/root/Page_dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+        "sam3": "/root/Page_dmh/openwam_harness/checkpoints/sam3/sam3.pt",
+        "env": "/root/Page_dmh/openwam_harness/RPent/robots/libero/robot_spec.py"
+      }
+    },
+    "components": [
+      {
+        "name": "vla_server",
+        "alive": true,
+        "exit_code": null
+      },
+      {
+        "name": "sam3_server",
+        "alive": true,
+        "exit_code": null
+      },
+      {
+        "name": "env_server",
+        "alive": true,
+        "exit_code": null
+      }
+    ],
+    "env": "ready",
+    "vla": "ready",
+    "suites": "ready",
+    "suite_error": "",
+    "can_select_scene": true,
+    "can_manual_plan": false,
+    "saved_plan_fallback": false,
+    "can_model_plan": true,
+    "silent_dry_fallback": false,
+    "error": ""
+  },
+  "ws": [
+    {
+      "kind": "text",
+      "type": "health",
+      "body": {
+        "type": "health",
+        "adapter": "online",
+        "mode": "live",
+        "harness_live": true,
+        "port": 8766,
+        "pid": 3195,
+        "commit": "9c159a83204de59ecea9c2a1867af70b2a87e085",
+        "static_version": "view8",
+        "execution": "同步",
+        "planner": "ok",
+        "planner_ok": true,
+        "planner_detail": "HTTP 200",
+        "planner_url": "http://127.0.0.1:8000/v1",
+        "planner_model": "Qwen3.5-9B",
+        "planner_profile": "edge",
+        "planner_profiles": {
+          "edge": {
+            "id": "edge",
+            "label": "边缘",
+            "endpoint": "http://127.0.0.1:8000/v1",
+            "model": "Qwen3.5-9B",
+            "input_mode": "scene_metadata",
+            "available": true,
+            "credential": "env",
+            "host": "127.0.0.1:8000",
+            "reachable": true,
+            "probe": "ok",
+            "model_ids": [
+              "Qwen3.5-9B"
+            ]
+          },
+          "cloud": {
+            "id": "cloud",
+            "label": "云端",
+            "endpoint": "",
+            "model": "",
+            "input_mode": "scene_metadata",
+            "available": false,
+            "credential": "missing",
+            "host": "",
+            "reachable": false,
+            "probe": "unconfigured",
+            "model_ids": []
+          }
+        },
+        "loading": false,
+        "checkpoints": {
+          "pi05": true,
+          "sam3": true,
+          "env": true,
+          "paths": {
+            "pi05": "/root/Page_dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+            "sam3": "/root/Page_dmh/openwam_harness/checkpoints/sam3/sam3.pt",
+            "env": "/root/Page_dmh/openwam_harness/RPent/robots/libero/robot_spec.py"
+          }
+        },
+        "components": [
+          {
+            "name": "vla_server",
+            "alive": true,
+            "exit_code": null
+          },
+          {
+            "name": "sam3_server",
+            "alive": true,
+            "exit_code": null
+          },
+          {
+            "name": "env_server",
+            "alive": true,
+            "exit_code": null
+          }
+        ],
+        "env": "ready",
+        "vla": "ready",
+        "suites": "ready",
+        "suite_error": "",
+        "can_select_scene": true,
+        "can_manual_plan": false,
+        "saved_plan_fallback": false,
+        "can_model_plan": true,
+        "silent_dry_fallback": false,
+        "error": ""
+      }
+    },
+    {
+      "kind": "text",
+      "type": "snapshot",
+      "body": {
+        "type": "snapshot",
+        "scene": {
+          "loaded": true,
+          "suite": "libero_goal",
+          "task_id": 1,
+          "seed": 0,
+          "init_state_id": 0,
+          "episode_id": "1541b6a695b9",
+          "scene_epoch": 1,
+          "plan_version": 1,
+          "goal": "put the bowl on the stove",
+          "summary_zh": "把碗放到炉灶上。",
+          "user_text": "",
+          "ended": false
+        },
+        "run": {
+          "phase": "idle",
+          "run_id": 0,
+          "episode_id": "",
+          "scene_epoch": null,
+          "user_text": "",
+          "root_error": "",
+          "root_code": "",
+          "plan_summary": "",
+          "execution": null,
+          "native_task_success": null,
+          "user_goal_success": null,
+          "subgoal_results": null,
+          "execution_mode": "benchmark",
+          "awaiting_confirm": false,
+          "producer_alive": false
+        },
+        "loading": false,
+        "start_block": "",
+        "execution_mode": "benchmark",
+        "has_frame": true
+      }
+    },
+    {
+      "kind": "binary_after",
+      "header": {
+        "eid": "1541b6a695b9",
+        "fid": 0,
+        "phase": "loaded",
+        "detail": "libero_goal_t1_s0",
+        "term": false,
+        "success": false,
+        "reason": "",
+        "mode": "live",
+        "plan_source": "",
+        "recovery_attempts": 0,
+        "aw": 512,
+        "ah": 512,
+        "ww": 512,
+        "wh": 512,
+        "src_aw": 512,
+        "src_ah": 512,
+        "src_ww": 512,
+        "src_wh": 512,
+        "source": "render_camera.agentview",
+        "flip": "vertical",
+        "jpeg_quality": 85,
+        "capture_ms": 40.56,
+        "encode_ms": 10.95,
+        "stage": "tool_end",
+        "placeholder": false,
+        "a_len": 33656,
+        "w_len": 36765
+      },
+      "nbytes": 70911
+    }
+  ],
+  "browser": {
+    "accessible": false,
+    "note": "本轮没有浏览器。按钮 disabled 由同一套 snapshot/start_block/runBusy 逻辑推算，不能当作实际点击通过。"
+  },
+  "phase_a": {
+    "browser": "不可用。没有实际点击。按钮结论来自服务端快照和 app.js 的同一套字段。",
+    "live_start_block": "",
+    "live_phase": "idle",
+    "live_producer_alive": false,
+    "live_scene_loaded": true,
+    "live_ended": false,
+    "planner": "ok",
+    "pid": 3195,
+    "commit": "9c159a83204de59ecea9c2a1867af70b2a87e085",
+    "static_version": "view8",
+    "button_if_snapshot_applied": "disabled=false，因为 start_block 为空且当时前端 runBusy 会是 false",
+    "code_conditions": [
+      "adapter.command_gates: 正在加载 / 正在停止 / 等待确认 / 正在执行 / 场景未加载 / 回合已结束 / 模型未就绪",
+      "旧实现在生产者 finally 里广播快照时 thread.is_alive() 仍为真，release 失败，客户端停在「正在取消/正在停止」，直到刷新重新计算",
+      "load() 在解析失败前调用 session.cancel()，会把仍在的场景标成回合已结束",
+      "空任务不是禁用条件；空字符串表示使用已加载目标",
+      "迟到 ended 在 acceptEid 为空时会被旧前端收下并写 rootError"
+    ]
+  }
+}

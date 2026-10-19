@@ -212,3 +212,21 @@ Planner：
 扁平计划：已保存的旧输出在 CPU 上因 `objects` 等未知字段被拒绝。修好后只发了一次真实初始请求 `seq-a302f9505e25`，prompt 1150 / completion 168，`finish_reason=stop`，没有 reasoning，没有修复，没有执行。展开后的技能是观察、分割、`pi0_pick`、移动、夹爪和暂停。记录在 `sequential/records/planner_flat_check.json`。输入是场景元数据和图像 id，不是视觉规划。
 
 CPU 测试通过只说明契约，不表示整条系统完成。没有批量评测，上下文仍是 32768。offload=0 的持续解码还没有做。
+
+## 状态与快照
+
+按钮只看服务端 `command_gates()`。前端再加一条连接状态：没连上时原因是「未连接」，还没有快照时是「正在同步」。连上之后，按钮旁只显示 `block_reason`。`load_ack` 被拒绝时不改写这次运行的 `root_error`。
+
+`RunContext` 是运行相位的唯一业务状态。`loading` 只表示场景加载。成功加载会把上一轮 `public()` 放进 `history`，然后换一个新的 `RunContext`。历史不参与 `can_start`。
+
+同一进程里 `state_revision` 每次发出控制消息加一。`server_instance_id` 在进程启动时生成。客户端丢掉更小的 revision、更旧的 `scene_epoch`，以及回合或 run 对不上的 `ended`。实例 id 变了就清空本地相位并重新要快照。
+
+快照字段：`server_instance_id`、`state_revision`、`scene_epoch`、`run_id`、`phase`、`scene_loaded`、`producer_alive`、`planner.status`、`can_start`、`can_load`、`can_stop`、`block_reason`。
+
+生产者在自己的 `finally` 里不能把 `is_alive()` 当成已经退出。`complete_from_producer` 等线程结束后才 `release`，然后发新快照。这之前 `block_reason` 是「正在停止」，加载和开始都不放行。不把 `thread` 提前设成 `None`。
+
+停止、确认超时、异常和正常结束都走 `_close_run`。停止和确认各自有 `stop_ack` / `confirm_ack`。重复停止得到 `already_stopping`。空任务字符串表示用当前场景目标，不是禁用原因。
+
+刷新时连接会收到当前快照和 `last_payload`。收到帧后 `scheduleDraw()` 会排进下一帧绘制，不等下一次机器人动作。
+
+2026-10-19 审计时，8766 上的 live 进程是 pid 3195、commit `9c159a8`。当时快照是 `block_reason=""`、场景已加载、`producer_alive=false`、Planner `ok`。没有浏览器，不能把这次推算当成按钮点击通过。原始快照在 `openwam_harness/sequential/records/audit_pre_lifecycle.json`。代码上会禁用开始的条件是：正在加载、正在停止、等待确认、正在执行、场景未加载、回合已结束、模型未就绪。其中「正在停止」会在收尾快照里一直留着，直到生产者线程真正退出后又发一次快照。加载解析失败不再先把当前回合标成 `cancelled`。
