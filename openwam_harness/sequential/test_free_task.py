@@ -172,6 +172,29 @@ class FreeTaskTest(unittest.TestCase):
         self.assertEqual(native_execution_gate({"execution_mode": "free"}, Backend(True, True)), "record_native")
         self.assertEqual(native_execution_gate({"execution_mode": "free"}, Backend(True, False)), "stop_uncontinuable")
 
+    def test_site_goal_uses_the_official_on_check(self):
+        predicates = [{"object_ref": "akita_black_bowl_1", "target_ref": "flat_stove_1", "relation": "on", "hold": "end"}]
+        sim = {"objects": {"akita_black_bowl_1": {"pos": [0.0, 0.0, 1.01]}, "flat_stove_1": {"pos": [0.0, 0.0, 1.01]}}}
+        scene_objects = {"flat_stove_1": {"place_site": "flat_stove_1_cook_region"}}
+        missing = judge_user_goal(predicates, sim, {"named_poses": {"sites": {}}}, scene_objects)
+        self.assertFalse(missing["user_goal_success"])
+        self.assertEqual(missing["subgoal_results"][0]["evidence_source"], "pose_not_provided")
+        observation = {
+            "named_poses": {
+                "sites": {"flat_stove_1_cook_region": [0.0, 0.0, 1.0]},
+                "site_geometry": {
+                    "flat_stove_1_cook_region": {
+                        "mat": [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                        "size": [0.075, 0.075, 0.0025],
+                    }
+                },
+            }
+        }
+        met = judge_user_goal(predicates, sim, observation, scene_objects)
+        self.assertTrue(met["user_goal_success"])
+        self.assertEqual(met["evidence_source"], "mujoco_site")
+        self.assertEqual(met["subgoal_results"][0]["metrics"]["native_on"]["predicate"], "SiteObject.under")
+
 
 if __name__ == "__main__":
     unittest.main()

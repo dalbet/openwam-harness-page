@@ -356,4 +356,15 @@ MuJoCo 四元数顺序是 wxyz。这个局部四元数不是单位四元数，�
 
 页面手动检查：打开 `http://127.0.0.1:8766/`，套件选「目标任务」，加载默认 task 1、seed 0。空闲时点「重置场景」。执行中点它会先停止再重置。输入仍留在任务框。
 
-只读位姿和真实单任务的结果写在当次记录里。碗先到炉灶、原生成功后不 reset 再完成酒瓶，这条组合路径还没有验收。
+2026-10-19 只读和单任务结果，live commit `2be2f87`，适配器 pid `28636`，页面 `view12`：
+
+- Goal task 1、seed 0 只读没有动作。`env_step` 前后都是 0。碗 `[-0.0944, -0.0018, 0.8984]`，酒瓶 `[-0.1887, -0.0495, 0.8989]`，都来自 `sim_state`。
+- `flat_stove_1_cook_region` 世界位置约 `[-0.2650, 0.2091, 0.905]`，四元数 `[1, 0, 0, 0]`，半尺寸 `[0.075, 0.075, 0.0025]`，放置模式 `translation`。
+- `wine_rack_1_top_region` 世界位置约 `[-0.2605, -0.1846, 1.1374]`，世界四元数 `[0, 0, -0.518773, 0.854912]`（wxyz）。这和模型局部四元数 `0.8549119 -0.5187733 0 0` 不是同一组数，因为酒架初始化还有 yaw。半尺寸 `[0.10087, 0.022, 0.00251]`。放置模式 `orientation_not_commandable`。
+- `main_table_wine_rack_region` 返回 `region_not_placeable`。柜子 `wooden_cabinet_1_top_region` 仍单独存在，没有覆盖酒架。
+- 主栏「重置场景」把回合从 epoch 1 换成 epoch 2、episode `4f8e992b89eb`。开始保持可用，停止保持禁用。
+- 一次自由模式「把碗放到炉灶上」：Planner `seq-5d9f1c256515`，`repairs=0`，`plan_from=initial`。约 66 秒结束，`execution_status=completed`，`native_task_success=true`，`user_goal_status=met`。当时用户目标记录仍是中心距离 `xy_m=0.0008`。事后只读同一场景，`SiteObject.under` 为真，`delta_site` 约 `[0.0003, 0.0007, 0.0239]`。之后的复查代码改为有 site 几何时用这个判据。
+- 酒瓶没有执行。控制器不能按酒架的世界朝向放置。缺的是完整朝向的末端命令，以及它的完成检查和取消接线。
+- 碗先到炉灶之后不 reset、继续酒瓶，并复查两个目标：这条组合没有跑，不能当成通过。
+
+记录：`records/readonly_regions_goal_t1.json`、`records/live_bowl_stove_once.json`。这些运行记录不进入提交。

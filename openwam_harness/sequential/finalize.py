@@ -120,7 +120,12 @@ def _read_user_goal(payload: dict[str, Any], backend: Any, plan: dict[str, Any])
         payload["evidence_source"] = evidence.get("evidence_source") or "unavailable"
         payload["unknown_reason"] = evidence.get("reason") or evidence.get("reason_code")
         return
-    judged = judge_user_goal(plan.get("predicates") or [], evidence["sim"])
+    judged = judge_user_goal(
+        plan.get("predicates") or [],
+        evidence["sim"],
+        observation,
+        plan.get("objects") or {},
+    )
     payload["subgoal_results"] = judged["subgoal_results"]
     payload["user_goal_success"] = judged["user_goal_success"]
     payload["user_goal_status"] = "met" if judged["user_goal_success"] else "unmet"

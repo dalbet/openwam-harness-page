@@ -137,24 +137,50 @@ def coverage_errors(plan: dict[str, Any], predicates: list[dict[str, Any]], *, o
     return errors
 
 
-def judge_user_goal(predicates: list[dict[str, Any]], sim: dict[str, Any] | None) -> dict[str, Any]:
-    """Backend check. A planner success flag is not read."""
+def judge_user_goal(
+    predicates: list[dict[str, Any]],
+    sim: dict[str, Any] | None,
+    observation: dict[str, Any] | None = None,
+    scene_objects: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Backend check. A planner success flag is not read.
+
+    A fixture with a placement site is judged by SiteObject.under. Center distance is only
+    for a target that has no site declaration.
+    """
     state = sim or {}
     objects = state.get("objects") or {}
     cfg = THRESHOLDS["place"]
     rows = []
+    sources = set()
     for predicate in predicates:
         obj = _pos(objects, predicate["object_ref"])
-        dst = _pos(objects, predicate["target_ref"])
+        spec = (scene_objects or {}).get(predicate["target_ref"]) if isinstance(scene_objects, dict) else None
+        site = spec.get("place_site") if isinstance(spec, dict) else None
         held = False
+        source = "sim_state"
         metrics: dict[str, Any] = {"relation": predicate["relation"], "hold": predicate.get("hold") or "end"}
-        if obj is not None and dst is not None:
-            xy = ((obj[0] - dst[0]) ** 2 + (obj[1] - dst[1]) ** 2) ** 0.5
-            radius = float(cfg["in_radius_m"] if predicate["relation"] == "in" else cfg["on_radius_m"])
-            z_ok = abs(obj[2] - dst[2]) <= float(cfg["support_z_tolerance_m"])
-            held = xy <= radius and z_ok
-            metrics["xy_m"] = round(xy, 4)
-            metrics["z_delta_m"] = round(obj[2] - dst[2], 4)
+        if site:
+            native = _site_relation(obj, site, observation)
+            metrics["query_key"] = site
+            metrics["native_on"] = native
+            if native is None:
+                source = "pose_not_provided"
+                metrics["reason_code"] = "pose_not_provided"
+            else:
+                held = bool(native["ok"])
+                source = "mujoco_site"
+        else:
+            dst = _pos(objects, predicate["target_ref"])
+            if obj is not None and dst is not None:
+                xy = ((obj[0] - dst[0]) ** 2 + (obj[1] - dst[1]) ** 2) ** 0.5
+                radius = float(cfg["in_radius_m"] if predicate["relation"] == "in" else cfg["on_radius_m"])
+                z_ok = abs(obj[2] - dst[2]) <= float(cfg["support_z_tolerance_m"])
+                held = xy <= radius and z_ok
+                metrics["xy_m"] = round(xy, 4)
+                metrics["z_delta_m"] = round(obj[2] - dst[2], 4)
+                metrics["predicate"] = "center_distance"
+        sources.add(source)
         rows.append(
             {
                 "object_ref": predicate["object_ref"],
@@ -163,7 +189,7 @@ def judge_user_goal(predicates: list[dict[str, Any]], sim: dict[str, Any] | None
                 "hold": predicate.get("hold") or "end",
                 "held_at_end": held,
                 "instant_only": False,
-                "evidence_source": "sim_state",
+                "evidence_source": source,
                 "metrics": metrics,
             }
         )
@@ -171,9 +197,22 @@ def judge_user_goal(predicates: list[dict[str, Any]], sim: dict[str, Any] | None
     return {
         "subgoal_results": rows,
         "user_goal_success": bool(end_rows) and all(row["held_at_end"] for row in end_rows),
-        "evidence_source": "sim_state",
+        "evidence_source": "per_item" if len(sources) > 1 else (next(iter(sources)) if sources else "sim_state"),
         "vision": False,
     }
+
+
+def _site_relation(obj, site: str, observation: dict[str, Any] | None) -> dict[str, Any] | None:
+    named = (observation or {}).get("named_poses") if isinstance(observation, dict) else None
+    if not isinstance(named, dict) or not isinstance(obj, list):
+        return None
+    geometry = (named.get("site_geometry") or {}).get(site)
+    xyz = (named.get("sites") or {}).get(site)
+    if not isinstance(geometry, dict) or not geometry.get("mat") or not geometry.get("size") or not isinstance(xyz, list):
+        return None
+    from regions import on_site
+
+    return on_site(obj, xyz, geometry["mat"], geometry["size"])
 
 
 def _alias_hints(text: str, objects: dict[str, Any]) -> list[dict[str, Any]]:
