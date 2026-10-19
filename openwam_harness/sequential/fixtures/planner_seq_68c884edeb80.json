@@ -1,0 +1,97 @@
+{
+  "stage": "ok",
+  "repairs": 1,
+  "plan_from": "format_repair",
+  "executed": false,
+  "attempts": [
+    {
+      "index": 1,
+      "role": "initial",
+      "request_id": "seq-7499f27bb69d",
+      "usage": {
+        "prompt_tokens": 3592,
+        "total_tokens": 3772,
+        "completion_tokens": 180
+      },
+      "response_kind": "tool_calls",
+      "finish_reason": "tool_calls",
+      "telemetry": {
+        "endpoint": "http://127.0.0.1:8000/v1/chat/completions",
+        "model": "Qwen3.5-9B",
+        "input_mode": "scene_metadata",
+        "usage": {
+          "prompt_tokens": 3592,
+          "total_tokens": 3772,
+          "completion_tokens": 180
+        },
+        "queue_s": 0.0249,
+        "server_queue_s": null,
+        "ttft_s": 17.3064,
+        "total_s": 42.002
+      },
+      "errors": [
+        {
+          "path": "steps[0].object_n",
+          "code": "candidate_number",
+          "received": null,
+          "expected": "当前场景候选编号"
+        },
+        {
+          "path": "steps[0].target_n",
+          "code": "candidate_number",
+          "received": null,
+          "expected": "当前场景候选编号"
+        }
+      ],
+      "tool_calls": [
+        {
+          "id": "chatcmpl-tool-a2f0025a770b0a7d",
+          "type": "function",
+          "function": {
+            "name": "submit_plan",
+            "arguments": "{\"plan_id\": \"bowl_on_stove\", \"goal\": \"put the bowl on the stove\", \"goal_relation\": \"on\", \"steps\": [{\"step_id\": \"step1\", \"skill\": \"transfer\", \"object_ref\": \"akita_black_bowl_1\", \"target_ref\": \"flat_stove_1\", \"relation\": \"on\", \"prompt\": \"pick up the black bowl and place it on the stove\", \"depends_on\": [], \"preconditions\": [], \"completion_check\": \"object_placed\", \"budget\": {\"max_s\": 180, \"max_attempts\": 2}, \"on_failure\": \"recover\"}]}"
+          }
+        }
+      ],
+      "content": null
+    },
+    {
+      "index": 2,
+      "role": "format_repair",
+      "request_id": "seq-68c884edeb80",
+      "usage": {
+        "prompt_tokens": 4110,
+        "total_tokens": 4304,
+        "completion_tokens": 194
+      },
+      "response_kind": "tool_calls",
+      "finish_reason": "tool_calls",
+      "telemetry": {
+        "endpoint": "http://127.0.0.1:8000/v1/chat/completions",
+        "model": "Qwen3.5-9B",
+        "input_mode": "scene_metadata",
+        "usage": {
+          "prompt_tokens": 4110,
+          "total_tokens": 4304,
+          "completion_tokens": 194
+        },
+        "queue_s": 0.0273,
+        "server_queue_s": null,
+        "ttft_s": 19.752,
+        "total_s": 46.4786
+      },
+      "errors": [],
+      "tool_calls": [
+        {
+          "id": "chatcmpl-tool-84bc401a19d40fdb",
+          "type": "function",
+          "function": {
+            "name": "submit_plan",
+            "arguments": "{\"plan_id\": \"bowl_on_stove\", \"goal\": \"把碗放在炉灶上\", \"goal_relation\": \"on\", \"steps\": [{\"step_id\": \"step1\", \"skill\": \"transfer\", \"object_n\": 1, \"target_n\": 7, \"object_ref\": \"akita_black_bowl_1\", \"target_ref\": \"flat_stove_1\", \"relation\": \"on\", \"prompt\": \"pick up the black bowl and place it on the stove\", \"depends_on\": [], \"preconditions\": [], \"completion_check\": \"object_placed\", \"budget\": {\"max_s\": 180, \"max_attempts\": 2}, \"on_failure\": \"recover\"}]}"
+          }
+        }
+      ],
+      "content": null
+    }
+  ]
+}

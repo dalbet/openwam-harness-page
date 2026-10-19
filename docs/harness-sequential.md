@@ -291,7 +291,7 @@ CPU 测试通过只说明契约，不表示整条系统完成。没有批量评�
 
 ## 状态查询与错误
 
-`query_bound_state` 按已绑定的 `instance_ref` 读当前观测。可动物体的查询键就是实例名，对应观测里的 `{instance}_pos`。炉灶这类目标的查询键是 BDDL goal atom。`put_the_bowl_on_the_stove` 的原子是 `flat_stove_1_cook_region`，由 `flat_stove_1` 和 `cook_region` 按 liberopro `get_regions` 的 `target + "_" + region` 组成，并且该原子已经写在 `:goal` 里。不截后缀，也不用设施 body 原点。
+`query_bound_state` 按已绑定的 `instance_ref` 读当前观测。可动物体的查询键就是实例名，对应观测里的 `{instance}_pos`。设施目标的查询键是场景里该设施唯一的操作 site，键为 `owner_instance + "_" + region_name`。`put_the_bowl_on_the_stove` 的炉灶 site 是 `flat_stove_1_cook_region`。同一份 BDDL 里酒架的操作 site 是 `wine_rack_1_top_region`，它不在这个任务的 `:goal` 里，但自由模式仍然注册。不截后缀，也不用设施 body 原点。裸 `top_region` 不能当全局键：柜子和酒架各有一个。
 
 只读 RPC 是 `env.named_poses`。位姿成功时证据是 `sim_state` 或 `mujoco_site`。场景清单里有名字不算已经有位姿。
 
@@ -301,7 +301,8 @@ CPU 测试通过只说明契约，不表示整条系统完成。没有批量评�
 |---|---|---|
 | `instance_not_found` | 实例不在当前场景，或拿到的是类型名 | 失败，不请求抓取确认 |
 | `pose_not_provided` | 实例在，但没有位姿或放置区域坐标 | 失败。状态可读时最多再读一次 |
-| `stale_observation` | 观测的 `scene_epoch` 与计划不一致 | 失败 |
+| `stale_observation` / `STALE_OBSERVATION` | `scene_epoch` 与计划不一致，属于另一个场景 | 失败，不把另一场景的快照读进来冒充 |
+| `stale_snapshot` | 同一场景、同一 `tool_record` 时钟，记录序号落后 | 失败前最多再读一次当前动态状态 |
 | `state_service_error` | 状态服务报错或缺字段 | 失败。最多再读一次 |
 | `visual_instance_ambiguous` | 定位无法区分多个同类实例 | `awaiting_clarification`，列出候选 |
 
@@ -317,7 +318,42 @@ CPU 测试通过只说明契约，不表示整条系统完成。没有批量评�
 
 ```bash
 cd /root/Page_dmh/openwam_harness/sequential
-/root/Page_dmh/openwam_harness/envs/rpent/bin/python -m unittest test_binding_chain.py test_transfer_release.py
+/root/Page_dmh/openwam_harness/envs/rpent/bin/python -m unittest test_regions.py test_binding_chain.py test_transfer_release.py test_lifecycle.py
 ```
 
-`test_binding_chain.py` 回放 `records/planner_last.json` 里的 `seq-68c884edeb80`，不请求模型，不执行动作。
+`test_binding_chain.py` 回放 `fixtures/planner_seq_68c884edeb80.json` 里的 `seq-68c884edeb80`，不请求模型，不执行动作。`test_regions.py` 回放 `seq-8a435cf576eb` 的酒架计划参数，并检查 Reset 与观测时钟。
+
+## 场景区域
+
+安装包里的两份 Goal BDDL 都声明了酒架，不是仓库里的副本：
+
+- `liberopro/bddl_files/libero_goal/put_the_bowl_on_the_stove.bddl`
+- `liberopro/bddl_files/libero_goal/put_the_wine_bottle_on_the_rack.bddl`
+
+碗任务的 `:goal` 是 `(On akita_black_bowl_1 flat_stove_1_cook_region)`。酒瓶任务的 `:goal` 是 `(On wine_bottle_1 wine_rack_1_top_region)`。两份的 `:regions` 都有 `top_region` → `wooden_cabinet_1` 和 `top_region` → `wine_rack_1`。运行时 site 名是 `wooden_cabinet_1_top_region` 与 `wine_rack_1_top_region`。
+
+`main_table_wine_rack_region` 来自 `(wine_rack_region (:target main_table) (:ranges ...))`，只在 `:init` 里把酒架放到桌面。它不是酒瓶落点。`bowl_drainer_1` 的 `left_region` / `right_region` 的 owner 不在这份 `:fixtures` 里，记为 `owner_not_in_scene`，不进入放置表。
+
+先前 `target_region_missing` 的第一处丢失在 `suites._place_regions`：它只保留出现在 `:goal` 或 `:obj_of_interest` 里的 site。碗任务因此没有 `wine_rack_1_top_region`。`seq-8a435cf576eb` 和随后的格式修复 `seq-b2ee7edc020a` 都选了合法编号 8（`wine_rack_1`），错误出在注册表，不是 Planner 选错对象。现在放置区域来自当前问题里全部设施 site。`target_region_missing` 和 `target_region_ambiguous` 不再消耗格式修复。柜子有多个区域时仍是 `target_region_ambiguous`。
+
+酒架模型 `libero/libero/assets/turbosquid_objects/wine_rack/wine_rack.xml` 的 site：
+
+```xml
+<site type="box" pos="0 -0.08003 0.21745" quat="0.8549119 -0.5187733 0 0" size="0.10087 0.02200 0.00251" name="top_region"/>
+```
+
+MuJoCo 四元数顺序是 wxyz。这个局部四元数不是单位四元数，表示绕 site 的 X 轴旋转。`size` 是半尺寸。`env.named_poses` 仍用 `sites[name] = [x, y, z]`。朝向在 `site_geometry[name]`：`quat_wxyz`、row-major `mat`（`site_xmat`）、`size`。世界位姿每次从当前 MuJoCo 状态读取。
+
+官方 On 是 `SiteObjectState.check_ontop` → `SiteObject.under`：`delta = site_xmat @ (object_pos - site_pos)`，要求 `size[2] - 0.005 < delta_z < size[2] + 0.10` 且 `abs(delta_xy) < size[:2]`。有 site 几何时放置复查用这个判据。没有 mat/size 时不把中心距离说成 On。
+
+炉灶 `cook_region` 的四元数是单位四元数，现有 `move_to` 平移可以生成末端目标。酒架 site 带旋转。`move_to` 只伺服位置并保持朝向。`RPent` 的 `move_pose` 只同时伺服 xyz、pitch 和 yaw，顺序执行没有把它接上完成检查和取消。因此旋转区域在动作前返回 `orientation_not_commandable`，不调用未接通的姿态命令。几何参数由后端从当前状态生成，Planner 不输出落点或旋转角。
+
+刚性区域的世界位姿按 `scene_epoch` 和设施 body 位置缓存。设施被挪动、场景版本变化，或区域名含 drawer/door/knob/handle/joint 时，不沿用缓存。动态观测可以刷新位姿，不能删掉注册表里的区域定义。
+
+观测时钟分开：`scene_epoch` 是场景版本，`episode_id` 是回合，`tool_record` 是工具记录序号，`env_action_count` 是环境动作计数。只有同一 `tool_record` 时钟才比较序号。Planner 等待期间墙钟变了，但环境没变，不因此把对象或静态区域判失效。动作前仍读当前动态状态。可刷新的落后快照最多再读一次。跨 `scene_epoch` 直接拒绝。
+
+主栏「重置场景」发送 `reset`。执行中先停掉动作所有者和在途动作，退出后才 `warm_reset`。它重置同一 suite/task/seed，不重启 VLA、SAM3 或环境进程。`scene_epoch` 和 `episode_id` 更新，`plan_version` 增加，旧计划、定位、确认和持有基准作废。历史和输入框保留。新状态和首帧之后才回到 idle。失败时 `reset_failed`，开始保持禁用。重复点击在重置进行中返回 `already_resetting`。
+
+页面手动检查：打开 `http://127.0.0.1:8766/`，套件选「目标任务」，加载默认 task 1、seed 0。空闲时点「重置场景」。执行中点它会先停止再重置。输入仍留在任务框。
+
+只读位姿和真实单任务的结果写在当次记录里。碗先到炉灶、原生成功后不 reset 再完成酒瓶，这条组合路径还没有验收。

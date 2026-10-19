@@ -876,6 +876,7 @@ def _observations_from_samples(samples, scene_epoch: int) -> list[dict[str, Any]
             "observation_id": sample.get("observation_id") or f"sample-{version}",
             "scene_epoch": scene_epoch,
             "env_step": version,
+            "step_clock": "env_action_count",
             "timestamp": sample.get("timestamp"),
             "hold_step": sample.get("hold_step"),
             "cameras": {
@@ -918,7 +919,7 @@ def _recover_or_confirm(
         failed = dict(verification)
         failed["status"] = "failure"
         return failed, outcome, post
-    if verification.get("reason_code") in {"pose_not_provided", "state_service_error"} and not step.get("_state_reread"):
+    if verification.get("reason_code") in {"pose_not_provided", "state_service_error", "stale_snapshot"} and not step.get("_state_reread"):
         step["_state_reread"] = True
         post.append(_capture(backend, started_epoch))
         verification = verify_step(
@@ -934,7 +935,7 @@ def _recover_or_confirm(
         )
     if verification.get("status") == "clarify":
         return verification, outcome, post
-    if verification.get("reason_code") in {"pose_not_provided", "state_service_error", "instance_not_found", "stale_observation"}:
+    if verification.get("reason_code") in {"pose_not_provided", "state_service_error", "instance_not_found", "stale_observation", "stale_snapshot", "STALE_OBSERVATION"}:
         failed = dict(verification)
         failed["status"] = "failure"
         return failed, outcome, post

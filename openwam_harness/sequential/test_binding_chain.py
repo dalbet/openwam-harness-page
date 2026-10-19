@@ -13,7 +13,7 @@ from schema import PlanError, prepare_plan
 from suites import _catalog, objects_for_names
 
 ROOT = Path(__file__).resolve().parent
-SAVED = ROOT / "records" / "planner_last.json"
+SAVED = ROOT / "fixtures" / "planner_seq_68c884edeb80.json"
 STATES = ROOT.parent / "runs" / "sequential" / "874f6a80bddf" / "states.json"
 BDDL = Path(
     "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
@@ -188,7 +188,6 @@ class _Pose:
     def observe(self):
         return {
             "observation_id": "pose-1",
-            "scene_epoch": 1,
             "env_step": 1,
             "timestamp": 1,
             "cameras": {"agentview": {"id": "a"}, "wrist": {"id": "w"}},

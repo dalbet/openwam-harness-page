@@ -36,18 +36,25 @@ def receipt(
     }
 
 
-def observation_ok(obs: dict | None, *, scene_epoch: int, min_step: int | None) -> bool:
+def observation_ok(obs: dict | None, *, scene_epoch: int, min_step: int | None, min_clock: str | None = None) -> tuple[bool, str]:
+    """Cross-scene data is rejected. A different step clock is not wall-clock staleness."""
     if not isinstance(obs, dict):
-        return False
+        return False, "missing_observation"
     if obs.get("scene_epoch") != scene_epoch:
-        return False
+        return False, "cross_scene"
+    clock = obs.get("step_clock") or "tool_record"
     step = obs.get("env_step")
-    if min_step is not None and (not isinstance(step, int) or step < min_step):
-        return False
+    if (
+        min_step is not None
+        and min_clock in (None, clock)
+        and clock == "tool_record"
+        and (not isinstance(step, int) or step < min_step)
+    ):
+        return False, "stale_snapshot"
     cameras = obs.get("cameras") or {}
     if "agentview" not in cameras or "wrist" not in cameras:
-        return False
-    return True
+        return False, "missing_cameras"
+    return True, ""
 
 
 def verify_step(
@@ -68,19 +75,33 @@ def verify_step(
         failed["observation_ids"] = _ids(observations)
         return failed
     current = observations[-1] if observations else None
-    if not observation_ok(current, scene_epoch=scene_epoch, min_step=min_step):
+    fresh, fresh_code = observation_ok(current, scene_epoch=scene_epoch, min_step=min_step, min_clock="tool_record")
+    if not fresh:
+        actual_step = (current or {}).get("env_step") if isinstance(current, dict) else None
+        code = {
+            "cross_scene": "STALE_OBSERVATION",
+            "stale_snapshot": "stale_snapshot",
+        }.get(fresh_code, "observation_incomplete")
+        summary = {
+            "cross_scene": "观测属于另一个场景",
+            "stale_snapshot": "同一场景的动态快照落后于本步开始时的记录序号",
+        }.get(fresh_code, "观测缺少相机或对象")
         return receipt(
             "failure",
-            "STALE_OBSERVATION",
+            code,
             "sim_state_assisted",
             _ids(observations),
             {
                 "scene_epoch": scene_epoch,
-                "min_step": min_step,
-                "observation_id": (current or {}).get("observation_id") if isinstance(current, dict) else None,
                 "actual_epoch": (current or {}).get("scene_epoch") if isinstance(current, dict) else None,
-                "summary": "观测已过期，不能用来确认抓取或放置",
-                "error": "观测已过期，不能用来确认抓取或放置",
+                "min_step": min_step,
+                "min_clock": "tool_record",
+                "env_step": actual_step,
+                "step_clock": (current or {}).get("step_clock") if isinstance(current, dict) else None,
+                "observation_id": (current or {}).get("observation_id") if isinstance(current, dict) else None,
+                "fresh_code": fresh_code,
+                "summary": summary,
+                "error": summary,
             },
         )
     if check == "observe_ready":
@@ -509,14 +530,21 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
         )
     cfg = THRESHOLDS["place"]
     radius = {"in": cfg["in_radius_m"], "on": cfg["on_radius_m"], "inside_drawer": cfg["inside_drawer_radius_m"]}[relation]
-    xy = _xy(obj, target["xyz"])
-    supported = abs(obj[2] - target["xyz"][2]) <= float(cfg["support_z_tolerance_m"])
+    native = _native_on(obj, target, current)
+    if native is not None:
+        xy = None
+        supported = bool(native["ok"])
+        z_delta = native["delta_site"][2]
+    else:
+        xy = _xy(obj, target["xyz"])
+        z_delta = obj[2] - target["xyz"][2]
+        supported = xy <= float(radius) and abs(z_delta) <= float(cfg["support_z_tolerance_m"])
     released = opening >= float(cfg["gripper_open_min_m"])
     stable = _drift(observations, spec["sim_name"], int(cfg["stable_samples"]), float(cfg["drift_m"]))
     metrics = {
         "relation": relation,
-        "xy_m": round(xy, 4),
-        "z_delta_m": round(obj[2] - target["xyz"][2], 4),
+        "xy_m": None if xy is None else round(xy, 4),
+        "z_delta_m": round(z_delta, 4),
         "gripper_opening_m": opening,
         "radius_m": radius,
         "support_z_tolerance_m": cfg["support_z_tolerance_m"],
@@ -524,7 +552,8 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
         "evidence_sources": sources,
         "missing": [],
         "released_required": True,
-        "condition": "释放后检查对象原点是否落在目标区域内，site 原点不是末端目标",
+        "native_on": native,
+        "condition": "释放后用 SiteObject.under 检查对象与 site；没有 site 几何时才退回半径",
     }
     if not stable:
         metrics["unmet"] = [f"distinct stable samples < {cfg['stable_samples']}"]
@@ -532,9 +561,11 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
         metrics["error"] = metrics["summary"]
         return receipt("unknown", "NEED_STABILITY_SAMPLE", "per_item", ids, metrics)
     unmet = []
-    if xy > float(radius):
+    if native is None and xy is not None and xy > float(radius):
         unmet.append(f"xy_m {round(xy, 4)} > radius_m {radius}")
-    if not supported:
+    if native is not None and not supported:
+        unmet.append(f"SiteObject.under delta_site {native['delta_site']}")
+    if native is None and abs(z_delta) > float(cfg["support_z_tolerance_m"]):
         unmet.append(f"z_delta_m {metrics['z_delta_m']} > support_z_tolerance_m {cfg['support_z_tolerance_m']}")
     if not released:
         unmet.append(f"gripper_opening_m {opening} < gripper_open_min_m {cfg['gripper_open_min_m']}")
@@ -549,6 +580,18 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
     metrics["summary"] = "放置失败：对象与目标区域关系不成立"
     metrics["error"] = metrics["summary"]
     return receipt("failure", "WRONG_PLACEMENT", "per_item", ids, metrics)
+
+
+def _native_on(obj, target: dict, observation: dict | None) -> dict | None:
+    key = target.get("query_key")
+    named = (observation or {}).get("named_poses") if isinstance(observation, dict) else None
+    geometry = (named or {}).get("site_geometry") if isinstance(named, dict) else None
+    row = geometry.get(key) if isinstance(geometry, dict) and key else None
+    if not isinstance(row, dict) or not row.get("mat") or not row.get("size"):
+        return None
+    from regions import on_site
+
+    return on_site(obj, target["xyz"], row["mat"], row["size"])
 
 
 def native_success(terminated: bool, truncated: bool) -> bool:

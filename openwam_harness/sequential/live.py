@@ -349,6 +349,7 @@ class LiveBackend:
             "observation_id": f"live-{step}-{time.time_ns()}",
             "scene_epoch": self.scene_epoch,
             "env_step": step,
+            "step_clock": "tool_record",
             "timestamp": time.time(),
             "cameras": {
                 "agentview": {"id": f"agentview:{step}", "bytes": len(agent or b"")},

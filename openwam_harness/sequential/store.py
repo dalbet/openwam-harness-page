@@ -61,7 +61,11 @@ class LocalizationCache:
 def new_observation(backend_obs: dict | None, *, scene_epoch: int) -> dict[str, Any]:
     obs = dict(backend_obs or {})
     obs.setdefault("observation_id", uuid.uuid4().hex[:12])
-    obs["scene_epoch"] = scene_epoch
+    reported = obs.get("scene_epoch")
+    if reported is None:
+        obs["scene_epoch"] = scene_epoch
+    elif reported != scene_epoch:
+        obs["cross_scene"] = True
     obs.setdefault("timestamp", time.time())
     obs["llm"] = False
     return obs
