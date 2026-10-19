@@ -35,6 +35,7 @@ class RunContext:
         self.subgoal_results = None
         self.first_error = ""
         self.verification_error = ""
+        self.confirm_started_at = None
         self.confirm_q: Queue = Queue()
         self.thread: threading.Thread | None = None
         self.generation = 0
@@ -68,6 +69,7 @@ class RunContext:
         self.subgoal_results = None
         self.first_error = ""
         self.verification_error = ""
+        self.confirm_started_at = None
         self.confirm_q = Queue()
         self.finished = False
         self.execution_mode = execution_mode
@@ -146,6 +148,7 @@ class RunContext:
         if self.phase == "cancelling" or self.finished:
             return None
         self.phase = "waiting_confirmation"
+        self.confirm_started_at = time.time()
         generation = self.generation
         try:
             verdict = self.confirm_q.get(timeout=timeout)
@@ -203,6 +206,8 @@ class RunContext:
             "verification_error": self.verification_error,
             "execution_mode": self.execution_mode,
             "awaiting_confirm": self.phase == "waiting_confirmation",
+            "confirm_started_at": self.confirm_started_at,
+            "confirm_timeout_s": CONFIRM_TIMEOUT_S,
             "producer_alive": self.producer_alive(),
         }
 

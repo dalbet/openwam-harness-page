@@ -105,13 +105,32 @@ function escapeHtml(value){
     "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
   }[ch]));
 }
+function showConfirmWait(execution, timeoutS, startedAt){
+  const note = $("confirm-note");
+  const problem = (execution && (execution.summary || execution.reason)) || "需要确认一个视觉结果";
+  const limit = Number(timeoutS || 90);
+  const start = Number(startedAt || Date.now() / 1000);
+  confirmDeadline = start * 1000 + limit * 1000;
+  if (note) note.textContent = `${problem} · 剩余 ${Math.max(0, Math.ceil((confirmDeadline - Date.now()) / 1000))} 秒`;
+  if (confirmTimer) clearInterval(confirmTimer);
+  confirmTimer = setInterval(() => {
+    const left = Math.max(0, Math.ceil((confirmDeadline - Date.now()) / 1000));
+    if (note) note.textContent = `${problem} · 剩余 ${left} 秒`;
+    if (left <= 0) clearInterval(confirmTimer);
+  }, 1000);
+}
 function setConfirm(on){
   waiting = on;
   confirmBox.hidden = !on;
   okBtn.disabled = !on;
   badBtn.disabled = !on;
   unkBtn.disabled = !on;
-  stopBtn.disabled = !on && startBtn.disabled;
+  if (!on && confirmTimer) {
+    clearInterval(confirmTimer);
+    confirmTimer = null;
+  }
+  const note = $("confirm-note");
+  if (note && !on) note.textContent = "";
 }
 
 const PHASES = {
@@ -134,6 +153,8 @@ const PHASES = {
 let suites = [];
 let ws = null, wsConnected = false;
 let lastHealth = null;
+let confirmTimer = null;
+let confirmDeadline = 0;
 let suitePoll = null;
 function connect(){
   const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -229,7 +250,10 @@ function handleText(txt){
     case "state":
       if (m.scene_epoch != null) sceneEpoch = m.scene_epoch;
       if (m.plan_version != null) planVersion = m.plan_version;
-      if (m.phase === "waiting_confirmation") setConfirm(true);
+      if (m.phase === "waiting_confirmation") {
+        setConfirm(true);
+        showConfirmWait(m.execution || lastExec, m.confirm_timeout_s, m.confirm_started_at);
+      }
       else if (m.phase === "failed" || m.phase === "executing" || m.phase === "planning") setConfirm(false);
       if (m.execution) rememberExec(m.execution);
       if (m.planner_stage) lastPlannerStage = m.planner_stage;
@@ -310,16 +334,20 @@ function renderExec(execution){
   const category = CATEGORIES[execution.category] || execution.category || "—";
   const checker = execution.checker_reason_code ? ` · 检查结果 ${execution.checker_reason_code}` : "";
   const planner = lastPlannerStage === "ok" ? "规划通过" : (lastPlannerStage || "规划状态未知");
-  const pauseCodes = ["INSUFFICIENT_EVIDENCE", "NEED_STABILITY_SAMPLE", "TARGET_NOT_IDENTIFIED", "TARGET_AMBIGUOUS"];
-  const paused = pauseCodes.includes(execution.reason_code);
-  const failed = !paused && execution.reason_code && execution.reason_code !== "GRASP_HELD" && execution.reason_code !== "OBJECT_LOCALIZED" && !execution.stopped;
-  const execState = paused ? `${planner}，执行暂停` : (failed ? `${planner}，执行失败` : `${planner} · ${execution.reason_code || "执行中"}`);
+  const pauseCodes = ["INSUFFICIENT_EVIDENCE", "NEED_STABILITY_SAMPLE", "TARGET_NOT_IDENTIFIED", "TARGET_AMBIGUOUS", "preplace_blocked", "pose_not_provided", "state_service_error"];
+  const paused = pauseCodes.includes(execution.reason_code) || pauseCodes.includes(execution.error_code);
+  const failed = !paused && execution.reason_code && execution.reason_code !== "GRASP_HELD" && execution.reason_code !== "OBJECT_LOCALIZED" && execution.reason_code !== "TRANSPORTED" && !execution.stopped;
+  const execState = execution.summary || (paused ? "执行暂停" : (failed ? "执行失败" : (execution.reason_code || "执行中")));
   execMeta.textContent = `执行：同步 · ${execState}`;
   execBrief.textContent = [
+    `外层步骤: ${execution.parent_step_id || "—"}`,
     `当前步骤: ${execution.step_id || "—"}`,
-    `当前工具: ${execution.skill || "—"}`,
+    `阶段: ${execution.transfer_phase || "—"}`,
+    `原语: ${execution.primitive || execution.skill || "—"}`,
+    `检查: ${execution.check_name || "—"}`,
     `失败类别: ${category}`,
-    `原因: ${execution.reason || "—"}${checker}`,
+    `原因: ${execution.summary || execution.reason || "—"}${checker}`,
+    planner === "规划通过" ? "规划状态: 规划通过，这不是执行结果" : "",
     (execution.unmet || []).length ? `未满足: ${(execution.unmet || []).join("；")}` : "",
     (execution.missing || []).length ? `缺少: ${(execution.missing || []).join(", ")}` : "",
     execution.transport_started === false ? "尚未搬运/放置" : "",
@@ -336,9 +364,18 @@ function renderExec(execution){
     return_summary: execution.return_summary || {},
     request_id: execution.request_id || null,
     episode_id: execution.episode_id || null,
+    parent_step_id: execution.parent_step_id || null,
+    primitive: execution.primitive || execution.skill || null,
+    check_name: execution.check_name || null,
+    error_code: execution.error_code || execution.reason_code || null,
     reason_code: execution.reason_code || null,
+    unmet_conditions: execution.unmet_conditions || execution.unmet || null,
     missing: execution.missing || null,
     unmet: execution.unmet || null,
+    actual: execution.actual || null,
+    condition: execution.condition || null,
+    evidence_sources: execution.evidence_sources || null,
+    observation_id: execution.observation_id || null,
     transport_started: execution.transport_started
   }, null, 2);
 }
@@ -589,7 +626,10 @@ function applySnapshot(m){
   }
   const run = (m && m.run) || {};
   rootError = run.root_error || "";
-  if (run.phase === "waiting_confirmation") setConfirm(true);
+  if (run.phase === "waiting_confirmation") {
+    setConfirm(true);
+    showConfirmWait(run.execution, run.confirm_timeout_s, run.confirm_started_at);
+  }
   else if (run.phase === "succeeded" || run.phase === "failed" || run.phase === "cancelled" || run.phase === "idle") setConfirm(false);
   if (run.execution) rememberExec(run.execution);
   if (run.user_text) goalEl.textContent = `输入保留：${run.user_text}` + (run.plan_summary ? ` · 计划：${run.plan_summary}` : "");

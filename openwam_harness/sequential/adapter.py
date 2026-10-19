@@ -33,7 +33,7 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
-STATIC_VERSION = "view10"
+STATIC_VERSION = "view11"
 RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
 
@@ -1358,6 +1358,9 @@ class App:
                 self.runs.set_phase("executing")
             if event.get("phase") == "waiting_confirmation":
                 self.runs.set_phase("waiting_confirmation")
+                event = dict(event)
+                event["confirm_timeout_s"] = 90
+                event["confirm_started_at"] = time.time()
             if event.get("execution"):
                 self.runs.execution = event.get("execution")
             if event.get("phase") == "failed":
@@ -1402,6 +1405,8 @@ class App:
             phase = "cancelled" if self.session.cancelled or self.runs.phase == "cancelling" else "failed"
             reason = "已取消" if phase == "cancelled" else (self.runs.root_error or result.get("reason") or "确认结束")
             code = "confirm_timeout" if self.runs.root_code == "confirm_timeout" else phase
+            self._apply_report(result)
+            self.runs.execution = result.get("execution")
             self._close_run(phase, reason, code=code, ended=self._ended_from(report, episode, plan, False))
             return
         native = bool(result["native_success"])

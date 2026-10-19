@@ -309,11 +309,15 @@ CPU 测试通过只说明契约，不表示整条系统完成。没有批量评�
 
 第一项动作之后，对象、目标和空间关系仍按原有 `invalidate` 规则失效，下一步重新 `observe`。
 
+搬运到释放沿用同一步骤链，阶段名为 `localized`、`grasp_verified`、`transporting`、`preplace_ready`、`descending`、`releasing`、`placement_verified`、`retreat`。放置前只检查仍持有、目标区域、落点和下降姿态；通过后才下降并松爪。炉灶区域证据是 `mujoco_site`，碗的位姿仍是 `sim_state`，整项结果用 `per_item`，不把 site 写成全部证据。`move_to` 的调用返回不算末端已经到达。内部缺字段返回 `pose_not_provided` 或 `state_service_error`，不进入人工确认。
+
+`flat_stove_1_cook_region` 在 `flat_stove.xml` 里是半尺寸 `0.075 0.075 0.0025` 的 box。site 原点是区域参考。对象原点的高度是区域高度加一次 `z_offset`，持物偏移只从对象原点换算到末端一次。
+
 ## 最小回归
 
 ```bash
 cd /root/Page_dmh/openwam_harness/sequential
-/root/Page_dmh/openwam_harness/envs/rpent/bin/python -m unittest test_binding_chain.py
+/root/Page_dmh/openwam_harness/envs/rpent/bin/python -m unittest test_binding_chain.py test_transfer_release.py
 ```
 
 `test_binding_chain.py` 回放 `records/planner_last.json` 里的 `seq-68c884edeb80`，不请求模型，不执行动作。
