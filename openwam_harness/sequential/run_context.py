@@ -33,6 +33,8 @@ class RunContext:
         self.retreat_error = None
         self.evidence_source = None
         self.subgoal_results = None
+        self.first_error = ""
+        self.verification_error = ""
         self.confirm_q: Queue = Queue()
         self.thread: threading.Thread | None = None
         self.generation = 0
@@ -64,6 +66,8 @@ class RunContext:
         self.retreat_error = None
         self.evidence_source = None
         self.subgoal_results = None
+        self.first_error = ""
+        self.verification_error = ""
         self.confirm_q = Queue()
         self.finished = False
         self.execution_mode = execution_mode
@@ -195,6 +199,8 @@ class RunContext:
             "retreat_error": self.retreat_error,
             "evidence_source": self.evidence_source,
             "subgoal_results": self.subgoal_results,
+            "first_error": self.first_error,
+            "verification_error": self.verification_error,
             "execution_mode": self.execution_mode,
             "awaiting_confirm": self.phase == "waiting_confirmation",
             "producer_alive": self.producer_alive(),

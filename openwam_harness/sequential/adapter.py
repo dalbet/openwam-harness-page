@@ -33,7 +33,7 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
-STATIC_VERSION = "view9"
+STATIC_VERSION = "view10"
 RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
 
@@ -982,7 +982,13 @@ class App:
         except Exception as exc:
             self.log(f"run failed: {exc}")
             self.runs.note_error(str(exc), "exception")
-            self._close_run("failed", str(exc), code="exception")
+            report = self._report(
+                {"status": "exception", "reason": str(exc), "episode_id": self.session.episode_id, "scene_epoch": self.session.scene_epoch},
+                getattr(self, "_active_plan", None),
+                exit_kind="exception",
+            )
+            self._apply_report(report)
+            self._close_run("failed", str(exc), code="exception", ended=self._ended_from(report, self.session.episode_id, getattr(self, "_active_plan", None) or {}, False))
         finally:
             if self.runs.run_id == run_id and not self.runs.finished:
                 phase = "cancelled" if self.session.cancelled or self.runs.phase == "cancelling" else "failed"
@@ -1172,8 +1178,13 @@ class App:
 
         slots = [] if free else (transfer_slots(spec.get("goal") or "") or [])
         required_ref = None if free else (binding.get("object_ref") if len(slots) == 1 else None)
-        numbered = number_candidates(scene_objects)
-        graph = scene_graph(scene_objects, (binding or {}).get("positions"))
+        graph = scene_graph(
+            scene_objects,
+            (binding or {}).get("positions"),
+            scene_epoch=epoch,
+            observation_id=f"{episode}:epoch{epoch}:step{info.get('env_step')}",
+        )
+        numbered = graph["nodes"]
         scene_text = json.dumps(
             {
                 "planning_input": "scene_metadata",
@@ -1231,7 +1242,7 @@ class App:
                 image_ids=image_ids,
                 scene_objects=scene_objects,
                 required_object_ref=required_ref,
-                numbered_candidates=numbered,
+                numbered_candidates=graph if free else numbered,
                 on_event=on_planner,
                 execution_mode=self.execution_mode,
                 predicates=predicates,
@@ -1282,6 +1293,7 @@ class App:
             comparison=comparison_record(self.active_profile(), binding, scene_text),
             telemetry=(attempts[-1].get("telemetry") if attempts else {}) or {},
             candidate_resolution=result.get("candidate_resolution") or [],
+            plan_bindings=(result.get("plan") or {}).get("plan_bindings") or result.get("candidate_resolution") or [],
         )
         if result.get("status") == "clarify":
             question = result.get("question") or "请说明要哪一个物体"
@@ -1296,6 +1308,7 @@ class App:
             return
         self._note(run_id, "validate", "ok", detail=result.get("stage") or "ok")
         plan = result["plan"]
+        self._active_plan = plan
         plan["planner_stage"] = "ok"
         plan["request_id"] = attempts[-1].get("request_id") if attempts else None
         plan["episode_id"] = episode
@@ -1383,10 +1396,13 @@ class App:
         )
         if result["episode_id"] != episode or result["scene_epoch"] != epoch:
             return
+        report = self._report(result, plan)
+        result = report
         if result["status"] == "discarded":
             phase = "cancelled" if self.session.cancelled or self.runs.phase == "cancelling" else "failed"
             reason = "已取消" if phase == "cancelled" else (self.runs.root_error or result.get("reason") or "确认结束")
-            self._close_run(phase, reason, code="confirm_timeout" if self.runs.root_code == "confirm_timeout" else phase)
+            code = "confirm_timeout" if self.runs.root_code == "confirm_timeout" else phase
+            self._close_run(phase, reason, code=code, ended=self._ended_from(report, episode, plan, False))
             return
         native = bool(result["native_success"])
         reason = result["reason"] or result["status"]
@@ -1426,19 +1442,17 @@ class App:
         elif status == "completed":
             phase = "incomplete"
             reason = "计划已执行，环境未判定成功"
+        elif status == "needs_clarification":
+            phase = "failed"
+            reason = result.get("reason") or "定位结果无法区分多个候选"
+            self.broadcast({"type": "clarify", "question": reason, "candidates": (result.get("execution") or {}).get("candidates") or []})
         elif code == "manual_unknown" or str(result.get("reason") or "").startswith("manual_unknown"):
             phase = "waiting_confirmation"
             status = "insufficient_evidence"
             reason = "证据不足 · " + (result["reason"] or "")
         else:
             phase = "failed"
-        self.runs.native_task_success = bool(result.get("native_task_success"))
-        self.runs.user_goal_success = result.get("user_goal_success")
-        self.runs.user_goal_status = result.get("user_goal_status")
-        self.runs.execution_status = result.get("execution_status")
-        self.runs.retreat_error = result.get("retreat_error")
-        self.runs.evidence_source = result.get("evidence_source")
-        self.runs.subgoal_results = result.get("subgoal_results")
+        self._apply_report(result)
         self.runs.execution = result.get("execution")
         self.runs.plan_summary = str(plan.get("goal") or "")[:200]
         terminal = "succeeded" if phase == "completed" else "cancelled" if phase == "stopped" else "failed"
@@ -1702,6 +1716,72 @@ class App:
                 "reason": "dry_run_refused",
             }
         )
+
+    def _report(self, result: dict, plan: dict | None, exit_kind: str | None = None) -> dict:
+        from finalize import finalize_run
+
+        return finalize_run(
+            result,
+            backend=self.backend,
+            plan=plan,
+            exit_kind=exit_kind or self._exit_kind(result),
+            first_error=self.runs.root_error or str(result.get("reason") or ""),
+            verification_error=str(((result.get("execution") or {}).get("reason_code")) or ""),
+        )
+
+    def _exit_kind(self, result: dict) -> str:
+        status = result.get("status")
+        if self.runs.root_code == "confirm_timeout":
+            return "confirm_timeout"
+        if status == "diagnostic_saved":
+            return "budget"
+        if status == "stopped_at_check":
+            return "stopped"
+        if status == "needs_clarification":
+            return "needs_clarification"
+        if status == "discarded" and (self.session.cancelled or self.runs.phase == "cancelling"):
+            return "stopped"
+        if status == "discarded":
+            return "failed"
+        if status == "exception":
+            return "exception"
+        return str(result.get("execution_status") or status or "failed")
+
+    def _apply_report(self, report: dict) -> None:
+        self.runs.execution_status = report.get("execution_status")
+        self.runs.user_goal_status = report.get("user_goal_status")
+        self.runs.user_goal_success = report.get("user_goal_success")
+        self.runs.native_task_success = report.get("native_task_success")
+        self.runs.retreat_error = report.get("retreat_error")
+        self.runs.evidence_source = report.get("evidence_source")
+        self.runs.subgoal_results = report.get("subgoal_results")
+        self.runs.first_error = report.get("first_error") or self.runs.root_error
+        self.runs.verification_error = report.get("verification_error") or ""
+
+    def _ended_from(self, report: dict, episode: str, plan: dict | None, success: bool) -> dict:
+        plan = plan or {}
+        return {
+            "episode_id": episode,
+            "success": success,
+            "reason": self.runs.root_error or report.get("reason") or report.get("unknown_reason") or "",
+            "native_success": bool(report.get("native_task_success")),
+            "native_task_success": report.get("native_task_success"),
+            "user_goal_success": report.get("user_goal_success"),
+            "user_goal_status": report.get("user_goal_status"),
+            "execution_status": report.get("execution_status"),
+            "retreat_error": report.get("retreat_error"),
+            "evidence_source": report.get("evidence_source"),
+            "unknown_reason": report.get("unknown_reason"),
+            "first_error": report.get("first_error"),
+            "verification_error": report.get("verification_error"),
+            "subgoal_results": report.get("subgoal_results"),
+            "completed_subgoals": report.get("completed_subgoals"),
+            "execution_mode": self.execution_mode,
+            "plan_source": plan.get("plan_source"),
+            "status": report.get("execution_status") or report.get("status"),
+            "planner_stage": plan.get("planner_stage"),
+            "execution": report.get("execution"),
+        }
 
     def _fail_run(self, episode: str, reason: str) -> None:
         self.runs.note_error(reason)

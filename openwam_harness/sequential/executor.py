@@ -107,6 +107,18 @@ def run_plan(
     }
     plan = validate_plan(plan, task=task if task is not None else plan.get("goal"))
     plan.update(carried)
+    if plan.get("plan_source") == "model" and plan.get("execution_mode") == "free" and not plan.get("bindings_checked"):
+        return _finish(
+            "failed",
+            "绑定契约未检查，不会开始动作",
+            session,
+            session.scene_epoch if epoch is None else epoch,
+            session.plan_version if plan_version is None else plan_version,
+            [],
+            backend,
+            0,
+            plan=plan,
+        )
     started_epoch = session.scene_epoch if epoch is None else epoch
     started_version = session.plan_version if plan_version is None else plan_version
     bindings: dict[str, list[float]] = {}
@@ -435,6 +447,34 @@ def run_plan(
             session=session,
             eef=eef,
         )
+        if isinstance(verification, dict) and skill == "segment":
+            place_xyz = (verification.get("metrics") or {}).get("place_xyz")
+            prompt = str((step.get("args") or {}).get("prompt") or "")
+            if isinstance(place_xyz, list) and prompt:
+                bindings[f"segment:{prompt}"] = place_xyz
+        if isinstance(verification, dict) and verification.get("status") == "clarify":
+            steps.append(_step_record(step, outcome, verification, last_obs))
+            reason = (verification.get("metrics") or {}).get("error") or verification.get("reason_code")
+            emit(
+                "awaiting_clarification",
+                step_id=step["step_id"],
+                skill=skill,
+                detail=reason,
+                reason=reason,
+                reason_code=verification.get("reason_code"),
+                candidates=(verification.get("metrics") or {}).get("candidates"),
+            )
+            return _finish(
+                "needs_clarification",
+                reason,
+                session,
+                started_epoch,
+                started_version,
+                steps,
+                backend,
+                llm_calls,
+                plan=plan,
+            )
         if isinstance(verification, dict) and verification.get("status") == "discarded":
             return _discard(verification.get("reason") or "discarded", session, steps)
         if post:
@@ -758,6 +798,26 @@ def _recover_or_confirm(
         and verification.get("reason_code") == "TARGET_NOT_IDENTIFIED"
         and verification.get("status") != "success"
     ):
+        failed = dict(verification)
+        failed["status"] = "failure"
+        return failed, outcome, post
+    if verification.get("reason_code") in {"pose_not_provided", "state_service_error"} and not step.get("_state_reread"):
+        step["_state_reread"] = True
+        post.append(_capture(backend, started_epoch))
+        verification = verify_step(
+            step,
+            outcome,
+            post,
+            scene_epoch=started_epoch,
+            min_step=before_step,
+            objects=plan.get("objects") or {},
+            support_z=support_z,
+            goal_relation=_relation_for(plan, step),
+            before=post[0] if post else None,
+        )
+    if verification.get("status") == "clarify":
+        return verification, outcome, post
+    if verification.get("reason_code") in {"pose_not_provided", "state_service_error", "instance_not_found", "stale_observation"}:
         failed = dict(verification)
         failed["status"] = "failure"
         return failed, outcome, post
@@ -1169,26 +1229,9 @@ def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, 
         "execution": execution,
     }
     if plan and plan.get("execution_mode") == "free":
-        from free_task import judge_user_goal
+        from finalize import _read_user_goal
 
-        sim = None
-        evidence = "unavailable"
-        if hasattr(backend, "sim_state"):
-            try:
-                sim = backend.sim_state()
-                evidence = "sim_state"
-            except Exception:
-                sim = None
-                evidence = "unavailable"
-        if sim is None:
-            payload["user_goal_status"] = "unknown"
-            payload["evidence_source"] = evidence
-        else:
-            judged = judge_user_goal(plan.get("predicates") or [], sim)
-            payload["user_goal_success"] = judged["user_goal_success"]
-            payload["user_goal_status"] = "met" if judged["user_goal_success"] else "unmet"
-            payload["subgoal_results"] = judged["subgoal_results"]
-            payload["evidence_source"] = judged.get("evidence_source") or evidence
+        _read_user_goal(payload, backend, plan)
         payload["final_check"] = {
             "user_goal_status": payload["user_goal_status"],
             "native_task_success": native,
