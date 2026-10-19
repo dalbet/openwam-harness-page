@@ -72,25 +72,42 @@ def classify_step(terminated: bool, truncated: bool, mode: str) -> dict[str, Any
 
 
 def install() -> None:
-    """Wrap the LIBERO RPC facade inside the env server process."""
+    """Wrap the LIBERO facade and the worker env class as they are defined.
+
+    The env server runs as ``__main__``, so an import hook never sees it.
+    ``__build_class__`` runs in that process and in the spawned env worker.
+    """
     if os.environ.get("SEQUENTIAL_EPISODE_SERVICE") == "0":
         return
     import builtins
 
+    if getattr(builtins, "_sequential_episode_hook", False):
+        return
     real_import = builtins.__import__
+    real_build = builtins.__build_class__
 
     def hooked(name, globals=None, locals=None, fromlist=(), level=0):
         module = real_import(name, globals, locals, fromlist, level)
-        name = str(getattr(module, "__name__", ""))
-        if name.endswith("env_server"):
+        module_name = str(getattr(module, "__name__", ""))
+        if module_name.endswith("env_server") or module_name == "__main__":
             facade = module.__dict__.get("LiberoEnvFacade")
             if isinstance(facade, type):
                 _wrap(facade)
-        if name.endswith("envs.env_wrapper"):
+        if module_name.endswith("envs.env_wrapper"):
             _attach_named_poses(module)
         return module
 
+    def build(func, name, *bases, **kwargs):
+        cls = real_build(func, name, *bases, **kwargs)
+        if name == "LiberoEnvFacade":
+            _wrap(cls)
+        if name == "ControlEnv":
+            _attach_named_poses_class(cls)
+        return cls
+
     builtins.__import__ = hooked
+    builtins.__build_class__ = build
+    builtins._sequential_episode_hook = True
 
 
 def _wrap(cls) -> None:
@@ -145,6 +162,11 @@ def _wrap(cls) -> None:
 def _attach_named_poses(module) -> None:
     """Add an exact body/site snapshot on the class the env worker constructs."""
     cls = module.__dict__.get("ControlEnv") or module.__dict__.get("OffScreenRenderEnv")
+    if isinstance(cls, type):
+        _attach_named_poses_class(cls)
+
+
+def _attach_named_poses_class(cls) -> None:
     if not isinstance(cls, type) or getattr(cls, "_sequential_named_poses", False):
         return
 
@@ -190,7 +212,7 @@ def _indexed_xyz(model, data, count_name, xpos_name, names_attr, id2name) -> dic
 def _read_worker_poses(facade) -> dict[str, Any]:
     """Ask the existing worker getattr command for the site snapshot. No env.step."""
     try:
-        inner = facade.env
+        inner = getattr(facade, "_env", None)
         vector = getattr(inner, "env", None)
         workers = getattr(vector, "workers", None) or []
         if not workers:

@@ -52,6 +52,14 @@ class BindingReplayTest(unittest.TestCase):
         self.assertEqual(names[0], "akita_black_bowl_1")
         self.assertEqual(names[6], "flat_stove_1")
         self.assertEqual(objects["flat_stove_1"]["place_site"], "flat_stove_1_cook_region")
+        from scene_request import resolve_load
+        from suites import load_suites
+
+        loaded = resolve_load({"suite": "libero_goal", "task_id": 1, "seed": 0}, load_suites())
+        self.assertEqual(
+            objects_for_names(["akita_black_bowl_1", "flat_stove_1"], loaded)["flat_stove_1"]["place_site"],
+            "flat_stove_1_cook_region",
+        )
         arguments = _saved_arguments("format_repair")
         self.assertEqual(arguments["steps"][0]["object_n"], 1)
         self.assertEqual(arguments["steps"][0]["target_n"], 7)
