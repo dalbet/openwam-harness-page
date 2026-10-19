@@ -71,6 +71,11 @@ SEMANTIC_PLAN_KEYS = frozenset(
         "failure_branches",
         "predicates",
         "user_text",
+        "plan_bindings",
+        "scene_epoch",
+        "observation_id",
+        "candidate_set_version",
+        "bindings_checked",
     }
 )
 SEMANTIC_STEP_KEYS = frozenset(
@@ -110,6 +115,11 @@ PLAN_KEYS = frozenset(
         "execution_mode",
         "predicates",
         "user_text",
+        "plan_bindings",
+        "scene_epoch",
+        "observation_id",
+        "candidate_set_version",
+        "bindings_checked",
     }
 )
 EXECUTABLE_KEYS = frozenset({"code", "python", "script", "exec", "eval"})
@@ -375,8 +385,6 @@ def free_submit_plan_tools() -> list[dict[str, Any]]:
         "skill",
         "object_n",
         "target_n",
-        "object_ref",
-        "target_ref",
         "relation",
         "prompt",
         "depends_on",
@@ -391,8 +399,8 @@ def free_submit_plan_tools() -> list[dict[str, Any]]:
                 "name": "submit_plan",
                 "description": (
                     "Submit ordered transfer steps for the user goal on the current scene. "
-                    "Use candidate numbers. Do not invent tools, do not send code, and do not "
-                    "replace the user goal with an official task sentence."
+                    "Each step sends object_n and target_n only. The service derives instance ids. "
+                    "Do not invent tools, do not send code, and do not replace the user goal."
                 ),
                 "parameters": schema,
             },
@@ -443,6 +451,31 @@ def semantic_example() -> dict[str, Any]:
                 "target_ref": "basket",
                 "relation": "in",
                 "prompt": "pick up the alphabet soup",
+                "depends_on": [],
+                "preconditions": [],
+                "completion_check": "object_placed",
+                "budget": {"max_s": 180, "max_attempts": 2},
+                "on_failure": "recover",
+            }
+        ],
+    }
+
+
+def free_semantic_example() -> dict[str, Any]:
+    """Free-mode example uses candidate numbers. Instance ids are derived later."""
+    return {
+        "plan_id": "example-bowl",
+        "goal": "把碗放在炉灶上",
+        "steps": [
+            {
+                "step_id": "bowl",
+                "skill": "transfer",
+                "object_n": 1,
+                "target_n": 7,
+                "relation": "on",
+                "prompt": "pick up the black bowl",
+                "grounding_query": "black bowl",
+                "vla_prompt": "pick up the black bowl",
                 "depends_on": [],
                 "preconditions": [],
                 "completion_check": "object_placed",
@@ -1195,14 +1228,14 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
         args = item["args"]
         obj = args["object_ref"]
         target = args["target_ref"]
-        obj_query = args.get("grounding_query") or _grounding_query(objects[obj])
-        target_query = _grounding_query(objects[target])
+        obj_query = args.get("grounding_query") or _binding_text(plan, obj, "object") or _grounding_query(objects[obj])
+        target_query = _binding_text(plan, target, "target") or _grounding_query(objects[target])
         vla_prompt = _short_pick(args.get("vla_prompt") or args.get("prompt") or "", obj_query)
         if obj not in segmented:
-            steps.append(_segment_step(obj, obj_query, previous))
+            steps.append(_segment_step(obj, obj_query, previous, _binding_row(plan, obj, "object")))
             segmented.add(obj)
         if target not in segmented:
-            steps.append(_segment_step(target, target_query, previous))
+            steps.append(_segment_step(target, target_query, previous, _binding_row(plan, target, "target")))
             segmented.add(target)
         pick = f"pick_{item['step_id']}"
         move = f"move_{item['step_id']}"
@@ -1346,6 +1379,11 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
             "execution_mode",
             "predicates",
             "user_text",
+            "plan_bindings",
+            "scene_epoch",
+            "observation_id",
+            "candidate_set_version",
+            "bindings_checked",
         )
         if key in plan
     }
@@ -1363,11 +1401,27 @@ def _short_pick(prompt: str, grounding: str) -> str:
     return f"pick up the {phrase}"
 
 
-def _segment_step(ref: str, phrase: str, previous: str) -> dict[str, Any]:
+def _binding_row(plan: dict[str, Any], ref: str, role: str) -> dict[str, Any]:
+    for item in plan.get("plan_bindings") or []:
+        if item.get("instance_ref") == ref and item.get("role") == role:
+            return item
+    return {}
+
+
+def _binding_text(plan: dict[str, Any], ref: str, role: str) -> str:
+    text = _binding_row(plan, ref, role).get("grounding_query")
+    return text.strip() if isinstance(text, str) else ""
+
+
+def _segment_step(ref: str, phrase: str, previous: str, binding: dict[str, Any] | None = None) -> dict[str, Any]:
+    binding = binding or {}
     return {
         "step_id": f"seg_{ref}",
         "skill": "segment",
         "args": {"prompt": phrase, "camera": "agentview", "object_ref": ref},
+        "candidate_id": binding.get("candidate_id"),
+        "query_key": binding.get("query_key") or ref,
+        "evidence_source": binding.get("evidence_source"),
         "depends_on": ["observe"] if previous == "observe" else [previous],
         "preconditions": ["observe_ready"],
         "completion_check": "object_localized",

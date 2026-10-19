@@ -7,6 +7,8 @@ mask is not an instance id unless the link records its own evidence.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from typing import Any
 
@@ -45,12 +47,21 @@ def number_candidates(objects: dict[str, Any]) -> list[dict[str, Any]]:
                 "can_be_target": bool(spec.get("can_be_target")),
                 "target_relations": list(spec.get("target_relations") or []),
                 "capability_source": spec.get("capability_source"),
+                "grounding_query": spec.get("grounding_query"),
+                "place_site": spec.get("place_site"),
+                "place_sites": list(spec.get("place_sites") or []),
             }
         )
     return rows
 
 
-def scene_graph(objects: dict[str, Any], poses: dict[str, list[float]] | None) -> dict[str, Any]:
+def scene_graph(
+    objects: dict[str, Any],
+    poses: dict[str, list[float]] | None = None,
+    *,
+    scene_epoch: int | None = None,
+    observation_id: str | None = None,
+) -> dict[str, Any]:
     """Instances plus near edges from sim poses. Poses are not a visual judgment."""
     nodes = number_candidates(objects)
     poses = poses or {}
@@ -76,7 +87,158 @@ def scene_graph(objects: dict[str, Any], poses: dict[str, list[float]] | None) -
                         "evidence_source": "sim_state",
                     }
                 )
-    return {"nodes": nodes, "edges": edges, "evidence_source": "sim_state", "vision": False}
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "evidence_source": "sim_state",
+        "vision": False,
+        "scene_epoch": scene_epoch,
+        "observation_id": observation_id,
+        "candidate_set_version": candidate_set_version(scene_epoch, observation_id, nodes),
+    }
+
+
+def candidate_set_version(scene_epoch: int | None, observation_id: str | None, nodes: list[dict[str, Any]]) -> str:
+    payload = json.dumps(
+        {
+            "scene_epoch": scene_epoch,
+            "observation_id": observation_id,
+            "refs": [item.get("object_ref") for item in nodes],
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def resolve_plan_bindings(plan: dict[str, Any], graph: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Derive instance ids from candidate numbers on this scene's candidate table."""
+    from schema import PlanError, _err
+
+    if not isinstance(graph, dict) or not isinstance(graph.get("nodes"), list):
+        raise PlanError([_err("candidate_set", "candidate_graph", graph, "scene_graph with nodes")])
+    nodes = graph["nodes"]
+    version = graph.get("candidate_set_version") or candidate_set_version(graph.get("scene_epoch"), graph.get("observation_id"), nodes)
+    claimed = plan.get("candidate_set_version")
+    if isinstance(claimed, str) and claimed != version:
+        raise PlanError([_err("plan.candidate_set_version", "stale_candidate_set", claimed, version)])
+    if plan.get("scene_epoch") not in (None, graph.get("scene_epoch")) and graph.get("scene_epoch") is not None:
+        raise PlanError([_err("plan.scene_epoch", "stale_candidate_set", plan.get("scene_epoch"), graph.get("scene_epoch"))])
+    by_n = {}
+    by_ref = {}
+    types = {}
+    for item in nodes:
+        by_n[int(item["n"])] = item
+        by_ref[item["object_ref"]] = item
+        if item.get("semantic_type"):
+            types.setdefault(item["semantic_type"], []).append(item)
+    copied = dict(plan)
+    steps = []
+    bindings = []
+    errors = []
+    for index, step in enumerate(plan.get("steps") or []):
+        if not isinstance(step, dict):
+            steps.append(step)
+            continue
+        item = dict(step)
+        for role, number_key, ref_key in (
+            ("object", "object_n", "object_ref"),
+            ("target", "target_n", "target_ref"),
+        ):
+            number = item.get(number_key)
+            ref = item.get(ref_key)
+            chosen = None
+            if number is not None:
+                try:
+                    chosen = by_n[int(number)]
+                except (KeyError, TypeError, ValueError):
+                    errors.append(_err(f"steps[{index}].{number_key}", "candidate_number", number, "当前场景候选编号"))
+                    continue
+                if isinstance(ref, str) and ref != chosen["object_ref"]:
+                    code = "type_name_not_instance" if ref in types else "binding_mismatch"
+                    errors.append(_err(f"steps[{index}].{ref_key}", code, ref, chosen["object_ref"]))
+                    continue
+                item[ref_key] = chosen["object_ref"]
+            elif isinstance(ref, str) and ref in by_ref:
+                chosen = by_ref[ref]
+            elif isinstance(ref, str) and ref in types:
+                errors.append(_err(f"steps[{index}].{ref_key}", "type_name_not_instance", ref, "候选实例编号"))
+                continue
+            else:
+                errors.append(_err(f"steps[{index}].{number_key}", "binding_contract", ref, "候选编号"))
+                continue
+            if chosen["object_ref"] not in by_ref:
+                errors.append(_err(f"steps[{index}].{ref_key}", "binding_instance", chosen["object_ref"], "当前场景实例"))
+                continue
+            spec_bits = chosen
+            if role == "target" and not spec_bits.get("can_be_target"):
+                errors.append(_err(f"steps[{index}].target_n", "target_capability", spec_bits["object_ref"], "可放置目标"))
+            query_key = spec_bits["object_ref"]
+            if role == "target" and not spec_bits.get("movable"):
+                sites = list(spec_bits.get("place_sites") or [])
+                if spec_bits.get("place_site"):
+                    query_key = spec_bits["place_site"]
+                elif len(sites) > 1:
+                    errors.append(_err(f"steps[{index}].target_n", "target_region_ambiguous", sites, "一个 BDDL 目标区域"))
+                    continue
+                else:
+                    errors.append(_err(f"steps[{index}].target_n", "target_region_missing", spec_bits["object_ref"], "BDDL goal atom 放置区域"))
+                    continue
+            canonical = spec_bits.get("semantic_type") or spec_bits["object_ref"]
+            phrase = item.get("grounding_query") if role == "object" else None
+            bindings.append(
+                {
+                    "step_id": item.get("step_id"),
+                    "step_index": index,
+                    "role": role,
+                    "candidate_id": int(spec_bits["n"]),
+                    "instance_ref": spec_bits["object_ref"],
+                    "canonical_name": canonical,
+                    "grounding_query": phrase if isinstance(phrase, str) and phrase.strip() else None,
+                    "vla_prompt": item.get("vla_prompt") if role == "object" else None,
+                    "evidence_source": "planner_candidate_number" if number is not None else "planner_instance_id",
+                    "query_key": query_key,
+                    "movable": bool(spec_bits.get("movable")),
+                    "pose": {
+                        "status": "not_sampled",
+                        "xyz": None,
+                        "sampled_at": None,
+                        "observation_id": graph.get("observation_id"),
+                        "scene_epoch": graph.get("scene_epoch"),
+                        "candidate_set_version": version,
+                    },
+                }
+            )
+            item.pop(number_key, None)
+        steps.append(item)
+    if errors:
+        raise PlanError(errors)
+    _complete_binding_text(bindings, by_ref)
+    copied["steps"] = steps
+    copied["plan_bindings"] = bindings
+    copied["scene_epoch"] = graph.get("scene_epoch")
+    copied["observation_id"] = graph.get("observation_id")
+    copied["candidate_set_version"] = version
+    copied["bindings_checked"] = True
+    return copied, bindings
+
+
+def _complete_binding_text(bindings: list[dict[str, Any]], by_ref: dict[str, dict[str, Any]]) -> None:
+    from schema import _grounding_query, _short_pick
+
+    for item in bindings:
+        spec = {
+            "semantic_type": item.get("canonical_name"),
+            "phrases": by_ref.get(item["instance_ref"], {}).get("phrases") or [],
+            "sim_name": item["instance_ref"],
+            "grounding_query": by_ref.get(item["instance_ref"], {}).get("grounding_query"),
+        }
+        if not item.get("grounding_query"):
+            item["grounding_query"] = _grounding_query(spec)
+        if item["role"] == "object" and not (isinstance(item.get("vla_prompt"), str) and item["vla_prompt"].strip()):
+            item["vla_prompt"] = _short_pick("", item["grounding_query"])
+        if item["role"] == "target":
+            item["vla_prompt"] = None
 
 
 def resolve_numbers(plan: dict[str, Any], numbered: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[str, Any]]]:

@@ -145,6 +145,7 @@ def load_suites() -> list[dict]:
                     "long_candidate": suite_id == "libero_10" and index in {0, 1},
                     "instances": catalog["instances"],
                     "fixtures": catalog["fixtures"],
+                    "place_regions": catalog["place_regions"],
                 }
             )
         suites.append({"id": suite_id, "label": label, "standard": True, "tasks": tasks})
@@ -265,6 +266,13 @@ def objects_for_names(names: list[str], task: dict | None) -> dict:
             continue
         objects[name] = dict(spec)
         objects[name]["sim_name"] = name
+        regions = [item for item in (task or {}).get("place_regions") or [] if item.get("target") == name]
+        if len(regions) == 1:
+            objects[name]["place_site"] = regions[0]["site_name"]
+            objects[name]["place_region"] = regions[0]["region"]
+            objects[name]["place_site_source"] = "bddl_goal_atom"
+        elif len(regions) > 1:
+            objects[name]["place_sites"] = [item["site_name"] for item in regions]
     return objects
 
 
@@ -278,7 +286,57 @@ def _catalog(path: str) -> dict:
     return {
         "instances": _section(text, "objects", movable=True),
         "fixtures": _section(text, "fixtures", movable=False),
+        "place_regions": _place_regions(text),
     }
+
+
+def _place_regions(text: str) -> list[dict]:
+    """Sites whose names already appear as BDDL goal or interest atoms.
+
+    liberopro `get_regions` stores a region as `target + "_" + region_name`.
+    A row is kept only when that exact atom is in `:goal` or `:obj_of_interest`.
+    """
+    named = set(_atoms(text, "obj_of_interest")) | set(_goal_targets(text))
+    rows = []
+    for region_name, target in _region_targets(text):
+        site_name = f"{target}_{region_name}"
+        if site_name not in named:
+            continue
+        rows.append({"region": region_name, "target": target, "site_name": site_name})
+    return rows
+
+
+def _atoms(text: str, section: str) -> list[str]:
+    match = re.search(rf"\(:{section}\b(.*?)\)\s*\n", text, re.S)
+    if not match:
+        return []
+    return re.findall(r"[A-Za-z0-9_]+", match.group(1))
+
+
+def _goal_targets(text: str) -> list[str]:
+    match = re.search(r"\(:goal\b(.*)\)\s*$", text, re.S)
+    if not match:
+        return []
+    return re.findall(r"\((?:On|In)\s+\S+\s+([A-Za-z0-9_]+)\)", match.group(1))
+
+
+def _region_targets(text: str) -> list[tuple[str, str]]:
+    start = text.find("(:regions")
+    end = text.find("(:fixtures")
+    if start < 0 or end < 0 or end <= start:
+        return []
+    rows = []
+    current = None
+    for line in text[start:end].splitlines():
+        header = re.match(r"\s*\(([A-Za-z0-9_]+)\s*$", line)
+        if header and header.group(1) != "regions":
+            current = header.group(1)
+            continue
+        target = re.search(r"\(:target\s+([A-Za-z0-9_]+)\)", line)
+        if current and target:
+            rows.append((current, target.group(1)))
+            current = None
+    return rows
 
 
 def _section(text: str, name: str, *, movable: bool) -> list[dict]:

@@ -81,10 +81,13 @@ def install() -> None:
 
     def hooked(name, globals=None, locals=None, fromlist=(), level=0):
         module = real_import(name, globals, locals, fromlist, level)
-        if str(getattr(module, "__name__", "")).endswith("env_server"):
+        name = str(getattr(module, "__name__", ""))
+        if name.endswith("env_server"):
             facade = module.__dict__.get("LiberoEnvFacade")
             if isinstance(facade, type):
                 _wrap(facade)
+        if name.endswith("envs.env_wrapper"):
+            _attach_named_poses(module)
         return module
 
     builtins.__import__ = hooked
@@ -122,15 +125,86 @@ def _wrap(cls) -> None:
     def _register_rpc(self):
         original_register(self)
         self._rpc["env.native_goal"] = self.native_goal_status
+        self._rpc["env.named_poses"] = self.named_poses
         self._readonly_methods.add("env.native_goal")
+        self._readonly_methods.add("env.named_poses")
+
+    def named_poses(self):
+        return _read_worker_poses(self)
 
     step._sequential_episode_wrapped = True
     cls.step = step
+    cls.named_poses = named_poses
     cls.chunk_step = chunk_step
     cls.reset = reset
     cls.native_goal_status = native_goal_status
     cls._register_rpc = _register_rpc
     cls._sequential_episode_wrapped = True
+
+
+def _attach_named_poses(module) -> None:
+    """Add an exact body/site snapshot on the class the env worker constructs."""
+    cls = module.__dict__.get("ControlEnv") or module.__dict__.get("OffScreenRenderEnv")
+    if not isinstance(cls, type) or getattr(cls, "_sequential_named_poses", False):
+        return
+
+    def sequential_named_poses(self):
+        try:
+            sim = self.sim
+            model = sim.model
+            data = sim.data
+            bodies = _indexed_xyz(model, data, "nbody", "body_xpos", "body_names", getattr(model, "body_id2name", None))
+            sites = _indexed_xyz(model, data, "nsite", "site_xpos", "site_names", getattr(model, "site_id2name", None))
+            return {"bodies": bodies, "sites": sites, "evidence_source": "mujoco_site"}
+        except Exception as exc:
+            return {"bodies": {}, "sites": {}, "error": f"{type(exc).__name__}: {exc}"}
+
+    cls.sequential_named_poses = property(sequential_named_poses)
+    cls._sequential_named_poses = True
+
+
+def _indexed_xyz(model, data, count_name, xpos_name, names_attr, id2name) -> dict[str, list[float]]:
+    count = int(getattr(model, count_name))
+    raw_names = getattr(model, names_attr, None)
+    names = [str(item) for item in list(raw_names)[:count]] if raw_names is not None else []
+    if len(names) < count and callable(id2name):
+        names = []
+        for index in range(count):
+            try:
+                names.append(str(id2name(index) or ""))
+            except Exception:
+                names.append("")
+    xpos = getattr(data, xpos_name)
+    found = {}
+    for index, name in enumerate(names):
+        if not name:
+            continue
+        try:
+            row = xpos[index]
+            found[name] = [float(row[0]), float(row[1]), float(row[2])]
+        except Exception:
+            continue
+    return found
+
+
+def _read_worker_poses(facade) -> dict[str, Any]:
+    """Ask the existing worker getattr command for the site snapshot. No env.step."""
+    try:
+        inner = facade.env
+        vector = getattr(inner, "env", None)
+        workers = getattr(vector, "workers", None) or []
+        if not workers:
+            return {"bodies": {}, "sites": {}, "error": "named pose worker missing"}
+        worker = workers[0]
+        worker.parent_remote.send(["getattr", "sequential_named_poses"])
+        payload = worker.parent_remote.recv()
+    except Exception as exc:
+        return {"bodies": {}, "sites": {}, "error": f"{type(exc).__name__}: {exc}"}
+    if not isinstance(payload, dict):
+        return {"bodies": {}, "sites": {}, "error": f"named pose payload is {type(payload).__name__}"}
+    payload.setdefault("bodies", {})
+    payload.setdefault("sites", {})
+    return payload
 
 
 def _publish(self, obs, reward, term, trunc, info):

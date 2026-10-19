@@ -399,7 +399,10 @@ function renderPlanner(m){
     : "没有分开保存的初始/修复响应";
   const errors = (m.errors || []).map(item => `${item.path || ""} ${item.code || ""} received=${JSON.stringify(item.received)} expected ${item.expected || ""}`).join("\n");
   const binding = m.binding || {};
-  const bound = binding.object_ref ? `${binding.object_ref} · ${binding.evidence_source || ""}` : "未绑定";
+  const links = m.plan_bindings || [];
+  const bound = links.length
+    ? links.map(item => `${item.role === "target" ? "目标" : "对象"} ${item.candidate_id}→${item.instance_ref}`).join("；")
+    : (binding.object_ref ? `${binding.object_ref} · ${binding.evidence_source || ""}` : "未绑定");
   lastPlannerStage = m.stage || lastPlannerStage;
   plannerMeta.textContent = `${stage} · ${m.model || ""} · ${Number(m.elapsed_s || 0).toFixed(1)}s · 修复 ${m.repairs || 0} 次`;
   plannerBrief.textContent = [

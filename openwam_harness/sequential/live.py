@@ -355,9 +355,24 @@ class LiveBackend:
                 "wrist": {"id": f"wrist:{step}", "bytes": len(wrist or b"")},
             },
             "sim": self.sim_state(),
+            "named_poses": self.named_poses(),
             "llm": False,
             "fresh": True,
         }
+
+    def named_poses(self) -> dict:
+        """Read-only site and body snapshot. A missing service is an error, not a pose."""
+        env = self.toolkit.primitives.env if self.toolkit is not None else None
+        client = getattr(env, "_client", None)
+        if client is None:
+            return {"bodies": {}, "sites": {}, "error": "state_service_unavailable"}
+        try:
+            payload = client.call("env.named_poses", timeout_s=2.0)
+        except Exception as exc:
+            return {"bodies": {}, "sites": {}, "error": str(exc)}
+        if not isinstance(payload, dict):
+            return {"bodies": {}, "sites": {}, "error": "named pose payload is not an object"}
+        return payload
 
     def sim_state(self) -> dict:
         env = self.toolkit.primitives.env

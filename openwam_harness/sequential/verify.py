@@ -23,7 +23,7 @@ def receipt(
     observation_ids: list[str],
     metrics: dict[str, Any],
 ) -> dict[str, Any]:
-    if status not in {"success", "failure", "unknown"}:
+    if status not in {"success", "failure", "unknown", "clarify"}:
         raise ValueError(status)
     return {
         "status": status,
@@ -135,34 +135,40 @@ def _localized(step, outcome, observations, objects) -> dict[str, Any]:
         )
     bound = step.get("object_ref")
     spec = objects.get(bound) if isinstance(bound, str) else None
-    if not isinstance(spec, dict):
+    queried = _bound_pose(bound, spec, observations[-1] if observations else None, scene_epoch=_epoch(observations))
+    if queried["status"] != "ok":
         return receipt(
-            "unknown",
-            "INSTANCE_UNCONFIRMED",
-            "sim_state",
+            "failure",
+            queried["reason_code"],
+            queried["evidence_source"],
             ids,
             {
-                "error": "绑定实例没有仿真规格，不能改用另一只",
-                "category": "subtask_incomplete",
+                "error": queried["reason"],
+                "category": "state_query",
                 "object_ref": bound,
+                "query_key": queried.get("query_key"),
                 "xyz": outcome.xyz,
+                "confirm": False,
             },
         )
+    if spec.get("place_site"):
+        return receipt(
+            "success",
+            "OBJECT_LOCALIZED",
+            "mujoco_site",
+            ids,
+            {
+                "xyz": outcome.xyz,
+                "place_xyz": queried["xyz"],
+                "object_ref": bound,
+                "query_key": queried["query_key"],
+                "sampled_at": queried.get("sampled_at"),
+                "observation_id": queried.get("observation_id"),
+                "evidence_source": "mujoco_site",
+            },
+        )
+    bound_pos = queried["xyz"]
     sim_name = spec.get("sim_name") or bound
-    bound_pos = _object(observations[-1], sim_name)
-    if bound_pos is None:
-        return receipt(
-            "unknown",
-            "INSTANCE_UNCONFIRMED",
-            "sim_state",
-            ids,
-            {
-                "error": "没有绑定实例的仿真位姿，不能确认，也不会更换目标",
-                "category": "subtask_incomplete",
-                "object_ref": bound,
-                "xyz": outcome.xyz,
-            },
-        )
     bound_d = _distance(outcome.xyz, bound_pos)
     semantic = spec.get("semantic_type")
     others = []
@@ -188,10 +194,17 @@ def _localized(step, outcome, observations, objects) -> dict[str, Any]:
     confirmed = bound_d <= _MATCH_M and (nearest_other is None or bound_d + _MARGIN_M < nearest_other)
     if confirmed:
         return receipt("success", "OBJECT_LOCALIZED", "sim_state", ids, metrics)
-    closer = nearest_other is not None and nearest_other < bound_d
-    metrics["error"] = "定位更接近其他同类实例，保持原绑定，不更换" if closer else "定位结果不能确认是绑定实例，暂停"
+    closer = nearest_other is not None and nearest_other + _MARGIN_M < bound_d
+    crowded = nearest_other is not None and abs(bound_d - nearest_other) <= _MARGIN_M
+    if closer or crowded:
+        metrics["error"] = "定位结果无法区分多个同类实例，保持原绑定，不更换"
+        metrics["category"] = "clarification"
+        metrics["candidates"] = [bound] + [item["object_ref"] for item in others]
+        return receipt("clarify", "visual_instance_ambiguous", "sim_state", ids, metrics)
+    metrics["error"] = "定位结果不能确认是绑定实例"
     metrics["category"] = "subtask_incomplete"
-    return receipt("unknown", "INSTANCE_UNCONFIRMED", "sim_state", ids, metrics)
+    metrics["confirm"] = False
+    return receipt("failure", "localization_unconfirmed", "sim_state", ids, metrics)
 
 
 def _grasp(step, observations, objects, support_z, outcome) -> dict[str, Any]:
@@ -421,6 +434,24 @@ def _container(objects: dict[str, Any]) -> str | None:
         if isinstance(spec, dict) and spec.get("role") == "container":
             return spec.get("sim_name")
     return None
+
+
+def _epoch(observations: list) -> int | None:
+    if not observations or not isinstance(observations[-1], dict):
+        return None
+    return observations[-1].get("scene_epoch")
+
+
+def _bound_pose(instance_ref, spec, observation, *, scene_epoch) -> dict[str, Any]:
+    from object_state import query_bound_state
+
+    return query_bound_state(
+        instance_ref if isinstance(instance_ref, str) else "",
+        spec if isinstance(spec, dict) else None,
+        observation if isinstance(observation, dict) else None,
+        scene_epoch=scene_epoch,
+        role="target" if isinstance(spec, dict) and spec.get("place_site") else "object",
+    )
 
 
 def _object(obs: dict, sim_name: str) -> list[float] | None:

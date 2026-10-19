@@ -16,6 +16,7 @@ from schema import (
     failure_stage,
     free_submit_plan_tools,
     parse_model_message,
+    free_semantic_example,
     semantic_example,
     submit_plan_tools,
     validate_plan,
@@ -27,8 +28,8 @@ OUTPUT_FORMAT = (
     "For a single placement, emit one transfer. Do not add a second transfer with the same "
     "object_ref, target_ref, and relation. Do not nest submit_plan inside arguments or steps. "
     "Do not send an objects map, primitive skills, controller parameters, or code. "
-    "Bind each object to a candidate number: set object_n and target_n, and set "
-    "object_ref and target_ref to the instance id printed beside that number. "
+    "Bind each object to a candidate number: set object_n and target_n. "
+    "The service derives object_ref and target_ref. "
     "Do not choose candidate 1 when several instances share a type. "
     "goal must equal the task text. "
     "This request contains scene metadata and image ids only, not image bytes. "
@@ -39,6 +40,7 @@ FREE_OUTPUT_FORMAT = (
     "The user may use Chinese aliases, descriptions, and spatial references. "
     "Do not require a catalog sentence and do not switch tasks. "
     "Choose object_n and target_n from the current candidate list. "
+    "Do not send object_ref or target_ref. The service derives those instance ids. "
     "Do not guess an instance number from a name. "
     "Keep the user's objects, relations, and order. depends_on records that order. "
     "Separate a process request from a condition that must still hold at the end. "
@@ -81,7 +83,7 @@ def request_plan(
     predicates: list[dict[str, Any]] | None = None,
     ordered: bool = False,
 ) -> dict[str, Any]:
-    example = json.dumps(semantic_example(), ensure_ascii=False)
+    example = json.dumps(free_semantic_example() if execution_mode == "free" else semantic_example(), ensure_ascii=False)
     output_format = OUTPUT_FORMAT
     if execution_mode == "free":
         output_format = FREE_OUTPUT_FORMAT
@@ -316,9 +318,6 @@ def _parse_numbered(message, numbered, kwargs) -> tuple[str, dict[str, Any]]:
 
 
 def _with_resolved_arguments(message, numbered, require_numbers: bool = False):
-    from candidates import resolve_numbers
-    from free_task import candidate_number_errors
-
     copied = dict(message)
     calls = []
     evidence: list[dict[str, Any]] = []
@@ -333,11 +332,7 @@ def _with_resolved_arguments(message, numbered, require_numbers: bool = False):
             except json.JSONDecodeError:
                 payload = None
         if isinstance(payload, dict):
-            if require_numbers:
-                errors = candidate_number_errors(payload)
-                if errors:
-                    raise PlanError(errors)
-            resolved, found = resolve_numbers(payload, numbered)
+            resolved, found = _resolve_payload(payload, numbered, require_numbers)
             evidence.extend(found)
             function["arguments"] = resolved if not isinstance(raw, str) else json.dumps(resolved, ensure_ascii=False)
         item["function"] = function
@@ -350,15 +345,43 @@ def _with_resolved_arguments(message, numbered, require_numbers: bool = False):
         except json.JSONDecodeError:
             payload = None
         if isinstance(payload, dict):
-            if require_numbers:
-                errors = candidate_number_errors(payload)
-                if errors:
-                    raise PlanError(errors)
-            resolved, found = resolve_numbers(payload, numbered)
+            resolved, found = _resolve_payload(payload, numbered, require_numbers)
             evidence.extend(found)
             copied["content"] = json.dumps(resolved, ensure_ascii=False)
     _with_resolved_arguments.last_evidence = evidence
     return copied
+
+
+def _resolve_payload(payload, numbered, require_numbers: bool):
+    from candidates import resolve_numbers, resolve_plan_bindings
+    from free_task import candidate_number_errors
+
+    if require_numbers:
+        errors = candidate_number_errors(payload)
+        if errors:
+            raise PlanError(errors)
+        return resolve_plan_bindings(payload, _candidate_graph(numbered))
+    rows = numbered if isinstance(numbered, list) else list((numbered or {}).get("nodes") or [])
+    return resolve_numbers(payload, rows)
+
+
+def _candidate_graph(numbered) -> dict[str, Any]:
+    from candidates import candidate_set_version
+
+    if isinstance(numbered, dict) and isinstance(numbered.get("nodes"), list):
+        graph = dict(numbered)
+        graph.setdefault(
+            "candidate_set_version",
+            candidate_set_version(graph.get("scene_epoch"), graph.get("observation_id"), graph["nodes"]),
+        )
+        return graph
+    nodes = list(numbered or [])
+    return {
+        "nodes": nodes,
+        "scene_epoch": None,
+        "observation_id": None,
+        "candidate_set_version": candidate_set_version(None, None, nodes),
+    }
 
 
 def _ok(

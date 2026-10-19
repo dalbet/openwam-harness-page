@@ -668,8 +668,8 @@ class ContractTest(unittest.TestCase):
             support_z={},
             goal_relation="on",
         )
-        self.assertEqual(other["reason_code"], "INSTANCE_UNCONFIRMED")
-        self.assertEqual(other["status"], "unknown")
+        self.assertEqual(other["reason_code"], "visual_instance_ambiguous")
+        self.assertEqual(other["status"], "clarify")
         self.assertEqual(other["metrics"]["object_ref"], "akita_black_bowl_1")
         self.assertIn("不更换", other["metrics"]["error"])
 
