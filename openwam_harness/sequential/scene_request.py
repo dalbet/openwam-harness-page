@@ -90,6 +90,7 @@ def resolve_load(message, suites: list[dict]) -> dict:
         "instances": task.get("instances") or [],
         "fixtures": task.get("fixtures") or [],
         "place_regions": task.get("place_regions") or [],
+        "scene_regions": task.get("scene_regions") or {"regions": [], "version": ""},
         "goal_relation": goal_relation(task["language"]),
         "long_candidate": task["long_candidate"],
         "init_states": count,

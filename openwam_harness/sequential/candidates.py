@@ -182,7 +182,7 @@ def resolve_plan_bindings(plan: dict[str, Any], graph: dict[str, Any]) -> tuple[
                     errors.append(_err(f"steps[{index}].target_n", "target_region_ambiguous", sites, "一个 BDDL 目标区域"))
                     continue
                 else:
-                    errors.append(_err(f"steps[{index}].target_n", "target_region_missing", spec_bits["object_ref"], "BDDL goal atom 放置区域"))
+                    errors.append(_err(f"steps[{index}].target_n", "target_region_missing", spec_bits["object_ref"], "场景设施放置区域"))
                     continue
             canonical = spec_bits.get("semantic_type") or spec_bits["object_ref"]
             phrase = item.get("grounding_query") if role == "object" else None

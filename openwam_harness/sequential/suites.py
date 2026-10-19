@@ -146,6 +146,7 @@ def load_suites() -> list[dict]:
                     "instances": catalog["instances"],
                     "fixtures": catalog["fixtures"],
                     "place_regions": catalog["place_regions"],
+                    "scene_regions": catalog["scene_regions"],
                 }
             )
         suites.append({"id": suite_id, "label": label, "standard": True, "tasks": tasks})
@@ -267,12 +268,9 @@ def objects_for_names(names: list[str], task: dict | None) -> dict:
         objects[name] = dict(spec)
         objects[name]["sim_name"] = name
         regions = [item for item in (task or {}).get("place_regions") or [] if item.get("target") == name]
-        if len(regions) == 1:
-            objects[name]["place_site"] = regions[0]["site_name"]
-            objects[name]["place_region"] = regions[0]["region"]
-            objects[name]["place_site_source"] = "bddl_goal_atom"
-        elif len(regions) > 1:
-            objects[name]["place_sites"] = [item["site_name"] for item in regions]
+        from regions import attach_place_site
+
+        attach_place_site(objects[name], regions)
     return objects
 
 
@@ -287,23 +285,25 @@ def _catalog(path: str) -> dict:
         "instances": _section(text, "objects", movable=True),
         "fixtures": _section(text, "fixtures", movable=False),
         "place_regions": _place_regions(text),
+        "scene_regions": _scene_regions(text),
     }
 
 
 def _place_regions(text: str) -> list[dict]:
-    """Sites whose names already appear as BDDL goal or interest atoms.
+    """Fixture placement sites in this problem, including ones outside the native goal.
 
-    liberopro `get_regions` stores a region as `target + "_" + region_name`.
-    A row is kept only when that exact atom is in `:goal` or `:obj_of_interest`.
+    The key is owner_instance + region_name. A table initialization range is not
+    a placement site, and two top_region declarations do not overwrite each other.
     """
-    named = set(_atoms(text, "obj_of_interest")) | set(_goal_targets(text))
-    rows = []
-    for region_name, target in _region_targets(text):
-        site_name = f"{target}_{region_name}"
-        if site_name not in named:
-            continue
-        rows.append({"region": region_name, "target": target, "site_name": site_name})
-    return rows
+    from regions import place_regions
+
+    return place_regions(text)
+
+
+def _scene_regions(text: str) -> dict:
+    from regions import registry_from_text
+
+    return registry_from_text(text)
 
 
 def _atoms(text: str, section: str) -> list[str]:

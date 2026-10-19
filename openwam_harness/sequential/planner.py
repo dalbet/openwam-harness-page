@@ -131,6 +131,8 @@ def request_plan(
         attempts[0]["errors"] = first_errors
         if any(item.get("code") in {"incomplete_stream", "truncated_output"} for item in first_errors):
             return _failed(attempts, first_errors, repairs=0)
+        if first_errors and all(item.get("code") in {"target_region_missing", "target_region_ambiguous"} for item in first_errors):
+            return _failed(attempts, first_errors, repairs=0)
     repair = _repair_text(message, first_errors, task)
     repair_parts = [*parts, ("repair", repair)]
     messages = [
