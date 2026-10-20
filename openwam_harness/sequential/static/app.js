@@ -4,14 +4,13 @@ const suiteSel = $("suite"), modeSel = $("execution-mode"), progressEl = $("prog
   loadBtn = $("load"), taskIn = $("task"), profileSel = $("planner-profile"),
   startBtn = $("start"),
   restartBtn = $("restart"), stopBtn = $("stop"), resetBtn = $("reset"),
-  okBtn = $("ok"), badBtn = $("bad"), unkBtn = $("unk"),
-  confirmBox = $("confirm"), goalEl = $("goal"),
+  goalEl = $("goal"),
   agentCanvas = $("agent"), wristCanvas = $("wrist"),
   agentView = $("agent-view"), wristView = $("wrist-view"),
   phAgent = $("ph-agent"), phWrist = $("ph-wrist"), statusEl = $("status"),
-  healthEl = $("health"),
-  plannerMeta = $("planner-meta"), plannerBrief = $("planner-brief"), plannerFull = $("planner-full"),
-  execMeta = $("exec-meta"), execBrief = $("exec-brief"), execFull = $("exec-full");
+  plannerText = $("planner-text"),
+  examplesEl = $("examples"), taskSummaryEl = $("task-summary"),
+  taskStepsEl = $("task-steps"), diagText = $("diag-text");
 
 const agCtx = agentCanvas.getContext("2d");
 const wrCtx = wristCanvas.getContext("2d");
@@ -124,16 +123,10 @@ function showConfirmWait(execution, timeoutS, startedAt){
 }
 function setConfirm(on){
   waiting = on;
-  confirmBox.hidden = !on;
-  okBtn.disabled = !on;
-  badBtn.disabled = !on;
-  unkBtn.disabled = !on;
   if (!on && confirmTimer) {
     clearInterval(confirmTimer);
     confirmTimer = null;
   }
-  const note = $("confirm-note");
-  if (note && !on) note.textContent = "";
 }
 
 const PHASES = {
@@ -187,6 +180,9 @@ function handleText(txt){
     case "snapshot":
       applySnapshot(m);
       break;
+    case "task_view":
+      renderTaskView(m.task_view, lastSnapshot && lastSnapshot.run);
+      break;
     case "load_ack":
     case "load_rejected":
       if (m.status === "accepted") break;
@@ -196,12 +192,13 @@ function handleText(txt){
       if (m.status === "ready") applyCatalog(m.suites || []);
       break;
     case "loaded":
+      renderExamples(m.scene_examples);
       rootError = "";
       curEid = null; acceptEid = null; gate = false; clearBuffer();
       episode = m.episode_id; sceneEpoch = m.scene_epoch; planVersion = m.plan_version || 1;
       goalEl.textContent = m.summary_zh ? `当前目标：${m.summary_zh}` : `当前目标：${m.instruction || ""}`;
       taskIn.disabled = false;
-      restartBtn.disabled = false;
+      if (restartBtn) restartBtn.disabled = false;
       setConfirm(false);
       if (m.placeholder || m.mode === "dry"){
         setStatus("干跑", "未创建真实环境，没有新图像", "bad");
@@ -285,7 +282,6 @@ function handleText(txt){
       renderBinding(m.binding || {});
       break;
     case "log":
-      $("log").textContent += (m.text || "") + "\n";
       break;
     case "clarify":
       setStatus("需要确认", m.question || "请说明要哪一个物体", "warn");
@@ -304,18 +300,12 @@ function handleText(txt){
       if (!rootError && m.success !== true) rootError = m.root_error || m.reason || "";
       endedFallback = m;
       setConfirm(false);
-      restartBtn.disabled = false;
+      if (restartBtn) restartBtn.disabled = false;
       break;
     case "pong": break;
   }
 }
 
-const CATEGORIES = {
-  service: "连接或超时",
-  parameter: "参数或对象名",
-  subtask_incomplete: "子任务未完成",
-  tool_exception: "工具异常"
-};
 function rememberExec(execution){
   lastExec = execution || null;
   renderExec(lastExec);
@@ -336,59 +326,7 @@ function updateMotion(){
   if (framesReceived || framesDrawn) parts.push(`收 ${framesReceived} / 绘 ${framesDrawn} / 不同帧 ${drawnFrameIds.size}`);
   el.textContent = parts.join(" · ");
 }
-function renderExec(execution){
-  if (!execution) {
-    execMeta.textContent = "执行：同步";
-    execBrief.textContent = "";
-    return;
-  }
-  const category = CATEGORIES[execution.category] || execution.category || "—";
-  const checker = execution.checker_reason_code ? ` · 检查结果 ${execution.checker_reason_code}` : "";
-  const planner = lastPlannerStage === "ok" ? "规划通过" : (lastPlannerStage || "规划状态未知");
-  const pauseCodes = ["INSUFFICIENT_EVIDENCE", "NEED_STABILITY_SAMPLE", "TARGET_NOT_IDENTIFIED", "TARGET_AMBIGUOUS", "preplace_blocked", "pose_not_provided", "state_service_error"];
-  const paused = pauseCodes.includes(execution.reason_code) || pauseCodes.includes(execution.error_code);
-  const failed = !paused && execution.reason_code && execution.reason_code !== "GRASP_HELD" && execution.reason_code !== "OBJECT_LOCALIZED" && execution.reason_code !== "TRANSPORTED" && !execution.stopped;
-  const execState = execution.summary || (paused ? "执行暂停" : (failed ? "执行失败" : (execution.reason_code || "执行中")));
-  execMeta.textContent = `执行：同步 · ${execState}`;
-  execBrief.textContent = [
-    `外层步骤: ${execution.parent_step_id || "—"}`,
-    `当前步骤: ${execution.step_id || "—"}`,
-    `阶段: ${execution.transfer_phase || "—"}`,
-    `原语: ${execution.primitive || execution.skill || "—"}`,
-    `检查: ${execution.check_name || "—"}`,
-    `失败类别: ${category}`,
-    `原因: ${execution.summary || execution.reason || "—"}${checker}`,
-    planner === "规划通过" ? "规划状态: 规划通过，这不是执行结果" : "",
-    (execution.unmet || []).length ? `未满足: ${(execution.unmet || []).join("；")}` : "",
-    (execution.missing || []).length ? `缺少: ${(execution.missing || []).join(", ")}` : "",
-    execution.transport_started === false ? "尚未搬运/放置" : "",
-    `环境动作数: ${execution.env_action_count ?? 0}`,
-    `最新观测: ${execution.observation_id || "—"}`,
-    `记录序号: ${execution.record_index ?? "—"}（${execution.record_index_note || "不是仿真步数"}）`
-  ].filter(Boolean).join("\n");
-  execFull.hidden = true;
-  execFull.textContent = JSON.stringify({
-    args: execution.args || {},
-    object_ref: execution.object_ref || null,
-    grounding_query: execution.grounding_query || null,
-    vla_prompt: execution.vla_prompt || null,
-    return_summary: execution.return_summary || {},
-    request_id: execution.request_id || null,
-    episode_id: execution.episode_id || null,
-    parent_step_id: execution.parent_step_id || null,
-    primitive: execution.primitive || execution.skill || null,
-    check_name: execution.check_name || null,
-    error_code: execution.error_code || execution.reason_code || null,
-    reason_code: execution.reason_code || null,
-    unmet_conditions: execution.unmet_conditions || execution.unmet || null,
-    missing: execution.missing || null,
-    unmet: execution.unmet || null,
-    actual: execution.actual || null,
-    condition: execution.condition || null,
-    evidence_sources: execution.evidence_sources || null,
-    observation_id: execution.observation_id || null,
-    transport_started: execution.transport_started
-  }, null, 2);
+function renderExec(_execution){
 }
 function statusDetail(m){
   const timing = m.timings ? JSON.stringify(m.timings) : "";
@@ -415,14 +353,6 @@ function applyCatalog(items){
 
 function renderHealth(m){
   lastHealth = m;
-  const mode = m.mode === "live" ? "真实模式" : "干跑模式";
-  const planner = m.planner === "ok" ? "planner 正常" : `planner ${m.planner || "未知"}`;
-  const env = {ready: "env 就绪", loading: "env 加载中", down: "env 已停止", not_loaded: "env 未加载"}[m.env] || `env ${m.env || "未知"}`;
-  const vla = {ready: "VLA 就绪", down: "VLA 已停止", not_loaded: "VLA 未加载"}[m.vla] || `VLA ${m.vla || "未知"}`;
-  const commit = (m.commit || "").slice(0, 7) || "未知";
-  healthEl.textContent = `适配器在线 · ${mode} · ${location.host} · pid ${m.pid} · commit ${commit} · 前端 ${m.static_version || "未知"} · ${planner} · ${env} · ${vla}`;
-  healthEl.style.color = m.mode === "live" ? "var(--dim)" : "var(--warn)";
-  if (m.error || m.planner_detail) healthEl.title = [m.error, m.planner_detail].filter(Boolean).join("\n");
   $("retry").hidden = true;
   syncRunButtons();
   updateMotion();
@@ -436,41 +366,69 @@ const STAGES = {
   ok: "通过"
 };
 function renderPlanner(m){
-  const stage = STAGES[m.stage] || (m.plan_source ? "通过" : "未请求");
-  const attempts = m.attempts || [];
-  const attemptText = attempts.length
-    ? attempts.map(item => {
-        const usage = item.usage || {};
-        const label = item.role === "format_repair" ? "修复" : (item.role === "saved" ? "复用" : "初始");
-        return `${label} ${item.request_id || "无 request_id"} · prompt ${usage.prompt_tokens ?? "—"} / completion ${usage.completion_tokens ?? "—"} · ${item.finish_reason || ""}`;
-      }).join("\n")
-    : "没有分开保存的初始/修复响应";
-  const errors = (m.errors || []).map(item => `${item.path || ""} ${item.code || ""} received=${JSON.stringify(item.received)} expected ${item.expected || ""}`).join("\n");
-  const binding = m.binding || {};
-  const links = m.plan_bindings || [];
-  const bound = links.length
-    ? links.map(item => `${item.role === "target" ? "目标" : "对象"} ${item.candidate_id}→${item.instance_ref}`).join("；")
-    : (binding.object_ref ? `${binding.object_ref} · ${binding.evidence_source || ""}` : "未绑定");
   lastPlannerStage = m.stage || lastPlannerStage;
-  plannerMeta.textContent = `${stage} · ${m.model || ""} · ${Number(m.elapsed_s || 0).toFixed(1)}s · 修复 ${m.repairs || 0} 次`;
-  plannerBrief.textContent = [
-    `输入模式: ${m.planning_input || "未知"}`,
-    `真实图像: ${m.vision ? "包含" : "不包含"}`,
-    `失败阶段: ${stage}`,
-    `绑定对象: ${bound}`,
-    binding.note || "",
-    attemptText,
-    errors ? "错误:\n" + errors : ""
-  ].filter(Boolean).join("\n");
-  plannerFull.hidden = true;
-  plannerFull.textContent = JSON.stringify({attempts, errors: m.errors || [], binding}, null, 2);
-  const telem = m.telemetry || {};
-  if (telem.ttft_s != null) plannerBrief.textContent += `\n排队 ${telem.queue_s ?? "—"}s · 首 token ${telem.ttft_s}s · 总 ${telem.total_s}s · ${telem.endpoint || ""}`;
-  if (m.stage === "binding_unresolved") renderBinding(binding);
+  if (!plannerText) return;
+  const input = plannerInputText(m);
+  const output = plannerOutputText(m);
+  plannerText.textContent = `输入\n${input || "没有输入"}\n\n输出\n${output || "没有输出"}`;
+}
+function plannerInputText(m){
+  const summary = m.summary;
+  if (typeof summary === "string" && summary.trim().startsWith("{")) {
+    try {
+      const data = JSON.parse(summary);
+      const lines = [data.user_text, data.canonical_goal, data.native_goal].filter((item, index, all) => item && all.indexOf(item) === index);
+      if (lines.length) return lines.join("\n");
+    } catch (err) {}
+  }
+  if (typeof summary === "string" && summary.trim() && !summary.trim().startsWith("{") && !summary.trim().startsWith("[")) return summary.trim();
+  return taskIn.value || "";
+}
+function plannerOutputText(m){
+  const attempts = m.attempts || [];
+  const parts = attempts.map(attemptBody).filter(Boolean);
+  if (typeof m.output === "string" && m.output.trim() && !m.output.trim().startsWith("{") && !m.output.trim().startsWith("[")) parts.unshift(m.output.trim());
+  if (m.question) parts.push(m.question);
+  const errors = (m.errors || []).map(item => [item.path, item.code, item.expected].filter(Boolean).join(" ")).filter(Boolean);
+  if (!parts.length && errors.length) parts.push(errors.join("\n"));
+  return parts.join("\n\n");
+}
+function attemptBody(item){
+  const calls = item.tool_calls || [];
+  const fromCalls = calls.map(call => {
+    const fn = call.function || {};
+    let payload = fn.arguments;
+    if (typeof payload === "string") {
+      try { payload = JSON.parse(payload); }
+      catch (err) { return payload.trim().startsWith("{") ? "" : payload; }
+    }
+    return planAsText(payload);
+  }).filter(Boolean);
+  if (fromCalls.length) return fromCalls.join("\n");
+  const content = item.content;
+  if (typeof content !== "string" || !content.trim()) return "";
+  const trimmed = content.trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try { return planAsText(JSON.parse(trimmed)); }
+    catch (err) { return ""; }
+  }
+  return trimmed;
+}
+function planAsText(payload){
+  if (!payload || typeof payload !== "object") return "";
+  if (typeof payload.question === "string" && payload.question.trim()) return payload.question.trim();
+  const lines = [];
+  if (payload.goal) lines.push(String(payload.goal));
+  (payload.steps || []).forEach((step, index) => {
+    const prompt = step && (step.prompt || step.vla_prompt || step.grounding_query);
+    if (prompt) lines.push(`${index + 1}. ${prompt}`);
+  });
+  return lines.join("\n");
 }
 function renderBinding(binding){
   const box = $("bind-box");
   const choice = $("bind-choice");
+  if (!box || !choice) return;
   if (!binding || binding.status === "resolved") {
     box.hidden = binding && binding.evidence_source === "sim_state" ? false : true;
     if (binding && binding.status === "resolved") {
@@ -602,7 +560,7 @@ function showResult(success, reason, status){
   } else {
     setStatus("执行失败", reason || "", "bad");
   }
-  restartBtn.disabled = false;
+  if (restartBtn) restartBtn.disabled = false;
   syncRunButtons();
   setConfirm(false);
   endedFallback = null;
@@ -624,8 +582,64 @@ loadBtn.onclick = () => {
   setStatus("加载中", suiteSel.value);
   send({type:"load", suite: suiteSel.value, client_request_id: `load-${Date.now()}`});
 };
+function renderExamples(items){
+  if (!examplesEl) return;
+  examplesEl.textContent = "";
+  const list = items || [];
+  if (!list.length) return;
+  const label = document.createElement("span");
+  label.textContent = "当前场景示例 ";
+  examplesEl.appendChild(label);
+  list.forEach((item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = item.input_zh || item.text || "";
+    button.onclick = () => {
+      taskIn.value = item.text;
+      taskEdited = true;
+    };
+    examplesEl.appendChild(button);
+  });
+}
+function renderTaskView(view, run){
+  if (!taskSummaryEl || !taskStepsEl) return;
+  if (!view){
+    taskSummaryEl.textContent = run && run.root_error ? `失败：${run.root_error}` : "还没有规划结果";
+    taskStepsEl.textContent = "";
+    if (diagText) diagText.textContent = run && run.root_error ? run.root_error : "还没有诊断";
+    return;
+  }
+  const zh = view.instruction_zh || "";
+  const en = view.canonical_instruction || "";
+  const fail = view.failure || {};
+  const reason = fail.reason || (run && run.root_error) || "";
+  const code = fail.reason_code || "";
+  taskSummaryEl.textContent = `用户输入：${view.user_instruction || ""}\n标准任务：${zh}${zh && en ? " / " : ""}${en}${reason ? `\n失败：${code} ${reason}` : ""}`;
+  taskStepsEl.textContent = "";
+  (view.steps || []).forEach((step) => {
+    const li = document.createElement("li");
+    li.dataset.status = step.status || "pending";
+    const english = step.text_en ? ` — ${step.text_en}` : "";
+    li.textContent = `${step.text_zh || step.text || ""}${english} · ${step.status || "pending"}`;
+    taskStepsEl.appendChild(li);
+  });
+  if (diagText){
+    diagText.textContent = [
+      `request_id: ${view.request_id || ""}`,
+      `object_ref: ${view.object_ref || ""}`,
+      `target_ref: ${view.target_ref || ""}`,
+      `target_region_ref: ${view.target_region_ref || ""}`,
+      `vla_prompt: ${view.vla_prompt || ""}`,
+      `失败步骤: ${(view.failure && view.failure.step_id) || ""}`,
+      `reason_code: ${code}`,
+      `evidence: ${(view.failure && (view.failure.evidence || view.failure.reason)) || reason}`,
+    ].join("\n");
+  }
+}
 function applySnapshot(m){
   lastSnapshot = m || null;
+  renderExamples(m && m.scene_examples);
+  renderTaskView(m && m.task_view, m && m.run);
   const scene = m && m.scene;
   if (scene && scene.loaded) {
     episode = scene.episode_id;
@@ -702,32 +716,15 @@ function resetScene(){
   setStatus("重置场景", "");
 }
 startBtn.onclick = () => begin("model");
-restartBtn.onclick = resetScene;
+if (restartBtn) restartBtn.onclick = resetScene;
 if (resetBtn) resetBtn.onclick = resetScene;
 stopBtn.onclick = () => { send({type:"stop", client_request_id: `stop-${Date.now()}`}); };
 profileSel.onchange = () => send({type:"set_planner", profile: profileSel.value});
-function confirm(verdict){
-  if (!waiting) return;
-  send({type:"confirm", verdict, episode_id: episode, scene_epoch: sceneEpoch, plan_version: planVersion});
-  setConfirm(false);
-  setStatus("executing", "已提交确认");
-}
-okBtn.onclick = () => confirm("success");
-badBtn.onclick = () => confirm("failure");
-unkBtn.onclick = () => confirm("unknown");
-$("planner-expand").onclick = () => { plannerFull.hidden = !plannerFull.hidden; };
-$("exec-expand").onclick = () => { execFull.hidden = !execFull.hidden; };
 taskIn.addEventListener("input", ()=>{
   taskEdited = true;
   syncRunButtons();
 });
-$("bind-apply").onclick = () => {
-  const ref = $("bind-choice").value;
-  if (!ref) return;
-  send({type: "bind", object_ref: ref});
-};
 async function bootstrap(){
-  healthEl.textContent = "正在检查服务…";
   $("retry").hidden = true;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 4000);
@@ -740,11 +737,9 @@ async function bootstrap(){
     catch (err) { throw new Error(`健康检查不是 JSON：HTTP ${response.status} ${text.slice(0, 180)}`); }
     if (!response.ok) throw new Error(`健康检查 HTTP ${response.status}`);
     renderHealth(body);
-    setStatus("适配器在线", `${Math.round(performance.now() - started)}ms · 可以选择套件，环境在点击加载后才启动`);
+    setStatus("就绪", "可以选择套件，环境在点击加载后才启动");
     await refreshSuites();
   } catch (err) {
-    healthEl.textContent = "检查超时。适配器没有在时限内返回，没有改跑干跑。";
-    healthEl.style.color = "var(--bad)";
     $("retry").hidden = false;
     setStatus("failed", err.name === "AbortError" ? "健康检查超过 4 秒" : String(err.message || err), "bad");
   } finally {

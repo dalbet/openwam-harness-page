@@ -76,6 +76,10 @@ SEMANTIC_PLAN_KEYS = frozenset(
         "observation_id",
         "candidate_set_version",
         "bindings_checked",
+        "canonical_instruction",
+        "matched_task_key",
+        "user_instruction",
+        "semantic_step_count",
     }
 )
 SEMANTIC_STEP_KEYS = frozenset(
@@ -120,6 +124,10 @@ PLAN_KEYS = frozenset(
         "observation_id",
         "candidate_set_version",
         "bindings_checked",
+        "canonical_instruction",
+        "matched_task_key",
+        "user_instruction",
+        "semantic_step_count",
     }
 )
 EXECUTABLE_KEYS = frozenset({"code", "python", "script", "exec", "eval"})
@@ -466,6 +474,8 @@ def free_semantic_example() -> dict[str, Any]:
     return {
         "plan_id": "example-bowl",
         "goal": "把碗放在炉灶上",
+        "canonical_instruction": "put the bowl on the stove",
+        "matched_task_key": "libero_goal:t1",
         "steps": [
             {
                 "step_id": "bowl",
@@ -1389,21 +1399,34 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
             "observation_id",
             "candidate_set_version",
             "bindings_checked",
+            "canonical_instruction",
+            "matched_task_key",
+            "user_instruction",
         )
         if key in plan
     }
+    expanded["semantic_step_count"] = sum(1 for step in plan["steps"] if step.get("skill") == "transfer")
     expanded["steps"] = steps
     return expanded
 
 
+_INSTANCE_ID = re.compile(r"\b[a-z]+(?:_[a-z0-9]+)*_\d+\b", re.I)
+
+
 def _short_pick(prompt: str, grounding: str) -> str:
-    """One English grasp sentence. Chinese user text is not sent to Pi0."""
+    """One English grasp sentence. The full task sentence and instance ids stay out of Pi0."""
     text = str(prompt or "").strip()
-    english = bool(text) and len(text) <= 80 and "\n" not in text and all(ord(ch) < 128 for ch in text)
+    phrase = _visual_phrase(grounding)
+    leaked = _INSTANCE_ID.search(text) or any(ch in text for ch in "{[]}") or any(ord(ch) > 127 for ch in text)
+    english = bool(text) and len(text) <= 80 and "\n" not in text and not leaked
     if english and text.lower().startswith(("pick up", "grasp", "lift")):
         return text
-    phrase = grounding.strip() or "object"
     return f"pick up the {phrase}"
+
+
+def _visual_phrase(grounding: str) -> str:
+    text = _INSTANCE_ID.sub("", str(grounding or "")).replace("_", " ").strip()
+    return text or "object"
 
 
 def _binding_row(plan: dict[str, Any], ref: str, role: str) -> dict[str, Any]:

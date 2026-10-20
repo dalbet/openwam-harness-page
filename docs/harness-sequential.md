@@ -368,3 +368,34 @@ MuJoCo 四元数顺序是 wxyz。这个局部四元数不是单位四元数，�
 - 碗先到炉灶之后不 reset、继续酒瓶，并复查两个目标：这条组合没有跑，不能当成通过。
 
 记录：`records/readonly_regions_goal_t1.json`、`records/live_bowl_stove_once.json`。这些运行记录不进入提交。
+
+## 任务集单任务
+
+自由模式把用户原句交给 Planner。任务目录只提供当前场景里的英文标准句、物体和区域，不在请求前用中文别名或整句匹配拒绝输入，也不切换场景。`user_instruction` 保留用户原文。`canonical_instruction` 是注册表英文原句。`pi0_pick` 的 `vla_prompt` 仍是短英文抓取句。搬运、下降、释放和退离仍由现有执行器展开。页面上的动作列表由编译步骤映射，规划通过不等于抓取成功。
+
+编号来自本机 `libero.libero.benchmark`。`executor_support=implemented` 只表示抓取、搬运、下降和释放可以展开。`acceptance=not_run` 表示本轮没有真实执行验收。目录里有这条任务，不等于已经执行成功。
+
+可人工测试的单任务。点击页面「当前场景示例」只填入输入框。近义表达也可以直接输入。
+
+| 场景 | task_id | 中文输入 | 近义 | 英文标准句 | 代码 |
+|---|---|---|---|---|---|
+| `libero_goal` | 1 | 把碗放到炉灶上。 | 碗放炉灶上；把黑碗放到灶台上 | `put the bowl on the stove` | implemented，区域 `flat_stove_1_cook_region` |
+| `libero_goal` | 8 | 把碗放到盘子上。 | 把黑碗放到盘子里；将碗搁到盘子上 | `put the bowl on the plate` | implemented，目标是盘子物体，没有单独 site |
+| `libero_goal` | 6 | 把奶油奶酪放到碗里。 | 把奶油奶酪放进碗中；把那盒奶酪放进黑碗里 | `put the cream cheese in the bowl` | implemented，目标是碗 |
+| `libero_object` | 0 | 把字母汤罐头放进篮子里。 | 把字母汤放进篮子；将字母汤罐头放进篮子中 | `pick up the alphabet soup and place it in the basket` | implemented，区域 `basket_1_contain_region` |
+| `libero_object` | 5 | 把番茄酱放进篮子里。 | 把番茄酱放进篮子；将番茄酱罐头放进篮子中 | `pick up the tomato sauce and place it in the basket` | implemented，区域 `basket_1_contain_region` |
+| `libero_spatial` | 0 | 抓起位于盘子与小碗之间的黑碗，并放到盘子上。 | 把盘子和小碗中间的黑碗放到盘子上；拿起盘子与小碗之间的那只黑碗，放到盘子上 | `pick up the black bowl between the plate and the ramekin and place it on the plate` | implemented，必须保留这只碗，不能改选同类碗 |
+
+页面只列出当前已加载场景里、物体都存在且执行器可展开的示例。
+
+尚未支持：
+
+- `libero_goal` task 9，`put the wine bottle on the rack`。中文可以是「把葡萄酒瓶放到酒架上」或「把酒瓶放到架子上」。放置区域 `wine_rack_1_top_region` 已经解析到 `wine_rack_1`，但 site 带旋转。当前 `move_to` 只平移，动作前返回缺少按朝向放置的技能。`executor_support=unsupported_skill`。本轮没有执行。
+- 一条指令里的多个独立目标，包括 `libero_10` 的组合句。当前只执行单任务。
+- 开抽屉、旋钮和推动。这些接触技能没有实现。
+
+改完后重启适配器，刷新 `http://127.0.0.1:8766/`：
+
+```bash
+HARNESS_LIVE=1 bash /root/Page_dmh/openwam_harness/sequential/start_adapter.sh
+```

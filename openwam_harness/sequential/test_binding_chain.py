@@ -75,7 +75,10 @@ class BindingReplayTest(unittest.TestCase):
         segment_targets = [step for step in prepared["steps"] if step["skill"] == "segment"]
         self.assertEqual(segment_targets[0]["args"]["object_ref"], "akita_black_bowl_1")
         self.assertEqual(segment_targets[1]["query_key"], "flat_stove_1_cook_region")
-        self.assertIn("plan_bindings", (ROOT / "static" / "app.js").read_text(encoding="utf-8"))
+        page = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Planner输入/输出", page)
+        self.assertNotIn("确认成功", page)
+        self.assertNotIn("执行诊断", page)
 
     def test_contract_rejects_type_name_and_stale_version(self):
         objects, graph, _names = _goal_scene()

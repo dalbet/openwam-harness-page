@@ -33,7 +33,7 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
-STATIC_VERSION = "view12"
+STATIC_VERSION = "view14"
 RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
 
@@ -89,6 +89,43 @@ def _ui_jpeg(raw: bytes) -> tuple[bytes, tuple[int, int], tuple[int, int]]:
     buf = io.BytesIO()
     image.save(buf, format="JPEG", quality=UI_JPEG_QUALITY)
     return buf.getvalue(), source, (int(image.size[0]), int(image.size[1]))
+
+
+def _standard_tasks(suite: str, objects: dict) -> list[dict]:
+    from task_catalog import planner_task_context
+
+    return planner_task_context(suite, list(objects or []))
+
+
+def _task_view(plan: dict, spec: dict, objects: dict, user_text: str) -> dict:
+    """Separate the user's words, the registry sentence, and the grasp prompt."""
+    from step_display import display_steps
+    from task_catalog import lookup_task
+
+    names = list(objects or [])
+    suite = (spec or {}).get("suite") or ""
+    row = lookup_task(plan.get("matched_task_key"), plan.get("canonical_instruction"), suite, names)
+    bindings = plan.get("plan_bindings") or []
+    obj = next((item for item in bindings if item.get("role") == "object"), {})
+    target = next((item for item in bindings if item.get("role") == "target"), {})
+    pick = next((step for step in plan.get("steps") or [] if step.get("skill") == "pi0_pick"), {})
+    typed = (user_text or plan.get("user_instruction") or plan.get("goal") or "").strip()
+    canonical = (row or {}).get("instruction_en") or plan.get("canonical_instruction") or ""
+    return {
+        "user_instruction": typed,
+        "instruction_zh": (row or {}).get("instruction_zh") or "",
+        "canonical_instruction": canonical,
+        "matched_task_key": (row or {}).get("task_key") or plan.get("matched_task_key") or "",
+        "executor_support": (row or {}).get("executor_support") or "",
+        "acceptance": (row or {}).get("acceptance") or "not_run",
+        "vla_prompt": pick.get("vla_prompt") or "",
+        "object_ref": obj.get("instance_ref") or pick.get("object_ref") or "",
+        "target_ref": target.get("instance_ref") or "",
+        "target_region_ref": target.get("query_key") or "",
+        "request_id": plan.get("request_id") or "",
+        "steps": display_steps(plan.get("steps") or []),
+        "failure": None,
+    }
 
 
 class DryBackend:
@@ -174,6 +211,7 @@ class App:
         if self.planner_profile not in {"edge", "cloud"}:
             self.planner_profile = "edge"
         self.planner = self._make_planner()
+        self.task_view = None
 
     @property
     def running(self) -> bool:
@@ -637,6 +675,7 @@ class App:
             self.broadcast(
                 {
                     "type": "loaded",
+                    "scene_examples": self._scene_examples(),
                     "instruction": spec["goal"],
                     "env_id": scene_id,
                     "episode_id": episode,
@@ -738,6 +777,7 @@ class App:
         self.broadcast(
             {
                 "type": "loaded",
+                "scene_examples": self._scene_examples(),
                 "instruction": info.get("task_language") or spec["goal"],
                 "env_id": scene_id,
                 "episode_id": episode,
@@ -1038,6 +1078,7 @@ class App:
                 self.run_history = self.run_history[-8:]
             self.binding = None
             self._active_plan = None
+            self.task_view = None
             self.runs = RunContext()
             self.session.plan_version += 1
             episode = self.session.begin_episode()
@@ -1179,6 +1220,49 @@ class App:
             self._persist_run()
             self.runs.complete_from_producer(lambda _released: self.broadcast(self.snapshot()))
 
+    def _reject_catalog(self, plan: dict, spec: dict, scene_objects: dict, run_id: int, episode: str) -> bool:
+        """Refuse a plan the current scene cannot run. Do not switch tasks or keep the old plan."""
+        from task_catalog import lookup_task, single_task_block
+
+        names = list(scene_objects)
+        row = lookup_task(plan.get("matched_task_key"), plan.get("canonical_instruction"), spec.get("suite") or "", names)
+        block = single_task_block(plan, row)
+        if row is not None and not block:
+            bindings = plan.get("plan_bindings") or []
+            bound_object = next((item.get("instance_ref") for item in bindings if item.get("role") == "object"), None)
+            bound_target = next((item.get("instance_ref") for item in bindings if item.get("role") == "target"), None)
+            if bound_object != row.get("source_object") or bound_target != row.get("target_object"):
+                block = "标准任务与当前绑定的物体或目标不一致，不会改用目录里的其他物体。"
+        if not block:
+            return False
+        if int(plan.get("semantic_step_count") or 0) > 1:
+            code = "single_task_only"
+        elif row is None:
+            code = "task_not_in_scene"
+        else:
+            code = str(row.get("executor_support") or "unsupported_skill")
+        self._active_plan = None
+        self.task_view = _task_view(plan, spec, scene_objects, plan.get("user_instruction") or "")
+        self.task_view["failure"] = {"reason_code": code, "reason": block, "evidence": block, "step_id": ""}
+        self.broadcast({"type": "task_view", "task_view": self.task_view})
+        self._note(run_id, "validate", "rejected", code=code, detail=block)
+        self._fail_run(episode, block)
+        return True
+
+    def _scene_examples(self) -> list[dict]:
+        spec = self.scene_spec or {}
+        suite = spec.get("suite") or ""
+        names = []
+        for key in ("instances", "fixtures"):
+            for item in spec.get(key) or []:
+                if isinstance(item, dict) and item.get("name"):
+                    names.append(str(item["name"]))
+        if not suite or not names:
+            return []
+        from task_catalog import scene_examples
+
+        return scene_examples(suite, names)
+
     def _run_inner(self, kind: str, plan_source: str, run_id: int, manual_scope: str = "single", execute: bool = True, stop_after: str | None = None, deadline_s: float | None = None, user_text: str = "") -> None:
         if kind == "restart":
             self.session.cancel()
@@ -1199,6 +1283,8 @@ class App:
             return
         episode = self.session.episode_id
         epoch = self.session.scene_epoch
+        self.task_view = None
+        self._active_plan = None
         spec = dict(self.scene_spec or {})
         typed = user_text.strip()
         if not typed:
@@ -1381,6 +1467,7 @@ class App:
                 "predicates": predicates,
                 "alias_hints": alias_hints if free else [],
                 "alias_hints_note": "提示不是绑定。未出现在别名表里的措辞仍交给 Planner。",
+                "standard_tasks": _standard_tasks(spec.get("suite") or "", scene_objects),
                 "implemented_skills": implemented_skills(),
                 "unimplemented_skills": unimplemented_skills(),
                 "left_right_frame": "仿真世界坐标 x，较小为左，较大为右。不是相机画面的左右。",
@@ -1491,6 +1578,17 @@ class App:
             return
         self._note(run_id, "validate", "ok", detail=result.get("stage") or "ok")
         plan = result["plan"]
+        typed_goal = user_text.strip()
+        if typed_goal:
+            plan["user_instruction"] = typed_goal
+        elif not plan.get("user_instruction"):
+            plan["user_instruction"] = plan.get("goal") or ""
+        if free:
+            blocked = self._reject_catalog(plan, spec, scene_objects, run_id, episode)
+            if blocked:
+                return
+        self.task_view = _task_view(plan, spec, scene_objects, plan.get("user_instruction") or typed_goal)
+        self.broadcast({"type": "task_view", "task_view": self.task_view})
         self._active_plan = plan
         plan["planner_stage"] = "ok"
         plan["request_id"] = attempts[-1].get("request_id") if attempts else None
@@ -1553,6 +1651,19 @@ class App:
                 self._note(run_id, "first_tool", "ok", detail=str(event.get("skill")))
             if event.get("skill") in {"pi0_pick", "move_to", "set_gripper"} or event.get("detail") == "local replan":
                 self.binding = None
+            view = self.task_view
+            if view is not None:
+                from step_display import apply_display_event
+
+                view["steps"] = apply_display_event(view.get("steps") or [], event)
+                if event.get("phase") == "failed":
+                    view["failure"] = {
+                        "reason_code": event.get("reason_code") or "",
+                        "reason": event.get("reason") or event.get("detail") or "",
+                        "evidence": event.get("detail") or event.get("reason") or "",
+                        "step_id": event.get("step_id") or "",
+                    }
+                self.broadcast({"type": "task_view", "task_view": view})
             self.broadcast({"type": "state", **event, "mode": "live", "run_id": run_id})
             self.log(json.dumps(event, ensure_ascii=False)[:500])
             if event.get("phase") in {"executing", "failed"}:
@@ -1771,6 +1882,7 @@ class App:
         self.broadcast(
             {
                 "type": "loaded",
+                "scene_examples": self._scene_examples(),
                 "instruction": spec["goal"],
                 "summary_zh": spec.get("summary_zh"),
                 "env_id": spec["scene_id"],
@@ -2045,6 +2157,8 @@ class App:
                 "status": probe.get("status") or "unknown",
                 "reachable": probe.get("status") == "ok",
             },
+            "task_view": self.task_view,
+            "scene_examples": self._scene_examples(),
         }
 
     def _fid(self) -> int:

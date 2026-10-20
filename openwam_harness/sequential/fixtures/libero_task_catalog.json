@@ -1,0 +1,898 @@
+{
+  "source": "installed libero benchmark and bddl",
+  "tasks": [
+    {
+      "suite": "libero_spatial",
+      "task_id": 0,
+      "task_key": "libero_spatial:t0",
+      "instruction_en": "pick up the black bowl between the plate and the ramekin and place it on the plate",
+      "instruction_zh": "抓起位于盘子与小碗之间的黑碗，并放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": [
+        "把盘子和小碗中间的黑碗放到盘子上",
+        "拿起盘子与小碗之间的那只黑碗，放到盘子上"
+      ]
+    },
+    {
+      "suite": "libero_spatial",
+      "task_id": 1,
+      "task_key": "libero_spatial:t1",
+      "instruction_en": "pick up the black bowl next to the ramekin and place it on the plate",
+      "instruction_zh": "抓起小碗旁边的黑碗，并放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_spatial",
+      "task_id": 2,
+      "task_key": "libero_spatial:t2",
+      "instruction_en": "pick up the black bowl from table center and place it on the plate",
+      "instruction_zh": "抓起桌面中央的黑碗，并放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_spatial",
+      "task_id": 3,
+      "task_key": "libero_spatial:t3",
+      "instruction_en": "pick up the black bowl on the cookie box and place it on the plate",
+      "instruction_zh": "抓起饼干盒上的黑碗，并放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_spatial",
+      "task_id": 4,
+      "task_key": "libero_spatial:t4",
+      "instruction_en": "pick up the black bowl in the top drawer of the wooden cabinet and place it on the plate",
+      "instruction_zh": "抓起木柜上层抽屉里的黑碗，并放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_spatial",
+      "task_id": 5,
+      "task_key": "libero_spatial:t5",
+      "instruction_en": "pick up the black bowl on the ramekin and place it on the plate",
+      "instruction_zh": "抓起小碗上的黑碗，并放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_spatial",
+      "task_id": 6,
+      "task_key": "libero_spatial:t6",
+      "instruction_en": "pick up the black bowl next to the cookie box and place it on the plate",
+      "instruction_zh": "抓起饼干盒旁边的黑碗，并放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_spatial",
+      "task_id": 7,
+      "task_key": "libero_spatial:t7",
+      "instruction_en": "pick up the black bowl on the stove and place it on the plate",
+      "instruction_zh": "抓起炉灶上的黑碗，并放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_spatial",
+      "task_id": 8,
+      "task_key": "libero_spatial:t8",
+      "instruction_en": "pick up the black bowl next to the plate and place it on the plate",
+      "instruction_zh": "抓起盘子旁边的黑碗，并放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_spatial",
+      "task_id": 9,
+      "task_key": "libero_spatial:t9",
+      "instruction_en": "pick up the black bowl on the wooden cabinet and place it on the plate",
+      "instruction_zh": "抓起木柜上的黑碗，并放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_object",
+      "task_id": 0,
+      "task_key": "libero_object:t0",
+      "instruction_en": "pick up the alphabet soup and place it in the basket",
+      "instruction_zh": "抓起字母汤，并放进篮子。",
+      "source_object": "alphabet_soup_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": [
+        "把字母汤放进篮子",
+        "将字母汤罐头放进篮子中"
+      ]
+    },
+    {
+      "suite": "libero_object",
+      "task_id": 1,
+      "task_key": "libero_object:t1",
+      "instruction_en": "pick up the cream cheese and place it in the basket",
+      "instruction_zh": "抓起奶油奶酪，并放进篮子。",
+      "source_object": "cream_cheese_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_object",
+      "task_id": 2,
+      "task_key": "libero_object:t2",
+      "instruction_en": "pick up the salad dressing and place it in the basket",
+      "instruction_zh": "抓起沙拉酱，并放进篮子。",
+      "source_object": "salad_dressing_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_object",
+      "task_id": 3,
+      "task_key": "libero_object:t3",
+      "instruction_en": "pick up the bbq sauce and place it in the basket",
+      "instruction_zh": "抓起烧烤酱，并放进篮子。",
+      "source_object": "bbq_sauce_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_object",
+      "task_id": 4,
+      "task_key": "libero_object:t4",
+      "instruction_en": "pick up the ketchup and place it in the basket",
+      "instruction_zh": "抓起番茄酱瓶，并放进篮子。",
+      "source_object": "ketchup_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_object",
+      "task_id": 5,
+      "task_key": "libero_object:t5",
+      "instruction_en": "pick up the tomato sauce and place it in the basket",
+      "instruction_zh": "抓起番茄酱，并放进篮子。",
+      "source_object": "tomato_sauce_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": [
+        "把番茄酱放进篮子",
+        "将番茄酱罐头放进篮子中"
+      ]
+    },
+    {
+      "suite": "libero_object",
+      "task_id": 6,
+      "task_key": "libero_object:t6",
+      "instruction_en": "pick up the butter and place it in the basket",
+      "instruction_zh": "抓起黄油，并放进篮子。",
+      "source_object": "butter_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_object",
+      "task_id": 7,
+      "task_key": "libero_object:t7",
+      "instruction_en": "pick up the milk and place it in the basket",
+      "instruction_zh": "抓起牛奶，并放进篮子。",
+      "source_object": "milk_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_object",
+      "task_id": 8,
+      "task_key": "libero_object:t8",
+      "instruction_en": "pick up the chocolate pudding and place it in the basket",
+      "instruction_zh": "抓起巧克力布丁，并放进篮子。",
+      "source_object": "chocolate_pudding_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_object",
+      "task_id": 9,
+      "task_key": "libero_object:t9",
+      "instruction_en": "pick up the orange juice and place it in the basket",
+      "instruction_zh": "抓起橙汁，并放进篮子。",
+      "source_object": "orange_juice_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_goal",
+      "task_id": 0,
+      "task_key": "libero_goal:t0",
+      "instruction_en": "open the middle drawer of the cabinet",
+      "instruction_zh": "打开柜子的中间抽屉。",
+      "source_object": null,
+      "target_object": null,
+      "target_region": null,
+      "goal_relation": null,
+      "required_skills": [
+        "open_drawer"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "缺少技能：open_drawer",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_goal",
+      "task_id": 1,
+      "task_key": "libero_goal:t1",
+      "instruction_en": "put the bowl on the stove",
+      "instruction_zh": "把碗放到炉灶上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "flat_stove_1",
+      "target_region": "flat_stove_1_cook_region",
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": [
+        "碗放炉灶上",
+        "把黑碗放到灶台上"
+      ]
+    },
+    {
+      "suite": "libero_goal",
+      "task_id": 2,
+      "task_key": "libero_goal:t2",
+      "instruction_en": "put the wine bottle on top of the cabinet",
+      "instruction_zh": "把酒瓶放到柜子顶上。",
+      "source_object": "wine_bottle_1",
+      "target_object": "wooden_cabinet_1",
+      "target_region": "wooden_cabinet_1_top_side",
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_goal",
+      "task_id": 3,
+      "task_key": "libero_goal:t3",
+      "instruction_en": "open the top drawer and put the bowl inside",
+      "instruction_zh": "打开上层抽屉，并把碗放进去。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "wooden_cabinet_1",
+      "target_region": "wooden_cabinet_1_top_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper",
+        "open_drawer"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "缺少技能：open_drawer",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_goal",
+      "task_id": 4,
+      "task_key": "libero_goal:t4",
+      "instruction_en": "put the bowl on top of the cabinet",
+      "instruction_zh": "把碗放到柜子顶上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "wooden_cabinet_1",
+      "target_region": "wooden_cabinet_1_top_side",
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_goal",
+      "task_id": 5,
+      "task_key": "libero_goal:t5",
+      "instruction_en": "push the plate to the front of the stove",
+      "instruction_zh": "把盘子推到炉灶前方。",
+      "source_object": "plate_1",
+      "target_object": "main_table",
+      "target_region": "main_table_stove_front_region",
+      "goal_relation": "on",
+      "required_skills": [
+        "push"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "缺少技能：push",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_goal",
+      "task_id": 6,
+      "task_key": "libero_goal:t6",
+      "instruction_en": "put the cream cheese in the bowl",
+      "instruction_zh": "把奶油奶酪放进碗里。",
+      "source_object": "cream_cheese_1",
+      "target_object": "akita_black_bowl_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": [
+        "把奶油奶酪放进碗中",
+        "把那盒奶酪放进黑碗里"
+      ]
+    },
+    {
+      "suite": "libero_goal",
+      "task_id": 7,
+      "task_key": "libero_goal:t7",
+      "instruction_en": "turn on the stove",
+      "instruction_zh": "打开炉灶。",
+      "source_object": null,
+      "target_object": null,
+      "target_region": null,
+      "goal_relation": null,
+      "required_skills": [
+        "turn_on_stove"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "缺少技能：turn_on_stove",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_goal",
+      "task_id": 8,
+      "task_key": "libero_goal:t8",
+      "instruction_en": "put the bowl on the plate",
+      "instruction_zh": "把碗放到盘子上。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "implemented",
+      "support_reason": "执行器已实现抓取、搬运、下降和释放。acceptance=not_run，不能把任务集存在写成已执行成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": [
+        "把黑碗放到盘子里",
+        "将碗搁到盘子上"
+      ]
+    },
+    {
+      "suite": "libero_goal",
+      "task_id": 9,
+      "task_key": "libero_goal:t9",
+      "instruction_en": "put the wine bottle on the rack",
+      "instruction_zh": "把酒瓶放到架子上。",
+      "source_object": "wine_bottle_1",
+      "target_object": "wine_rack_1",
+      "target_region": "wine_rack_1_top_region",
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "wine_rack_1_top_region 带旋转，当前 move_to 只能平移，不能按该朝向放置。",
+      "acceptance": "not_run",
+      "paraphrases_zh": [
+        "把红酒瓶放到酒架上",
+        "将酒瓶搁上酒架"
+      ]
+    },
+    {
+      "suite": "libero_10",
+      "task_id": 0,
+      "task_key": "libero_10:t0",
+      "instruction_en": "put both the alphabet soup and the tomato sauce in the basket",
+      "instruction_zh": "把字母汤和番茄酱都放进篮子。",
+      "source_object": "alphabet_soup_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "当前仅执行单任务，这条官方指令包含多个独立目标。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_10",
+      "task_id": 1,
+      "task_key": "libero_10:t1",
+      "instruction_en": "put both the cream cheese box and the butter in the basket",
+      "instruction_zh": "把奶油奶酪盒和黄油都放进篮子。",
+      "source_object": "cream_cheese_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "当前仅执行单任务，这条官方指令包含多个独立目标。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_10",
+      "task_id": 2,
+      "task_key": "libero_10:t2",
+      "instruction_en": "turn on the stove and put the moka pot on it",
+      "instruction_zh": "打开炉灶，并把摩卡壶放到炉灶上。",
+      "source_object": "moka_pot_1",
+      "target_object": "flat_stove_1",
+      "target_region": "flat_stove_1_cook_region",
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper",
+        "turn_on_stove"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "缺少技能：turn_on_stove",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_10",
+      "task_id": 3,
+      "task_key": "libero_10:t3",
+      "instruction_en": "put the black bowl in the bottom drawer of the cabinet and close it",
+      "instruction_zh": "把黑碗放进柜子的下层抽屉，并关上抽屉。",
+      "source_object": "akita_black_bowl_1",
+      "target_object": "white_cabinet_1",
+      "target_region": "white_cabinet_1_bottom_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper",
+        "close"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "缺少技能：close",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_10",
+      "task_id": 4,
+      "task_key": "libero_10:t4",
+      "instruction_en": "put the white mug on the left plate and put the yellow and white mug on the right plate",
+      "instruction_zh": "把白杯子放到左边的盘子上，并把黄白杯子放到右边的盘子上。",
+      "source_object": "porcelain_mug_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "当前仅执行单任务，这条官方指令包含多个独立目标。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_10",
+      "task_id": 5,
+      "task_key": "libero_10:t5",
+      "instruction_en": "pick up the book and place it in the back compartment of the caddy",
+      "instruction_zh": "抓起书，并放进收纳盒的后格。",
+      "source_object": "black_book_1",
+      "target_object": "desk_caddy_1",
+      "target_region": "desk_caddy_1_back_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "缺少技能：目标关系不在 in/on 抓放范围内：back_compartment、可编译或可展开不等于环境原生成功。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_10",
+      "task_id": 6,
+      "task_key": "libero_10:t6",
+      "instruction_en": "put the white mug on the plate and put the chocolate pudding to the right of the plate",
+      "instruction_zh": "把白杯子放到盘子上，并把巧克力布丁放到盘子右侧。",
+      "source_object": "porcelain_mug_1",
+      "target_object": "plate_1",
+      "target_region": null,
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "当前仅执行单任务，这条官方指令包含多个独立目标。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_10",
+      "task_id": 7,
+      "task_key": "libero_10:t7",
+      "instruction_en": "put both the alphabet soup and the cream cheese box in the basket",
+      "instruction_zh": "把字母汤和奶油奶酪盒都放进篮子。",
+      "source_object": "alphabet_soup_1",
+      "target_object": "basket_1",
+      "target_region": "basket_1_contain_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "当前仅执行单任务，这条官方指令包含多个独立目标。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_10",
+      "task_id": 8,
+      "task_key": "libero_10:t8",
+      "instruction_en": "put both moka pots on the stove",
+      "instruction_zh": "把两个摩卡壶都放到炉灶上。",
+      "source_object": "moka_pot_1",
+      "target_object": "flat_stove_1",
+      "target_region": "flat_stove_1_cook_region",
+      "goal_relation": "on",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "当前仅执行单任务，这条官方指令包含多个独立目标。",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    },
+    {
+      "suite": "libero_10",
+      "task_id": 9,
+      "task_key": "libero_10:t9",
+      "instruction_en": "put the yellow and white mug in the microwave and close it",
+      "instruction_zh": "把黄白杯子放进微波炉，并关上微波炉。",
+      "source_object": "white_yellow_mug_1",
+      "target_object": "microwave_1",
+      "target_region": "microwave_1_heating_region",
+      "goal_relation": "in",
+      "required_skills": [
+        "view_env_state",
+        "segment",
+        "pi0_pick",
+        "move_to",
+        "set_gripper",
+        "close"
+      ],
+      "executor_support": "unsupported_skill",
+      "support_reason": "缺少技能：close",
+      "acceptance": "not_run",
+      "paraphrases_zh": []
+    }
+  ]
+}
