@@ -179,7 +179,7 @@ class _Corner:
     def sim_state(self):
         return {
             "objects": {
-                "cream_cheese_1": {"pos": [0.30, 0.46, 0.99]},
+                "cream_cheese_1": {"pos": [0.30, 0.46, 1.015958]},
                 "plate_1": {"pos": [0.30, 0.46, 0.97]},
             },
             "eef_pos": [0.35, 0.5, 1.1],

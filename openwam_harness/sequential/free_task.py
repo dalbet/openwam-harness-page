@@ -172,8 +172,15 @@ def judge_user_goal(
                 held = bool(native["ok"])
                 source = "mujoco_site"
         else:
+            from transfer_geometry import relation_check
+
             dst = _pos(objects, predicate["target_ref"])
-            if obj is not None and dst is not None:
+            shaped = relation_check(obj, dst, predicate["object_ref"], predicate["target_ref"])
+            if shaped is not None:
+                held = bool(shaped["ok"])
+                source = "asset_geometry"
+                metrics.update(shaped)
+            elif obj is not None and dst is not None:
                 xy = ((obj[0] - dst[0]) ** 2 + (obj[1] - dst[1]) ** 2) ** 0.5
                 radius = float(cfg["in_radius_m"] if predicate["relation"] == "in" else cfg["on_radius_m"])
                 z_ok = abs(obj[2] - dst[2]) <= float(cfg["support_z_tolerance_m"])

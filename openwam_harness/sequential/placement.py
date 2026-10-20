@@ -327,8 +327,24 @@ def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
     if obj is None or eef is None:
         return {"ok": False, "code": "missing_hold_offset", "reason": "搬运前没有物体原点和末端的世界坐标", "stage": "place_motion"}
     hold = [obj[index] - eef[index] for index in range(3)]
-    relation = step.get("relation") or args.get("relation") or "on"
-    radius = float(THRESHOLDS["place"]["in_radius_m"] if relation == "in" else THRESHOLDS["place"]["on_radius_m"])
+    from transfer_geometry import motion_target
+
+    target_ref = step.get("target_ref")
+    spec = (plan.get("objects") or {}).get(target_ref) if isinstance(target_ref, str) else None
+    target_name = spec.get("sim_name") if isinstance(spec, dict) else target_ref
+    site_size = _site_size(obs, surface_key)
+    motion = motion_target(
+        spec_name(plan, ref),
+        target_name,
+        surface,
+        motion=str(args.get("motion") or "travel"),
+        clearance=z_offset,
+        site_size=site_size,
+    )
+    if not motion["ok"]:
+        motion["stage"] = "place_motion"
+        return motion
+    radius = float(motion["xy_radius_m"])
     chosen = choose_object_target(surface, _other_origins(obs, plan, ref), radius=radius)
     if not chosen["ok"]:
         chosen["stage"] = "place_motion"
@@ -336,7 +352,7 @@ def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
     object_target = [
         chosen["object_origin"][0],
         chosen["object_origin"][1],
-        float(surface[2]) + z_offset,
+        float(motion["object_z"]),
     ]
     eef_target = [object_target[index] - hold[index] for index in range(3)]
     if not _in_workspace(eef_target):
@@ -370,9 +386,27 @@ def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
         "support_origin": [round(float(value), 4) for value in surface[:3]],
         "region_source": surface_source,
         "region_key": surface_key,
-        "object_z_rule": "region_z + z_offset once; hold_offset is applied once from the object origin to the eef",
+        "placement_kind": motion["kind"],
+        "object_z_rule": motion["z_rule"],
+        "geometry_source": motion.get("source"),
         "args": {key: value for key, value in resolved.items() if value is not None or key == "gripper"},
     }
+
+
+def spec_name(plan, ref) -> str | None:
+    spec = ((plan or {}).get("objects") or {}).get(ref) or {}
+    if isinstance(spec, dict) and spec.get("sim_name"):
+        return spec["sim_name"]
+    return ref if isinstance(ref, str) else None
+
+
+def _site_size(obs, site_name) -> list[float] | None:
+    geometry = ((obs or {}).get("named_poses") or {}).get("site_geometry") if isinstance(obs, dict) else None
+    row = geometry.get(site_name) if isinstance(geometry, dict) and site_name else None
+    size = row.get("size") if isinstance(row, dict) else None
+    if isinstance(size, list) and len(size) >= 3:
+        return [float(value) for value in size[:3]]
+    return None
 
 
 def _object_origin(obs, plan, ref) -> list[float] | None:

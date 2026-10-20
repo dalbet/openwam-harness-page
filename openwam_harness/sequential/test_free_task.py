@@ -144,7 +144,7 @@ class FreeTaskTest(unittest.TestCase):
         self.assertFalse(judged["user_goal_success"])
         self.assertTrue(judged["subgoal_results"][0]["held_at_end"])
         self.assertFalse(judged["subgoal_results"][1]["held_at_end"])
-        self.assertEqual(judged["evidence_source"], "sim_state")
+        self.assertEqual(judged["evidence_source"], "per_item")
 
     def test_free_episode_stays_steppable_after_native_goal(self):
         combo = EpisodeFlags("free", task_scope="combo")

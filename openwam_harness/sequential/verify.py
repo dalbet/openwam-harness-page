@@ -544,8 +544,16 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
         )
     cfg = THRESHOLDS["place"]
     radius = {"in": cfg["in_radius_m"], "on": cfg["on_radius_m"], "inside_drawer": cfg["inside_drawer_radius_m"]}[relation]
-    native = _native_on(obj, target, current)
-    if native is not None:
+    from transfer_geometry import relation_check
+
+    shaped = relation_check(obj, target.get("xyz"), spec.get("sim_name"), _target_sim(step, objects))
+    native = None if shaped is not None else _native_on(obj, target, current)
+    if shaped is not None:
+        xy = shaped.get("xy_m")
+        supported = bool(shaped["ok"])
+        z_delta = None if shaped.get("object_bottom_z") is None else shaped["object_bottom_z"] - (shaped.get("floor_z") or shaped.get("support_z") or obj[2])
+        radius = shaped.get("xy_limit_m", radius)
+    elif native is not None:
         xy = None
         supported = bool(native["ok"])
         z_delta = native["delta_site"][2]
@@ -567,7 +575,9 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
         "missing": [],
         "released_required": True,
         "native_on": native,
-        "condition": "释放后用 SiteObject.under 检查对象与 site；没有 site 几何时才退回半径",
+        "shaped_relation": shaped,
+        "contact_status": None if shaped is None else shaped.get("contact_status"),
+        "condition": "炉灶用 SiteObject.under；盘子用支撑面和 0.03；碗用内部半径和插入高度。接触力未提供时不编造",
     }
     if not stable:
         metrics["unmet"] = [f"distinct stable samples < {cfg['stable_samples']}"]
@@ -575,11 +585,13 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
         metrics["error"] = metrics["summary"]
         return receipt("unknown", "NEED_STABILITY_SAMPLE", "per_item", ids, metrics)
     unmet = []
-    if native is None and xy is not None and xy > float(radius):
+    if shaped is not None and not supported:
+        unmet.append(shaped.get("reason") or shaped.get("predicate"))
+    if shaped is None and native is None and xy is not None and xy > float(radius):
         unmet.append(f"xy_m {round(xy, 4)} > radius_m {radius}")
     if native is not None and not supported:
         unmet.append(f"SiteObject.under delta_site {native['delta_site']}")
-    if native is None and abs(z_delta) > float(cfg["support_z_tolerance_m"]):
+    if shaped is None and native is None and z_delta is not None and abs(z_delta) > float(cfg["support_z_tolerance_m"]):
         unmet.append(f"z_delta_m {metrics['z_delta_m']} > support_z_tolerance_m {cfg['support_z_tolerance_m']}")
     if not released:
         unmet.append(f"gripper_opening_m {opening} < gripper_open_min_m {cfg['gripper_open_min_m']}")
