@@ -82,6 +82,55 @@ def tasks_for_scene(suite: str, names: set[str] | list[str]) -> list[dict[str, A
     return found
 
 
+GOAL_MANUAL = {
+    1: {
+        "code_status": "已实现",
+        "acceptance_label": "人工曾成功，不稳定；本轮修复后尚未再验收",
+        "loadable": True,
+        "manual_steps": "加载 task 1 后输入“把碗放到炉灶上。”点开始。核对已加载任务是 1，失败时看步骤名和 sim_action_count，不要只看“使用旧观测”。",
+    },
+    6: {
+        "code_status": "已实现",
+        "acceptance_label": "人工测试失败于旧观测；尚未验收",
+        "loadable": True,
+        "manual_steps": "先加载 task 6，确认画面和目标句是奶酪与碗，再输入“把奶油奶酪放进碗里。”。核对 target 是 akita_black_bowl_1，几何是 bowl_interior。",
+    },
+    8: {
+        "code_status": "已实现",
+        "acceptance_label": "人工测试失败于旧观测；尚未验收",
+        "loadable": True,
+        "manual_steps": "先加载 task 8，确认目标是盘子，再输入“把碗放到盘子上。”。核对 xy 限制是 0.03，落点是盘面而不是盘心加一个固定高度。",
+    },
+    2: {
+        "code_status": "已实现，待人工验收",
+        "acceptance_label": "尚未验收",
+        "loadable": True,
+        "manual_steps": "加载 task 2。输入“把酒瓶放到柜子顶上。”。核对区域是 wooden_cabinet_1_top_side，不是抽屉。",
+    },
+    4: {
+        "code_status": "已实现，待人工验收",
+        "acceptance_label": "尚未验收",
+        "loadable": True,
+        "manual_steps": "加载 task 4。输入“把碗放到柜子顶上。”。核对区域是 wooden_cabinet_1_top_side，碗和酒瓶的下降高度不同。",
+    },
+}
+
+
+def goal_manual(task_id: int | None = None) -> dict[str, Any] | list[dict[str, Any]]:
+    """Labels for the page. A CPU test is not an acceptance record."""
+    if task_id is None:
+        return [{"task_id": key, **value} for key, value in GOAL_MANUAL.items()]
+    row = GOAL_MANUAL.get(task_id)
+    if row is None:
+        return {
+            "code_status": "未实现",
+            "acceptance_label": "尚未验收",
+            "loadable": False,
+            "manual_steps": "这一项还没有可执行技能，选择后不会加载，开始也不会改去 task 1。",
+        }
+    return dict(row)
+
+
 def scene_examples(suite: str, names: set[str] | list[str]) -> list[dict[str, str]]:
     """Chinese fill-ins for tasks this scene can name. Clicking does not execute."""
     examples = []

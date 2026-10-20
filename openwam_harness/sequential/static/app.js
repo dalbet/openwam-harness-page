@@ -205,6 +205,8 @@ function handleText(txt){
         phAgent.textContent = "干跑，无图像"; phWrist.textContent = "干跑，无图像";
       } else {
         const scene = m.scene || {};
+        const loadedTask = $("loaded-task");
+        if (loadedTask) loadedTask.textContent = `已加载：${m.suite || scene.suite || ""} task ${m.task_id ?? scene.task_id ?? "?"}。重置恢复这个任务和初始状态。`;
         const loadedDetail = `${m.suite || scene.suite || ""} task ${m.task_id ?? scene.task_id ?? "?"} seed ${m.seed ?? scene.seed ?? "?"} · step ${scene.env_step ?? "?"}`;
         const plannerNote = plannerReady() ? "" : " · Planner 未连接";
         setStatus("场景已加载", loadedDetail + plannerNote, plannerReady() ? "good" : "warn");
@@ -349,6 +351,43 @@ function applyCatalog(items){
   suiteSel.disabled = false;
   loadBtn.disabled = false;
   if (suitePoll) { clearInterval(suitePoll); suitePoll = null; }
+  renderOfficial();
+}
+let pendingOfficial = null;
+function renderOfficial(){
+  const box = $("official-list");
+  const pending = $("official-pending");
+  if (!box) return;
+  box.textContent = "";
+  const suite = suites.find((item) => item.id === suiteSel.value);
+  if (!suite || suite.id !== "libero_goal") {
+    if (pending) pending.textContent = "当前套件不是 libero_goal。";
+    return;
+  }
+  (suite.tasks || []).forEach((task) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    const label = task.code_status || "未实现";
+    button.textContent = `task ${task.id} ${task.summary_zh || task.language || ""} · ${label}`;
+    button.onclick = () => selectOfficial(task);
+    box.appendChild(button);
+  });
+  if (pending && !pendingOfficial) pending.textContent = "尚未选择。Goal 任务不会默认加载 task 1，开始也不会切换场景。";
+}
+function selectOfficial(task){
+  const pending = $("official-pending");
+  const steps = $("official-steps");
+  const label = `${task.code_status || "未实现"} · ${task.acceptance_label || "尚未验收"}`;
+  if (steps) steps.textContent = task.manual_steps || "";
+  if (task.loadable === false) {
+    pendingOfficial = null;
+    if (pending) pending.textContent = `task ${task.id} 不能加载。${label}。${task.manual_steps || ""}`;
+    return;
+  }
+  pendingOfficial = task;
+  taskIn.value = task.summary_zh || "";
+  taskEdited = true;
+  if (pending) pending.textContent = `即将加载：libero_goal task ${task.id} · ${task.summary_zh || ""} · ${task.language || ""} · ${label}。点加载场景才会更换场景。`;
 }
 
 function renderHealth(m){
@@ -578,9 +617,17 @@ function tick(){
 loadBtn.onclick = () => {
   if (!wsConnected) return;
   if (!suiteSel.value) return;
+  const payload = {type:"load", suite: suiteSel.value, client_request_id: `load-${Date.now()}`};
+  if (suiteSel.value === "libero_goal") {
+    if (!pendingOfficial || pendingOfficial.loadable === false) {
+      setStatus("已拒绝", "请先在官方任务选择中选定可加载的任务", "warn");
+      return;
+    }
+    payload.task_id = pendingOfficial.id;
+  }
   loadBtn.disabled = true;
-  setStatus("加载中", suiteSel.value);
-  send({type:"load", suite: suiteSel.value, client_request_id: `load-${Date.now()}`});
+  setStatus("加载中", payload.task_id == null ? suiteSel.value : `${suiteSel.value} task ${payload.task_id}`);
+  send(payload);
 };
 function renderExamples(items){
   if (!examplesEl) return;
@@ -614,7 +661,8 @@ function renderTaskView(view, run){
   const fail = view.failure || {};
   const reason = fail.reason || (run && run.root_error) || "";
   const code = fail.reason_code || "";
-  taskSummaryEl.textContent = `用户输入：${view.user_instruction || ""}\n标准任务：${zh}${zh && en ? " / " : ""}${en}${reason ? `\n失败：${code} ${reason}` : ""}`;
+  const stepName = fail.step_id || "";
+  taskSummaryEl.textContent = `用户输入：${view.user_instruction || ""}\n标准任务：${zh}${zh && en ? " / " : ""}${en}${reason ? `\n失败步骤：${stepName || "未记录"} · ${reason}` : ""}`;
   taskStepsEl.textContent = "";
   (view.steps || []).forEach((step) => {
     const li = document.createElement("li");
@@ -630,9 +678,13 @@ function renderTaskView(view, run){
       `target_ref: ${view.target_ref || ""}`,
       `target_region_ref: ${view.target_region_ref || ""}`,
       `vla_prompt: ${view.vla_prompt || ""}`,
-      `失败步骤: ${(view.failure && view.failure.step_id) || ""}`,
+      `失败步骤: ${stepName}`,
       `reason_code: ${code}`,
-      `evidence: ${(view.failure && (view.failure.evidence || view.failure.reason)) || reason}`,
+      `比较条件: ${fail.condition || ""}`,
+      `expected: ${JSON.stringify((fail.actual && fail.actual.expected) ?? "")}`,
+      `received: ${JSON.stringify((fail.actual && fail.actual.received) ?? "")}`,
+      `evidence: ${fail.evidence || fail.reason || reason}`,
+      `actual: ${JSON.stringify(fail.actual || {})}`,
     ].join("\n");
   }
 }
@@ -720,6 +772,7 @@ if (restartBtn) restartBtn.onclick = resetScene;
 if (resetBtn) resetBtn.onclick = resetScene;
 stopBtn.onclick = () => { send({type:"stop", client_request_id: `stop-${Date.now()}`}); };
 profileSel.onchange = () => send({type:"set_planner", profile: profileSel.value});
+suiteSel.onchange = () => { pendingOfficial = null; renderOfficial(); };
 taskIn.addEventListener("input", ()=>{
   taskEdited = true;
   syncRunButtons();

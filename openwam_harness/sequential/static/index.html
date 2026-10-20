@@ -71,6 +71,13 @@
     <button id="stop" type="button" disabled>停止</button>
     <button id="reset" type="button" disabled>重置场景</button>
   </div>
+  <details id="official-box">
+    <summary>官方任务选择</summary>
+    <div id="official-list"></div>
+    <div id="official-pending" class="hint">尚未选择。Goal 任务不会默认加载 task 1。</div>
+    <div id="official-steps" class="hint"></div>
+    <div id="loaded-task" class="hint">还没有加载。</div>
+  </details>
   <div id="goal" class="hint">加载后在这里显示当前中文目标。</div>
   <div id="progress" class="hint"></div>
   <div id="status"><span class="phase">就绪</span></div>
@@ -92,6 +99,6 @@
     <pre id="diag-text">还没有诊断</pre>
   </details>
 </div>
-<script src="static/app.js?v=view14"></script>
+<script src="static/app.js?v=view15"></script>
 </body>
 </html>

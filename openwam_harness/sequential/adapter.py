@@ -33,7 +33,7 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
-STATIC_VERSION = "view14"
+STATIC_VERSION = "view15"
 RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
 
@@ -99,6 +99,20 @@ def _standard_tasks(suite: str, objects: dict) -> list[dict]:
     from task_catalog import planner_task_context
 
     return planner_task_context(suite, list(objects or []))
+
+
+def _annotate_suites(suites: list[dict] | None) -> list[dict] | None:
+    """Attach the manual-test label. Unsupported Goal tasks stay visible and not loadable."""
+    from task_catalog import goal_manual
+
+    for suite in suites or []:
+        if suite.get("id") != "libero_goal":
+            continue
+        for task in suite.get("tasks") or []:
+            extra = goal_manual(task.get("id"))
+            if isinstance(extra, dict):
+                task.update(extra)
+    return suites
 
 
 def _task_view(plan: dict, spec: dict, objects: dict, user_text: str) -> dict:
@@ -870,7 +884,7 @@ class App:
         from suites import load_suites
 
         if self.suites is None:
-            self.suites = load_suites()
+            self.suites = _annotate_suites(load_suites())
         spec = resolve_load(message, self.suites)
         self.log(
             f"seed fixed={spec['seed']} suite={spec['suite']} task={spec['task_id']} source={spec['task_source']}"
@@ -1385,24 +1399,9 @@ class App:
                     "run_id": run_id,
                 })
             if decision.get("changed"):
-                task_id = decision.get("task_id")
-                if isinstance(task_id, bool) or not isinstance(task_id, int):
-                    self._note(run_id, "task_switch", "rejected", code="task_id", detail=repr(task_id))
-                    self._fail_run(episode, f"task_id 无效（收到 {task_id!r}），不会猜测或切换任务。")
-                    return
-                self._note(run_id, "task_switch", "running", detail=decision.get("summary_zh") or "")
-                self.broadcast({
-                    "type": "state",
-                    "phase": "switching",
-                    "detail": decision.get("summary_zh") or "",
-                    "mode": "live",
-                    "run_id": run_id,
-                })
-                spec = self._adopt_task(task_id)
-                spec = dict(spec)
-                spec["user_text"] = user_text
-                episode = self.session.episode_id
-                epoch = self.session.scene_epoch
+                self._note(run_id, "task_switch", "rejected", code="scene_switch_on_start", detail=decision.get("summary_zh") or "")
+                self._fail_run(episode, "开始不会切换场景。请先在官方任务选择中加载对应任务。")
+                return
             canonical = decision.get("language") or spec.get("goal") or ""
             row = decision.get("capability") or {}
             from capabilities import reject_reason
@@ -2270,7 +2269,7 @@ def _suite_loader() -> None:
     try:
         from suites import load_suites
 
-        APP.suites = load_suites()
+        APP.suites = _annotate_suites(load_suites())
         APP.suite_error = ""
     except Exception as exc:
         APP.suite_error = str(exc)
