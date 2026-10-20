@@ -26,12 +26,15 @@ _ZH = (
 
 
 class EpisodeFlags:
-    """Separate a native goal hit from an episode that can still be stepped."""
+    """Official single tasks stop when the native goal is met. Combo is explicit."""
 
-    def __init__(self, mode: str = "benchmark") -> None:
+    def __init__(self, mode: str = "benchmark", task_scope: str = "official_single") -> None:
         if mode not in {"benchmark", "free"}:
             raise ValueError(mode)
+        if task_scope not in {"official_single", "combo"}:
+            raise ValueError(task_scope)
         self.mode = mode
+        self.task_scope = task_scope
         self.native_goal_met = False
         self.truncated = False
 
@@ -41,15 +44,13 @@ class EpisodeFlags:
             return {"kind": "time_limit", "clear_terminated": False, "continuable": False}
         if terminated:
             self.native_goal_met = True
-            if self.mode == "free":
+            if self.mode == "free" and self.task_scope == "combo":
                 return {"kind": "native_goal", "clear_terminated": True, "continuable": True}
             return {"kind": "native_goal", "clear_terminated": False, "continuable": False}
         return {"kind": "running", "clear_terminated": False, "continuable": self.continuable()}
 
     def continuable(self) -> bool:
-        if self.truncated:
-            return False
-        if self.mode != "free" and self.native_goal_met:
+        if self.truncated or self.native_goal_met and not (self.mode == "free" and self.task_scope == "combo"):
             return False
         return True
 

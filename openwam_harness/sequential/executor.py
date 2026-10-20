@@ -50,6 +50,7 @@ class ToolOutcome:
     error_class: str | None = None
     env_step: int | None = None
     category: str | None = None
+    state_after: dict[str, Any] | None = None
 
 
 class Session:
@@ -459,7 +460,7 @@ def run_plan(
         if outcome.executed and native_execution_gate(plan, backend) == "stop_native":
             verification = _as_native_success(verification)
         _write_trace(backend, step, verification)
-        if verification.get("reason_code") == "NATIVE_SUCCESS" and plan.get("execution_mode") != "free":
+        if verification.get("reason_code") == "NATIVE_SUCCESS" and native_execution_gate(plan, backend) == "stop_native":
             _vla_clear("terminated")
             if post:
                 last_obs = post[-1]
@@ -724,18 +725,33 @@ def _remember_support(obs: dict | None, support_z: dict[str, float]) -> None:
 def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_z):
     if not outcome.executed:
         return [], call_failure_receipt(outcome)
-    if _native(backend):
-        # Official success already happened inside the tool. Do not sample,
-        # recover, close the gripper, or replace that result with a later check.
-        return [], _native_stop_receipt()
     fresh = _capture(backend, scene_epoch)
+    returned = getattr(outcome, "state_after", None)
+    if isinstance(returned, dict):
+        fresh = new_observation(returned, scene_epoch=scene_epoch)
+        fresh["state_source"] = returned.get("state_source") or "action_return"
+    stop_native = _native(backend) and plan.get("task_scope") != "combo"
+    if stop_native:
+        # Keep the geometric read of the action return. Do not sample or retreat.
+        verdict = verify_step(
+            step,
+            outcome,
+            [fresh],
+            scene_epoch=scene_epoch,
+            min_step=min_step,
+            objects=plan.get("objects") or {},
+            support_z=support_z,
+            goal_relation=_relation_for(plan, step),
+            before=before,
+        )
+        return [fresh], _as_native_success(verdict)
     sampled = _observations_from_samples((outcome.raw or {}).get("samples"), scene_epoch)
     poses = fresh.get("named_poses") if isinstance(fresh, dict) else None
     if isinstance(poses, dict):
         for row in sampled:
             row.setdefault("named_poses", poses)
             row.setdefault("site_observation_id", fresh.get("observation_id"))
-    post = sampled or [fresh]
+    post = (sampled + [fresh]) if sampled else [fresh]
     verdict = verify_step(
         step,
         outcome,
@@ -808,10 +824,10 @@ def native_execution_gate(plan: dict[str, Any], backend: Any) -> str:
     checker = getattr(backend, "episode_continuable", None)
     if checker is not None and not bool(checker()):
         return "stop_uncontinuable"
-    if _native(backend) and plan.get("execution_mode") != "free":
-        return "stop_native"
-    if _native(backend):
+    if _native(backend) and plan.get("task_scope") == "combo":
         return "record_native"
+    if _native(backend):
+        return "stop_native"
     return "continue"
 
 
@@ -846,6 +862,11 @@ def _as_native_success(verification: dict) -> dict:
 
 def _hold_window(backend: Any, scene_epoch: int, gripper: float = -1.0) -> list[dict[str, Any]]:
     """Advance a non-grasp check without changing the gripper command."""
+    checker = getattr(backend, "episode_continuable", None)
+    if checker is not None and not bool(checker()):
+        return []
+    if _native(backend):
+        return []
     grasp = THRESHOLDS["grasp"]
     calls = int(grasp.get("window_calls", 2))
     steps = int(grasp.get("window_steps", 4))
@@ -875,8 +896,12 @@ def _observations_from_samples(samples, scene_epoch: int) -> list[dict[str, Any]
         rows.append({
             "observation_id": sample.get("observation_id") or f"sample-{version}",
             "scene_epoch": scene_epoch,
+            "sim_action_count": sample.get("sim_action_count") if isinstance(sample.get("sim_action_count"), int) else version,
             "env_step": version,
-            "step_clock": "env_action_count",
+            "step_clock": "sim_action",
+            "state_source": sample.get("state_source") or "action_sample",
+            "service_instance_id": sample.get("service_instance_id"),
+            "scene_generation": sample.get("scene_generation"),
             "timestamp": sample.get("timestamp"),
             "hold_step": sample.get("hold_step"),
             "cameras": {
@@ -919,7 +944,17 @@ def _recover_or_confirm(
         failed = dict(verification)
         failed["status"] = "failure"
         return failed, outcome, post
-    if verification.get("reason_code") in {"pose_not_provided", "state_service_error", "stale_snapshot"} and not step.get("_state_reread"):
+    reread_codes = {
+        "pose_not_provided",
+        "state_service_error",
+        "stale_snapshot",
+        "pre_action_state",
+        "sim_action_count_missing",
+        "cross_scene",
+        "cross_reset",
+        "cross_service_instance",
+    }
+    if verification.get("reason_code") in reread_codes and not step.get("_state_reread"):
         step["_state_reread"] = True
         post.append(_capture(backend, started_epoch))
         verification = verify_step(
@@ -1218,6 +1253,12 @@ def _execute_with_one_retry(backend: Any, calls: list[tuple[str, dict]]) -> Tool
             before = _env_step(backend)
             last = backend.execute(skill, args)
             after = _env_step(backend)
+            unclear = _action_unclear(last)
+            if unclear and (after is None or before is None or after == before):
+                last.executed = False
+                last.error = (last.error or "动作超时或取消") + "；动作是否完成不明确，不重发、不 reset"
+                last.category = "action_unclear"
+                return last
             if last.error_class == "service" and after is not None and before is not None and after > before:
                 last.executed = False
                 last.error = last.error or "service error after the action already changed the env step"
@@ -1230,6 +1271,11 @@ def _execute_with_one_retry(backend: Any, calls: list[tuple[str, dict]]) -> Tool
         if attempt == 1 or last.error_class == "service":
             return last
     return last
+
+
+def _action_unclear(outcome: ToolOutcome) -> bool:
+    text = f"{outcome.error or ''} {outcome.error_class or ''}".lower()
+    return any(marker in text for marker in ("timeout", "timed out", "cancel"))
 
 
 def _env_step(backend: Any) -> int | None:
@@ -1336,7 +1382,7 @@ def _diagnosis(step, outcome, verification, observation, plan) -> dict[str, Any]
         },
         "request_id": plan.get("request_id"),
         "episode_id": plan.get("episode_id"),
-        "env_action_count": int(raw.get("env_action_count") or 0),
+        "env_action_count": raw.get("env_action_count") if isinstance(raw.get("env_action_count"), int) else None,
         "observation_id": obs.get("observation_id"),
         "record_index": outcome.env_step,
         "record_index_note": "states.json 的序号是工具记录，不是仿真步数",

@@ -100,19 +100,23 @@ class RetreatGeometryTest(unittest.TestCase):
 
     def test_service_keeps_benchmark_termination_and_free_native_goal(self):
         benchmark = classify_step(True, False, "benchmark")
-        free = classify_step(True, False, "free")
+        combo = classify_step(True, False, "free", task_scope="combo")
+        official = classify_step(True, False, "free")
         limited = classify_step(True, True, "free")
         self.assertTrue(benchmark["terminated"])
         self.assertFalse(benchmark["continuable"])
-        self.assertFalse(free["terminated"])
-        self.assertTrue(free["native_goal"])
-        self.assertTrue(free["continuable"])
+        self.assertFalse(combo["terminated"])
+        self.assertTrue(combo["native_goal"])
+        self.assertTrue(combo["continuable"])
+        self.assertTrue(official["terminated"])
+        self.assertFalse(official["continuable"])
+        self.assertFalse(official["clear_terminated"])
         self.assertTrue(limited["truncated"])
         self.assertFalse(limited["continuable"])
         self.assertFalse(limited["terminated"])
 
     def test_facade_records_native_goal_without_reset_or_client_clear(self):
-        publish_mode("free")
+        publish_mode("free", task_scope="combo")
         self.assertEqual(read_mode(), "free")
 
         class Facade:

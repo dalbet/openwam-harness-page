@@ -147,11 +147,15 @@ class FreeTaskTest(unittest.TestCase):
         self.assertEqual(judged["evidence_source"], "sim_state")
 
     def test_free_episode_stays_steppable_after_native_goal(self):
-        free = EpisodeFlags("free")
-        native = free.absorb(True, False)
+        combo = EpisodeFlags("free", task_scope="combo")
+        native = combo.absorb(True, False)
         self.assertTrue(native["clear_terminated"])
-        self.assertTrue(free.continuable())
-        limited = EpisodeFlags("free")
+        self.assertTrue(combo.continuable())
+        official = EpisodeFlags("free")
+        stopped = official.absorb(True, False)
+        self.assertFalse(stopped["clear_terminated"])
+        self.assertFalse(official.continuable())
+        limited = EpisodeFlags("free", task_scope="combo")
         self.assertFalse(limited.absorb(False, True)["continuable"])
         benchmark = EpisodeFlags("benchmark")
         self.assertFalse(benchmark.absorb(True, False)["clear_terminated"])
@@ -169,7 +173,8 @@ class FreeTaskTest(unittest.TestCase):
                 return self._continuable
 
         self.assertEqual(native_execution_gate({"execution_mode": "benchmark"}, Backend(True, True)), "stop_native")
-        self.assertEqual(native_execution_gate({"execution_mode": "free"}, Backend(True, True)), "record_native")
+        self.assertEqual(native_execution_gate({"execution_mode": "free"}, Backend(True, True)), "stop_native")
+        self.assertEqual(native_execution_gate({"execution_mode": "free", "task_scope": "combo"}, Backend(True, True)), "record_native")
         self.assertEqual(native_execution_gate({"execution_mode": "free"}, Backend(True, False)), "stop_uncontinuable")
 
     def test_site_goal_uses_the_official_on_check(self):

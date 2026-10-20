@@ -38,8 +38,7 @@ RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
 
 
-def _startup_commit() -> str:
-    """Commit of this process at import. Later disk HEAD is not substituted."""
+def _git_head() -> str:
     repo = Path(__file__).resolve().parents[2]
     try:
         return subprocess.check_output(
@@ -50,6 +49,11 @@ def _startup_commit() -> str:
         ).strip()
     except Exception:
         return "unavailable"
+
+
+def _startup_commit() -> str:
+    """Commit of this process at import. Later disk HEAD is not substituted."""
+    return _git_head()
 
 
 STARTUP_COMMIT = _startup_commit()
@@ -327,7 +331,10 @@ class App:
             "port": PORT,
             "pid": os.getpid(),
             "commit": STARTUP_COMMIT,
+            "disk_head": _git_head(),
+            "running_commit_matches_disk_head": _git_head() == STARTUP_COMMIT,
             "static_version": STATIC_VERSION,
+            "env_server": self._env_server_version(),
             "execution": EXECUTION_LABEL,
             "planner": planner,
             "planner_ok": planner == "ok",
@@ -350,6 +357,18 @@ class App:
             "silent_dry_fallback": False,
             "error": error,
         }
+
+    def _env_server_version(self) -> dict:
+        """Only fields the live env can answer. Disk HEAD is not copied here."""
+        backend = self.backend
+        reader = getattr(backend, "env_identity", None)
+        if reader is None:
+            return {"status": "not_loaded", "commit": None, "startup_args": None}
+        try:
+            payload = reader()
+        except Exception as exc:
+            return {"status": "unreadable", "detail": str(exc), "commit": None}
+        return payload if isinstance(payload, dict) else {"status": "unreadable", "commit": None}
 
     def scene_context(self) -> dict:
         """Authoritative loaded scene. Seed is the init-state index; missing stays missing."""
@@ -1657,11 +1676,15 @@ class App:
 
                 view["steps"] = apply_display_event(view.get("steps") or [], event)
                 if event.get("phase") == "failed":
+                    execution = event.get("execution") or {}
                     view["failure"] = {
                         "reason_code": event.get("reason_code") or "",
                         "reason": event.get("reason") or event.get("detail") or "",
                         "evidence": event.get("detail") or event.get("reason") or "",
-                        "step_id": event.get("step_id") or "",
+                        "step_id": event.get("step_id") or execution.get("step_id") or "",
+                        "condition": execution.get("condition"),
+                        "actual": execution.get("actual"),
+                        "missing": execution.get("missing"),
                     }
                 self.broadcast({"type": "task_view", "task_view": view})
             self.broadcast({"type": "state", **event, "mode": "live", "run_id": run_id})
@@ -2418,7 +2441,7 @@ def main() -> None:
     app.router.add_get("/ws", websocket)
     print(
         f"sequential adapter mode={'live' if LIVE else 'dry'} pid={os.getpid()} port={PORT} "
-        f"commit={STARTUP_COMMIT} static={STATIC_VERSION} execution=sync",
+        f"running_commit={STARTUP_COMMIT} disk_head={_git_head()} static={STATIC_VERSION} execution=sync",
         flush=True,
     )
     start_background()

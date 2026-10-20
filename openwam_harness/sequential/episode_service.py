@@ -18,40 +18,58 @@ ROOT = Path(__file__).resolve().parent
 MODE_PATH = ROOT / "records" / "episode_mode.json"
 
 
-def publish_mode(mode: str) -> None:
+def publish_mode(mode: str, task_scope: str = "official_single") -> None:
     if mode not in {"benchmark", "free"}:
         raise ValueError(mode)
+    if task_scope not in {"official_single", "combo"}:
+        raise ValueError(task_scope)
     MODE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    MODE_PATH.write_text(json.dumps({"mode": mode}, ensure_ascii=False), encoding="utf-8")
+    MODE_PATH.write_text(
+        json.dumps({"mode": mode, "task_scope": task_scope}, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
 
-def read_mode() -> str:
+def _mode_payload() -> dict[str, Any]:
     try:
         payload = json.loads(MODE_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return "benchmark"
-    mode = payload.get("mode") if isinstance(payload, dict) else None
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def read_mode() -> str:
+    mode = _mode_payload().get("mode")
     return mode if mode in {"benchmark", "free"} else "benchmark"
 
 
-def classify_step(terminated: bool, truncated: bool, mode: str) -> dict[str, Any]:
+def read_task_scope() -> str:
+    scope = _mode_payload().get("task_scope")
+    return scope if scope in {"official_single", "combo"} else "official_single"
+
+
+def classify_step(terminated: bool, truncated: bool, mode: str, task_scope: str = "official_single") -> dict[str, Any]:
     """Translate one gym step into the flag the RPC client is allowed to latch."""
     if mode not in {"benchmark", "free"}:
         mode = "benchmark"
+    if task_scope not in {"official_single", "combo"}:
+        task_scope = "official_single"
     if truncated:
         return {
             "terminated": False,
             "truncated": True,
             "native_goal": bool(terminated),
             "continuable": False,
+            "clear_terminated": False,
             "kind": "time_limit",
         }
-    if terminated and mode == "free":
+    if terminated and mode == "free" and task_scope == "combo":
         return {
             "terminated": False,
             "truncated": False,
             "native_goal": True,
             "continuable": True,
+            "clear_terminated": True,
             "kind": "native_goal",
         }
     if terminated:
@@ -60,6 +78,7 @@ def classify_step(terminated: bool, truncated: bool, mode: str) -> dict[str, Any
             "truncated": False,
             "native_goal": True,
             "continuable": False,
+            "clear_terminated": False,
             "kind": "native_goal",
         }
     return {
@@ -67,6 +86,7 @@ def classify_step(terminated: bool, truncated: bool, mode: str) -> dict[str, Any
         "truncated": False,
         "native_goal": False,
         "continuable": True,
+        "clear_terminated": False,
         "kind": "running",
     }
 
@@ -119,17 +139,26 @@ def _wrap(cls) -> None:
     original_register = cls._register_rpc
 
     def step(self, action):
+        _refuse_if_terminal(self, "env.step")
         obs, reward, term, trunc, info = original_step(self, action)
-        return _publish(self, obs, reward, term, trunc, info)
+        published = _publish(self, obs, reward, term, trunc, info)
+        return _stamp_action(self, published, 1)
 
     def chunk_step(self, actions, *args, **kwargs):
+        _refuse_if_terminal(self, "env.chunk_step")
         obs, reward, term, trunc, info = original_chunk(self, actions, *args, **kwargs)
-        return _publish(self, obs, reward, term, trunc, info)
+        published = _publish(self, obs, reward, term, trunc, info)
+        count = len(actions) if isinstance(actions, (list, tuple)) else 1
+        return _stamp_action(self, published, count)
 
     def reset(self, *args, **kwargs):
         result = original_reset(self, *args, **kwargs)
+        _ensure_identity(self)
         self._sequential_native_goal = False
         self._sequential_truncated = False
+        self._sequential_refusing_step = False
+        self._scene_generation = int(getattr(self, "_scene_generation", 0)) + 1
+        self._sim_action_count = 0
         return result
 
     def native_goal_status(self):
@@ -143,11 +172,56 @@ def _wrap(cls) -> None:
         original_register(self)
         self._rpc["env.native_goal"] = self.native_goal_status
         self._rpc["env.named_poses"] = self.named_poses
+        self._rpc["env.state_snapshot"] = self.state_snapshot
+        self._rpc["env.identity"] = self.identity
         self._readonly_methods.add("env.native_goal")
         self._readonly_methods.add("env.named_poses")
+        self._readonly_methods.add("env.state_snapshot")
+        self._readonly_methods.add("env.identity")
 
     def named_poses(self):
         return _read_worker_poses(self)
+
+    def identity(self):
+        _ensure_identity(self)
+        return {
+            "service_instance_id": self._service_instance_id,
+            "scene_generation": self._scene_generation,
+            "sim_action_count": self._sim_action_count,
+            "task_scope": read_task_scope(),
+            "mode": read_mode(),
+            "code": "episode-service-state-1",
+        }
+
+    def state_snapshot(self):
+        """Read current sim state on the worker. Does not call env.step or move the gripper."""
+        _ensure_identity(self)
+        self._query_seq = int(getattr(self, "_query_seq", 0)) + 1
+        poses = _read_worker_poses(self)
+        from state_contract import stamp_snapshot
+
+        sim = poses.get("sim") if isinstance(poses, dict) and isinstance(poses.get("sim"), dict) else {"evidence_source": "readonly_rpc", "objects": {}}
+        named = {
+            key: poses.get(key)
+            for key in ("bodies", "sites", "site_geometry", "evidence_source", "error")
+            if isinstance(poses, dict) and key in poses
+        }
+        body = {
+            "named_poses": named,
+            "sim": sim,
+            "joints": poses.get("joints") if isinstance(poses, dict) else {},
+        }
+        return stamp_snapshot(
+            body,
+            service_instance_id=self._service_instance_id,
+            scene_epoch=int(getattr(self, "_sequential_scene_epoch", self._scene_generation)),
+            scene_generation=self._scene_generation,
+            sim_action_count=self._sim_action_count,
+            query_seq=self._query_seq,
+            terminated=bool(getattr(self, "_sequential_native_goal", False) or getattr(self, "_sequential_refusing_step", False)),
+            truncated=bool(getattr(self, "_sequential_truncated", False)),
+            source="readonly_rpc",
+        )
 
     step._sequential_episode_wrapped = True
     cls.step = step
@@ -155,6 +229,8 @@ def _wrap(cls) -> None:
     cls.chunk_step = chunk_step
     cls.reset = reset
     cls.native_goal_status = native_goal_status
+    cls.state_snapshot = state_snapshot
+    cls.identity = identity
     cls._register_rpc = _register_rpc
     cls._sequential_episode_wrapped = True
 
@@ -178,7 +254,15 @@ def _attach_named_poses_class(cls) -> None:
             bodies = _indexed_xyz(model, data, "nbody", "body_xpos", "body_names", getattr(model, "body_id2name", None))
             sites = _indexed_xyz(model, data, "nsite", "site_xpos", "site_names", getattr(model, "site_id2name", None))
             geometry = _site_geometry(model, data)
-            return {"bodies": bodies, "sites": sites, "site_geometry": geometry, "evidence_source": "mujoco_site"}
+            reading = _worker_reading(self, bodies)
+            return {
+                "bodies": bodies,
+                "sites": sites,
+                "site_geometry": geometry,
+                "sim": reading["sim"],
+                "joints": reading["joints"],
+                "evidence_source": "mujoco_site",
+            }
         except Exception as exc:
             return {"bodies": {}, "sites": {}, "error": f"{type(exc).__name__}: {exc}"}
 
@@ -252,6 +336,78 @@ def _site_names(model, count: int) -> list[str]:
     return names
 
 
+def _worker_reading(env, bodies: dict) -> dict[str, Any]:
+    """One cached observation plus the current MuJoCo arrays. Does not call env.step."""
+    raw = {}
+    try:
+        reader = getattr(env, "_get_observations", None)
+        if reader is None and getattr(env, "env", None) is not None:
+            reader = getattr(env.env, "_get_observations", None)
+        if callable(reader):
+            raw = reader(force_update=False) or {}
+    except TypeError:
+        try:
+            raw = reader() or {}
+        except Exception:
+            raw = {}
+    except Exception:
+        raw = {}
+    objects = {}
+    for key, value in raw.items() if isinstance(raw, dict) else []:
+        if not isinstance(key, str) or not key.endswith("_pos"):
+            continue
+        if "robot0" in key or "to_robot" in key:
+            continue
+        try:
+            pos = [float(item) for item in list(value)[:3]]
+        except (TypeError, ValueError):
+            continue
+        if len(pos) == 3:
+            objects[key[:-4]] = {"pos": pos, "identified": True, "evidence_source": "readonly_rpc"}
+    if not objects:
+        for name, pos in bodies.items():
+            if name.startswith("robot") or "world" in name:
+                continue
+            objects[name] = {"pos": pos, "identified": True, "evidence_source": "mujoco_body"}
+    eef = raw.get("robot0_eef_pos") if isinstance(raw, dict) else None
+    try:
+        eef_pos = None if eef is None else [float(item) for item in list(eef)[:3]]
+    except (TypeError, ValueError):
+        eef_pos = None
+    grip = raw.get("robot0_gripper_qpos") if isinstance(raw, dict) else None
+    opening = None
+    try:
+        if grip is not None:
+            opening = abs(float(grip[0])) + abs(float(grip[1]))
+    except (TypeError, ValueError, IndexError):
+        opening = None
+    joints = {}
+    try:
+        model = env.sim.model
+        data = env.sim.data
+        count = int(getattr(model, "njnt"))
+        names = []
+        raw_names = getattr(model, "joint_names", None)
+        if raw_names is not None:
+            names = [str(item) for item in list(raw_names)[:count]]
+        qpos = data.qpos
+        for index, name in enumerate(names):
+            if not name:
+                continue
+            joints[name] = float(qpos[index])
+    except Exception:
+        joints = {}
+    return {
+        "sim": {
+            "objects": objects,
+            "eef_pos": eef_pos,
+            "gripper_opening_m": opening,
+            "evidence_source": "readonly_rpc",
+        },
+        "joints": joints,
+    }
+
+
 def _read_worker_poses(facade) -> dict[str, Any]:
     """Ask the existing worker getattr command for the site snapshot. No env.step."""
     try:
@@ -272,8 +428,49 @@ def _read_worker_poses(facade) -> dict[str, Any]:
     return payload
 
 
+def _ensure_identity(facade) -> None:
+    import uuid
+
+    if not getattr(facade, "_service_instance_id", None):
+        facade._service_instance_id = uuid.uuid4().hex
+        facade._sim_action_count = 0
+        facade._query_seq = 0
+        facade._scene_generation = 0
+        facade._sequential_refusing_step = False
+
+
+def _refuse_if_terminal(facade, name: str) -> None:
+    _ensure_identity(facade)
+    if getattr(facade, "_sequential_refusing_step", False):
+        raise RuntimeError(f"{name} refused after term/trunc")
+
+
+def _stamp_action(facade, published, applied: int):
+    obs, reward, term, trunc, info = published
+    _ensure_identity(facade)
+    facade._sim_action_count = int(facade._sim_action_count) + max(0, int(applied))
+    if _any_flag(term) or _any_flag(trunc):
+        facade._sequential_refusing_step = True
+    identity = {
+        "service_instance_id": facade._service_instance_id,
+        "scene_generation": facade._scene_generation,
+        "sim_action_count": facade._sim_action_count,
+        "observation_id_meaning": "readonly_or_action_query",
+    }
+    if isinstance(info, dict):
+        info_out = dict(info)
+        info_out.update(identity)
+    elif isinstance(info, list):
+        info_out = [dict(item) if isinstance(item, dict) else item for item in info]
+        if info_out and isinstance(info_out[-1], dict):
+            info_out[-1].update(identity)
+    else:
+        info_out = {"info": info, **identity}
+    return obs, reward, term, trunc, info_out
+
+
 def _publish(self, obs, reward, term, trunc, info):
-    decision = classify_step(_any_flag(term), _any_flag(trunc), read_mode())
+    decision = classify_step(_any_flag(term), _any_flag(trunc), read_mode(), task_scope=read_task_scope())
     if decision["native_goal"]:
         self._sequential_native_goal = True
     if decision["truncated"]:

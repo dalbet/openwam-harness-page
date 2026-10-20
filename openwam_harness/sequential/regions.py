@@ -235,6 +235,8 @@ def _motion_class(region_name: str, owner: str) -> str:
     text = f"{owner} {region_name}"
     if any(token in text for token in ("drawer", "door", "knob", "handle", "joint")):
         return "articulated"
+    if "cabinet" in owner and region_name in {"top_region", "middle_region", "bottom_region"}:
+        return "articulated"
     return "rigid"
 
 

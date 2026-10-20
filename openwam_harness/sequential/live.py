@@ -97,6 +97,27 @@ class LiveBackend:
         self._flags = None
         self._open()
 
+    def env_identity(self) -> dict:
+        env = self.toolkit.primitives.env if self.toolkit is not None else None
+        client = getattr(env, "_client", None)
+        if client is None:
+            return {"status": "not_loaded", "commit": None, "startup_args": None}
+        try:
+            payload = client.call("env.identity", timeout_s=2.0)
+        except Exception as exc:
+            return {"status": "unreadable", "detail": str(exc), "commit": None}
+        if not isinstance(payload, dict):
+            return {"status": "unreadable", "commit": None}
+        payload = dict(payload)
+        payload["status"] = "ready"
+        payload["commit"] = payload.get("code")
+        payload["startup_args"] = {
+            "suite": self.scene.get("suite"),
+            "task_id": self.scene.get("task_id"),
+            "seed": self.scene.get("seed"),
+        }
+        return payload
+
     def set_execution_mode(self, mode: str) -> None:
         from episode_service import publish_mode
         from free_task import EpisodeFlags
@@ -321,6 +342,7 @@ class LiveBackend:
             data = attach_saved_pick_result(data, _saved_record_result(self.toolkit))
         parsed = interpret_tool_data(action, data)
         self._absorb_terminal()
+        data["state_after"] = self._action_snapshot()
         env = self.toolkit.primitives.env
         eef = None
         state = data.get("state") if isinstance(data.get("state"), dict) else {}
@@ -339,24 +361,66 @@ class LiveBackend:
             error_class=parsed["error_class"],
             category=parsed["category"],
             env_step=self.env_step(),
+            state_after=data.get("state_after") if isinstance(data.get("state_after"), dict) else None,
         )
+
+    def _action_snapshot(self) -> dict | None:
+        """The state the action RPC left behind. A later observe() is not spliced in."""
+        snap = self._readonly_snapshot()
+        if not isinstance(snap, dict):
+            return None
+        snap = dict(snap)
+        snap["state_source"] = "action_return"
+        snap["covers_action_count"] = snap.get("sim_action_count")
+        return snap
+
+    def _readonly_snapshot(self) -> dict | None:
+        env = self.toolkit.primitives.env if self.toolkit is not None else None
+        client = getattr(env, "_client", None)
+        if client is not None:
+            try:
+                payload = client.call("env.state_snapshot", timeout_s=2.0)
+            except Exception as exc:
+                return {"error": str(exc), "state_source": "readonly_rpc"}
+            if isinstance(payload, dict):
+                payload = dict(payload)
+                payload["server_scene_epoch"] = payload.get("scene_epoch")
+                payload["scene_epoch"] = self.scene_epoch
+                payload["state_source"] = "readonly_rpc"
+                return payload
+        return None
 
     def observe(self) -> dict:
         agent, wrist = self.frames()
         record = self.toolkit.state.latest_record() if self.toolkit is not None else None
         step = record.step_idx if record is not None else None
+        snap = self._readonly_snapshot() or {}
+        count = snap.get("sim_action_count")
+        if not isinstance(count, int):
+            count = None
+            source = "sim_action_count_missing"
+        else:
+            source = snap.get("state_source") or "readonly_rpc"
         return {
-            "observation_id": f"live-{step}-{time.time_ns()}",
+            "observation_id": snap.get("observation_id") or f"query-missing-{time.time_ns()}",
+            "observation_id_meaning": "readonly_or_action_query",
             "scene_epoch": self.scene_epoch,
-            "env_step": step,
-            "step_clock": "tool_record",
+            "scene_generation": snap.get("scene_generation"),
+            "service_instance_id": snap.get("service_instance_id"),
+            "sim_action_count": count,
+            "query_seq": snap.get("query_seq"),
+            "record_index": step,
+            "env_step": count,
+            "step_clock": "sim_action",
+            "state_source": source,
             "timestamp": time.time(),
             "cameras": {
                 "agentview": {"id": f"agentview:{step}", "bytes": len(agent or b"")},
                 "wrist": {"id": f"wrist:{step}", "bytes": len(wrist or b"")},
             },
-            "sim": self.sim_state(),
-            "named_poses": self.named_poses(),
+            "sim": snap.get("sim") if isinstance(snap.get("sim"), dict) else {"objects": {}, "evidence_source": source},
+            "named_poses": snap.get("named_poses") if isinstance(snap.get("named_poses"), dict) else {"error": source},
+            "joints": snap.get("joints") if isinstance(snap.get("joints"), dict) else {},
             "llm": False,
             "fresh": True,
         }

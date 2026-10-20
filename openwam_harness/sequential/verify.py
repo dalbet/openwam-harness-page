@@ -380,21 +380,35 @@ def _transport(step, before_obs, after_obs, objects) -> dict[str, Any]:
             summary="搬运失败：对象规格缺失",
         )
     sim_name = spec["sim_name"]
-    if _epoch_mismatch(before_obs, after_obs):
+    version = _snapshot_version(before_obs, after_obs)
+    if version is not None:
         return _gap(
             "failure",
-            "stale_observation",
+            version["reason_code"],
             ids,
-            missing=["current_observation"],
+            missing=[version["field"]],
             actual={
+                "field": version["field"],
+                "expected": version["expected"],
+                "received": version["received"],
                 "before_epoch": (before_obs or {}).get("scene_epoch") if isinstance(before_obs, dict) else None,
                 "after_epoch": (after_obs or {}).get("scene_epoch") if isinstance(after_obs, dict) else None,
                 "before_id": (before_obs or {}).get("observation_id") if isinstance(before_obs, dict) else None,
                 "after_id": (after_obs or {}).get("observation_id") if isinstance(after_obs, dict) else None,
+                "before_sim_action_count": (before_obs or {}).get("sim_action_count") if isinstance(before_obs, dict) else None,
+                "after_sim_action_count": (after_obs or {}).get("sim_action_count") if isinstance(after_obs, dict) else None,
+                "before_step_clock": (before_obs or {}).get("step_clock") if isinstance(before_obs, dict) else None,
+                "after_step_clock": (after_obs or {}).get("step_clock") if isinstance(after_obs, dict) else None,
+                "before_source": (before_obs or {}).get("state_source") if isinstance(before_obs, dict) else None,
+                "after_source": (after_obs or {}).get("state_source") if isinstance(after_obs, dict) else None,
             },
-            condition="搬运前后必须是同一次 scene_epoch，且后观测不早于前观测",
-            summary="搬运失败：使用了旧观测",
-            sources={"object": "stale_observation", "target_region": "stale_observation", "eef": "stale_observation"},
+            condition=version["summary"],
+            summary=version["summary"],
+            sources={
+                "object": version["reason_code"],
+                "target_region": version["reason_code"],
+                "eef": version["reason_code"],
+            },
         )
     before = _object(before_obs or {}, sim_name)
     after = _object(after_obs or {}, sim_name)
@@ -615,14 +629,47 @@ def _gap(status, code, ids, *, missing, actual, condition, summary, sources=None
     return receipt(status, code, "per_item", ids, metrics)
 
 
-def _epoch_mismatch(before, after) -> bool:
+def _snapshot_version(before, after) -> dict[str, Any] | None:
+    """Reject a snapshot that does not cover the finished action. Same count is allowed."""
     if not isinstance(before, dict) or not isinstance(after, dict):
-        return False
+        return None
+    clocks = {before.get("step_clock"), after.get("step_clock")}
+    clocks_differ = None not in clocks and len(clocks) > 1
+    has_count = isinstance(before.get("sim_action_count"), int) or isinstance(after.get("sim_action_count"), int)
+    if clocks_differ or has_count:
+        from state_contract import post_action_freshness
+
+        completed = before.get("sim_action_count") if isinstance(before.get("sim_action_count"), int) else None
+        covers = after.get("covers_action_count")
+        if isinstance(covers, int):
+            completed = covers if completed is None else max(completed, covers)
+        verdict = post_action_freshness(before, after, completed_action_count=completed if isinstance(completed, int) else 0)
+        if verdict["ok"]:
+            return None
+        return verdict
     if before.get("scene_epoch") != after.get("scene_epoch"):
-        return True
+        return {
+            "reason_code": "cross_scene",
+            "field": "scene_epoch",
+            "expected": before.get("scene_epoch"),
+            "received": after.get("scene_epoch"),
+            "summary": "前后快照的 scene_epoch 不同",
+        }
     left = before.get("env_step")
     right = after.get("env_step")
-    return isinstance(left, int) and isinstance(right, int) and right < left
+    if isinstance(left, int) and isinstance(right, int) and right < left and before.get("step_clock") == after.get("step_clock"):
+        return {
+            "reason_code": "pre_action_state",
+            "field": "env_step",
+            "expected": left,
+            "received": right,
+            "summary": "同一时钟上，检查用的序号早于动作前快照",
+        }
+    return None
+
+
+def _epoch_mismatch(before, after) -> bool:
+    return _snapshot_version(before, after) is not None
 
 
 def _target_reading(step: dict, objects: dict[str, Any], obs: dict) -> dict[str, Any]:
