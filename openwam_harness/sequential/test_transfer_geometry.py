@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import unittest
 
+from candidates import resolve_plan_bindings, scene_graph
 from free_task import judge_user_goal
 from placement import resolve_motion_step
+from suites import _catalog, objects_for_names
 from transfer_geometry import motion_target, relation_check
 
 
@@ -95,6 +97,42 @@ class TransferGeometryTest(unittest.TestCase):
         self.assertAlmostEqual(bowl["object_z"], 1.0 + 0.00147 - (-0.012))
         self.assertAlmostEqual(bottle["object_z"], 1.0 + 0.00147 - 0.00111)
         self.assertGreater(abs(bowl["object_z"] - bottle["object_z"]), 0.01)
+
+    def test_official_cabinet_sentence_selects_top_side_only(self):
+        from pathlib import Path
+
+        bddl = Path(
+            "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
+            "liberopro/liberopro/bddl_files/libero_goal/put_the_bowl_on_the_stove.bddl"
+        )
+        catalog = _catalog(str(bddl))
+        names = [item["name"] for item in catalog["instances"] + catalog["fixtures"]]
+        objects = objects_for_names(names, catalog)
+        graph = scene_graph(objects, {}, scene_epoch=1, observation_id="cabinet")
+        cabinet = next(item["n"] for item in graph["nodes"] if item["object_ref"] == "wooden_cabinet_1")
+        bottle = next(item["n"] for item in graph["nodes"] if item["object_ref"] == "wine_bottle_1")
+        plan = {
+            "goal": "把酒瓶放到柜子顶上。",
+            "steps": [{
+                "step_id": "step1",
+                "skill": "transfer",
+                "object_n": bottle,
+                "target_n": cabinet,
+                "relation": "on",
+                "prompt": "put the wine bottle on top of the cabinet",
+                "depends_on": [],
+                "preconditions": [],
+                "completion_check": "object_placed",
+                "budget": {"max_s": 180, "max_attempts": 1},
+                "on_failure": "stop",
+            }],
+        }
+        resolved, bindings = resolve_plan_bindings(plan, graph)
+        self.assertEqual(bindings[1]["query_key"], "wooden_cabinet_1_top_side")
+        self.assertEqual(resolved["steps"][0]["target_region"], "wooden_cabinet_1_top_side")
+        generic = dict(plan, goal="把酒瓶放到柜子上")
+        with self.assertRaises(Exception):
+            resolve_plan_bindings(generic, graph)
 
 
 if __name__ == "__main__":

@@ -277,7 +277,7 @@ def _support_surface(step, bindings, obs, plan):
     source = str(args.get("xyz_from") or "")
     target_ref = step.get("target_ref")
     spec = (plan.get("objects") or {}).get(target_ref) if isinstance(target_ref, str) else None
-    site_name = spec.get("place_site") if isinstance(spec, dict) else None
+    site_name = _bound_site(plan, target_ref, spec)
     sites = ((obs or {}).get("named_poses") or {}).get("sites") if isinstance(obs, dict) else None
     if isinstance(site_name, str) and site_name:
         named = (obs or {}).get("named_poses") if isinstance(obs, dict) else None
@@ -391,6 +391,21 @@ def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
         "geometry_source": motion.get("source"),
         "args": {key: value for key, value in resolved.items() if value is not None or key == "gripper"},
     }
+
+
+def _bound_site(plan, target_ref, spec) -> str | None:
+    if isinstance(spec, dict) and isinstance(spec.get("place_site"), str):
+        return spec["place_site"]
+    for item in (plan or {}).get("plan_bindings") or []:
+        if item.get("role") == "target" and item.get("instance_ref") == target_ref:
+            key = item.get("query_key")
+            if isinstance(key, str) and key not in {target_ref, spec.get("sim_name") if isinstance(spec, dict) else None}:
+                return key
+    sites = spec.get("place_sites") if isinstance(spec, dict) else None
+    requested = (plan or {}).get("target_region")
+    if isinstance(requested, str) and isinstance(sites, list) and requested in sites:
+        return requested
+    return None
 
 
 def spec_name(plan, ref) -> str | None:

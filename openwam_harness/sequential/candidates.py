@@ -111,6 +111,22 @@ def candidate_set_version(scene_epoch: int | None, observation_id: str | None, n
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
+def _catalog_region(plan: dict[str, Any], names: list[str]) -> str | None:
+    """The official row's region when the sentence is that task. A generic cabinet request stays unresolved."""
+    text = plan.get("canonical_instruction") or plan.get("goal") or ""
+    if not isinstance(text, str) or not text.strip():
+        return None
+    from task_catalog import tasks_for_scene
+
+    wanted = text.strip().rstrip("。")
+    for row in tasks_for_scene("libero_goal", names):
+        phrases = [row.get("instruction_en"), row.get("instruction_zh"), *(row.get("paraphrases_zh") or [])]
+        if any(isinstance(item, str) and item.strip().rstrip("。") == wanted for item in phrases):
+            region = row.get("target_region")
+            return region if isinstance(region, str) else None
+    return None
+
+
 def resolve_plan_bindings(plan: dict[str, Any], graph: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Derive instance ids from candidate numbers on this scene's candidate table."""
     from schema import PlanError, _err
@@ -176,8 +192,12 @@ def resolve_plan_bindings(plan: dict[str, Any], graph: dict[str, Any]) -> tuple[
             query_key = spec_bits["object_ref"]
             if role == "target" and not spec_bits.get("movable"):
                 sites = list(spec_bits.get("place_sites") or [])
+                requested = item.get("target_region") or copied.get("target_region") or _catalog_region(copied, list(by_ref))
                 if spec_bits.get("place_site"):
                     query_key = spec_bits["place_site"]
+                elif isinstance(requested, str) and requested in sites:
+                    query_key = requested
+                    item["target_region"] = requested
                 elif len(sites) > 1:
                     errors.append(_err(f"steps[{index}].target_n", "target_region_ambiguous", sites, "一个 BDDL 目标区域"))
                     continue
