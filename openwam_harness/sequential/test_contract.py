@@ -673,6 +673,51 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(other["metrics"]["object_ref"], "akita_black_bowl_1")
         self.assertIn("不更换", other["metrics"]["error"])
 
+        # A tall instance: the grounded point sits on the visible body, above
+        # the base origin. The xy plane still confirms the bound instance.
+        bottle_scene = {"wine_bottle_1": {
+            "sim_name": "wine_bottle_1",
+            "semantic_type": "wine_bottle",
+            "phrases": ["wine bottle"],
+            "movable": True,
+            "can_be_target": False,
+        }}
+        bottle_step = {
+            "step_id": "seg_wine_bottle_1",
+            "skill": "segment",
+            "object_ref": "wine_bottle_1",
+            "completion_check": "object_localized",
+            "args": {"prompt": "wine bottle"},
+            "grounding_query": "wine bottle",
+        }
+        bottle_obs = obs({"wine_bottle_1": [-0.1887, -0.0495, 0.8989]})
+        tall = verify_step(
+            bottle_step,
+            ToolOutcome(executed=True, xyz=[-0.1764, -0.05, 0.9702]),
+            [bottle_obs],
+            scene_epoch=1,
+            min_step=0,
+            objects=bottle_scene,
+            support_z={},
+            goal_relation="on",
+        )
+        self.assertEqual(tall["reason_code"], "OBJECT_LOCALIZED")
+        self.assertEqual(tall["metrics"]["distance_plane"], "xy")
+        self.assertAlmostEqual(tall["metrics"]["bound_distance_m"], 0.0123, places=3)
+        self.assertGreater(tall["metrics"]["bound_distance_3d_m"], 0.05)
+
+        missed = verify_step(
+            bottle_step,
+            ToolOutcome(executed=True, xyz=[0.15, 0.2, 0.9702]),
+            [bottle_obs],
+            scene_epoch=1,
+            min_step=0,
+            objects=bottle_scene,
+            support_z={},
+            goal_relation="on",
+        )
+        self.assertEqual(missed["reason_code"], "localization_unconfirmed")
+
 
 def _bowl(name: str) -> dict:
     return {

@@ -249,7 +249,11 @@ def _localized(step, outcome, observations, objects) -> dict[str, Any]:
         )
     bound_pos = queried["xyz"]
     sim_name = spec.get("sim_name") or bound
-    bound_d = _distance(outcome.xyz, bound_pos)
+    # The grounded point sits on the visible surface. A tall instance's origin
+    # is at its base, so the vertical gap is expected and cannot confirm or
+    # deny ownership. The horizontal plane is the discriminating one.
+    bound_d = _xy(outcome.xyz, bound_pos)
+    bound_d3 = _distance(outcome.xyz, bound_pos)
     semantic = spec.get("semantic_type")
     others = []
     for ref, item in objects.items():
@@ -261,13 +265,19 @@ def _localized(step, outcome, observations, objects) -> dict[str, Any]:
         pos = _object(observations[-1], other_name)
         if pos is None:
             continue
-        others.append({"object_ref": ref, "distance_m": round(_distance(outcome.xyz, pos), 4)})
+        others.append({
+            "object_ref": ref,
+            "distance_m": round(_xy(outcome.xyz, pos), 4),
+            "distance_3d_m": round(_distance(outcome.xyz, pos), 4),
+        })
     nearest_other = min((item["distance_m"] for item in others), default=None)
     metrics = {
         "xyz": outcome.xyz,
         "object_ref": bound,
         "sim_name": sim_name,
         "bound_distance_m": round(bound_d, 4),
+        "bound_distance_3d_m": round(bound_d3, 4),
+        "distance_plane": "xy",
         "other_instances": others,
         "match_m": _MATCH_M,
     }
