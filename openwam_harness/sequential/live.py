@@ -318,7 +318,14 @@ class LiveBackend:
             )
         try:
             tool_args = tool_arguments(args)
-            result = self.toolkit.execute_tool(action, tool_args)
+            if action == "open_drawer":
+                from open_drawer import run_open_drawer
+
+                data = run_open_drawer(self.toolkit.primitives, tool_args)
+                result = None
+            else:
+                result = self.toolkit.execute_tool(action, tool_args)
+                data = result.data if isinstance(result.data, dict) else {"result": result.data}
         except Exception as exc:
             parsed = interpret_exception(exc)
             return ToolOutcome(
@@ -329,7 +336,6 @@ class LiveBackend:
                 category=parsed["category"],
                 env_step=self.env_step(),
             )
-        data = result.data if isinstance(result.data, dict) else {"result": result.data}
         if action == "pi0_pick":
             from chunk_trace import take_chunk_trace, take_grasp_samples
 
@@ -931,6 +937,30 @@ def interpret_tool_data(action: str, data: dict) -> dict:
     localization miss. Neither one is a failed tool call, and neither one is
     read from ``env.terminated``.
     """
+    if action == "open_drawer":
+        if data.get("opened") is True:
+            return {
+                "executed": True,
+                "error": None,
+                "error_class": None,
+                "category": None,
+                "xyz": None,
+                "grasp_signal": None,
+            }
+        if int(data.get("chunks_used") or 0) == 0:
+            return _call_failure(
+                str(data.get("reason") or data.get("stop_reason") or "open_drawer did not start"),
+                "tool_exception",
+                "physical",
+            )
+        return {
+            "executed": True,
+            "error": None,
+            "error_class": None,
+            "category": None,
+            "xyz": None,
+            "grasp_signal": None,
+        }
     error = data.get("error")
     error_text = None if error in (None, "") else str(error)
     if data.get("code") == "segment_artifact_save_failed" or (

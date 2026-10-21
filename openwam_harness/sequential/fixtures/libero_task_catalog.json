@@ -457,14 +457,14 @@
       "instruction_en": "open the middle drawer of the cabinet",
       "instruction_zh": "打开柜子的中间抽屉。",
       "source_object": null,
-      "target_object": null,
-      "target_region": null,
-      "goal_relation": null,
+      "target_object": "wooden_cabinet_1",
+      "target_region": "wooden_cabinet_1_middle_region",
+      "goal_relation": "open",
       "required_skills": [
         "open_drawer"
       ],
-      "executor_support": "unsupported_skill",
-      "support_reason": "缺少技能：open_drawer",
+      "executor_support": "implemented",
+      "support_reason": "中层抽屉由 Open 谓词和 WoodenCabinet.is_open 判断。acceptance=not_run，不能写成已经拉开。",
       "acceptance": "not_run",
       "paraphrases_zh": []
     },

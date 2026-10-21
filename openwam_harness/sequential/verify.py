@@ -118,7 +118,34 @@ def verify_step(
         return receipt("success", "RETREATED", "sim_state", _ids(observations), {"applied_hold_offset": False})
     if check == "user_confirmed":
         return receipt("unknown", "NEEDS_CONFIRMATION", "manual", _ids(observations), {})
+    if check == "drawer_open":
+        return _drawer_open(outcome, observations)
     return receipt("unknown", "NO_CHECKER", "tool_return", _ids(observations), {"check": check})
+
+
+def _drawer_open(outcome: Any, observations: list) -> dict[str, Any]:
+    """Open predicate on the tool's joint evidence. Termination and pi0 success are not this result."""
+    raw = getattr(outcome, "raw", None)
+    payload = raw if isinstance(raw, dict) else {}
+    evidence = str(payload.get("evidence_source") or "WoodenCabinet.is_open")
+    metrics = {
+        "joint": payload.get("joint"),
+        "initial_qpos": payload.get("initial_qpos"),
+        "current_qpos": payload.get("current_qpos"),
+        "threshold": payload.get("threshold"),
+        "comparison": payload.get("comparison"),
+        "predicate": payload.get("predicate") or "Open",
+        "stop_reason": payload.get("stop_reason"),
+        "chunks_used": payload.get("chunks_used"),
+        "pi0_success_used": payload.get("pi0_success_used"),
+        "native_terminated": getattr(outcome, "native_terminated", None),
+        "summary": payload.get("reason"),
+    }
+    if payload.get("opened") is True and payload.get("joint") and payload.get("current_qpos") is not None:
+        return receipt("success", "DRAWER_OPEN", evidence, _ids(observations), metrics)
+    if payload.get("current_qpos") is None or not payload.get("joint"):
+        return receipt("unknown", "DRAWER_UNVERIFIED", evidence, _ids(observations), metrics)
+    return receipt("failure", str(payload.get("stop_reason") or "drawer_closed"), evidence, _ids(observations), metrics)
 
 
 def call_failure_receipt(outcome: Any) -> dict[str, Any]:

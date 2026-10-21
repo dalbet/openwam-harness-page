@@ -291,7 +291,8 @@ def _goal_atoms(text: str) -> list[str]:
     match = re.search(r"\(:goal\b(.*)\)\s*$", text, re.S)
     if not match:
         return []
-    return re.findall(r"\((?:On|In)\s+\S+\s+([A-Za-z0-9_]+)\)", match.group(1))
+    body = match.group(1)
+    return re.findall(r"\((?:On|In)\s+\S+\s+([A-Za-z0-9_]+)\)", body) + re.findall(r"\(Open\s+([A-Za-z0-9_]+)\)", body)
 
 
 def _xyz(value) -> list[float] | None:

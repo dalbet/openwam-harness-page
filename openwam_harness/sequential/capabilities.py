@@ -16,12 +16,13 @@ IMPLEMENTED = (
     "move_to",
     "set_gripper",
     "pause_for_confirm",
+    "open_drawer",
 )
 
 SUITE_IDS = ("libero_spatial", "libero_object", "libero_goal", "libero_10")
 
-# Load defaults taken from the capability matrix. Goal task 0 is
-# "open the middle drawer of the cabinet" (contact) and is not open.
+# Load defaults taken from the capability matrix. Goal task 0 is the middle
+# drawer. Other contact tasks stay closed.
 DEFAULT_TASK_ID = {
     "libero_spatial": 0,
     "libero_object": 0,
@@ -131,6 +132,9 @@ def classify(language: str, suite: str) -> dict:
     elif suite == "libero_10" and lowered.startswith("put both the") and "in the basket" in lowered and not contacts:
         kind = "long_two_foods_basket"
         demo_open = True
+    elif contacts == ["open"] and lowered == "open the middle drawer of the cabinet":
+        kind = "contact"
+        demo_open = "open_drawer" in IMPLEMENTED
     elif contacts:
         kind = "contact"
         demo_open = False
@@ -143,7 +147,7 @@ def classify(language: str, suite: str) -> dict:
     limits = []
     if "drawer" in lowered and suite == "libero_spatial":
         limits.append("不打开抽屉。只在碗已经位于抽屉中时，才按抓放尝试。")
-    if contacts:
+    if contacts and not demo_open:
         limits.append("接触技能（开合、旋钮、推动）执行器未实现，动作开始前拒绝。")
     if unsupported:
         limits.append("目标关系不在 in/on 抓放范围内：" + ", ".join(unsupported))

@@ -55,10 +55,18 @@ def _unimplemented(name: str, reason: str) -> dict[str, Any]:
 
 REGISTRY: dict[str, dict[str, Any]] = {
     "transfer": _transfer(),
-    "open_drawer": _unimplemented(
-        "open_drawer",
-        "RPent 没有已验证的开抽屉技能。move_to / rotate_wrist 不能代替。",
-    ),
+    "open_drawer": {
+        "name": "open_drawer",
+        "implemented": True,
+        "planner_visible": True,
+        "params": ["target_n", "target_ref", "target_region"],
+        "preconditions": ["cabinet_in_scene", "middle_region_resolved"],
+        "executor": "open_drawer.run_open_drawer",
+        "completion": "drawer_open",
+        "cancel": "LiberoPrimitives._check_cancelled",
+        "recovery": None,
+        "reason": "只包装中层抽屉。完成条件是 Open 谓词，不是 pi0_doubled 的 success。",
+    },
     "close": _unimplemented(
         "close",
         "RPent 没有已验证的关抽屉技能。release 只张开夹爪。",

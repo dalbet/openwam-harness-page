@@ -79,6 +79,15 @@ def tasks_for_scene(suite: str, names: set[str] | list[str]) -> list[dict[str, A
         needed = [item for item in (row.get("source_object"), row.get("target_object")) if item]
         if needed and all(item in present for item in needed):
             found.append(row)
+            continue
+        region = row.get("target_region")
+        if (
+            not needed
+            and isinstance(region, str)
+            and region.endswith("_middle_region")
+            and any(isinstance(name, str) and name.startswith("wooden_cabinet_") for name in present)
+        ):
+            found.append(row)
     return found
 
 
@@ -333,6 +342,8 @@ def _support(capability: dict, goals: list[tuple[str, str, str]], target_region:
     if len(goals) > 1:
         return "unsupported_skill", "当前仅执行单任务，这条官方指令包含多个独立目标。"
     missing = list(capability.get("missing_skills") or [])
+    if capability.get("required_skills") == ["open_drawer"] and not missing:
+        return "implemented", "中层抽屉由 Open 谓词和 WoodenCabinet.is_open 判断。acceptance=not_run，不能写成已经拉开。"
     if missing or capability.get("kind") in {"contact", "unsupported"}:
         detail = "、".join(missing) or "、".join(capability.get("limitations") or [])
         return "unsupported_skill", f"缺少技能：{detail or capability.get('kind')}"
@@ -369,13 +380,23 @@ def _identity_quat(values: list[float]) -> bool:
 def _goal_atoms(text: str) -> list[tuple[str, str, str]]:
     match = re.search(r"\(:goal\b(.*)\)\s*$", text, re.S)
     body = match.group(1) if match else ""
-    return [(rel, obj, dst) for rel, obj, dst in re.findall(r"\((On|In)\s+([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\)", body)]
+    atoms = [(rel, obj, dst) for rel, obj, dst in re.findall(r"\((On|In)\s+([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\)", body)]
+    if atoms:
+        return atoms
+    opened = re.findall(r"\(Open\s+([A-Za-z0-9_]+)\)", body)
+    if len(opened) == 1:
+        return [("Open", opened[0], opened[0])]
+    return []
 
 
 def _slots(goals: list[tuple[str, str, str]], regions: dict[str, dict]) -> tuple[str | None, str | None, str | None, str | None]:
     if not goals:
         return None, None, None, None
     rel, obj, dst = goals[0]
+    if rel == "Open":
+        region = regions.get(dst)
+        owner = region.get("owner_instance") if isinstance(region, dict) else None
+        return None, owner, dst, "open"
     relation = "in" if rel == "In" else "on"
     region = regions.get(dst)
     if region:

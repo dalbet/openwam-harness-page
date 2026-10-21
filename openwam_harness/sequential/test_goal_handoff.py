@@ -227,16 +227,16 @@ class GoalHandoffTest(unittest.TestCase):
             resolve_plan_bindings(plan, graph)
         self.assertIn("candidate_number", {item["code"] for item in caught.exception.errors})
         unsupported = {
-            "plan_id": "drawer",
-            "goal": "open the middle drawer",
+            "plan_id": "knob",
+            "goal": "turn on the stove",
             "steps": [
                 {
-                    "step_id": "open",
-                    "skill": "open_drawer",
+                    "step_id": "knob",
+                    "skill": "turn_on_stove",
                     "object_ref": "akita_black_bowl_1",
-                    "target_ref": "wooden_cabinet_1",
+                    "target_ref": "flat_stove_1",
                     "relation": "on",
-                    "prompt": "open the middle drawer",
+                    "prompt": "turn on the stove",
                     "depends_on": [],
                     "preconditions": [],
                     "completion_check": "object_placed",

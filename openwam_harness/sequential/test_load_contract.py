@@ -82,7 +82,7 @@ class LoadContractTest(unittest.TestCase):
                 resolve_load(payload, catalog())
             self.assertEqual(caught.exception.field["path"], path, payload)
 
-    def test_four_defaults_are_open_and_goal_zero_is_not(self):
+    def test_four_defaults_and_middle_drawer_are_open(self):
         rows = {(item["suite"], item["task_id"]): item for item in builtin_matrix()}
         self.assertEqual(set(DEFAULT_TASK_ID), set(SUITE_IDS))
         for suite, task_id in DEFAULT_TASK_ID.items():
@@ -92,7 +92,7 @@ class LoadContractTest(unittest.TestCase):
             self.assertEqual(spec["task_id"], task_id)
             self.assertEqual(spec["seed"], 0)
             self.assertEqual(spec["goal"], row["language"])
-        self.assertFalse(rows[("libero_goal", 0)]["demo_open"])
+        self.assertTrue(rows[("libero_goal", 0)]["demo_open"])
         self.assertIn("drawer", rows[("libero_goal", 0)]["language"])
 
     def test_failed_load_releases_the_lock(self):

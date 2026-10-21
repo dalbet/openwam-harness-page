@@ -157,10 +157,16 @@ def resolve_plan_bindings(plan: dict[str, Any], graph: dict[str, Any]) -> tuple[
             steps.append(step)
             continue
         item = dict(step)
-        for role, number_key, ref_key in (
-            ("object", "object_n", "object_ref"),
-            ("target", "target_n", "target_ref"),
-        ):
+        if item.get("skill") == "open_drawer":
+            item.pop("object_n", None)
+            item.pop("object_ref", None)
+            roles = (("target", "target_n", "target_ref"),)
+        else:
+            roles = (
+                ("object", "object_n", "object_ref"),
+                ("target", "target_n", "target_ref"),
+            )
+        for role, number_key, ref_key in roles:
             number = item.get(number_key)
             ref = item.get(ref_key)
             chosen = None
@@ -273,10 +279,16 @@ def resolve_numbers(plan: dict[str, Any], numbered: list[dict[str, Any]]) -> tup
             steps.append(step)
             continue
         item = dict(step)
-        for role, number_key, ref_key in (
-            ("object", "object_n", "object_ref"),
-            ("target", "target_n", "target_ref"),
-        ):
+        if item.get("skill") == "open_drawer":
+            item.pop("object_n", None)
+            item.pop("object_ref", None)
+            roles = (("target", "target_n", "target_ref"),)
+        else:
+            roles = (
+                ("object", "object_n", "object_ref"),
+                ("target", "target_n", "target_ref"),
+            )
+        for role, number_key, ref_key in roles:
             number = item.get(number_key)
             ref = item.get(ref_key)
             if number is not None:

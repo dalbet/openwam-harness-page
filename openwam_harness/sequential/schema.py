@@ -18,6 +18,7 @@ REGISTERED_SKILLS = (
     "move_to",
     "set_gripper",
     "pause_for_confirm",
+    "open_drawer",
 )
 ALLOWED_ACTIONS = frozenset(REGISTERED_SKILLS)
 REJECTED_ACTIONS = frozenset(
@@ -32,6 +33,7 @@ CHECKERS = frozenset(
         "object_placed",
         "retreated",
         "user_confirmed",
+        "drawer_open",
     }
 )
 PRECONDITIONS = frozenset(
@@ -51,6 +53,7 @@ SKILL_CHECK = {
     "pi0_pick": "grasp_held",
     "move_to": "object_transported",
     "pause_for_confirm": "user_confirmed",
+    "open_drawer": "drawer_open",
 }
 SEMANTIC_PLAN_KEYS = frozenset(
     {
@@ -129,6 +132,9 @@ PLAN_KEYS = frozenset(
         "matched_task_key",
         "user_instruction",
         "semantic_step_count",
+        "loaded_native_goal",
+        "requested_goal",
+        "goal_alignment",
     }
 )
 EXECUTABLE_KEYS = frozenset({"code", "python", "script", "exec", "eval"})
@@ -306,7 +312,8 @@ def plan_parameters_schema() -> dict[str, Any]:
     }
 
 
-SEMANTIC_SKILLS = ("transfer",)
+SEMANTIC_SKILLS = ("transfer", "open_drawer")
+PLANNER_RELATIONS = RELATIONS | {"open"}
 
 
 def planner_parameters_schema() -> dict[str, Any]:
@@ -318,7 +325,7 @@ def planner_parameters_schema() -> dict[str, Any]:
         "properties": {
             "plan_id": {"type": "string"},
             "goal": {"type": "string"},
-            "goal_relation": {"type": "string", "enum": sorted(RELATIONS)},
+            "goal_relation": {"type": "string", "enum": sorted(PLANNER_RELATIONS)},
             "steps": {
                 "type": "array",
                 "minItems": 1,
@@ -345,11 +352,11 @@ def planner_parameters_schema() -> dict[str, Any]:
                         "target_ref": {"type": "string"},
                         "object_n": {"type": "integer"},
                         "target_n": {"type": "integer"},
-                        "relation": {"type": "string", "enum": sorted(RELATIONS)},
+                        "relation": {"type": "string", "enum": sorted(PLANNER_RELATIONS)},
                         "prompt": {"type": "string"},
                         "depends_on": {"type": "array", "items": {"type": "string"}},
                         "preconditions": {"type": "array", "items": {"type": "string"}},
-                        "completion_check": {"type": "string", "enum": ["object_placed"]},
+                        "completion_check": {"type": "string", "enum": ["object_placed", "drawer_open"]},
                         "budget": {
                             "type": "object",
                             "additionalProperties": False,
@@ -407,9 +414,10 @@ def free_submit_plan_tools() -> list[dict[str, Any]]:
             "function": {
                 "name": "submit_plan",
                 "description": (
-                    "Submit ordered transfer steps for the user goal on the current scene. "
-                    "Each step sends object_n and target_n only. The service derives instance ids. "
-                    "Do not invent tools, do not send code, and do not replace the user goal."
+                    "Submit one step for the user goal on the current scene. "
+                    "A placement uses skill transfer with object_n and target_n. "
+                    "Opening the loaded cabinet's middle drawer uses skill open_drawer with target_n only. "
+                    "The service derives instance ids. Do not invent tools, do not send code, and do not replace the user goal."
                 ),
                 "parameters": schema,
             },
@@ -534,8 +542,8 @@ def validate_plan(plan: dict[str, Any], *, task: str | None = None) -> dict[str,
     if isinstance(plan.get("task"), str) and isinstance(goal, str) and plan["task"].strip() != goal.strip():
         errors.append(_err("plan.task", "goal_mismatch", plan.get("task"), "same text as goal"))
     relation = plan.get("goal_relation")
-    if plan.get("execution_mode") != "free" and relation not in RELATIONS:
-        errors.append(_err("plan.goal_relation", "relation", relation, "in|on|inside_drawer"))
+    if plan.get("execution_mode") != "free" and relation not in RELATIONS and not (relation == "open" and _open_drawer_plan(plan)):
+        errors.append(_err("plan.goal_relation", "relation", relation, "in|on|inside_drawer|open"))
     objects = plan.get("objects")
     if not isinstance(objects, dict) or not objects:
         errors.append(_err("plan.objects", "type", objects, "non-empty object map"))
@@ -788,6 +796,27 @@ def _arg_errors(path: str, skill: str, args: dict[str, Any], plan: dict[str, Any
         extra = set(args)
         for key in extra:
             errors.append(_err(f"{path}.args.{key}", "unexpected_arg", key, "empty args"))
+    elif skill == "open_drawer":
+        from open_drawer import MAX_CHUNKS, MAX_S, official_instruction
+
+        instruction = args.get("instruction")
+        region = args.get("region")
+        instance = args.get("instance")
+        if instruction != official_instruction():
+            errors.append(_err(f"{path}.args.instruction", "instruction", instruction, official_instruction()))
+        if not isinstance(region, str) or not region.endswith("_middle_region"):
+            errors.append(_err(f"{path}.args.region", "region_not_middle", region, "当前实例的中层抽屉区域"))
+        elif isinstance(instance, str) and region != f"{instance}_middle_region":
+            errors.append(_err(f"{path}.args.region", "region_instance", region, f"{instance}_middle_region"))
+        if not isinstance(instance, str) or not instance:
+            errors.append(_err(f"{path}.args.instance", "missing", instance, "当前柜子实例"))
+        if args.get("max_chunks") != MAX_CHUNKS:
+            errors.append(_err(f"{path}.args.max_chunks", "budget", args.get("max_chunks"), MAX_CHUNKS))
+        if args.get("max_s") != MAX_S:
+            errors.append(_err(f"{path}.args.max_s", "budget", args.get("max_s"), MAX_S))
+        extra = set(args) - {"instruction", "region", "instance", "max_chunks", "max_s"}
+        for key in extra:
+            errors.append(_err(f"{path}.args.{key}", "unexpected_arg", key, "instruction, region, instance, max_chunks, max_s"))
     return errors
 
 
@@ -1465,6 +1494,105 @@ def _segment_step(ref: str, phrase: str, previous: str, binding: dict[str, Any] 
     }
 
 
+def _open_drawer_plan(plan: dict[str, Any]) -> bool:
+    steps = plan.get("steps") or []
+    return bool(steps) and all(isinstance(step, dict) and step.get("skill") == "open_drawer" for step in steps)
+
+
+def _middle_site(spec: dict[str, Any], target_ref: str) -> str | None:
+    sites = [item for item in (spec.get("place_sites") or []) if isinstance(item, str)]
+    if isinstance(spec.get("place_site"), str):
+        sites.append(spec["place_site"])
+    instance = str(spec.get("sim_name") or target_ref)
+    matches = [site for site in sites if site == f"{instance}_middle_region"]
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
+def expand_open_drawer(plan: dict[str, Any], scene_objects: dict[str, Any], *, execution_mode: str) -> dict[str, Any]:
+    """Compile one middle-drawer step. The instruction and budget are not taken from the model."""
+    from open_drawer import MAX_CHUNKS, MAX_S, official_instruction
+
+    steps = [step for step in (plan.get("steps") or []) if isinstance(step, dict)]
+    if len(steps) != 1:
+        raise PlanError([_err("plan.steps", "single_task_only", len(steps), "一步 open_drawer")])
+    step = steps[0]
+    target = step.get("target_ref")
+    spec = scene_objects.get(target) if isinstance(target, str) else None
+    if not isinstance(spec, dict):
+        raise PlanError([_err("steps[0].target_ref", "object_missing", target, "当前场景中的柜子")])
+    region = _middle_site(spec, target)
+    if region is None:
+        raise PlanError([
+            _err("steps[0].target_region", "region_missing", spec.get("place_sites"), "当前柜子实例上的唯一中层区域")
+        ])
+    requested = step.get("target_region")
+    if isinstance(requested, str) and requested != region:
+        raise PlanError([
+            _err("steps[0].target_region", "region_not_middle", requested, "本轮只实现中层抽屉")
+        ])
+    instance = str(spec.get("sim_name") or target)
+    phrases = [item for item in (spec.get("phrases") or []) if isinstance(item, str) and item.strip()] or [instance.replace("_", " ")]
+    kept = {
+        key: plan[key]
+        for key in (
+            "plan_bindings",
+            "scene_epoch",
+            "observation_id",
+            "candidate_set_version",
+            "bindings_checked",
+            "canonical_instruction",
+            "matched_task_key",
+            "user_instruction",
+            "user_text",
+            "suite",
+            "task_id",
+            "seed",
+            "scene_id",
+        )
+        if key in plan
+    }
+    goal = plan.get("goal") if isinstance(plan.get("goal"), str) else ""
+    return {
+        **kept,
+        "plan_id": plan.get("plan_id") or "open-middle-drawer",
+        "goal": goal,
+        "goal_relation": "open",
+        "execution_mode": execution_mode,
+        "semantic_step_count": 1,
+        "semantic_step_ids": [step.get("step_id") or "open_middle_drawer"],
+        "objects": {
+            target: {
+                "sim_name": instance,
+                "phrases": phrases,
+                "movable": False,
+                "role": "support",
+                "can_be_target": True,
+            }
+        },
+        "steps": [
+            {
+                "step_id": "open_middle_drawer",
+                "skill": "open_drawer",
+                "target_ref": target,
+                "args": {
+                    "instruction": official_instruction(),
+                    "region": region,
+                    "instance": instance,
+                    "max_chunks": MAX_CHUNKS,
+                    "max_s": MAX_S,
+                },
+                "depends_on": [],
+                "preconditions": [],
+                "completion_check": "drawer_open",
+                "budget": {"max_s": MAX_S, "max_attempts": 1},
+                "on_failure": "stop",
+            }
+        ],
+    }
+
+
 def prepare_plan(
     plan: dict[str, Any],
     *,
@@ -1484,6 +1612,11 @@ def prepare_plan(
             skills.append(step.get("skill", step.get("action")))
     from skills import REGISTRY, skill_rejection
 
+    if skills and all(skill == "open_drawer" for skill in skills):
+        expanded = expand_open_drawer(plan, scene_objects or {}, execution_mode=execution_mode)
+        if plan.get("plan_source"):
+            expanded["plan_source"] = plan["plan_source"]
+        return validate_plan(expanded, task=task)
     named = [skill for skill in skills if skill in REGISTRY and not REGISTRY[skill].get("implemented")]
     if named and not any(skill == "transfer" for skill in skills):
         raise PlanError([
