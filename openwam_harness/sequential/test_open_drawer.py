@@ -98,6 +98,53 @@ class _Primitives:
         self.env.success = True
 
 
+class _RpcClient:
+    """The readonly state snapshot RPC the live backend already exposes."""
+
+    def __init__(self, qpos):
+        self.joints = {"wooden_cabinet_1_middle_level": qpos}
+        self.calls = []
+
+    def call(self, method, timeout_s=None):
+        self.calls.append(method)
+        if method != "env.state_snapshot":
+            raise KeyError(method)
+        return {
+            "joints": dict(self.joints),
+            "named_poses": {"sites": {}},
+            "sim": {"objects": {}, "evidence_source": "readonly_rpc"},
+            "evidence_source": "readonly_rpc",
+        }
+
+
+class _RpcEnv:
+    """The live backend's env is an RPC client without ``object_sites_dict``."""
+
+    def __init__(self, qpos=0.0):
+        self._client = _RpcClient(qpos)
+        self.terminated = False
+        self.truncated = False
+        self.steps = 0
+
+    def step(self, *_args, **_kwargs):
+        self.steps += 1
+        raise AssertionError("env.step")
+
+
+class _RpcPrimitives:
+    def __init__(self, env, script):
+        self.env = env
+        self.script = list(script)
+        self.chunks = []
+
+    def _check_cancelled(self):
+        return None
+
+    def _vlm_chunk(self, instruction):
+        self.chunks.append(instruction)
+        self.env._client.joints["wooden_cabinet_1_middle_level"] = float(self.script[len(self.chunks) - 1])
+
+
 class OpenDrawerTest(unittest.TestCase):
     def test_joint_threshold_and_region_come_from_local_files(self):
         asset = asset_joint()
@@ -291,6 +338,49 @@ class OpenDrawerTest(unittest.TestCase):
         other = run_open_drawer(_Primitives(_Env(), []), {"region": "wooden_cabinet_1_top_region"})
         self.assertEqual(other["stop_reason"], "region_not_middle")
         self.assertEqual(other["chunks_used"], 0)
+
+    def test_read_joint_uses_state_snapshot_when_env_is_an_rpc_client(self):
+        env = _RpcEnv(qpos=-0.15)
+        row = read_joint(env, official_region())
+        self.assertTrue(row["ok"])
+        self.assertTrue(row["opened"])
+        self.assertEqual(row["joint"], "wooden_cabinet_1_middle_level")
+        self.assertEqual(row["parent"], "wooden_cabinet_1")
+        self.assertEqual(row["threshold"], -0.14)
+        self.assertEqual(row["comparison"], "qpos < max(default_open_ranges)")
+        self.assertIn("state_snapshot", row["evidence_source"])
+        self.assertEqual(env._client.calls, ["env.state_snapshot"])
+        self.assertEqual(env.steps, 0)
+
+        closed = _RpcEnv(qpos=0.0)
+        self.assertFalse(read_joint(closed, official_region())["opened"])
+
+        explicit = read_joint(_RpcEnv(qpos=-0.2), official_region(), instance="wooden_cabinet_1")
+        self.assertTrue(explicit["opened"])
+
+        missing = _RpcEnv(qpos=0.0)
+        missing._client.joints = {}
+        unreadable = read_joint(missing, official_region())
+        self.assertFalse(unreadable["ok"])
+        self.assertEqual(unreadable["code"], "joint_unreadable")
+
+    def test_run_open_drawer_over_the_state_snapshot_rpc(self):
+        env = _RpcEnv()
+        prim = _RpcPrimitives(env, [-0.15, -0.15])
+        result = run_open_drawer(prim, {"region": official_region(), "instance": "wooden_cabinet_1"})
+        self.assertEqual(env.steps, 0)
+        self.assertTrue(result["opened"])
+        self.assertEqual(result["stop_reason"], "predicate_open")
+        self.assertEqual(result["chunks_used"], 1)
+        self.assertLess(result["current_qpos"], result["threshold"])
+        self.assertEqual(result["joint"], "wooden_cabinet_1_middle_level")
+        self.assertIn("state_snapshot", result["evidence_source"])
+
+        stalled = _RpcEnv()
+        many = _RpcPrimitives(stalled, [0.0] * 20)
+        exhausted = run_open_drawer(many, {"region": official_region()})
+        self.assertFalse(exhausted["opened"])
+        self.assertEqual(exhausted["stop_reason"], "chunk_budget")
 
 
 def _obs() -> dict:

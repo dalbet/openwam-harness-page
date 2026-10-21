@@ -391,10 +391,29 @@ def _worker_reading(env, bodies: dict) -> dict[str, Any]:
         if raw_names is not None:
             names = [str(item) for item in list(raw_names)[:count]]
         qpos = data.qpos
+        # A free joint owns 7 qpos slots, so a joint index is not a qpos
+        # address. Prefer the model's own address table.
+        addresses = getattr(model, "jnt_qposadr", None)
+        if addresses is not None:
+            try:
+                addresses = [int(item) for item in list(addresses)[:count]]
+            except Exception:
+                addresses = None
+        getter = getattr(model, "get_joint_qpos_addr", None)
         for index, name in enumerate(names):
             if not name:
                 continue
-            joints[name] = float(qpos[index])
+            address = None
+            if addresses is not None and index < len(addresses):
+                address = addresses[index]
+            elif callable(getter):
+                try:
+                    address = int(getter(name))
+                except Exception:
+                    address = None
+            if address is None:
+                address = index
+            joints[name] = float(qpos[address])
     except Exception:
         joints = {}
     return {

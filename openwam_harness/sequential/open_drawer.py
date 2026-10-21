@@ -59,10 +59,20 @@ def asset_joint() -> dict[str, Any]:
     }
 
 
-def read_joint(env: Any, region: str) -> dict[str, Any]:
-    """Same joint lookup as ``SiteObjectState.is_open``. The name comes from the site, not a guess."""
+def read_joint(env: Any, region: str, instance: str | None = None) -> dict[str, Any]:
+    """Same joint lookup as ``SiteObjectState.is_open``. The name comes from the site, not a guess.
+
+    The live backend's env is an RPC client without ``object_sites_dict``;
+    there the joint qpos rides the existing readonly ``env.state_snapshot``.
+    """
     sites = getattr(env, "object_sites_dict", None)
-    site = sites.get(region) if isinstance(sites, dict) else None
+    if isinstance(sites, dict):
+        return _read_joint_local(env, region, sites)
+    return _read_joint_rpc(env, region, instance)
+
+
+def _read_joint_local(env: Any, region: str, sites: dict) -> dict[str, Any]:
+    site = sites.get(region)
     if site is None:
         return {"ok": False, "reason": f"当前场景没有区域 {region}", "code": "region_missing"}
     joints = [item for item in (getattr(site, "joints", None) or []) if isinstance(item, str) and item]
@@ -83,6 +93,62 @@ def read_joint(env: Any, region: str) -> dict[str, Any]:
         qpos = float(env.sim.data.qpos[address])
     except Exception as exc:
         return {"ok": False, "reason": f"读不到关节 {joint}：{exc}", "code": "joint_unreadable"}
+    return _joint_result(region, parent_name, joint, qpos, parent)
+
+
+def _region_instance(region: str) -> str | None:
+    text = str(region or "")
+    suffix = "_middle_region"
+    if text.endswith(suffix) and len(text) > len(suffix):
+        return text[: -len(suffix)]
+    return None
+
+
+def _parent_object(instance: str) -> Any:
+    """Build the articulated object class locally. ``is_open`` needs no sim."""
+    from libero.libero.envs.objects import get_object_fn
+
+    base = re.sub(r"_\d+$", "", str(instance or ""))
+    if not base:
+        return None
+    try:
+        factory = get_object_fn(base)
+    except Exception:
+        return None
+    try:
+        return factory(str(instance))
+    except Exception:
+        return None
+
+
+def _read_joint_rpc(env: Any, region: str, instance: str | None) -> dict[str, Any]:
+    name = instance if isinstance(instance, str) and instance else _region_instance(region)
+    if not name:
+        return {"ok": False, "reason": f"无法从区域 {region} 推出实例", "code": "region_missing"}
+    client = getattr(env, "_client", None)
+    if client is None or not callable(getattr(client, "call", None)):
+        return {"ok": False, "reason": "env 既不是进程内环境，也没有状态快照客户端", "code": "state_service_error"}
+    joint = f"{name}_{asset_joint()['local_name']}"
+    try:
+        snapshot = client.call("env.state_snapshot", timeout_s=10.0)
+    except Exception as exc:
+        return {"ok": False, "reason": f"状态快照读取失败：{type(exc).__name__}: {exc}", "code": "state_service_error"}
+    joints = snapshot.get("joints") if isinstance(snapshot, dict) else None
+    if not isinstance(joints, dict) or joint not in joints:
+        return {"ok": False, "reason": f"状态快照没有关节 {joint}", "code": "joint_unreadable"}
+    try:
+        qpos = float(joints[joint])
+    except (TypeError, ValueError):
+        return {"ok": False, "reason": f"关节 {joint} 的读数不是数值", "code": "joint_unreadable"}
+    parent = _parent_object(name)
+    if parent is None or not hasattr(parent, "is_open"):
+        return {"ok": False, "reason": f"{name} 没有可判断开合的对象类", "code": "joint_unresolved"}
+    row = _joint_result(region, name, joint, qpos, parent)
+    row["evidence_source"] = f"{type(parent).__name__}.is_open via env.state_snapshot"
+    return row
+
+
+def _joint_result(region: str, parent_name: str, joint: str, qpos: float, parent: Any) -> dict[str, Any]:
     ranges = ((getattr(parent, "object_properties", {}) or {}).get("articulation") or {}).get("default_open_ranges") or []
     threshold = max(float(item) for item in ranges) if ranges else None
     opened = bool(parent.is_open(qpos))
@@ -122,7 +188,8 @@ def run_open_drawer(primitives: Any, args: dict[str, Any] | None = None) -> dict
     max_chunks = MAX_CHUNKS
     max_s = MAX_S
     env = primitives.env
-    initial = read_joint(env, region)
+    instance = payload.get("instance") if isinstance(payload.get("instance"), str) else None
+    initial = read_joint(env, region, instance=instance)
     if not initial.get("ok"):
         return {
             "opened": False,
@@ -150,7 +217,7 @@ def run_open_drawer(primitives: Any, args: dict[str, Any] | None = None) -> dict
             break
         primitives._vlm_chunk(instruction)
         chunks += 1
-        current = read_joint(env, region)
+        current = read_joint(env, region, instance=instance)
         if not current.get("ok"):
             stop = current.get("code") or "joint_unreadable"
             break

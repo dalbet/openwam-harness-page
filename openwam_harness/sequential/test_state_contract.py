@@ -186,6 +186,34 @@ class StateContractTest(unittest.TestCase):
         self.assertEqual(reading["joints"]["wooden_cabinet_1_middle_joint"], 0.0)
         self.assertNotIn("agentview_image", reading["sim"])
 
+    def test_worker_reading_addresses_joints_past_a_free_joint(self):
+        """A free joint owns 7 qpos slots. Joint index is not a qpos address."""
+
+        class Env:
+            def _get_observations(self, force_update=False):
+                return {"robot0_eef_pos": [0.0, 0.0, 1.0]}
+
+            @property
+            def sim(self):
+                class Model:
+                    njnt = 3
+                    joint_names = ["robot0_joint1", "cream_cheese_1_joint0", "wooden_cabinet_1_middle_level"]
+                    jnt_qposadr = [0, 1, 8]
+
+                class Data:
+                    qpos = [0.5, 0.1, 0.2, 0.3, 1.0, 0.0, 0.0, 0.0, -0.15]
+
+                class Sim:
+                    model = Model()
+                    data = Data()
+
+                return Sim()
+
+        reading = _worker_reading(Env(), {})
+        self.assertEqual(reading["joints"]["robot0_joint1"], 0.5)
+        self.assertEqual(reading["joints"]["cream_cheese_1_joint0"], 0.1)
+        self.assertEqual(reading["joints"]["wooden_cabinet_1_middle_level"], -0.15)
+
     def test_official_single_refuses_another_step_after_termination(self):
         publish_mode("free", task_scope="official_single")
         self.assertEqual(read_mode(), "free")

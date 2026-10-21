@@ -306,12 +306,14 @@ class GoalHandoffTest(unittest.TestCase):
         order = [row.get("client_request_id") for row in rows]
         before_audit = [row for row in rows[: order.index(first_wine)] if row.get("client_request_id") != first_wine] if first_wine in order else rows
         self.assertFalse(any(item.get("detail") in wine_texts for item in before_audit))
-        for request_id, group in by_request.items():
-            if not any(item.get("detail") in wine_texts for item in group):
-                continue
-            stages = {item["stage"] for item in group}
-            self.assertNotIn("first_tool", stages, request_id)
-            self.assertIn(group[-1]["code"], {"task_not_in_scene", "validation_failed"}, request_id)
+        # The historical rejection is anchored by request id. After the prompt
+        # and schema alignment the same sentence is a supported task: a newer
+        # journal entry may legitimately reach first_tool and then be judged by
+        # the executor. Do not turn that new behaviour back into a failure here.
+        historical_wine = by_request[first_wine]
+        stages = {item["stage"] for item in historical_wine}
+        self.assertNotIn("first_tool", stages, first_wine)
+        self.assertIn(historical_wine[-1]["code"], {"task_not_in_scene", "validation_failed"}, first_wine)
 
 
 def _observation(plan: dict, object_name: str) -> dict:
