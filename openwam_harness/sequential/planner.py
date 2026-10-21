@@ -41,7 +41,7 @@ FREE_OUTPUT_FORMAT = (
     "例如「碗放炉灶上」和「把黑碗放到灶台上」可能表达同一目标，但必须依据场景候选对象和目标区域确认。"
     "若表达对应 standard_tasks 中的单任务，canonical_instruction 填写该行英文原句，matched_task_key 填写该行 task_key。"
     "搬运使用已实现的 transfer，并填写 object_n 和 target_n。"
-    "打开当前柜子的中层抽屉使用 open_drawer，只填写 target_n，不要填写 object_n，relation 用 open。"
+    "打开当前柜子的中层抽屉使用 open_drawer，relation 用 open；object_n 与 target_n 都填柜子的候选编号，后端只使用 target_n。"
     "不要把开抽屉写成 transfer，也不要改成上层抽屉、推动或旋钮。"
     "保留用户指定的位置关系，不能改选同类物体。goal 保留用户原句，标准任务不能覆盖用户原意。"
     "若存在多个合理实例或多个合理任务，返回一个具体澄清问题，不要猜测。"

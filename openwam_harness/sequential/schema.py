@@ -416,7 +416,7 @@ def free_submit_plan_tools() -> list[dict[str, Any]]:
                 "description": (
                     "Submit one step for the user goal on the current scene. "
                     "A placement uses skill transfer with object_n and target_n. "
-                    "Opening the loaded cabinet's middle drawer uses skill open_drawer with target_n only. "
+                    "Opening the loaded cabinet's middle drawer uses skill open_drawer; set object_n and target_n to the cabinet candidate and the backend uses target_n only. "
                     "The service derives instance ids. Do not invent tools, do not send code, and do not replace the user goal."
                 ),
                 "parameters": schema,
