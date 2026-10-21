@@ -371,13 +371,25 @@ class LiveBackend:
         )
 
     def _action_snapshot(self) -> dict | None:
-        """The state the action RPC left behind. A later observe() is not spliced in."""
+        """The state the action RPC left behind. A later observe() is not spliced in.
+
+        Camera ids come from the same frame stream observe() uses. The readonly
+        RPC does not carry cameras, and verify_step refuses a snapshot without
+        both cameras, so the action return borrows the stream's latest frame ids.
+        """
         snap = self._readonly_snapshot()
         if not isinstance(snap, dict):
             return None
         snap = dict(snap)
         snap["state_source"] = "action_return"
         snap["covers_action_count"] = snap.get("sim_action_count")
+        agent, wrist = self.frames()
+        record = self.toolkit.state.latest_record() if self.toolkit is not None else None
+        step = record.step_idx if record is not None else None
+        snap["cameras"] = {
+            "agentview": {"id": f"agentview:{step}", "bytes": len(agent or b"")},
+            "wrist": {"id": f"wrist:{step}", "bytes": len(wrist or b"")},
+        }
         return snap
 
     def _readonly_snapshot(self) -> dict | None:

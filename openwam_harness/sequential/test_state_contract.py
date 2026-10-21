@@ -31,6 +31,42 @@ def _snap(count: int, *, epoch=2, generation=1, service="svc-a", query=1, termin
 
 
 class StateContractTest(unittest.TestCase):
+    def test_action_snapshot_carries_stream_cameras_for_verify(self):
+        """The readonly RPC has no cameras. verify_step refuses a camera-less action snapshot."""
+        import tempfile
+        from pathlib import Path
+
+        from executor import ToolOutcome
+        from live import LiveBackend
+        from verify import verify_step
+
+        backend = object.__new__(LiveBackend)
+        backend.output_dir = Path(tempfile.mkdtemp())
+        backend.toolkit = None
+        backend.scene_epoch = 3
+        stamped = _snap(11, epoch=3)
+        self.assertNotIn("cameras", stamped)
+        backend._readonly_snapshot = lambda: dict(stamped)
+        snap = backend._action_snapshot()
+        self.assertEqual(snap["state_source"], "action_return")
+        self.assertEqual(snap["covers_action_count"], 11)
+        self.assertIn("agentview", snap["cameras"])
+        self.assertIn("wrist", snap["cameras"])
+        outcome = ToolOutcome(executed=True, env_step=11, raw={}, state_after=snap)
+        verdict = verify_step(
+            {"step_id": "observe", "completion_check": "observe_ready"},
+            outcome,
+            [snap],
+            scene_epoch=3,
+            min_step=None,
+            objects={},
+            support_z={},
+            goal_relation="on",
+        )
+        self.assertEqual(verdict["status"], "success")
+        self.assertEqual(verdict["reason_code"], "OBSERVE_READY")
+        self.assertNotEqual(snap.get("sim_action_count"), None)
+
     def test_pre_action_count_is_rejected_and_post_action_count_is_kept(self):
         before = _snap(10, query=1)
         early = _snap(9, query=2)
