@@ -134,6 +134,92 @@ class TransferGeometryTest(unittest.TestCase):
         with self.assertRaises(Exception):
             resolve_plan_bindings(generic, graph)
 
+    def test_fixture_target_site_reaches_localize_and_transport_checks(self):
+        """A cabinet has place_sites, not place_site. The resolved region is the pose."""
+        from pathlib import Path
+
+        from executor import ToolOutcome
+        from schema import prepare_plan
+        from verify import _target_reading, verify_step
+
+        bddl = Path(
+            "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
+            "liberopro/liberopro/bddl_files/libero_goal/put_the_bowl_on_the_stove.bddl"
+        )
+        catalog = _catalog(str(bddl))
+        names = [item["name"] for item in catalog["instances"] + catalog["fixtures"]]
+        objects = objects_for_names(names, catalog)
+        self.assertNotIn("place_site", objects["wooden_cabinet_1"])
+        self.assertIn("wooden_cabinet_1_top_side", objects["wooden_cabinet_1"]["place_sites"])
+        graph = scene_graph(objects, {}, scene_epoch=1, observation_id="cabinet")
+        cabinet = next(item["n"] for item in graph["nodes"] if item["object_ref"] == "wooden_cabinet_1")
+        bottle = next(item["n"] for item in graph["nodes"] if item["object_ref"] == "wine_bottle_1")
+        plan = {
+            "plan_id": "wine-top",
+            "goal": "把酒瓶放到柜子顶上。",
+            "candidate_set_version": graph["candidate_set_version"],
+            "scene_epoch": graph["scene_epoch"],
+            "steps": [{
+                "step_id": "step1",
+                "skill": "transfer",
+                "object_n": bottle,
+                "target_n": cabinet,
+                "relation": "on",
+                "prompt": "put the wine bottle on top of the cabinet",
+                "depends_on": [],
+                "preconditions": [],
+                "completion_check": "object_placed",
+                "budget": {"max_s": 180, "max_attempts": 1},
+                "on_failure": "stop",
+            }],
+        }
+        resolved, _bindings = resolve_plan_bindings(plan, graph)
+        prepared = prepare_plan(resolved, scene_objects=objects, execution_mode="free")
+        steps = {step["step_id"]: step for step in prepared["steps"]}
+        for key in ("move_step1", "descend_step1", "place_step1"):
+            self.assertEqual(steps[key]["target_region"], "wooden_cabinet_1_top_side", key)
+
+        site_xyz = [0.0, 0.2, 1.1]
+        obs = {
+            "observation_id": "cabinet-obs",
+            "scene_epoch": 1,
+            "env_step": 4,
+            "sim_action_count": 9,
+            "step_clock": "tool_record",
+            "timestamp": 4,
+            "cameras": {"agentview": {"id": "a"}, "wrist": {"id": "w"}},
+            "named_poses": {"sites": {"wooden_cabinet_1_top_side": list(site_xyz)}},
+            "sim": {
+                "objects": {"wine_bottle_1": {"pos": [-0.18, -0.05, 0.9], "identified": True}},
+                "eef_pos": [0.0, 0.0, 1.0],
+                "gripper_opening_m": 0.02,
+                "evidence_source": "sim_state",
+            },
+        }
+        seg = steps["seg_wooden_cabinet_1"]
+        self.assertEqual(seg["query_key"], "wooden_cabinet_1_top_side")
+        outcome = ToolOutcome(executed=True, env_step=4, xyz=[0.01, 0.19, 1.12], raw={"found": True})
+        verdict = verify_step(
+            seg,
+            outcome,
+            [obs],
+            scene_epoch=1,
+            min_step=None,
+            objects=prepared["objects"],
+            support_z={},
+            goal_relation="on",
+        )
+        self.assertEqual(verdict["status"], "success", verdict)
+        self.assertEqual(verdict["reason_code"], "OBJECT_LOCALIZED")
+        self.assertEqual(verdict["evidence_source"], "mujoco_site")
+        self.assertEqual(verdict["metrics"]["query_key"], "wooden_cabinet_1_top_side")
+
+        target = _target_reading(steps["move_step1"], prepared["objects"], obs)
+        self.assertEqual(target["status"], "ok")
+        self.assertEqual(target["xyz"], site_xyz)
+        self.assertEqual(target["query_key"], "wooden_cabinet_1_top_side")
+        self.assertEqual(target["evidence_source"], "mujoco_site")
+
 
 if __name__ == "__main__":
     unittest.main()

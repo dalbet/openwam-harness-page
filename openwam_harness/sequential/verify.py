@@ -172,6 +172,26 @@ _MATCH_M = 0.05
 _MARGIN_M = 0.03
 
 
+def _fixture_site(step, spec) -> str | None:
+    """The declared fixture site for this step.
+
+    ``place_site`` wins. Otherwise the binding-resolved region (the segment
+    step's ``query_key`` or the compiled step's ``target_region``) is used, but
+    only when it is one of the fixture's declared ``place_sites`` — a phrase
+    that merely looks like a region is never treated as a site.
+    """
+    if not isinstance(spec, dict):
+        return None
+    place_site = spec.get("place_site")
+    if isinstance(place_site, str) and place_site:
+        return place_site
+    declared = [item for item in (spec.get("place_sites") or []) if isinstance(item, str)]
+    for key in (step.get("query_key"), step.get("target_region")):
+        if isinstance(key, str) and key and key in declared:
+            return key
+    return None
+
+
 def _localized(step, outcome, observations, objects) -> dict[str, Any]:
     ids = _ids(observations)
     if outcome.xyz is None:
@@ -190,7 +210,12 @@ def _localized(step, outcome, observations, objects) -> dict[str, Any]:
         )
     bound = step.get("object_ref")
     spec = objects.get(bound) if isinstance(bound, str) else None
-    queried = _bound_pose(bound, spec, observations[-1] if observations else None, scene_epoch=_epoch(observations))
+    site = _fixture_site(step, spec)
+    query_spec = spec
+    if site and isinstance(spec, dict) and spec.get("place_site") != site:
+        query_spec = dict(spec)
+        query_spec["place_site"] = site
+    queried = _bound_pose(bound, query_spec, observations[-1] if observations else None, scene_epoch=_epoch(observations))
     if queried["status"] != "ok":
         return receipt(
             "failure",
@@ -206,7 +231,7 @@ def _localized(step, outcome, observations, objects) -> dict[str, Any]:
                 "confirm": False,
             },
         )
-    if spec.get("place_site"):
+    if site:
         return receipt(
             "success",
             "OBJECT_LOCALIZED",
@@ -715,12 +740,14 @@ def _target_reading(step: dict, objects: dict[str, Any], obs: dict) -> dict[str,
     """A fixture region is a site. A movable target stays in sim.objects."""
     ref = step.get("target_ref")
     spec = objects.get(ref) if isinstance(ref, str) else None
-    if isinstance(spec, dict) and spec.get("place_site"):
+    site = _fixture_site(step, spec)
+    if site and isinstance(spec, dict):
         from object_state import query_bound_state
 
+        query_spec = spec if spec.get("place_site") == site else {**spec, "place_site": site}
         found = query_bound_state(
             ref,
-            spec,
+            query_spec,
             obs if isinstance(obs, dict) else None,
             scene_epoch=(obs or {}).get("scene_epoch") if isinstance(obs, dict) else None,
             role="target",
