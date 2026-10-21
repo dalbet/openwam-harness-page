@@ -177,29 +177,124 @@ def planner_task_context(suite: str, names: set[str] | list[str]) -> list[dict[s
     return context
 
 
+_TRAILING = re.compile(r"[\s。.!！?？,，;；:：]+$")
+
+
+def normalize_phrase(text: str) -> str:
+    """Case, inner whitespace, and trailing punctuation only. on/in and the objects stay distinct."""
+    value = str(text or "").strip().lower().replace("\u3000", " ")
+    value = re.sub(r"\s+", " ", value)
+    return _TRAILING.sub("", value)
+
+
+def _row_phrases(row: dict[str, Any]) -> list[tuple[str, str]]:
+    phrases = [
+        (row.get("instruction_en"), "instruction_en"),
+        (row.get("instruction_zh"), "instruction_zh"),
+    ]
+    for item in row.get("paraphrases_zh") or []:
+        phrases.append((item, "paraphrase_zh"))
+    return [(phrase, source) for phrase, source in phrases if isinstance(phrase, str) and phrase.strip()]
+
+
 def lookup_task(task_key: str | None, instruction_en: str | None, suite: str, names: set[str] | list[str]) -> dict[str, Any] | None:
+    """Metadata for a standard sentence. A missing row is not an execution denial."""
     rows = tasks_for_scene(suite, names)
+    wanted = instruction_en.strip() if isinstance(instruction_en, str) else ""
+    if wanted:
+        norm = normalize_phrase(wanted)
+        for row in rows:
+            if any(normalize_phrase(phrase) == norm for phrase, _source in _row_phrases(row)):
+                return row
+        return None
     if isinstance(task_key, str) and task_key:
         for row in rows:
             if row["task_key"] == task_key:
                 return row
-    if isinstance(instruction_en, str) and instruction_en.strip():
-        wanted = instruction_en.strip()
-        for row in rows:
-            if row["instruction_en"] == wanted:
-                return row
     return None
 
 
+def goal_alignment(typed: str, spec: dict[str, Any]) -> str:
+    """native when the request is the loaded task sentence. Otherwise the request is judged on its own."""
+    text = typed.strip() if isinstance(typed, str) else ""
+    if not text:
+        return "native"
+    phrases = [spec.get("summary_zh"), spec.get("goal"), spec.get("task")]
+    if any(isinstance(item, str) and item.strip() and normalize_phrase(item) == normalize_phrase(text) for item in phrases):
+        return "native"
+    return "requested"
+
+
+def match_task_text(suite: str, text: str, tasks: list[dict[str, Any]]) -> dict[str, Any]:
+    """Resolve one loaded task inside the selected suite. Load routing, not a start-time whitelist."""
+    from capabilities import DEFAULT_TASK_ID
+
+    default_id = DEFAULT_TASK_ID[suite]
+    if not isinstance(text, str) or not text.strip():
+        return {
+            "status": "empty",
+            "task_id": default_id,
+            "source": "default",
+            "matched_task": None,
+            "task_key": None,
+        }
+    wanted = normalize_phrase(text)
+    found: dict[int, tuple[dict[str, Any], str]] = {}
+    for task in tasks:
+        phrases = [
+            (task.get("summary_zh") or task.get("instruction_zh"), "instruction_zh"),
+            (task.get("language") or task.get("instruction_en"), "instruction_en"),
+        ]
+        language = task.get("language") or task.get("instruction_en") or ""
+        for item in PARAPHRASES.get(language) or []:
+            phrases.append((item, "paraphrase_zh"))
+        for extra in task.get("paraphrases_zh") or []:
+            phrases.append((extra, "paraphrase_zh"))
+        for phrase, source in phrases:
+            if isinstance(phrase, str) and phrase.strip() and normalize_phrase(phrase) == wanted:
+                found.setdefault(int(task["id"] if "id" in task else task["task_id"]), (task, source))
+                break
+    if len(found) == 1:
+        task_id, (task, source) = next(iter(found.items()))
+        return {
+            "status": "matched",
+            "task_id": task_id,
+            "source": source,
+            "matched_task": task.get("summary_zh") or task.get("instruction_zh") or task.get("language") or task.get("instruction_en"),
+            "task_key": task.get("task_key"),
+        }
+    if len(found) > 1:
+        listed = "、".join(
+            f"task {task_id} {found[task_id][0].get('summary_zh') or found[task_id][0].get('language') or ''}"
+            for task_id in sorted(found)
+        )
+        return {
+            "status": "ambiguous",
+            "task_id": None,
+            "source": None,
+            "matched_task": None,
+            "task_key": None,
+            "detail": f"匹配到多个任务，不会默认第一条：{listed}",
+        }
+    return {
+        "status": "unknown",
+        "task_id": None,
+        "source": None,
+        "matched_task": None,
+        "task_key": None,
+        "detail": "不是该套件已核对的中文或英文标准任务名",
+    }
+
+
 def single_task_block(plan: dict[str, Any], row: dict[str, Any] | None) -> str | None:
-    """Refuse combo plans and unsupported skills after the model answers. Do not execute them."""
+    """Refuse combo plans and a matched standard task whose skill or region is not executable."""
     count = plan.get("semantic_step_count")
     if not isinstance(count, int):
         count = len([step for step in (plan.get("steps") or []) if isinstance(step, dict) and step.get("skill") == "transfer"])
     if count > 1:
         return "当前仅执行单任务，不会按组合目标继续。"
     if row is None:
-        return "标准指令不在当前场景的任务目录中，不会切换场景。"
+        return None
     if row.get("executor_support") == "unsupported_skill":
         return row.get("support_reason") or "执行器缺少该任务所需技能。"
     if row.get("executor_support") == "unresolved_region":

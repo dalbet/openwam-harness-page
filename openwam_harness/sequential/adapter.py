@@ -33,9 +33,43 @@ DIAGNOSTIC_S = float(os.environ.get("SEQUENTIAL_DIAGNOSTIC_S", "0"))
 LOAD_TIMEOUT_S = float(os.environ.get("SEQUENTIAL_LOAD_TIMEOUT_S", "300"))
 PLANNER_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "Qwen3.5-9B")
-STATIC_VERSION = "view15"
+STATIC_VERSION = "view16"
 RUN_LIMIT_S = 180.0
 EXECUTION_LABEL = "同步"
+
+
+def completion_phase(result: dict, plan: dict | None, execution_mode: str) -> tuple[str, str, str]:
+    """Map one run to a phase. Native success of a different loaded task is not the requested goal."""
+    status = str(result.get("status") or "")
+    reason = str(result.get("reason") or status)
+    native = bool(result.get("native_success") or result.get("native_task_success"))
+    alignment = (plan or {}).get("goal_alignment") or "native"
+    user_status = result.get("user_goal_status")
+    if status == "stopped_at_check":
+        return "stopped", status, "诊断停止 · " + (result.get("reason") or "")
+    if status == "diagnostic_saved":
+        return "stopped", status, "预算到时 · " + (result.get("reason") or "")
+    if alignment == "requested" and status not in {"failed", "exception", "needs_clarification"}:
+        if user_status == "met":
+            return "completed", "completed", "用户目标完成"
+        if user_status == "unmet" and native:
+            return "incomplete", status, "当前加载任务的原生目标已达成，请求目标未完成"
+        if user_status == "unmet":
+            return "incomplete", status, "请求目标未完成"
+        if result.get("retreat_error"):
+            return "incomplete", status, "退离未完成，请求目标未能复查"
+        return "incomplete", status, "请求目标未验证"
+    if native or (status == "completed" and result.get("reason") == "NATIVE_SUCCESS"):
+        return "completed", "completed", "任务完成"
+    if execution_mode == "free" and user_status == "met":
+        return "incomplete", status, "计划已执行，环境未判定成功"
+    if status == "completed":
+        return "incomplete", status, "计划已执行，环境未判定成功"
+    if status == "needs_clarification":
+        return "failed", status, result.get("reason") or "定位结果无法区分多个候选"
+    if (result.get("execution") or {}).get("reason_code") == "manual_unknown" or reason.startswith("manual_unknown"):
+        return "waiting_confirmation", "insufficient_evidence", "证据不足 · " + (result.get("reason") or "")
+    return "failed", status, reason
 
 
 def _git_head() -> str:
@@ -715,6 +749,13 @@ class App:
                     "scene_epoch": self.session.scene_epoch,
                     "mode": "dry",
                     "placeholder": True,
+                    "summary_zh": spec.get("summary_zh"),
+                    "suite": spec.get("suite"),
+                    "task_id": spec.get("task_id"),
+                    "seed": spec.get("seed"),
+                    "task_source": spec.get("task_source"),
+                    "matched_task": spec.get("matched_task"),
+                    "match_source": spec.get("match_source"),
                     "scene": {
                         "task_language": spec["goal"],
                         "object_names": [],
@@ -823,6 +864,8 @@ class App:
                 "task_id": spec["task_id"],
                 "seed": spec["seed"],
                 "task_source": spec.get("task_source"),
+                "matched_task": spec.get("matched_task"),
+                "match_source": spec.get("match_source"),
                 "execution": EXECUTION_LABEL,
                 "scene": info,
                 "timings": box.get("timings") or {},
@@ -887,7 +930,15 @@ class App:
             self.suites = _annotate_suites(load_suites())
         spec = resolve_load(message, self.suites)
         self.log(
-            f"seed fixed={spec['seed']} suite={spec['suite']} task={spec['task_id']} source={spec['task_source']}"
+            "seed fixed=%s suite=%s task=%s source=%s matched_task=%s match_source=%s"
+            % (
+                spec["seed"],
+                spec["suite"],
+                spec["task_id"],
+                spec["task_source"],
+                spec.get("matched_task"),
+                spec.get("match_source"),
+            )
         )
         return spec
 
@@ -1254,26 +1305,46 @@ class App:
             self.runs.complete_from_producer(lambda _released: self.broadcast(self.snapshot()))
 
     def _reject_catalog(self, plan: dict, spec: dict, scene_objects: dict, run_id: int, episode: str) -> bool:
-        """Refuse a plan the current scene cannot run. Do not switch tasks or keep the old plan."""
+        """Admit a plan by objects, regions, and skills. The catalog sentence is not a credential."""
+        from skills import skill_rejection
         from task_catalog import lookup_task, single_task_block
 
         names = list(scene_objects)
         row = lookup_task(plan.get("matched_task_key"), plan.get("canonical_instruction"), spec.get("suite") or "", names)
         block = single_task_block(plan, row)
-        if row is not None and not block:
-            bindings = plan.get("plan_bindings") or []
-            bound_object = next((item.get("instance_ref") for item in bindings if item.get("role") == "object"), None)
-            bound_target = next((item.get("instance_ref") for item in bindings if item.get("role") == "target"), None)
-            if bound_object != row.get("source_object") or bound_target != row.get("target_object"):
-                block = "标准任务与当前绑定的物体或目标不一致，不会改用目录里的其他物体。"
+        code = ""
+        if block:
+            if int(plan.get("semantic_step_count") or 0) > 1:
+                code = "single_task_only"
+            else:
+                code = str((row or {}).get("executor_support") or "unsupported_skill")
+        if not block:
+            for ref, item in (plan.get("objects") or {}).items():
+                if not isinstance(item, dict):
+                    continue
+                sim = str(item.get("sim_name") or ref)
+                if sim not in scene_objects and ref not in scene_objects:
+                    block = f"当前场景没有物体 {sim}"
+                    code = "object_missing"
+                    break
+        if not block:
+            for step in plan.get("steps") or []:
+                if not isinstance(step, dict):
+                    continue
+                skill = str(step.get("skill") or "")
+                if skill in {"", "view_env_state", "segment", "pi0_pick", "move_to", "set_gripper", "pause_for_confirm", "transfer"}:
+                    continue
+                reason = skill_rejection(skill)
+                if reason:
+                    block = reason
+                    code = "SKILL_UNSUPPORTED"
+                    break
         if not block:
             return False
-        if int(plan.get("semantic_step_count") or 0) > 1:
-            code = "single_task_only"
-        elif row is None:
-            code = "task_not_in_scene"
-        else:
-            code = str(row.get("executor_support") or "unsupported_skill")
+        stage = "skill_unsupported" if code in {"unsupported_skill", "SKILL_UNSUPPORTED"} else "validation_failed"
+        self.runs.planner_stage = stage
+        self.runs.execution_started = False
+        self.broadcast({"type": "planner_io", "stage": stage, "errors": [{"path": "plan", "code": code, "expected": block}]})
         self._active_plan = None
         self.task_view = _task_view(plan, spec, scene_objects, plan.get("user_instruction") or "")
         self.task_view["failure"] = {"reason_code": code, "reason": block, "evidence": block, "step_id": ""}
@@ -1328,6 +1399,9 @@ class App:
                 "user_text": "",
                 "summary_zh": spec.get("summary_zh") or "",
                 "goal": spec.get("goal") or "",
+                "loaded_native_goal": spec.get("goal") or "",
+                "requested_goal": spec.get("summary_zh") or spec.get("goal") or "",
+                "goal_alignment": "native",
                 "run_id": run_id,
             })
         else:
@@ -1355,13 +1429,19 @@ class App:
             ordered = bool(prepared.get("ordered"))
             alias_hints = prepared.get("alias_hints") or []
             canonical = typed or spec.get("summary_zh") or ""
+            from task_catalog import goal_alignment
+
+            alignment = goal_alignment(typed, spec)
             self._note(run_id, "task_check", "ok", detail=canonical)
             self.broadcast({
                 "type": "task_bound",
                 "used_loaded_goal": not bool(typed),
                 "user_text": user_text if typed else "",
-                "summary_zh": canonical,
+                "summary_zh": spec.get("summary_zh") or "",
                 "goal": canonical,
+                "loaded_native_goal": spec.get("goal") or "",
+                "requested_goal": canonical,
+                "goal_alignment": alignment,
                 "run_id": run_id,
                 "execution_mode": "free",
             })
@@ -1375,7 +1455,7 @@ class App:
                 "object_ref": None,
                 "positions": binding.get("positions") or {},
                 "alias_hints": alias_hints,
-                "note": "自由模式不在进 Planner 前绑定名称。仿真位姿不是视觉判断，也不切换任务。",
+                "note": "不在进 Planner 前绑定名称。仿真位姿不是视觉判断，也不切换任务。",
             }
         else:
             decision = self._instruction_decision(typed, spec)
@@ -1399,21 +1479,21 @@ class App:
                     "run_id": run_id,
                 })
             if decision.get("changed"):
-                self._note(run_id, "task_switch", "rejected", code="scene_switch_on_start", detail=decision.get("summary_zh") or "")
-                self._fail_run(episode, "开始不会切换场景。请先在官方任务选择中加载对应任务。")
-                return
-            canonical = decision.get("language") or spec.get("goal") or ""
-            row = decision.get("capability") or {}
-            from capabilities import reject_reason
+                self._note(run_id, "task_switch", "kept", code="scene_kept", detail="开始不会切换场景")
+                canonical = typed or spec.get("summary_zh") or spec.get("goal") or ""
+            else:
+                canonical = decision.get("language") or spec.get("goal") or ""
+                row = decision.get("capability") or {}
+                from capabilities import reject_reason
 
-            reason = reject_reason(row) if row else None
-            if reason:
-                self._note(run_id, "capability", "rejected", code="unsupported_skill", detail=reason)
-                self._fail_run(episode, reason)
-                return
-            spec = dict(spec)
-            spec["goal"] = canonical
-            spec["task"] = canonical
+                reason = reject_reason(row) if row else None
+                if reason:
+                    self._note(run_id, "capability", "rejected", code="unsupported_skill", detail=reason)
+                    self._fail_run(episode, reason)
+                    return
+                spec = dict(spec)
+                spec["goal"] = canonical
+                spec["task"] = canonical
             scene_objects, binding, info = self._scene_binding(spec)
         self.scene_spec = spec
         self._note(run_id, "binding", binding.get("status") or "unknown", detail=binding.get("object_ref") or binding.get("evidence_source") or "")
@@ -1563,9 +1643,15 @@ class App:
         )
         attempts = _public_attempts(result.get("attempts") or [])
         self._store_attempts(attempts, result)
+        reported_stage = result.get("stage") or "validation_failed"
+        if result.get("status") == "ok":
+            reported_stage = "checking"
+        else:
+            self.runs.planner_stage = reported_stage
+            self.runs.execution_started = False
         self._emit_planner(
             plan_source=result.get("plan_source"),
-            stage=result.get("stage") or "validation_failed",
+            stage=reported_stage,
             summary=scene_text[:500],
             output="",
             errors=result.get("errors") or [],
@@ -1591,20 +1677,29 @@ class App:
             self._close_run("failed", question, code="clarify")
             return
         if result["status"] != "ok" or result["plan"] is None:
-            self._note(run_id, "validate", "failed", code=result.get("stage") or "validation_failed", detail="PLANNING_FAILED")
-            self._fail_run(episode, "PLANNING_FAILED")
+            stage = result.get("stage") or "validation_failed"
+            detail = "SKILL_UNSUPPORTED" if stage == "skill_unsupported" else "PLANNING_FAILED"
+            self._note(run_id, "validate", "failed", code=stage, detail=detail)
+            self._fail_run(episode, detail)
             return
-        self._note(run_id, "validate", "ok", detail=result.get("stage") or "ok")
         plan = result["plan"]
         typed_goal = user_text.strip()
         if typed_goal:
             plan["user_instruction"] = typed_goal
         elif not plan.get("user_instruction"):
             plan["user_instruction"] = plan.get("goal") or ""
+        from task_catalog import goal_alignment
+
+        plan["loaded_native_goal"] = spec.get("goal") or ""
+        plan["requested_goal"] = typed_goal or spec.get("summary_zh") or spec.get("goal") or ""
+        plan["goal_alignment"] = goal_alignment(typed_goal, spec)
         if free:
             blocked = self._reject_catalog(plan, spec, scene_objects, run_id, episode)
             if blocked:
                 return
+        self._note(run_id, "validate", "ok", detail="ok")
+        self.runs.planner_stage = "ok"
+        self.broadcast({"type": "planner_io", "stage": "ok"})
         self.task_view = _task_view(plan, spec, scene_objects, plan.get("user_instruction") or typed_goal)
         self.broadcast({"type": "task_view", "task_view": self.task_view})
         self._active_plan = plan
@@ -1655,6 +1750,7 @@ class App:
         def on_event(event: dict) -> None:
             if event.get("phase") == "executing":
                 self.runs.set_phase("executing")
+                self.runs.execution_started = True
             if event.get("phase") == "waiting_confirmation":
                 self.runs.set_phase("waiting_confirmation")
                 event = dict(event)
@@ -1726,53 +1822,10 @@ class App:
             self._close_run(phase, reason, code=code, ended=self._ended_from(report, episode, plan, False))
             return
         native = bool(result["native_success"])
-        reason = result["reason"] or result["status"]
-        status = result["status"]
         code = (result.get("execution") or {}).get("reason_code")
-        if status == "stopped_at_check":
-            phase = "stopped"
-            reason = "诊断停止 · " + (result["reason"] or "")
-        elif status == "diagnostic_saved":
-            phase = "stopped"
-            reason = "预算到时 · " + (result["reason"] or "")
-        elif self.execution_mode == "free":
-            user_status = result.get("user_goal_status")
-            native_ok = bool(result.get("native_task_success"))
-            if user_status == "met":
-                phase = "completed"
-                status = "completed"
-                reason = "用户目标完成"
-            elif user_status == "unmet" and native_ok:
-                phase = "incomplete"
-                reason = "原生目标已达成，用户组合目标未完成"
-            elif user_status == "unmet":
-                phase = "incomplete"
-                reason = "用户目标未完成"
-            elif result.get("retreat_error"):
-                phase = "incomplete"
-                reason = "退离未完成，用户目标未能复查"
-            elif status == "completed":
-                phase = "incomplete"
-                reason = "计划已执行，用户目标未完成"
-            else:
-                phase = "failed"
-        elif native or (status == "completed" and result.get("reason") == "NATIVE_SUCCESS"):
-            phase = "completed"
-            status = "completed"
-            reason = "任务完成"
-        elif status == "completed":
-            phase = "incomplete"
-            reason = "计划已执行，环境未判定成功"
-        elif status == "needs_clarification":
-            phase = "failed"
-            reason = result.get("reason") or "定位结果无法区分多个候选"
+        phase, status, reason = completion_phase(result, plan, self.execution_mode)
+        if result.get("status") == "needs_clarification":
             self.broadcast({"type": "clarify", "question": reason, "candidates": (result.get("execution") or {}).get("candidates") or []})
-        elif code == "manual_unknown" or str(result.get("reason") or "").startswith("manual_unknown"):
-            phase = "waiting_confirmation"
-            status = "insufficient_evidence"
-            reason = "证据不足 · " + (result["reason"] or "")
-        else:
-            phase = "failed"
         self._apply_report(result)
         self.runs.execution = result.get("execution")
         self.runs.plan_summary = str(plan.get("goal") or "")[:200]
@@ -1790,7 +1843,7 @@ class App:
                 "status": status,
                 "detail": result["status"],
                 "term": True,
-                "success": bool(result.get("user_goal_success")) if self.execution_mode == "free" else native,
+                "success": phase == "completed",
                 "native_task_success": bool(result.get("native_task_success")),
                 "user_goal_success": result.get("user_goal_success"),
                 "reason": reason,
@@ -1803,7 +1856,7 @@ class App:
             code=code or "",
             ended={
                 "episode_id": episode,
-                "success": bool(result.get("user_goal_success")) if self.execution_mode == "free" else native,
+                "success": phase == "completed",
                 "reason": reason,
                 "native_success": native,
                 "native_task_success": bool(result.get("native_task_success")),
@@ -1816,7 +1869,8 @@ class App:
                 "execution_mode": self.execution_mode,
                 "plan_source": plan.get("plan_source"),
                 "status": status,
-                "planner_stage": plan.get("planner_stage"),
+                "planner_stage": self.runs.planner_stage or plan.get("planner_stage"),
+                "execution_started": self.runs.execution_started,
                 "execution": result.get("execution"),
                 "frames": getattr(getattr(self.backend, "frame_bus", None), "stats", lambda: {})(),
                 "client_frames": self.client_frames,
@@ -1916,6 +1970,8 @@ class App:
                 "task_id": spec["task_id"],
                 "seed": spec["seed"],
                 "task_source": spec.get("task_source"),
+                "matched_task": spec.get("matched_task"),
+                "match_source": spec.get("match_source"),
                 "execution": EXECUTION_LABEL,
             }
         )
@@ -2117,6 +2173,8 @@ class App:
                 "native_success": False,
                 "native_task_success": False,
                 "user_goal_success": False,
+                "planner_stage": self.runs.planner_stage,
+                "execution_started": False,
             },
         )
 
@@ -2126,7 +2184,16 @@ class App:
         if not first:
             self.broadcast(self.snapshot())
             return
-        self.broadcast({"type": "state", "phase": phase, "detail": self.runs.root_error or reason, "mode": "live", "root_error": self.runs.root_error})
+        self.broadcast({
+            "type": "state",
+            "phase": phase,
+            "detail": self.runs.root_error or reason,
+            "mode": "live",
+            "root_error": self.runs.root_error,
+            "planner_stage": self.runs.planner_stage,
+            "execution_started": self.runs.execution_started,
+            "run_id": self.runs.run_id,
+        })
         payload = {
             "type": "ended",
             "episode_id": self.session.episode_id,
@@ -2134,6 +2201,9 @@ class App:
             "reason": self.runs.root_error or reason,
             "root_error": self.runs.root_error,
             "run_phase": phase,
+            "planner_stage": self.runs.planner_stage,
+            "execution_started": self.runs.execution_started,
+            "run_id": self.runs.run_id,
         }
         if ended:
             payload.update(ended)

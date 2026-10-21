@@ -77,7 +77,6 @@ class LoadContractTest(unittest.TestCase):
             ({"suite": "nope"}, "suite"),
             ({"suite": "libero_spatial", "task_id": 40}, "task_id"),
             ({"suite": "libero_spatial", "task_id": True}, "task_id"),
-            ({"suite": "libero_goal", "task_id": 0}, "task_id"),
         ):
             with self.assertRaises(FieldError) as caught:
                 resolve_load(payload, catalog())
@@ -104,13 +103,13 @@ class LoadContractTest(unittest.TestCase):
         app.broadcast = messages.append
         app.suites = catalog()
         app.load({"type": "load", "suite": "nope"})
-        app.load({"type": "load", "suite": "libero_goal", "task_id": 0})
+        app.load({"type": "load", "suite": "libero_goal", "task_text": "没有这句标准任务"})
         self.assertFalse(app.loading)
         details = [item.get("detail", "") for item in messages if item.get("type") == "load_failed"]
         self.assertEqual(len(details), 2)
         self.assertFalse(any("已有加载在进行" in item for item in details))
         self.assertTrue(any(item.get("field", {}).get("path") == "suite" for item in messages))
-        self.assertTrue(any(item.get("field", {}).get("code") == "unsupported" for item in messages))
+        self.assertTrue(any(item.get("field", {}).get("code") == "unknown" for item in messages))
 
     def test_missing_loaded_task_does_not_guess(self):
         with self.assertRaises(TypeError):

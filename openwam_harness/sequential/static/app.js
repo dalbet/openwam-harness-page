@@ -9,7 +9,7 @@ const suiteSel = $("suite"), modeSel = $("execution-mode"), progressEl = $("prog
   agentView = $("agent-view"), wristView = $("wrist-view"),
   phAgent = $("ph-agent"), phWrist = $("ph-wrist"), statusEl = $("status"),
   plannerText = $("planner-text"),
-  examplesEl = $("examples"), taskSummaryEl = $("task-summary"),
+  taskSummaryEl = $("task-summary"),
   taskStepsEl = $("task-steps"), diagText = $("diag-text");
 
 const agCtx = agentCanvas.getContext("2d");
@@ -29,6 +29,8 @@ let sceneEpoch = null;
 let planVersion = 1;
 let waiting = false;
 let lastPlannerStage = "";
+let executionStarted = false;
+let shownRunId = null;
 let lastExec = null;
 let lastRunStatus = "";
 let framesReceived = 0;
@@ -192,11 +194,12 @@ function handleText(txt){
       if (m.status === "ready") applyCatalog(m.suites || []);
       break;
     case "loaded":
-      renderExamples(m.scene_examples);
       rootError = "";
+      lastPlannerStage = "";
+      executionStarted = false;
       curEid = null; acceptEid = null; gate = false; clearBuffer();
       episode = m.episode_id; sceneEpoch = m.scene_epoch; planVersion = m.plan_version || 1;
-      goalEl.textContent = m.summary_zh ? `当前目标：${m.summary_zh}` : `当前目标：${m.instruction || ""}`;
+      goalEl.textContent = `已加载：${m.suite || ""} task ${m.task_id ?? "?"} ${m.summary_zh || m.instruction || ""}`;
       taskIn.disabled = false;
       if (restartBtn) restartBtn.disabled = false;
       setConfirm(false);
@@ -205,9 +208,7 @@ function handleText(txt){
         phAgent.textContent = "干跑，无图像"; phWrist.textContent = "干跑，无图像";
       } else {
         const scene = m.scene || {};
-        const loadedTask = $("loaded-task");
-        if (loadedTask) loadedTask.textContent = `已加载：${m.suite || scene.suite || ""} task ${m.task_id ?? scene.task_id ?? "?"}。重置恢复这个任务和初始状态。`;
-        const loadedDetail = `${m.suite || scene.suite || ""} task ${m.task_id ?? scene.task_id ?? "?"} seed ${m.seed ?? scene.seed ?? "?"} · step ${scene.env_step ?? "?"}`;
+        const loadedDetail = `${m.suite || scene.suite || ""} task ${m.task_id ?? scene.task_id ?? "?"} seed ${m.seed ?? scene.seed ?? "?"} · ${m.match_source || m.task_source || ""} · step ${scene.env_step ?? "?"}`;
         const plannerNote = plannerReady() ? "" : " · Planner 未连接";
         setStatus("场景已加载", loadedDetail + plannerNote, plannerReady() ? "good" : "warn");
         phAgent.textContent = "等待画面"; phWrist.textContent = "等待画面";
@@ -227,13 +228,14 @@ function handleText(txt){
         break;
       }
       rootError = "";
-      if (m.used_loaded_goal) goalEl.textContent = `实际执行：${m.summary_zh || m.goal || ""}`;
-      else goalEl.textContent = `输入保留：${m.user_text || ""} · 规范：${m.summary_zh || m.goal || ""}`;
+      lastPlannerStage = "";
+      executionStarted = false;
+      shownRunId = m.run_id ?? shownRunId;
+      goalEl.textContent = goalLine(m);
       setStatus("检查任务", m.client_request_id || "");
       break;
     case "task_bound":
-      if (m.used_loaded_goal) goalEl.textContent = `实际执行：${m.summary_zh || m.goal || ""}`;
-      else goalEl.textContent = `输入保留：${m.user_text || ""} · 规范：${m.summary_zh || m.goal || ""}`;
+      goalEl.textContent = goalLine(m);
       break;
     case "run_stage":
       if (m.stage === "planner_request" || m.stage === "planner_response") setStatus("规划中", m.detail || m.code || "", m.status === "failed" || m.status === "rejected" ? "bad" : "");
@@ -267,12 +269,18 @@ function handleText(txt){
       else if (m.phase === "failed" || m.phase === "executing" || m.phase === "planning") setConfirm(false);
       if (m.execution) rememberExec(m.execution);
       if (m.planner_stage) lastPlannerStage = m.planner_stage;
+      if (m.execution_started) executionStarted = true;
+      if (m.run_id != null && m.run_id !== shownRunId) {
+        shownRunId = m.run_id;
+        rootError = m.root_error || "";
+        if (!m.planner_stage) lastPlannerStage = "";
+        if (!m.execution_started) executionStarted = false;
+      }
       if ((m.phase === "failed" || m.phase === "waiting_confirmation") && !rootError) {
         rootError = (m.root_error || (m.execution && m.execution.reason) || m.reason || m.detail || "");
       }
-      if (!terminalReached && lastPlannerStage === "ok" && m.phase === "failed") {
-        setStatus("规划通过，执行失败", (m.execution && m.execution.reason) || m.reason || m.detail || "", "bad");
-      } else if (!terminalReached && lastPlannerStage === "ok" && m.phase === "waiting_confirmation") {
+      if (!terminalReached && m.phase === "failed") setStatus(failureLabel(), (m.execution && m.execution.reason) || m.root_error || m.reason || m.detail || "", "bad");
+      else if (!terminalReached && lastPlannerStage === "ok" && m.phase === "waiting_confirmation") {
         setStatus("规划通过，执行暂停", (m.execution && m.execution.reason) || m.detail || "", "warn");
       } else if (!terminalReached) setStatus(PHASES[m.phase] || m.phase || "state", statusDetail(m), m.phase === "failed" ? "bad" : "");
       if (m.phase === "executing" && progressEl) progressEl.textContent = `子目标：${m.subtask || m.step_id || m.detail || "执行中"}`;
@@ -297,7 +305,7 @@ function handleText(txt){
         const nativeText = m.native_task_success == null ? "" : (m.native_task_success ? "原生目标已达成" : "原生目标未达成");
         const userText = m.user_goal_status === "met" ? "用户目标已完成" : (m.user_goal_status === "unmet" ? "用户目标未完成" : (m.user_goal_status === "unknown" ? "用户目标未复查" : ""));
         const retreatText = m.retreat_error ? "退离异常" : "";
-        progressEl.textContent = [m.execution_mode === "free" ? "自由模式" : "", m.execution_status || "", nativeText, userText, retreatText].filter(Boolean).join(" · ");
+        progressEl.textContent = [m.execution_status || "", nativeText, userText, retreatText].filter(Boolean).join(" · ");
       }
       if (!rootError && m.success !== true) rootError = m.root_error || m.reason || "";
       endedFallback = m;
@@ -351,43 +359,6 @@ function applyCatalog(items){
   suiteSel.disabled = false;
   loadBtn.disabled = false;
   if (suitePoll) { clearInterval(suitePoll); suitePoll = null; }
-  renderOfficial();
-}
-let pendingOfficial = null;
-function renderOfficial(){
-  const box = $("official-list");
-  const pending = $("official-pending");
-  if (!box) return;
-  box.textContent = "";
-  const suite = suites.find((item) => item.id === suiteSel.value);
-  if (!suite || suite.id !== "libero_goal") {
-    if (pending) pending.textContent = "当前套件不是 libero_goal。";
-    return;
-  }
-  (suite.tasks || []).forEach((task) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    const label = task.code_status || "未实现";
-    button.textContent = `task ${task.id} ${task.summary_zh || task.language || ""} · ${label}`;
-    button.onclick = () => selectOfficial(task);
-    box.appendChild(button);
-  });
-  if (pending && !pendingOfficial) pending.textContent = "尚未选择。Goal 任务不会默认加载 task 1，开始也不会切换场景。";
-}
-function selectOfficial(task){
-  const pending = $("official-pending");
-  const steps = $("official-steps");
-  const label = `${task.code_status || "未实现"} · ${task.acceptance_label || "尚未验收"}`;
-  if (steps) steps.textContent = task.manual_steps || "";
-  if (task.loadable === false) {
-    pendingOfficial = null;
-    if (pending) pending.textContent = `task ${task.id} 不能加载。${label}。${task.manual_steps || ""}`;
-    return;
-  }
-  pendingOfficial = task;
-  taskIn.value = task.summary_zh || "";
-  taskEdited = true;
-  if (pending) pending.textContent = `即将加载：libero_goal task ${task.id} · ${task.summary_zh || ""} · ${task.language || ""} · ${label}。点加载场景才会更换场景。`;
 }
 
 function renderHealth(m){
@@ -404,9 +375,28 @@ const STAGES = {
   binding_unresolved: "对象待确认",
   ok: "通过"
 };
+function goalLine(m){
+  const loaded = m.loaded_native_goal || m.summary_zh || m.goal || "";
+  if (m.used_loaded_goal || !m.user_text) return `已加载：${loaded}`;
+  return `请求：${m.user_text} · 已加载：${loaded}`;
+}
+function stageLabel(stage){
+  if (stage === "request_failed") return "模型请求失败";
+  if (stage === "parse_failed") return "输出解析失败";
+  if (stage === "validation_failed" || stage === "checking") return "计划校验失败";
+  if (stage === "skill_unsupported") return "技能未实现";
+  if (stage === "ok" && executionStarted) return "执行失败";
+  if (stage === "ok") return "规划通过";
+  return "失败";
+}
+function failureLabel(){
+  return stageLabel(lastPlannerStage);
+}
 function renderPlanner(m){
-  lastPlannerStage = m.stage || lastPlannerStage;
+  if (m.stage) lastPlannerStage = m.stage;
   if (!plannerText) return;
+  const hasBody = m.summary || (m.attempts && m.attempts.length) || m.output || (m.errors && m.errors.length) || m.question;
+  if (!hasBody) return;
   const input = plannerInputText(m);
   const output = plannerOutputText(m);
   plannerText.textContent = `输入\n${input || "没有输入"}\n\n输出\n${output || "没有输出"}`;
@@ -594,10 +584,8 @@ function showResult(success, reason, status){
     setStatus(String(text).indexOf("原生目标") >= 0 ? "原生目标已达成" : "计划已执行，环境未判定成功", text, "warn");
   } else if (success || kind === "completed") {
     setStatus(String(text).indexOf("用户目标") >= 0 ? "用户目标完成" : "任务完成", text, "good");
-  } else if (lastPlannerStage === "ok") {
-    setStatus("规划通过，执行失败", text, "bad");
   } else {
-    setStatus("执行失败", reason || "", "bad");
+    setStatus(failureLabel(), text || reason || "", "bad");
   }
   if (restartBtn) restartBtn.disabled = false;
   syncRunButtons();
@@ -617,37 +605,11 @@ function tick(){
 loadBtn.onclick = () => {
   if (!wsConnected) return;
   if (!suiteSel.value) return;
-  const payload = {type:"load", suite: suiteSel.value, client_request_id: `load-${Date.now()}`};
-  if (suiteSel.value === "libero_goal") {
-    if (!pendingOfficial || pendingOfficial.loadable === false) {
-      setStatus("已拒绝", "请先在官方任务选择中选定可加载的任务", "warn");
-      return;
-    }
-    payload.task_id = pendingOfficial.id;
-  }
+  const payload = {type:"load", suite: suiteSel.value, task_text: taskIn.value, client_request_id: `load-${Date.now()}`};
   loadBtn.disabled = true;
-  setStatus("加载中", payload.task_id == null ? suiteSel.value : `${suiteSel.value} task ${payload.task_id}`);
+  setStatus("加载中", `${suiteSel.value} ${taskIn.value || "默认任务"}`);
   send(payload);
 };
-function renderExamples(items){
-  if (!examplesEl) return;
-  examplesEl.textContent = "";
-  const list = items || [];
-  if (!list.length) return;
-  const label = document.createElement("span");
-  label.textContent = "当前场景示例 ";
-  examplesEl.appendChild(label);
-  list.forEach((item) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = item.input_zh || item.text || "";
-    button.onclick = () => {
-      taskIn.value = item.text;
-      taskEdited = true;
-    };
-    examplesEl.appendChild(button);
-  });
-}
 function renderTaskView(view, run){
   if (!taskSummaryEl || !taskStepsEl) return;
   if (!view){
@@ -690,31 +652,38 @@ function renderTaskView(view, run){
 }
 function applySnapshot(m){
   lastSnapshot = m || null;
-  renderExamples(m && m.scene_examples);
   renderTaskView(m && m.task_view, m && m.run);
   const scene = m && m.scene;
   if (scene && scene.loaded) {
     episode = scene.episode_id;
     sceneEpoch = scene.scene_epoch;
     if (scene.plan_version) planVersion = scene.plan_version;
-    if (scene.user_text) goalEl.textContent = `输入保留：${scene.user_text}`;
-    else if (!taskEdited && scene.summary_zh) goalEl.textContent = `当前目标：${scene.summary_zh}`;
+    if (scene.summary_zh) goalEl.textContent = `已加载：${scene.suite || ""} task ${scene.task_id ?? "?"} ${scene.summary_zh}`;
     taskIn.disabled = false;
   }
   const run = (m && m.run) || {};
-  rootError = run.root_error || "";
+  if (run.run_id != null && run.run_id !== shownRunId) {
+    shownRunId = run.run_id;
+    rootError = run.root_error || "";
+    lastPlannerStage = run.planner_stage || "";
+    executionStarted = !!run.execution_started;
+  } else if (run.root_error && !rootError) {
+    rootError = run.root_error;
+  }
+  if (run.planner_stage) lastPlannerStage = run.planner_stage;
+  if (run.execution_started) executionStarted = true;
   if (run.phase === "waiting_confirmation") {
     setConfirm(true);
     showConfirmWait(run.execution, run.confirm_timeout_s, run.confirm_started_at);
   }
   else if (run.phase === "succeeded" || run.phase === "failed" || run.phase === "cancelled" || run.phase === "idle") setConfirm(false);
   if (run.execution) rememberExec(run.execution);
-  if (run.user_text) goalEl.textContent = `输入保留：${run.user_text}` + (run.plan_summary ? ` · 计划：${run.plan_summary}` : "");
+  if (run.user_text) goalEl.textContent = `请求：${run.user_text}` + (run.plan_summary ? ` · 计划：${run.plan_summary}` : "");
   if (progressEl && run.phase && run.phase !== "idle") {
     const nativeText = run.native_task_success == null ? "" : (run.native_task_success ? "原生目标已达成" : "原生目标未达成");
     const userText = run.user_goal_status === "met" ? "用户目标已完成" : (run.user_goal_status === "unmet" ? "用户目标未完成" : (run.user_goal_status === "unknown" ? "用户目标未复查" : (run.user_goal_success == null ? "" : (run.user_goal_success ? "用户目标已完成" : "用户目标未完成"))));
     const retreatText = run.retreat_error ? "退离异常" : "";
-    const bits = [run.execution_mode === "free" ? "自由模式" : "", run.execution_status || run.phase, nativeText, userText, retreatText].filter(Boolean);
+    const bits = [run.execution_status || run.phase, nativeText, userText, retreatText].filter(Boolean);
     progressEl.textContent = bits.join(" · ");
   }
   if (rootError && (run.phase === "failed" || run.phase === "cancelled" || run.phase === "waiting_confirmation")) {
@@ -734,7 +703,7 @@ function applyServerScene(m){
   episode = scene.episode_id;
   sceneEpoch = scene.scene_epoch;
   if (scene.plan_version) planVersion = scene.plan_version;
-  if (!taskEdited && scene.summary_zh) goalEl.textContent = `当前目标：${scene.summary_zh}`;
+  if (scene.summary_zh) goalEl.textContent = `已加载：${scene.suite || ""} task ${scene.task_id ?? "?"} ${scene.summary_zh}`;
   taskIn.disabled = !!m.running;
 }
 function begin(source){
@@ -772,7 +741,7 @@ if (restartBtn) restartBtn.onclick = resetScene;
 if (resetBtn) resetBtn.onclick = resetScene;
 stopBtn.onclick = () => { send({type:"stop", client_request_id: `stop-${Date.now()}`}); };
 profileSel.onchange = () => send({type:"set_planner", profile: profileSel.value});
-suiteSel.onchange = () => { pendingOfficial = null; renderOfficial(); };
+suiteSel.onchange = () => {};
 taskIn.addEventListener("input", ()=>{
   taskEdited = true;
   syncRunButtons();

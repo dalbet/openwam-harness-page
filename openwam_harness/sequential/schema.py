@@ -90,6 +90,7 @@ SEMANTIC_STEP_KEYS = frozenset(
         "target_ref",
         "object_n",
         "target_n",
+        "target_region",
         "relation",
         "prompt",
         "depends_on",
@@ -821,6 +822,8 @@ PARSE_CODES = frozenset(
 def failure_stage(errors: list[dict[str, Any]] | None) -> str:
     if not errors:
         return "ok"
+    if any(item.get("code") == "skill_unimplemented" for item in errors):
+        return "skill_unsupported"
     if any(item.get("code") in PARSE_CODES for item in errors):
         return "parse_failed"
     return "validation_failed"
@@ -1479,6 +1482,13 @@ def prepare_plan(
     for step in plan.get("steps") or []:
         if isinstance(step, dict):
             skills.append(step.get("skill", step.get("action")))
+    from skills import REGISTRY, skill_rejection
+
+    named = [skill for skill in skills if skill in REGISTRY and not REGISTRY[skill].get("implemented")]
+    if named and not any(skill == "transfer" for skill in skills):
+        raise PlanError([
+            _err("plan.steps", "skill_unimplemented", named[0], skill_rejection(str(named[0])) or "implemented skill")
+        ])
     if any(skill == "transfer" for skill in skills):
         if any(skill != "transfer" for skill in skills):
             raise PlanError([

@@ -158,10 +158,15 @@ class TaskCatalogTest(unittest.TestCase):
         self.assertNotIn('send({type:"start"', page)
         html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
         self.assertIn("任务与执行步骤", html)
-        self.assertIn("view15", html)
-        self.assertIn("官方任务选择", html)
-        self.assertIn("selectOfficial", page)
+        self.assertIn("view16", html)
+        self.assertNotIn("官方任务选择", html)
+        self.assertNotIn("selectOfficial", page)
+        self.assertIn("task_text", page)
+        self.assertNotIn("输入保留", page)
+        self.assertNotIn("自由模式", page)
+        self.assertNotIn("当前场景示例", page)
         self.assertIn("开始不会切换场景", (ROOT / "adapter.py").read_text(encoding="utf-8"))
+        self.assertIsNone(single_task_block({"semantic_step_count": 1, "canonical_instruction": "Put the bowl on the stove."}, None))
 
     def test_refresh_payload_keeps_summary_and_failure(self):
         from adapter import _task_view

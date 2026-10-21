@@ -35,6 +35,8 @@ class RunContext:
         self.subgoal_results = None
         self.first_error = ""
         self.verification_error = ""
+        self.planner_stage = ""
+        self.execution_started = False
         self.confirm_started_at = None
         self.confirm_q: Queue = Queue()
         self.thread: threading.Thread | None = None
@@ -69,6 +71,8 @@ class RunContext:
         self.subgoal_results = None
         self.first_error = ""
         self.verification_error = ""
+        self.planner_stage = ""
+        self.execution_started = False
         self.confirm_started_at = None
         self.confirm_q = Queue()
         self.finished = False
@@ -204,6 +208,8 @@ class RunContext:
             "subgoal_results": self.subgoal_results,
             "first_error": self.first_error,
             "verification_error": self.verification_error,
+            "planner_stage": self.planner_stage,
+            "execution_started": self.execution_started,
             "execution_mode": self.execution_mode,
             "awaiting_confirm": self.phase == "waiting_confirmation",
             "confirm_started_at": self.confirm_started_at,

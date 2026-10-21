@@ -43,7 +43,6 @@
   #task-steps li[data-status="running"] { color:var(--warn); }
   #task-steps li[data-status="success"] { color:var(--good); }
   #task-steps li[data-status="failed"] { color:var(--bad); }
-  #examples button { margin:0 4px 4px 0; }
   .hint { color:var(--dim); font-size:12px; }
   @media (max-width:680px){ #views{grid-template-columns:1fr;} }
 </style>
@@ -60,7 +59,6 @@
     <button id="load" class="primary" type="button" disabled>加载场景</button>
     <label for="task">任务</label>
     <input id="task" type="text" placeholder="用中文描述要做的事" disabled />
-    <span id="examples" class="hint"></span>
     <label for="planner-profile">模型</label>
     <select id="planner-profile">
       <option value="edge">边缘</option>
@@ -71,13 +69,6 @@
     <button id="stop" type="button" disabled>停止</button>
     <button id="reset" type="button" disabled>重置场景</button>
   </div>
-  <details id="official-box">
-    <summary>官方任务选择</summary>
-    <div id="official-list"></div>
-    <div id="official-pending" class="hint">尚未选择。Goal 任务不会默认加载 task 1。</div>
-    <div id="official-steps" class="hint"></div>
-    <div id="loaded-task" class="hint">还没有加载。</div>
-  </details>
   <div id="goal" class="hint">加载后在这里显示当前中文目标。</div>
   <div id="progress" class="hint"></div>
   <div id="status"><span class="phase">就绪</span></div>
@@ -99,6 +90,6 @@
     <pre id="diag-text">还没有诊断</pre>
   </details>
 </div>
-<script src="static/app.js?v=view15"></script>
+<script src="static/app.js?v=view16"></script>
 </body>
 </html>

@@ -116,12 +116,12 @@ def _catalog_region(plan: dict[str, Any], names: list[str]) -> str | None:
     text = plan.get("canonical_instruction") or plan.get("goal") or ""
     if not isinstance(text, str) or not text.strip():
         return None
-    from task_catalog import tasks_for_scene
+    from task_catalog import normalize_phrase, tasks_for_scene
 
-    wanted = text.strip().rstrip("。")
+    wanted = normalize_phrase(text)
     for row in tasks_for_scene("libero_goal", names):
         phrases = [row.get("instruction_en"), row.get("instruction_zh"), *(row.get("paraphrases_zh") or [])]
-        if any(isinstance(item, str) and item.strip().rstrip("。") == wanted for item in phrases):
+        if any(isinstance(item, str) and normalize_phrase(item) == wanted for item in phrases):
             region = row.get("target_region")
             return region if isinstance(region, str) else None
     return None
