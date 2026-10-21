@@ -139,6 +139,23 @@ class StartContractTest(unittest.TestCase):
         same = {"object_ref": "plate", "target_ref": "plate", "args": {}}
         self.assertEqual(_actions("PLACEMENT_UNVERIFIED", same, holding=False, released=True, attempt_index=0), [])
 
+    def test_recovery_regrasp_uses_the_natural_phrase_not_the_instance_id(self):
+        step = {
+            "step_id": "place_step1",
+            "object_ref": "cream_cheese_1",
+            "target_ref": "akita_black_bowl_1",
+            "grounding_query": "cream cheese",
+            "args": {"gripper": -1, "steps": 8, "object_ref": "cream_cheese_1"},
+        }
+        actions = _actions("PLACEMENT_UNVERIFIED", step, holding=False, released=True, attempt_index=0)
+        self.assertEqual([item["skill"] for item in actions], ["segment", "pi0_pick"])
+        self.assertEqual(actions[0]["args"]["prompt"], "cream cheese")
+        self.assertEqual(actions[1]["args"]["prompt"], "pick up the cream cheese")
+        self.assertTrue(all(item["args"]["object_ref"] == "cream_cheese_1" for item in actions))
+        bare = {"step_id": "p", "object_ref": "cream_cheese_1", "target_ref": "akita_black_bowl_1", "args": {}}
+        fallback = _actions("PLACEMENT_UNVERIFIED", bare, holding=False, released=True, attempt_index=0)
+        self.assertEqual(fallback[1]["args"]["prompt"], "pick up the cream_cheese_1")
+
 
 if __name__ == "__main__":
     unittest.main()

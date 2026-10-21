@@ -156,9 +156,13 @@ def _actions(event: str, step: dict, *, holding: bool, released: bool, attempt_i
                 {"skill": "set_gripper", "args": {"gripper": -1.0, "steps": 8, "object_ref": carried}},
             ]
         if released and carried:
+            # The VLA and the segmenter need the natural phrase. An instance
+            # id such as "cream_cheese_1" is not in the policy's language
+            # distribution and degrades into grasping the wrong object.
+            phrase = _phrase(step) or carried
             return [
-                {"skill": "segment", "args": {"prompt": carried, "camera": camera, "object_ref": carried}},
-                {"skill": "pi0_pick", "args": {"prompt": f"pick up the {carried}", "max_chunks": 12, "object_ref": carried}},
+                {"skill": "segment", "args": {"prompt": phrase, "camera": camera, "object_ref": carried}},
+                {"skill": "pi0_pick", "args": {"prompt": f"pick up the {phrase}", "max_chunks": 12, "object_ref": carried}},
             ]
         return [locate] if carried else []
     if event == "TARGET_AMBIGUOUS":
