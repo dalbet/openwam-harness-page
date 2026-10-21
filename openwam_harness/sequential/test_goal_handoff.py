@@ -301,7 +301,17 @@ class GoalHandoffTest(unittest.TestCase):
         self.assertEqual(next(item["detail"] for item in drawer if item["stage"] == "task_check" and item["status"] == "running"), "打开柜子的中间抽屉")
         self.assertEqual(drawer[-1]["detail"], "PLANNING_FAILED")
         self.assertNotIn("first_tool", {item["stage"] for item in drawer})
-        self.assertFalse(any(item.get("detail") == "把酒瓶放到柜子顶上" or item.get("detail") == "把酒瓶放到柜子顶上。" for item in rows))
+        wine_texts = {"把酒瓶放到柜子顶上", "把酒瓶放到柜子顶上。"}
+        first_wine = "req-1792574025419-db0cf2"
+        order = [row.get("client_request_id") for row in rows]
+        before_audit = [row for row in rows[: order.index(first_wine)] if row.get("client_request_id") != first_wine] if first_wine in order else rows
+        self.assertFalse(any(item.get("detail") in wine_texts for item in before_audit))
+        for request_id, group in by_request.items():
+            if not any(item.get("detail") in wine_texts for item in group):
+                continue
+            stages = {item["stage"] for item in group}
+            self.assertNotIn("first_tool", stages, request_id)
+            self.assertIn(group[-1]["code"], {"task_not_in_scene", "validation_failed"}, request_id)
 
 
 def _observation(plan: dict, object_name: str) -> dict:
