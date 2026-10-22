@@ -1030,6 +1030,10 @@ def _recover_or_confirm(
             return failed, outcome, post
         return _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post)
     event = event_for(verification, outcome)
+    _remember_attempt(step, verification)
+    handle = (verification.get("metrics") or {}).get("handle_xyz")
+    if event == "DRAWER_STALLED" and isinstance(handle, list) and len(handle) >= 3:
+        step["_entry_xyz"] = [float(handle[0]), float(handle[1]), float(handle[2]) + 0.05]
     if event is None or step.get("on_failure") != "recover":
         return verification, outcome, post
     for attempt_index in range(recovery.limit):
@@ -1053,10 +1057,15 @@ def _recover_or_confirm(
                 break
             recovery.mark_service(step["step_id"])
         if proposal["kind"] != "actions" and proposal["kind"] != "service_retry":
-            verification = _exhausted(verification, event)
+            if proposal.get("reason"):
+                metrics = dict(verification.get("metrics") or {})
+                metrics["recovery"] = proposal["reason"]
+                verification = dict(verification)
+                verification["metrics"] = metrics
+            verification = _finish_recovery(step, verification, event)
             break
         if proposal["kind"] == "actions" and not recovery.consume(step["step_id"]):
-            verification = _exhausted(verification, event)
+            verification = _finish_recovery(step, verification, event)
             break
         moved = False
         for action in proposal["actions"]:
@@ -1079,7 +1088,7 @@ def _recover_or_confirm(
                 eef = follow.eef_pos
             post.append(_capture(backend, started_epoch))
         if not moved:
-            verification = _exhausted(verification, event)
+            verification = _finish_recovery(step, verification, event)
             break
         verification = verify_step(
             step,
@@ -1092,6 +1101,7 @@ def _recover_or_confirm(
             goal_relation=_relation_for(plan, step),
             before=post[0] if post else None,
         )
+        _remember_attempt(step, verification)
         mapped = event_for(verification, outcome)
         if verification.get("status") == "failure" and mapped is None:
             break
@@ -1107,8 +1117,27 @@ def _recover_or_confirm(
             return failed, outcome, post
         return _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post)
     if verification.get("status") == "failure" and event_for(verification, outcome):
-        verification = _exhausted(verification, event)
+        verification = _finish_recovery(step, verification, event)
     return verification, outcome, post
+
+
+def _remember_attempt(step, verification) -> None:
+    attempt = (verification.get("metrics") or {}).get("attempt") if isinstance(verification, dict) else None
+    if not isinstance(attempt, dict):
+        return
+    step.setdefault("_attempt_log", [])
+    if attempt not in step["_attempt_log"]:
+        step["_attempt_log"].append(attempt)
+
+
+def _finish_recovery(step, verification, event) -> dict:
+    failed = _exhausted(verification, event)
+    log = step.get("_attempt_log")
+    if log:
+        failed.setdefault("metrics", {})
+        failed["metrics"]["attempts"] = list(log)
+        failed["metrics"]["last_grasp_stage"] = (log[-1] or {}).get("grasp_stage")
+    return failed
 
 
 def _exhausted(verification: dict, event: str | None) -> dict:

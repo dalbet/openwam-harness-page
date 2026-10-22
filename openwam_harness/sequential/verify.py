@@ -137,6 +137,18 @@ def _drawer_open(outcome: Any, observations: list) -> dict[str, Any]:
         "predicate": payload.get("predicate") or "Open",
         "stop_reason": payload.get("stop_reason"),
         "chunks_used": payload.get("chunks_used"),
+        "upstream_chunk_budget": payload.get("upstream_chunk_budget"),
+        "continued_past_wrapper": payload.get("continued_past_wrapper"),
+        "chunk_trace": payload.get("chunk_trace"),
+        "actions_applied": payload.get("actions_applied"),
+        "action_count_status": payload.get("action_count_status"),
+        "wall_s": payload.get("wall_s"),
+        "sim_time_s": payload.get("sim_time_s"),
+        "sim_time_status": payload.get("sim_time_status"),
+        "handle_status": payload.get("handle_status"),
+        "handle_distance_m": payload.get("handle_distance_m"),
+        "handle_xyz": payload.get("handle_xyz"),
+        "stage": payload.get("stage"),
         "pi0_success_used": payload.get("pi0_success_used"),
         "native_terminated": getattr(outcome, "native_terminated", None),
         "summary": payload.get("reason"),
@@ -380,6 +392,20 @@ def _grasp(step, observations, objects, support_z, outcome) -> dict[str, Any]:
     metrics["possible_external_support"] = bool(supports)
     if unmet:
         metrics["error"] = "；".join(unmet)
+    from diagnose import annotate_grasp
+
+    annotate_grasp(
+        metrics,
+        step,
+        observations,
+        outcome,
+        lifted=lifted,
+        stable=stable,
+        held_band=held_band,
+        empty_closed=empty_closed,
+        near=near,
+        contact=contact,
+    )
     if (empty_closed or left_behind or not near) and not lifted:
         return receipt("failure", "EMPTY_GRASP", "sim_state", _ids(observations), metrics)
     if lifted and stable and _contact_ok(contact) and not supports:

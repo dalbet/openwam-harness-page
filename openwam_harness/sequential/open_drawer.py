@@ -7,6 +7,7 @@ flag is not this skill's success label.
 
 from __future__ import annotations
 
+import math
 import re
 import time
 from pathlib import Path
@@ -21,7 +22,9 @@ BDDL = Path(
     "liberopro/liberopro/bddl_files/libero_goal/open_the_middle_drawer_of_the_cabinet.bddl"
 )
 MAX_CHUNKS = 8
+UPSTREAM_CHUNK_BUDGET = 20
 MAX_S = 45.0
+PROGRESS_EPS_M = 0.002
 
 
 def official_instruction() -> str:
@@ -202,24 +205,48 @@ def run_open_drawer(primitives: Any, args: dict[str, Any] | None = None) -> dict
             "pi0_success_used": False,
         }
     if initial.get("opened"):
-        return _evidence(instruction, region, initial, initial, 0, max_chunks, max_s, "already_open")
+        return _evidence(instruction, region, initial, initial, 0, max_chunks, max_s, "already_open", trace=[])
     started = time.monotonic()
     current = initial
     chunks = 0
     stop = "chunk_budget"
-    for _index in range(max_chunks):
+    stage = None
+    trace = []
+    previous = initial.get("qpos")
+    toward = _toward_open(initial.get("comparison"))
+    saw_progress = False
+    while chunks < UPSTREAM_CHUNK_BUDGET:
         primitives._check_cancelled()
         if getattr(env, "terminated", False) or getattr(env, "truncated", False):
             stop = "terminated" if env.terminated else "truncated"
             break
-        if time.monotonic() - started > max_s:
+        now = time.monotonic()
+        if now - started > max_s:
             stop = "time_budget"
             break
-        primitives._vlm_chunk(instruction)
+        if chunks >= max_chunks and not saw_progress:
+            stop = "chunk_budget"
+            break
+        before_actions = getattr(primitives, "_env_action_count", None)
+        returned = primitives._vlm_chunk(instruction)
         chunks += 1
-        current = read_joint(env, region, instance=instance)
+        current = read_progress(env, region, instance=instance)
+        progress = _qpos_progress(previous, current.get("qpos"), toward)
+        row = _chunk_row(
+            chunks,
+            current,
+            progress,
+            _actions_applied(primitives, before_actions, returned),
+            now - started,
+            returned,
+            env,
+        )
+        trace.append(row)
         if not current.get("ok"):
             stop = current.get("code") or "joint_unreadable"
+            break
+        if isinstance(returned, dict) and returned.get("cancelled"):
+            stop = "cancelled"
             break
         if getattr(env, "terminated", False) or getattr(env, "truncated", False):
             stop = "terminated" if env.terminated else "truncated"
@@ -227,16 +254,212 @@ def run_open_drawer(primitives: Any, args: dict[str, Any] | None = None) -> dict
         if current.get("opened"):
             stop = "predicate_open"
             break
+        if progress is None:
+            previous = current.get("qpos")
+            continue
+        if progress > PROGRESS_EPS_M:
+            saw_progress = True
+            previous = current.get("qpos")
+            continue
+        primitives._check_cancelled()
+        stop = "zero_progress"
+        stage = _stall_stage(trace)
+        break
+    else:
+        if saw_progress and not current.get("opened"):
+            stop = "upstream_budget"
+            stage = "pulling_not_open"
+    current = dict(current)
+    current["stage"] = stage
     if stop == "chunk_budget":
-        current = dict(current)
-        current["reason"] = f"动作块预算耗尽（{chunks}/{max_chunks}），关节仍未满足 Open"
-    if stop == "time_budget":
-        current = dict(current)
+        current["reason"] = f"动作块预算耗尽（{chunks}/{max_chunks}），关节没有向 Open 移动"
+    elif stop == "upstream_budget":
+        current["reason"] = f"关节仍在移动，但总预算耗尽（{chunks}/{UPSTREAM_CHUNK_BUDGET}），尚未满足 Open"
+    elif stop == "zero_progress":
+        current["reason"] = f"关节没有继续向 Open 移动（{chunks} 块后停止）：{stage}"
+    elif stop == "time_budget":
         current["reason"] = f"时间预算耗尽（{max_s}s），关节仍未满足 Open"
-    return _evidence(instruction, region, initial, current, chunks, max_chunks, max_s, stop)
+    elif stop == "cancelled":
+        current["reason"] = "动作块返回取消，已停止，不继续同一指令"
+    return _evidence(instruction, region, initial, current, chunks, max_chunks, max_s, stop, trace=trace)
 
 
-def _evidence(instruction, region, initial, current, chunks, max_chunks, max_s, stop) -> dict[str, Any]:
+def read_progress(env: Any, region: str, instance: str | None = None) -> dict[str, Any]:
+    """Joint predicate plus fields the snapshot already has. No invented handle point."""
+    sites = getattr(env, "object_sites_dict", None)
+    if isinstance(sites, dict):
+        row = _read_joint_local(env, region, sites)
+        row.update(_empty_context())
+        return row
+    name = instance if isinstance(instance, str) and instance else _region_instance(region)
+    if not name:
+        return {"ok": False, "reason": f"无法从区域 {region} 推出实例", "code": "region_missing"}
+    client = getattr(env, "_client", None)
+    if client is None or not callable(getattr(client, "call", None)):
+        return {"ok": False, "reason": "env 既不是进程内环境，也没有状态快照客户端", "code": "state_service_error"}
+    joint = f"{name}_{asset_joint()['local_name']}"
+    try:
+        snapshot = client.call("env.state_snapshot", timeout_s=10.0)
+    except Exception as exc:
+        return {"ok": False, "reason": f"状态快照读取失败：{type(exc).__name__}: {exc}", "code": "state_service_error"}
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    joints = snapshot.get("joints")
+    if not isinstance(joints, dict) or joint not in joints:
+        failed = {"ok": False, "reason": f"状态快照没有关节 {joint}", "code": "joint_unreadable"}
+        failed.update(_snapshot_context(snapshot))
+        return failed
+    try:
+        qpos = float(joints[joint])
+    except (TypeError, ValueError):
+        return {"ok": False, "reason": f"关节 {joint} 的读数不是数值", "code": "joint_unreadable"}
+    parent = _parent_object(name)
+    if parent is None or not hasattr(parent, "is_open"):
+        return {"ok": False, "reason": f"{name} 没有可判断开合的对象类", "code": "joint_unresolved"}
+    row = _joint_result(region, name, joint, qpos, parent)
+    row["evidence_source"] = f"{type(parent).__name__}.is_open via env.state_snapshot"
+    row.update(_snapshot_context(snapshot))
+    return row
+
+
+def _toward_open(comparison: str | None) -> float | None:
+    """Sign of ``current - previous`` that counts as opening, from the predicate text."""
+    text = str(comparison or "")
+    if text.startswith("qpos <"):
+        return -1.0
+    if text.startswith("qpos >"):
+        return 1.0
+    return None
+
+
+def _qpos_progress(previous, current, toward: float | None) -> float | None:
+    if toward is None or isinstance(previous, bool) or isinstance(current, bool):
+        return None
+    if not isinstance(previous, (int, float)) or not isinstance(current, (int, float)):
+        return None
+    return toward * (float(current) - float(previous))
+
+
+def _stall_stage(trace: list[dict[str, Any]]) -> str:
+    earlier = [row.get("progress_m") for row in trace[:-1]]
+    if any(isinstance(value, (int, float)) and value > PROGRESS_EPS_M for value in earlier):
+        return "pull_stalled"
+    if any(row.get("contact_pull") is True for row in trace):
+        return "contacted_no_pull"
+    return "no_joint_progress"
+
+
+def _actions_applied(primitives: Any, before, returned) -> dict[str, Any]:
+    after = getattr(primitives, "_env_action_count", None)
+    if isinstance(before, int) and isinstance(after, int) and not isinstance(before, bool) and not isinstance(after, bool):
+        return {
+            "actions_applied": after - before,
+            "action_count_status": "env_action_count",
+            "env_actions_before": before,
+            "env_actions_after": after,
+        }
+    if isinstance(returned, dict):
+        for key in ("actions_applied", "actions_sent", "sim_action_count"):
+            value = returned.get(key)
+            if isinstance(value, int) and not isinstance(value, bool):
+                return {"actions_applied": value, "action_count_status": key}
+    return {"actions_applied": None, "action_count_status": "missing"}
+
+
+def _empty_context() -> dict[str, Any]:
+    return {
+        "handle_status": "missing_handle_site",
+        "handle_site": None,
+        "handle_distance_m": None,
+        "handle_xyz": None,
+        "eef_pos": None,
+        "eef_status": "not_in_local_site_table",
+        "contact": None,
+        "contact_status": "not_provided",
+        "contact_pull": None,
+        "sim_time_s": None,
+        "sim_time_status": "not_provided",
+    }
+
+
+def _snapshot_context(snapshot: dict) -> dict[str, Any]:
+    sim = snapshot.get("sim") if isinstance(snapshot.get("sim"), dict) else {}
+    eef = sim.get("eef_pos")
+    eef_pos = [float(eef[0]), float(eef[1]), float(eef[2])] if isinstance(eef, list) and len(eef) >= 3 else None
+    contact = sim.get("contact") if isinstance(sim.get("contact"), dict) else None
+    named = snapshot.get("named_poses") if isinstance(snapshot.get("named_poses"), dict) else {}
+    handle = _handle_from_sites(named.get("sites"), eef_pos)
+    sim_time = snapshot.get("sim_time")
+    timed = isinstance(sim_time, (int, float)) and not isinstance(sim_time, bool)
+    return {
+        "eef_pos": eef_pos,
+        "eef_status": "sim_state" if eef_pos is not None else "not_provided",
+        "contact": contact,
+        "contact_status": "provided" if contact is not None else "not_provided",
+        "contact_pull": bool(contact.get("contact")) if isinstance(contact, dict) and "contact" in contact else None,
+        "sim_time_s": float(sim_time) if timed else None,
+        "sim_time_status": "provided" if timed else "not_provided",
+        **handle,
+    }
+
+
+def _handle_from_sites(sites, eef_pos) -> dict[str, Any]:
+    if not isinstance(sites, dict):
+        return {"handle_status": "missing_handle_site", "handle_site": None, "handle_distance_m": None, "handle_xyz": None}
+    for key, value in sites.items():
+        if "handle" not in str(key):
+            continue
+        pos = value if isinstance(value, list) else value.get("pos") if isinstance(value, dict) else None
+        if not isinstance(pos, list) or len(pos) < 3:
+            return {"handle_status": "handle_without_pose", "handle_site": str(key), "handle_distance_m": None, "handle_xyz": None}
+        xyz = [float(pos[0]), float(pos[1]), float(pos[2])]
+        if not isinstance(eef_pos, list):
+            return {"handle_status": "measured_without_eef", "handle_site": str(key), "handle_distance_m": None, "handle_xyz": xyz}
+        distance = math.sqrt(sum((xyz[index] - float(eef_pos[index])) ** 2 for index in range(3)))
+        return {
+            "handle_status": "measured",
+            "handle_site": str(key),
+            "handle_distance_m": round(distance, 4),
+            "handle_xyz": xyz,
+        }
+    return {"handle_status": "missing_handle_site", "handle_site": None, "handle_distance_m": None, "handle_xyz": None}
+
+
+def _chunk_row(index, current, progress, actions, wall_s, returned, env) -> dict[str, Any]:
+    return {
+        "chunk_index": index,
+        "joint": current.get("joint"),
+        "qpos": current.get("qpos"),
+        "threshold": current.get("threshold"),
+        "comparison": current.get("comparison"),
+        "opened": current.get("opened"),
+        "progress_m": None if progress is None else round(float(progress), 4),
+        "progress_status": "unmeasured" if progress is None else "measured",
+        "actions_applied": actions.get("actions_applied"),
+        "action_count_status": actions.get("action_count_status"),
+        "env_actions_before": actions.get("env_actions_before"),
+        "env_actions_after": actions.get("env_actions_after"),
+        "wall_s": round(float(wall_s), 4),
+        "sim_time_s": current.get("sim_time_s"),
+        "sim_time_status": current.get("sim_time_status"),
+        "eef_pos": current.get("eef_pos"),
+        "eef_status": current.get("eef_status"),
+        "handle_site": current.get("handle_site"),
+        "handle_status": current.get("handle_status"),
+        "handle_distance_m": current.get("handle_distance_m"),
+        "handle_xyz": current.get("handle_xyz"),
+        "contact_status": current.get("contact_status"),
+        "contact_pull": current.get("contact_pull"),
+        "cancelled": bool(isinstance(returned, dict) and returned.get("cancelled")),
+        "terminated": bool(getattr(env, "terminated", False)),
+        "truncated": bool(getattr(env, "truncated", False)),
+    }
+
+
+def _evidence(instruction, region, initial, current, chunks, max_chunks, max_s, stop, trace=None) -> dict[str, Any]:
+    rows = list(trace or [])
+    actions = [row.get("actions_applied") for row in rows]
+    measured_actions = bool(rows) and all(isinstance(item, int) for item in actions)
     return {
         "opened": bool(current.get("opened")),
         "instruction": instruction,
@@ -252,8 +475,22 @@ def _evidence(instruction, region, initial, current, chunks, max_chunks, max_s, 
         "asset": current.get("asset") or initial.get("asset"),
         "chunks_used": chunks,
         "max_chunks": max_chunks,
+        "upstream_chunk_budget": UPSTREAM_CHUNK_BUDGET,
+        "continued_past_wrapper": chunks > max_chunks,
         "max_s": max_s,
         "stop_reason": stop,
+        "stage": current.get("stage"),
         "reason": current.get("reason"),
+        "chunk_trace": rows,
+        "actions_applied": sum(actions) if measured_actions else None,
+        "action_count_status": "measured" if measured_actions else "missing",
+        "wall_s": None if not rows else rows[-1].get("wall_s"),
+        "sim_time_s": rows[-1].get("sim_time_s") if rows else None,
+        "sim_time_status": (rows[-1].get("sim_time_status") if rows else None) or "not_provided",
+        "handle_status": (rows[-1].get("handle_status") if rows else None) or "missing_handle_site",
+        "handle_site": rows[-1].get("handle_site") if rows else None,
+        "handle_distance_m": rows[-1].get("handle_distance_m") if rows else None,
+        "handle_xyz": rows[-1].get("handle_xyz") if rows else None,
+        "eef_pos": rows[-1].get("eef_pos") if rows else None,
         "pi0_success_used": False,
     }

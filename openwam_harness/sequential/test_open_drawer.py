@@ -315,10 +315,14 @@ class OpenDrawerTest(unittest.TestCase):
         stalled = _Env()
         many = _Primitives(stalled, [0.0] * 20)
         exhausted = run_open_drawer(many, {"region": official_region()})
-        self.assertEqual(exhausted["chunks_used"], MAX_CHUNKS)
-        self.assertEqual(len(many.chunks), MAX_CHUNKS)
-        self.assertEqual(exhausted["stop_reason"], "chunk_budget")
-        self.assertIn(str(MAX_CHUNKS), exhausted["reason"])
+        self.assertEqual(exhausted["chunks_used"], 1)
+        self.assertEqual(len(many.chunks), 1)
+        self.assertEqual(exhausted["stop_reason"], "zero_progress")
+        self.assertEqual(exhausted["stage"], "no_joint_progress")
+        self.assertEqual(exhausted["handle_status"], "missing_handle_site")
+        self.assertIsNone(exhausted["handle_distance_m"])
+        self.assertEqual(exhausted["chunk_trace"][0]["qpos"], 0.0)
+        self.assertEqual(exhausted["chunk_trace"][0]["comparison"], "qpos < max(default_open_ranges)")
         self.assertFalse(exhausted["opened"])
 
         timed = _Env()
@@ -328,7 +332,7 @@ class OpenDrawerTest(unittest.TestCase):
         original = open_drawer.time.monotonic
         open_drawer.time.monotonic = lambda: next(clock)
         try:
-            timed_out = run_open_drawer(_Primitives(timed, [0.0, 0.0]), {"region": official_region()})
+            timed_out = run_open_drawer(_Primitives(timed, [-0.05, -0.05]), {"region": official_region()})
         finally:
             open_drawer.time.monotonic = original
         self.assertEqual(timed_out["stop_reason"], "time_budget")
@@ -380,7 +384,78 @@ class OpenDrawerTest(unittest.TestCase):
         many = _RpcPrimitives(stalled, [0.0] * 20)
         exhausted = run_open_drawer(many, {"region": official_region()})
         self.assertFalse(exhausted["opened"])
-        self.assertEqual(exhausted["stop_reason"], "chunk_budget")
+        self.assertEqual(exhausted["stop_reason"], "zero_progress")
+        self.assertEqual(exhausted["chunks_used"], 1)
+        self.assertEqual(exhausted["handle_status"], "missing_handle_site")
+
+    def test_joint_progress_continues_past_the_wrapper_and_zero_progress_stops(self):
+        creeping = _Env()
+        values = [round(-0.01 * (index + 1), 4) for index in range(20)]
+        moving = _Primitives(creeping, values)
+        opened = run_open_drawer(moving, {"region": official_region()})
+        self.assertTrue(opened["opened"])
+        self.assertGreater(opened["chunks_used"], MAX_CHUNKS)
+        self.assertTrue(opened["continued_past_wrapper"])
+        self.assertEqual(opened["stop_reason"], "predicate_open")
+        self.assertLess(opened["current_qpos"], opened["threshold"])
+        self.assertTrue(all(row["action_count_status"] == "missing" for row in opened["chunk_trace"]))
+        self.assertIsNone(opened["actions_applied"])
+
+        counted = _Env()
+
+        class _Counted(_Primitives):
+            def _vlm_chunk(self, instruction):
+                super()._vlm_chunk(instruction)
+                self._env_action_count = getattr(self, "_env_action_count", 0) + 10
+                return {"actions_sent": 10}
+
+        one = _Counted(counted, [-0.15])
+        one._env_action_count = 0
+        result = run_open_drawer(one, {"region": official_region()})
+        self.assertEqual(result["chunks_used"], 1)
+        self.assertEqual(result["actions_applied"], 10)
+        self.assertEqual(result["chunk_trace"][0]["action_count_status"], "env_action_count")
+        self.assertEqual(result["sim_time_status"], "not_provided")
+
+        pulled = _Env()
+        stall = _Primitives(pulled, [-0.05, -0.05, -0.2])
+        stopped = run_open_drawer(stall, {"region": official_region()})
+        self.assertEqual(stopped["chunks_used"], 2)
+        self.assertEqual(stopped["stop_reason"], "zero_progress")
+        self.assertEqual(stopped["stage"], "pull_stalled")
+        self.assertFalse(stopped["opened"])
+
+        crawling = _Env()
+        slow = _Primitives(crawling, [round(-0.005 * (index + 1), 4) for index in range(25)])
+        capped = run_open_drawer(slow, {"region": official_region()})
+        self.assertFalse(capped["opened"])
+        self.assertEqual(capped["chunks_used"], 20)
+        self.assertEqual(capped["stop_reason"], "upstream_budget")
+        self.assertEqual(capped["stage"], "pulling_not_open")
+        self.assertTrue(capped["continued_past_wrapper"])
+
+    def test_handle_distance_uses_a_named_site_or_stays_missing(self):
+        env = _RpcEnv()
+        env._client.snapshot_extra = {
+            "sim": {"eef_pos": [0.0, 0.0, 1.0], "contact": {"contact": True}},
+            "named_poses": {"sites": {"wooden_cabinet_1_middle_handle": [0.0, -0.1, 1.0]}},
+            "sim_time": 1.5,
+        }
+        original = env._client.call
+
+        def call(method, timeout_s=None):
+            payload = original(method, timeout_s=timeout_s)
+            payload.update(env._client.snapshot_extra)
+            return payload
+
+        env._client.call = call
+        result = run_open_drawer(_RpcPrimitives(env, [0.0]), {"region": official_region()})
+        self.assertEqual(result["handle_status"], "measured")
+        self.assertEqual(result["handle_site"], "wooden_cabinet_1_middle_handle")
+        self.assertAlmostEqual(result["handle_distance_m"], 0.1, places=3)
+        self.assertEqual(result["stage"], "contacted_no_pull")
+        self.assertEqual(result["sim_time_s"], 1.5)
+        self.assertEqual(result["chunks_used"], 1)
 
 
 def _obs() -> dict:

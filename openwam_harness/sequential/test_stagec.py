@@ -114,6 +114,25 @@ class StageCTest(unittest.TestCase):
         self.assertEqual(budget.remaining(step["step_id"]), 0)
         exhausted = propose("EMPTY_GRASP", step, budget=budget, holding=False, released=True, stalled=True, env_step_changed=False, attempt_index=1)
         self.assertEqual(exhausted["kind"], "exhausted")
+        fresh = RecoveryBudget(limit=2)
+        second = propose("EMPTY_GRASP", step, budget=fresh, holding=False, released=True, stalled=True, env_step_changed=False, attempt_index=1)
+        first_move = next(item for item in first["actions"] if item["skill"] == "move_to")
+        second_move = next(item for item in second["actions"] if item["skill"] == "move_to")
+        self.assertNotEqual(signature("move_to", first_move["args"]), signature("move_to", second_move["args"]))
+        self.assertNotEqual(first_move["args"]["z_offset"], second_move["args"]["z_offset"])
+        self.assertIn("approach_z", second["changed_variables"])
+        self.assertEqual(first["actions"][1]["args"]["camera"], "agentview")
+        self.assertEqual(second["actions"][1]["args"]["camera"], "wrist")
+        bare = {"step_id": "drawer", "skill": "open_drawer", "args": {"instruction": "open the middle drawer of the cabinet"}}
+        refused = propose("DRAWER_STALLED", bare, budget=fresh, holding=False, released=False, stalled=True, env_step_changed=False, attempt_index=0)
+        self.assertEqual(refused["kind"], "entry_unmeasured")
+        self.assertEqual(refused["actions"], [])
+        aimed = dict(bare)
+        aimed["_entry_xyz"] = [0.1, -0.2, 0.9]
+        moved = propose("DRAWER_STALLED", aimed, budget=fresh, holding=False, released=False, stalled=True, env_step_changed=False, attempt_index=0)
+        self.assertEqual(moved["changed_variables"], ["entry_pose"])
+        self.assertEqual(moved["actions"][0]["args"]["xyz"], [0.1, -0.2, 0.9])
+        self.assertEqual(moved["actions"][1]["skill"], "open_drawer")
 
     def test_service_error_does_not_repeat_a_committed_action(self):
         budget = RecoveryBudget()
@@ -362,6 +381,61 @@ def _obs(name, version, opening, stamp):
             "evidence_source": "sim_state",
         },
     }
+
+
+class GraspDiagnosisTest(unittest.TestCase):
+    def test_open_gripper_is_not_closed_and_origin_distance_is_not_contact(self):
+        from diagnose import attempt_evidence, closed_loop_contrast, grasp_stage
+
+        metrics = {
+            "support_object": "wine_bottle_1",
+            "gripper_opening_m": 0.072,
+            "object_pos": [0.2, 0.0, 0.45],
+            "object_to_eef_m": 0.13,
+            "contact_status": "not_provided",
+            "samples": [{
+                "eef_pos": [0.2, 0.0, 0.58],
+                "object_pos": [0.2, 0.0, 0.45],
+                "relative_pos": [0.0, 0.0, -0.13],
+                "gripper_opening_m": 0.072,
+            }],
+        }
+        stage = grasp_stage(
+            metrics,
+            [],
+            lifted=False,
+            stable=False,
+            held_band=False,
+            empty_closed=False,
+            near=False,
+            contact=None,
+        )
+        self.assertEqual(stage, "not_closed")
+        record = attempt_evidence(
+            {"object_ref": "wine_bottle_1", "args": {"prompt": "pick up the wine bottle"}},
+            [],
+            type("Outcome", (), {"raw": {"chunks": [{"actions_sent": 50}], "cancelled": False}, "native_terminated": False})(),
+            metrics,
+            stage,
+        )
+        self.assertFalse(record["origin_to_eef_is_contact"])
+        self.assertEqual(record["actions_applied"], 50)
+        self.assertIn("contact", record["missing"])
+        self.assertEqual(record["grasp_stage"], "not_closed")
+        same = {
+            "checkpoint": "pi05",
+            "normalization": "libero",
+            "initial_state_id": "goal-t3",
+            "camera_preprocessing": "resize",
+            "language": "put the wine bottle on top of the cabinet",
+        }
+        both_fail = closed_loop_contrast({**same, "native_success": False}, {**same, "status": "no_progress"})
+        self.assertEqual(both_fail["conclusion"], "policy_or_preprocessing")
+        self.assertIsNone(both_fail["success_rate"])
+        hybrid_only = closed_loop_contrast({**same, "native_success": True}, {**same, "status": "no_progress"})
+        self.assertEqual(hybrid_only["conclusion"], "subskill_prompt_entry_or_checker")
+        drifted = closed_loop_contrast({**same, "native_success": False}, {**same, "normalization": "other", "status": "no_progress"})
+        self.assertEqual(drifted["conclusion"], "not_comparable")
 
 
 if __name__ == "__main__":

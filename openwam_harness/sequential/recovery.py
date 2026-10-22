@@ -17,6 +17,7 @@ EVENTS = frozenset({
     "PLACEMENT_UNVERIFIED",
     "TARGET_AMBIGUOUS",
     "SERVICE_ERROR",
+    "DRAWER_STALLED",
 })
 WORLD = frozenset({"pi0_pick", "move_to", "set_gripper"})
 
@@ -32,6 +33,7 @@ def signature(skill: str, args: dict[str, Any]) -> str:
             "prompt": args.get("prompt"),
             "camera": args.get("camera"),
             "gripper": args.get("gripper"),
+            "z_offset": None if args.get("z_offset") is None else round(float(args["z_offset"]), 2),
         },
         sort_keys=True,
     )
@@ -80,6 +82,8 @@ def event_for(verification: dict[str, Any] | None, outcome: Any) -> str | None:
         return "PLACEMENT_UNVERIFIED"
     if code == "TARGET_NOT_IDENTIFIED":
         return "TARGET_AMBIGUOUS"
+    if code == "zero_progress":
+        return "DRAWER_STALLED"
     return None
 
 
@@ -103,6 +107,22 @@ def propose(
         return {"kind": "service_retry", "actions": [{"skill": step["skill"], "args": dict(step.get("args") or {})}], "event": event}
     if not stalled and event == "NO_PROGRESS":
         return {"kind": "continue", "actions": [], "event": event}
+    if event == "DRAWER_STALLED":
+        entry = step.get("_entry_xyz")
+        if not isinstance(entry, list) or len(entry) < 3:
+            return {
+                "kind": "entry_unmeasured",
+                "actions": [],
+                "event": event,
+                "changed_variables": [],
+                "reason": "没有把手位姿，不重复同一开抽屉指令",
+            }
+        return {
+            "kind": "actions",
+            "actions": _actions(event, step, holding=holding, released=released, attempt_index=attempt_index),
+            "event": event,
+            "changed_variables": ["entry_pose"],
+        }
     if budget.remaining(step["step_id"]) <= 0:
         return {"kind": "exhausted", "actions": [], "event": event}
     actions = _actions(event, step, holding=holding, released=released, attempt_index=attempt_index)
@@ -110,7 +130,12 @@ def propose(
         actions = [action for action in actions if action["skill"] != "set_gripper"]
     if not actions:
         return {"kind": "exhausted", "actions": [], "event": event}
-    return {"kind": "actions", "actions": actions, "event": event}
+    return {
+        "kind": "actions",
+        "actions": actions,
+        "event": event,
+        "changed_variables": _changed_variables(event, attempt_index),
+    }
 
 
 def _actions(event: str, step: dict, *, holding: bool, released: bool, attempt_index: int) -> list[dict]:
@@ -119,6 +144,7 @@ def _actions(event: str, step: dict, *, holding: bool, released: bool, attempt_i
     prompt = args.get("prompt") or ""
     phrase = _phrase(step)
     camera = "wrist" if attempt_index else "agentview"
+    approach_z = 0.08 if attempt_index else 0.15
     locate = {
         "skill": "segment",
         "args": {"prompt": phrase, "camera": camera, "object_ref": ref},
@@ -130,7 +156,7 @@ def _actions(event: str, step: dict, *, holding: bool, released: bool, attempt_i
         actions.append(locate)
         actions.append({
             "skill": "move_to",
-            "args": {"xyz_from": f"segment:{phrase}", "z_offset": 0.15, "gripper": 1.0, "object_ref": ref},
+            "args": {"xyz_from": f"segment:{phrase}", "z_offset": approach_z, "gripper": 1.0, "object_ref": ref},
         })
         actions.append({
             "skill": "pi0_pick",
@@ -145,7 +171,7 @@ def _actions(event: str, step: dict, *, holding: bool, released: bool, attempt_i
     if event == "NO_PROGRESS":
         return [
             locate,
-            {"skill": "move_to", "args": {"xyz_from": f"segment:{phrase}", "z_offset": 0.15, "gripper": args.get("gripper", 1.0), "object_ref": ref}},
+            {"skill": "move_to", "args": {"xyz_from": f"segment:{phrase}", "z_offset": approach_z, "gripper": args.get("gripper", 1.0), "object_ref": ref}},
         ]
     if event == "PLACEMENT_UNVERIFIED":
         target = step.get("target_ref") or ""
@@ -167,6 +193,22 @@ def _actions(event: str, step: dict, *, holding: bool, released: bool, attempt_i
         return [locate] if carried else []
     if event == "TARGET_AMBIGUOUS":
         return [locate]
+    if event == "DRAWER_STALLED":
+        entry = step.get("_entry_xyz")
+        args = dict(step.get("args") or {})
+        return [
+            {"skill": "move_to", "args": {"xyz": [float(entry[0]), float(entry[1]), float(entry[2])], "gripper": 1.0}},
+            {"skill": "open_drawer", "args": args},
+        ]
+    return []
+
+
+def _changed_variables(event: str, attempt_index: int) -> list[str]:
+    if event in {"EMPTY_GRASP", "GRASP_LOST", "NO_PROGRESS"}:
+        changed = ["camera", "approach_z"]
+        if attempt_index:
+            changed.append("attempt_index")
+        return changed
     return []
 
 
