@@ -83,6 +83,7 @@ SEMANTIC_PLAN_KEYS = frozenset(
         "matched_task_key",
         "user_instruction",
         "semantic_step_count",
+        "relation_source",
     }
 )
 SEMANTIC_STEP_KEYS = frozenset(
@@ -132,6 +133,7 @@ PLAN_KEYS = frozenset(
         "matched_task_key",
         "user_instruction",
         "semantic_step_count",
+        "relation_source",
         "loaded_native_goal",
         "requested_goal",
         "goal_alignment",
@@ -992,6 +994,40 @@ def _nested_tool_errors(payload: Any) -> list[dict[str, Any]]:
     return errors
 
 
+def _official_relation(plan: dict[str, Any], scene_objects: dict[str, Any] | None) -> dict[str, Any] | None:
+    """A matched standard task keeps the BDDL goal atom. Chinese 里 does not become In."""
+    from task_catalog import lookup_task
+
+    names = list(scene_objects or plan.get("objects") or {})
+    suite = plan.get("suite") if isinstance(plan.get("suite"), str) and plan.get("suite") else "libero_goal"
+    row = None
+    canonical = plan.get("canonical_instruction")
+    if isinstance(canonical, str) and canonical.strip():
+        row = lookup_task(None, canonical, suite, names)
+    if row is None and isinstance(plan.get("matched_task_key"), str):
+        row = lookup_task(plan.get("matched_task_key"), None, suite, names)
+    if row is None and isinstance(plan.get("goal"), str):
+        row = lookup_task(None, plan.get("goal"), suite, names)
+    relation = (row or {}).get("goal_relation")
+    if relation not in RELATIONS:
+        return None
+    copied = dict(plan)
+    copied["goal_relation"] = relation
+    copied["relation_source"] = "official_bddl"
+    copied["matched_task_key"] = row.get("task_key") or plan.get("matched_task_key")
+    steps = []
+    for step in plan.get("steps") or []:
+        if isinstance(step, dict):
+            item = dict(step)
+            if item.get("skill") == "transfer" or "relation" in item:
+                item["relation"] = relation
+            steps.append(item)
+        else:
+            steps.append(step)
+    copied["steps"] = steps
+    return copied
+
+
 def validate_semantic_plan(
     plan: dict[str, Any],
     *,
@@ -1006,6 +1042,7 @@ def validate_semantic_plan(
     free = execution_mode == "free"
     if not isinstance(plan, dict):
         raise PlanError([_err("plan", "type", type(plan).__name__, "object")])
+    plan = _official_relation(plan, scene_objects) or plan
     for key in plan:
         if key == "objects" or key in EXECUTABLE_KEYS or key not in SEMANTIC_PLAN_KEYS:
             errors.append(_err(f"plan.{key}", "unknown_field", key, "flat semantic fields only; object refs are checked against the scene"))
@@ -1437,6 +1474,7 @@ def expand_semantic_plan(plan: dict[str, Any]) -> dict[str, Any]:
             "canonical_instruction",
             "matched_task_key",
             "user_instruction",
+            "relation_source",
         )
         if key in plan
     }

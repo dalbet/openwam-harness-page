@@ -189,26 +189,63 @@ def query_region(region_id: str, observation: dict[str, Any] | None, registry: d
 
 
 def placement_mode(region: dict[str, Any]) -> dict[str, Any]:
-    """Translation is valid only for an unrotated site. A rotated site is not dropped flat."""
+    """Position servo is enough when the support normal stays vertical.
+
+    A yaw about world z, including the cabinet's init yaw of pi, does not tilt
+    ``top_side``. Tilt is ``acos(|n · z|)`` with ``n = R @ [0, 0, 1]`` from the
+    runtime site matrix. A non-unit quaternion is not itself a tilt.
+    """
+    normal = _support_normal(region.get("mat"), region.get("quat_wxyz"))
     quat = region.get("quat_wxyz")
-    if not isinstance(quat, list) or len(quat) < 4:
+    if normal is None:
         return {
             "ok": True,
             "mode": "translation_unmeasured",
             "reason": "这次观测没有 site 朝向，只记录位置",
         }
-    if _identity_quat(quat):
-        return {"ok": True, "mode": "translation", "quat_wxyz": [float(v) for v in quat[:4]]}
+    tilt = math.acos(max(-1.0, min(1.0, abs(normal[2]))))
+    measured = {
+        "normal_world": [round(value, 6) for value in normal],
+        "tilt_rad": round(tilt, 6),
+        "quat_wxyz": [round(float(value), 6) for value in quat[:4]] if isinstance(quat, list) and len(quat) >= 4 else None,
+    }
+    if tilt <= math.radians(5.0):
+        return {"ok": True, "mode": "translation", **measured}
     return {
         "ok": False,
-        "mode": "oriented_site",
+        "mode": "tilted_site",
         "code": "orientation_not_commandable",
-        "reason": "放置区域带旋转。当前顺序执行只有 move_to 的位置伺服，move_pose 只接 pitch/yaw 且没有完成检查和取消接线，不能当作已经适配的放置技能。",
-        "quat_wxyz": [round(float(v), 6) for v in quat[:4]],
+        "reason": (
+            f"支撑面法向相对竖直轴倾斜 {round(math.degrees(tilt), 2)}°。"
+            "绕竖直轴的偏航不在此列。当前 move_to 只做位置伺服，不能放下倾斜面。"
+        ),
         "size": region.get("size"),
         "xyz": region.get("xyz"),
-        "missing_implementation": "把 site 的完整朝向接到带完成检查和取消的末端姿态命令",
+        "missing_implementation": "把倾斜支撑面接到带完成检查和取消的末端姿态命令",
+        **measured,
     }
+
+
+def _support_normal(mat, quat) -> list[float] | None:
+    """World direction of the site's local +z. Row-major ``site_xmat`` wins."""
+    if isinstance(mat, list) and len(mat) >= 9:
+        try:
+            normal = [float(mat[2]), float(mat[5]), float(mat[8])]
+        except (TypeError, ValueError):
+            normal = []
+        if len(normal) == 3 and math.sqrt(sum(value * value for value in normal)) > 1e-6:
+            return normal
+    if not isinstance(quat, list) or len(quat) < 4:
+        return None
+    try:
+        w, x, y, z = (float(quat[0]), float(quat[1]), float(quat[2]), float(quat[3]))
+    except (TypeError, ValueError):
+        return None
+    return [
+        2.0 * (x * z + w * y),
+        2.0 * (y * z - w * x),
+        1.0 - 2.0 * (x * x + y * y),
+    ]
 
 
 def on_site(object_pos, site_pos, site_mat, site_size, *, other_height: float = 0.10) -> dict[str, Any]:
@@ -224,11 +261,6 @@ def on_site(object_pos, site_pos, site_mat, site_size, *, other_height: float = 
         "supported": supported,
         "predicate": "SiteObject.under",
     }
-
-
-def _identity_quat(quat: list) -> bool:
-    w, x, y, z = (float(quat[0]), float(quat[1]), float(quat[2]), float(quat[3]))
-    return abs(abs(w) - 1.0) < 1e-3 and abs(x) < 1e-3 and abs(y) < 1e-3 and abs(z) < 1e-3
 
 
 def _motion_class(region_name: str, owner: str) -> str:

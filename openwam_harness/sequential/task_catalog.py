@@ -102,7 +102,7 @@ GOAL_MANUAL = {
         "code_status": "已实现",
         "acceptance_label": "人工测试失败于旧观测；尚未验收",
         "loadable": True,
-        "manual_steps": "先加载 task 6，确认画面和目标句是奶酪与碗，再输入“把奶油奶酪放进碗里。”。核对 target 是 akita_black_bowl_1，几何是 bowl_interior。",
+        "manual_steps": "先加载 task 6，确认画面和目标句是奶酪与碗，再输入“把奶油奶酪放进碗里。”。核对 target 是 akita_black_bowl_1，官方目标是 On，不是碗内部半径。",
     },
     8: {
         "code_status": "已实现",

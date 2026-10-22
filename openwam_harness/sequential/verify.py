@@ -609,11 +609,24 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
     from transfer_geometry import relation_check
 
     shaped = relation_check(obj, target.get("xyz"), spec.get("sim_name"), _target_sim(step, objects))
+    if relation == "on" and isinstance(shaped, dict) and shaped.get("predicate") == "bowl_interior":
+        from transfer_geometry import official_ontop
+
+        contact = ((current or {}).get("sim") or {}).get("contact") if isinstance(current, dict) else None
+        official = official_ontop(obj, target.get("xyz"), contact if isinstance(contact, dict) else None)
+        official["diagnostic_interior"] = shaped
+        official["xy_limit_m"] = official.get("xy_limit_m")
+        shaped = official
     native = None if shaped is not None else _native_on(obj, target, current)
     if shaped is not None:
         xy = shaped.get("xy_m")
         supported = bool(shaped["ok"])
-        z_delta = None if shaped.get("object_bottom_z") is None else shaped["object_bottom_z"] - (shaped.get("floor_z") or shaped.get("support_z") or obj[2])
+        if shaped.get("object_z") is not None and shaped.get("target_z") is not None:
+            z_delta = float(shaped["object_z"]) - float(shaped["target_z"])
+        elif shaped.get("object_bottom_z") is None:
+            z_delta = None
+        else:
+            z_delta = shaped["object_bottom_z"] - (shaped.get("floor_z") or shaped.get("support_z") or obj[2])
         radius = shaped.get("xy_limit_m", radius)
     elif native is not None:
         xy = None
@@ -628,7 +641,7 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
     metrics = {
         "relation": relation,
         "xy_m": None if xy is None else round(xy, 4),
-        "z_delta_m": round(z_delta, 4),
+        "z_delta_m": None if z_delta is None else round(z_delta, 4),
         "gripper_opening_m": opening,
         "radius_m": radius,
         "support_z_tolerance_m": cfg["support_z_tolerance_m"],
@@ -639,8 +652,19 @@ def _place(step, observations, objects, goal_relation: str) -> dict[str, Any]:
         "native_on": native,
         "shaped_relation": shaped,
         "contact_status": None if shaped is None else shaped.get("contact_status"),
-        "condition": "炉灶用 SiteObject.under；盘子用支撑面和 0.03；碗用内部半径和插入高度。接触力未提供时不编造",
+        "condition": "官方 On 用 ObjectState.check_ontop（原点高度、接触、xy<0.03）。碗内部半径只作为诊断，不代替 On。",
     }
+    if isinstance(shaped, dict) and shaped.get("predicate") == "ObjectState.check_ontop" and not shaped.get("geometry_ok"):
+        metrics["unmet"] = [shaped.get("reason") or "官方 On 不成立"]
+        metrics["summary"] = "放置失败：对象与目标区域关系不成立"
+        metrics["error"] = metrics["summary"]
+        return receipt("failure", "WRONG_PLACEMENT", "per_item", ids, metrics)
+    if isinstance(shaped, dict) and shaped.get("missing"):
+        metrics["missing"] = list(shaped["missing"])
+        metrics["unmet"] = [shaped.get("reason") or "官方接触缺失"]
+        metrics["summary"] = shaped.get("reason") or "官方 On 缺少接触，不能记成成功，也不交给人工确认"
+        metrics["error"] = metrics["summary"]
+        return receipt("failure", "OFFICIAL_CONTACT_MISSING", "per_item", ids, metrics)
     if not stable:
         metrics["unmet"] = [f"distinct stable samples < {cfg['stable_samples']}"]
         metrics["summary"] = "放置后需要来自不同环境状态的稳定样本"

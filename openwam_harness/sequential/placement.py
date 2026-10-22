@@ -37,6 +37,99 @@ def legacy_retreat_eef(support_origin, xy_offset, z_offset, hold_offset) -> list
     return [object_target[index] - float(hold_offset[index]) for index in range(3)]
 
 
+def sample_placement(
+    region: dict[str, Any],
+    held_geometry: dict[str, Any],
+    obstacles: list[dict[str, Any]],
+    intended_contacts: list[dict[str, Any]],
+    *,
+    keepout: float = KEEP_OUT_M,
+) -> dict[str, Any]:
+    """Landing search. The planned support may touch the object. Other bodies may not.
+
+    Candidates are written in the support frame and then ``p_world = R @ p_local + t``.
+    Each row records the rule that kept or rejected it. Occupancy stays on.
+    """
+    origin = [float(value) for value in (region.get("origin") or [])[:3]]
+    if len(origin) < 3:
+        return {"ok": False, "code": "pose_not_provided", "reason": "落点采样没有支撑原点", "rejection_report": []}
+    mat = region.get("mat") if isinstance(region.get("mat"), list) and len(region.get("mat")) >= 9 else None
+    footprint = max(0.0, float(held_geometry.get("footprint_xy_m") or 0.0))
+    held_id = held_geometry.get("id")
+    support_id = region.get("support_id")
+    allowed = {item.get("id") for item in intended_contacts if item.get("id")}
+    allowed.add(support_id)
+    allowed.add(held_id)
+    blockers = []
+    for item in obstacles:
+        if not isinstance(item, dict) or item.get("id") in allowed:
+            continue
+        pos = item.get("pos")
+        if isinstance(pos, list) and len(pos) >= 3:
+            blockers.append({"id": item.get("id"), "pos": [float(pos[0]), float(pos[1]), float(pos[2])]})
+    usable = _usable_span(region, footprint)
+    locals_xy = [(0.0, 0.0)]
+    for distance in (0.02, 0.04, 0.06):
+        if distance <= usable + 1e-9:
+            for index in range(8):
+                angle = index * math.pi / 4
+                locals_xy.append((distance * math.cos(angle), distance * math.sin(angle)))
+    descent = float(region.get("descent_m") or 0.12)
+    report = []
+    chosen = None
+    for local_x, local_y in locals_xy:
+        delta = _matvec(mat, [local_x, local_y, 0.0]) if mat else [local_x, local_y, 0.0]
+        point = [origin[0] + delta[0], origin[1] + delta[1], origin[2]]
+        row = {
+            "local_xy": [round(local_x, 4), round(local_y, 4)],
+            "world_xyz": _round3(point),
+            "support_id": support_id,
+            "held_id": held_id,
+            "held_role": "source",
+            "support_role": "intended_contact",
+        }
+        if not _inside_support(region, local_x, local_y, footprint):
+            row["rule"] = "footprint_off_edge"
+            row["obstacle_id"] = None
+            row["clearance_m"] = None
+            report.append(row)
+            continue
+        nearest_id, nearest = _nearest_blocker(point, blockers)
+        row["obstacle_id"] = nearest_id
+        row["clearance_m"] = None if nearest is None else round(nearest, 4)
+        if nearest is not None and nearest < keepout:
+            row["rule"] = "occupied"
+            report.append(row)
+            continue
+        descent_id = _descent_blocker(point, origin[2], descent, blockers, keepout)
+        if descent_id is not None:
+            row["rule"] = "descent_collision"
+            row["obstacle_id"] = descent_id
+            report.append(row)
+            continue
+        row["rule"] = "accepted"
+        report.append(row)
+        chosen = row
+        break
+    if chosen is None:
+        return {
+            "ok": False,
+            "code": "support_occupied",
+            "reason": "支持区域没有通过占用检查的落点",
+            "frame": "object_origin",
+            "rejection_report": report,
+            "intended_contacts": [item.get("id") for item in intended_contacts],
+        }
+    return {
+        "ok": True,
+        "object_origin": chosen["world_xyz"],
+        "frame": "object_origin",
+        "rejection_report": report,
+        "chosen": chosen,
+        "intended_contacts": [item.get("id") for item in intended_contacts],
+    }
+
+
 def choose_object_target(support_origin, occupied, *, radius: float, keepout: float = KEEP_OUT_M) -> dict[str, Any]:
     """Pick an object_origin inside the support disc that clears occupied origins."""
     origin = [float(value) for value in support_origin[:3]]
@@ -245,11 +338,16 @@ def _orientation_block(obs: dict | None, surface_key: str | None, surface: list[
     named = (obs or {}).get("named_poses") if isinstance(obs, dict) else None
     geometry = (named or {}).get("site_geometry") if isinstance(named, dict) else None
     row = geometry.get(surface_key) if isinstance(geometry, dict) else None
-    if not isinstance(row, dict) or not row.get("quat_wxyz"):
+    if not isinstance(row, dict) or not (row.get("quat_wxyz") or row.get("mat")):
         return None
     from regions import placement_mode
 
-    mode = placement_mode({"quat_wxyz": row.get("quat_wxyz"), "size": row.get("size"), "xyz": surface})
+    mode = placement_mode({
+        "quat_wxyz": row.get("quat_wxyz"),
+        "mat": row.get("mat"),
+        "size": row.get("size"),
+        "xyz": surface,
+    })
     if mode.get("ok"):
         return None
     return {
@@ -261,6 +359,23 @@ def _orientation_block(obs: dict | None, surface_key: str | None, surface: list[
         "region_key": surface_key,
         "placement": mode,
     }
+
+
+def grasp_placement_block(plan: dict[str, Any], step: dict[str, Any], obs: dict | None) -> dict[str, Any] | None:
+    """Reject a tilted support before the grasp. A vertical normal is allowed."""
+    if step.get("skill") != "pi0_pick":
+        return None
+    subtask = step.get("subtask")
+    region = None
+    for item in (plan or {}).get("steps") or []:
+        if not isinstance(item, dict) or item.get("subtask") != subtask:
+            continue
+        if isinstance(item.get("target_region"), str):
+            region = item["target_region"]
+            break
+    if not region:
+        return None
+    return _orientation_block(obs, region, [0.0, 0.0, 0.0])
 
 
 def region_pose_ready(step, obs, plan) -> bool:
@@ -344,8 +459,24 @@ def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
     if not motion["ok"]:
         motion["stage"] = "place_motion"
         return motion
-    radius = float(motion["xy_radius_m"])
-    chosen = choose_object_target(surface, _other_origins(obs, plan, ref), radius=radius)
+    from transfer_geometry import support_span
+
+    span = support_span(target_name, site_size, motion["kind"])
+    carried = asset_of_footprint(plan, ref)
+    region = {
+        "origin": surface,
+        "support_id": target_name,
+        "mat": _site_mat(obs, surface_key),
+        "descent_m": z_offset,
+        **span,
+    }
+    held_id = spec_name(plan, ref)
+    chosen = sample_placement(
+        region,
+        {"id": held_id, "footprint_xy_m": carried},
+        _named_origins(obs, plan),
+        [{"id": target_name, "role": "target_support"}],
+    )
     if not chosen["ok"]:
         chosen["stage"] = "place_motion"
         return chosen
@@ -354,7 +485,13 @@ def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
         chosen["object_origin"][1],
         float(motion["object_z"]),
     ]
-    eef_target = [object_target[index] - hold[index] for index in range(3)]
+    fitted = _fit_travel_height(object_target, hold, surface, str(args.get("motion") or "travel"))
+    if not fitted["ok"]:
+        fitted["stage"] = "place_motion"
+        fitted["rejection_report"] = chosen.get("rejection_report")
+        return fitted
+    object_target = fitted["object_origin"]
+    eef_target = fitted["eef_origin"]
     if not _in_workspace(eef_target):
         return {
             "ok": False,
@@ -389,6 +526,9 @@ def _resolve_support(step, bindings, obs, plan) -> dict[str, Any]:
         "placement_kind": motion["kind"],
         "object_z_rule": motion["z_rule"],
         "geometry_source": motion.get("source"),
+        "hold_applied_once": True,
+        "rejection_report": chosen.get("rejection_report"),
+        "clearance": fitted.get("clearance"),
         "args": {key: value for key, value in resolved.items() if value is not None or key == "gripper"},
     }
 
@@ -406,6 +546,86 @@ def _bound_site(plan, target_ref, spec) -> str | None:
     if isinstance(requested, str) and isinstance(sites, list) and requested in sites:
         return requested
     return None
+
+
+def asset_of_footprint(plan, ref) -> float:
+    from transfer_geometry import asset_of
+
+    row = asset_of(spec_name(plan, ref)) or {}
+    return float(row.get("footprint_xy_m") or 0.0)
+
+
+def _site_mat(obs, site_name) -> list[float] | None:
+    geometry = ((obs or {}).get("named_poses") or {}).get("site_geometry") if isinstance(obs, dict) else None
+    row = geometry.get(site_name) if isinstance(geometry, dict) and site_name else None
+    mat = row.get("mat") if isinstance(row, dict) else None
+    if isinstance(mat, list) and len(mat) >= 9:
+        return [float(value) for value in mat[:9]]
+    return None
+
+
+def _named_origins(obs, plan) -> list[dict[str, Any]]:
+    found = []
+    for name, item in ((((obs or {}).get("sim") or {}).get("objects") or {}).items()):
+        if not isinstance(item, dict):
+            continue
+        pos = item.get("pos")
+        if isinstance(pos, list) and len(pos) >= 3:
+            found.append({"id": name, "pos": [float(pos[0]), float(pos[1]), float(pos[2])]})
+    return found
+
+
+def _fit_travel_height(object_target, hold, surface, motion: str) -> dict[str, Any]:
+    """Lower a travel clearance so the eef stays under the workspace z cap.
+
+    The cap itself is not raised. A landing pose that is already above the cap
+    stays rejected, with the surface height and the cap in the reason.
+    """
+    limit = float(THRESHOLDS["workspace_m"]["z"][1])
+    minimum = 0.04
+    origin = [float(object_target[0]), float(object_target[1]), float(object_target[2])]
+    eef = [origin[index] - float(hold[index]) for index in range(3)]
+    if eef[2] <= limit:
+        return {"ok": True, "object_origin": origin, "eef_origin": eef, "clearance": None}
+    if motion != "travel":
+        return {
+            "ok": False,
+            "code": "workspace",
+            "reason": (
+                f"末端目标 z={round(eef[2], 4)} 高于工作空间上限 {limit}。"
+                f"支撑面 z={round(float(surface[2]), 4)}。不提高上限。"
+            ),
+            "eef_origin": [round(value, 4) for value in eef],
+            "object_origin": [round(value, 4) for value in origin],
+            "workspace_z_max": limit,
+        }
+    capped = limit + float(hold[2])
+    floor = float(surface[2]) + minimum
+    if capped < floor - 1e-6:
+        return {
+            "ok": False,
+            "code": "workspace",
+            "reason": (
+                f"柜顶或支撑面 z={round(float(surface[2]), 4)} 加上最低净空后，"
+                f"末端仍高于工作空间上限 {limit}。不提高上限。"
+            ),
+            "workspace_z_max": limit,
+            "surface_z": round(float(surface[2]), 4),
+            "minimum_clearance_m": minimum,
+        }
+    lowered = [origin[0], origin[1], min(origin[2], capped)]
+    eef = [lowered[index] - float(hold[index]) for index in range(3)]
+    return {
+        "ok": True,
+        "object_origin": lowered,
+        "eef_origin": eef,
+        "clearance": {
+            "reduced_from_z": round(origin[2], 4),
+            "object_z": round(lowered[2], 4),
+            "workspace_z_max": limit,
+            "clearance_m": round(lowered[2] - float(surface[2]), 4),
+        },
+    }
 
 
 def spec_name(plan, ref) -> str | None:
@@ -480,3 +700,49 @@ def _unit_away(start, obj) -> list[float]:
 
 def _round3(point) -> list[float]:
     return [round(float(value), 4) for value in point[:3]]
+
+
+def _matvec(mat: list[float] | None, vec: list[float]) -> list[float]:
+    if not isinstance(mat, list) or len(mat) < 9:
+        return [float(vec[0]), float(vec[1]), float(vec[2])]
+    return [
+        mat[0] * vec[0] + mat[1] * vec[1] + mat[2] * vec[2],
+        mat[3] * vec[0] + mat[4] * vec[1] + mat[5] * vec[2],
+        mat[6] * vec[0] + mat[7] * vec[1] + mat[8] * vec[2],
+    ]
+
+
+def _usable_span(region: dict[str, Any], footprint: float) -> float:
+    if region.get("shape") == "box":
+        half = region.get("half_xy_m") or [0.0, 0.0]
+        return max(0.0, min(float(half[0]), float(half[1])) - footprint)
+    return max(0.0, float(region.get("radius_m") or 0.0) - footprint)
+
+
+def _inside_support(region: dict[str, Any], local_x: float, local_y: float, footprint: float) -> bool:
+    if region.get("shape") == "box":
+        half = region.get("half_xy_m") or [0.0, 0.0]
+        return abs(local_x) + footprint <= float(half[0]) + 1e-9 and abs(local_y) + footprint <= float(half[1]) + 1e-9
+    return math.hypot(local_x, local_y) + footprint <= float(region.get("radius_m") or 0.0) + 1e-9
+
+
+def _nearest_blocker(point: list[float], blockers: list[dict[str, Any]]) -> tuple[str | None, float | None]:
+    nearest = None
+    nearest_id = None
+    for item in blockers:
+        gap = math.hypot(point[0] - item["pos"][0], point[1] - item["pos"][1])
+        if nearest is None or gap < nearest:
+            nearest = gap
+            nearest_id = item["id"]
+    return nearest_id, nearest
+
+
+def _descent_blocker(point, surface_z: float, descent: float, blockers, keepout: float) -> str | None:
+    """A body whose xy is inside the keepout and whose height crosses the drop."""
+    top = float(surface_z) + max(0.0, float(descent))
+    for item in blockers:
+        gap = math.hypot(point[0] - item["pos"][0], point[1] - item["pos"][1])
+        height = item["pos"][2]
+        if gap < keepout and float(surface_z) - 0.02 <= height <= top:
+            return item["id"]
+    return None

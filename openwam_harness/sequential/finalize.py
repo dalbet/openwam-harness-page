@@ -128,7 +128,7 @@ def _read_user_goal(payload: dict[str, Any], backend: Any, plan: dict[str, Any])
     )
     payload["subgoal_results"] = judged["subgoal_results"]
     payload["user_goal_success"] = judged["user_goal_success"]
-    payload["user_goal_status"] = "met" if judged["user_goal_success"] else "unmet"
+    payload["user_goal_status"] = judged.get("user_goal_status") or ("met" if judged["user_goal_success"] else "unmet")
     payload["evidence_source"] = evidence.get("evidence_source") or judged.get("evidence_source") or "sim_state"
 
 

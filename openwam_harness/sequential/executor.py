@@ -405,6 +405,40 @@ def run_plan(
                 llm_calls,
                 plan=plan,
             )
+        if skill == "pi0_pick":
+            from placement import grasp_placement_block
+
+            blocked = grasp_placement_block(plan, step, last_obs)
+            if blocked:
+                outcome = ToolOutcome(executed=False, error=blocked.get("reason") or "placement not commandable", real=False, error_class="plan")
+                verification = receipt(
+                    "failure",
+                    blocked.get("code") or "orientation_not_commandable",
+                    "mujoco_site",
+                    [],
+                    {"summary": outcome.error, "error": outcome.error, "placement": blocked.get("placement")},
+                )
+                steps.append(_step_record(step, outcome, verification, last_obs))
+                emit(
+                    "failed",
+                    step_id=step["step_id"],
+                    skill=skill,
+                    reason=outcome.error,
+                    reason_code=blocked.get("code") or "orientation_not_commandable",
+                    execution=_diagnosis(step, outcome, verification, last_obs, plan),
+                )
+                return _finish(
+                    "no_progress",
+                    outcome.error,
+                    session,
+                    started_epoch,
+                    started_version,
+                    steps,
+                    backend,
+                    llm_calls,
+                    plan=plan,
+                    execution=_diagnosis(step, outcome, verification, last_obs, plan),
+                )
         args = prepared["args"]
         before_step = _env_step(backend)
         calls = _calls_for(skill, args, eef)
@@ -810,6 +844,21 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
             metrics["error"] = metrics["summary"]
             metrics["unmet"] = (metrics.get("unmet") or []) + ["distinct env_step samples < stable_samples"]
             verdict = receipt("failure", "stable_sample_unchanged", verdict.get("evidence_source") or "per_item", verdict.get("observation_ids") or [], metrics)
+    elif (
+        verdict["reason_code"] == "NEED_STABILITY_SAMPLE"
+        and step.get("completion_check") != "grasp_held"
+        and native_execution_gate(plan, backend) == "stop_native"
+    ):
+        verdict = _as_native_success(verdict)
+    elif (
+        verdict["reason_code"] == "NEED_STABILITY_SAMPLE"
+        and step.get("completion_check") != "grasp_held"
+        and native_execution_gate(plan, backend) == "stop_uncontinuable"
+    ):
+        metrics = dict(verdict.get("metrics") or {})
+        metrics["summary"] = "放置后没有再采样：回合已经结束，缺失样本不交给人工确认"
+        metrics["error"] = metrics["summary"]
+        verdict = receipt("failure", "episode_not_continuable", verdict.get("evidence_source") or "per_item", verdict.get("observation_ids") or [], metrics)
     return post, verdict
 
 
@@ -975,6 +1024,10 @@ def _recover_or_confirm(
         failed["status"] = "failure"
         return failed, outcome, post
     if verification["status"] == "unknown":
+        if step.get("completion_check") == "object_placed":
+            failed = dict(verification)
+            failed["status"] = "failure"
+            return failed, outcome, post
         return _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post)
     event = event_for(verification, outcome)
     if event is None or step.get("on_failure") != "recover":
@@ -1000,10 +1053,10 @@ def _recover_or_confirm(
                 break
             recovery.mark_service(step["step_id"])
         if proposal["kind"] != "actions" and proposal["kind"] != "service_retry":
-            verification = receipt("failure", "RECOVERY_EXHAUSTED", "sim_state_assisted", [], {"event": event})
+            verification = _exhausted(verification, event)
             break
         if proposal["kind"] == "actions" and not recovery.consume(step["step_id"]):
-            verification = receipt("failure", "RECOVERY_EXHAUSTED", "sim_state_assisted", [], {"event": event})
+            verification = _exhausted(verification, event)
             break
         moved = False
         for action in proposal["actions"]:
@@ -1026,7 +1079,7 @@ def _recover_or_confirm(
                 eef = follow.eef_pos
             post.append(_capture(backend, started_epoch))
         if not moved:
-            verification = receipt("failure", "RECOVERY_EXHAUSTED", "sim_state_assisted", [], {"event": event})
+            verification = _exhausted(verification, event)
             break
         verification = verify_step(
             step,
@@ -1044,10 +1097,39 @@ def _recover_or_confirm(
             break
         event = mapped or event
     if verification.get("status") == "unknown":
+        if step.get("completion_check") == "object_placed":
+            failed = dict(verification)
+            failed["status"] = "failure"
+            metrics = dict(failed.get("metrics") or {})
+            metrics["checker_reason_code"] = verification.get("reason_code")
+            metrics["summary"] = metrics.get("summary") or metrics.get("error") or verification.get("reason_code")
+            failed["metrics"] = metrics
+            return failed, outcome, post
         return _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post)
     if verification.get("status") == "failure" and event_for(verification, outcome):
-        verification = receipt("failure", "RECOVERY_EXHAUSTED", verification.get("evidence_source") or "sim_state_assisted", verification.get("observation_ids") or [], {"event": event})
+        verification = _exhausted(verification, event)
     return verification, outcome, post
+
+
+def _exhausted(verification: dict, event: str | None) -> dict:
+    """Keep the last checker reason. RECOVERY_EXHAUSTED is the ending, not the cause."""
+    metrics = dict(verification.get("metrics") or {})
+    last_code = verification.get("reason_code")
+    last_reason = metrics.get("error") or metrics.get("summary") or last_code
+    kept = dict(metrics)
+    kept["event"] = event
+    kept["last_reason_code"] = last_code
+    kept["last_reason"] = last_reason
+    kept["last_unmet"] = metrics.get("unmet")
+    kept["error"] = f"RECOVERY_EXHAUSTED: {last_reason}"
+    kept["summary"] = kept["error"]
+    return receipt(
+        "failure",
+        "RECOVERY_EXHAUSTED",
+        verification.get("evidence_source") or "sim_state_assisted",
+        verification.get("observation_ids") or [],
+        kept,
+    )
 
 
 def _confirm_unknown(step, verification, confirm, emit, stale, session, outcome, post):
@@ -1089,7 +1171,15 @@ def _confirm_unknown(step, verification, confirm, emit, stale, session, outcome,
     )
     user = confirm(step.get("subtask") or step["step_id"])
     if stale() or user is None:
-        return {"status": "discarded", "reason": "stale confirmation discarded"}, outcome, post
+        metrics = dict(verification.get("metrics") or {})
+        metrics["checker_reason_code"] = verification.get("reason_code")
+        metrics["error"] = metrics.get("error") or metrics.get("summary") or verification.get("reason_code")
+        metrics["summary"] = "确认超时，已结束等待。活动步骤记为失败，不保持 running。"
+        failed = dict(verification)
+        failed["status"] = "failure"
+        failed["reason_code"] = "confirm_timeout"
+        failed["metrics"] = metrics
+        return failed, outcome, post
     verification = dict(verification)
     verification["manual_confirmation"] = {
         "verdict": user,
@@ -1397,6 +1487,27 @@ def _diagnosis(step, outcome, verification, observation, plan) -> dict[str, Any]
     }
 
 
+def _failed_step(steps: list[dict]) -> str | None:
+    for step in reversed(steps or []):
+        if (step.get("verification") or {}).get("status") == "failure":
+            return step.get("step_id")
+    return None
+
+
+def _last_completed(steps: list[dict]) -> str | None:
+    for step in reversed(steps or []):
+        if (step.get("verification") or {}).get("status") == "success":
+            return step.get("step_id")
+    return None
+
+
+def _stamp_steps(execution, steps: list[dict]) -> dict:
+    body = dict(execution) if isinstance(execution, dict) else {}
+    body["failed_step"] = _failed_step(steps)
+    body["last_completed_step"] = _last_completed(steps)
+    return body
+
+
 def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, execution=None, plan=None, retreat_error=None) -> dict[str, Any]:
     # Official success is only the backend's LIBERO terminated flag.
     # Truncation, an unfinished plan, and planner finish do not set it.
@@ -1422,7 +1533,9 @@ def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, 
         "llm_calls_during_execution": llm_calls,
         "tool_results": [step.get("tool_result") for step in steps],
         "subtask_results": [step.get("verification") for step in steps],
-        "execution": execution,
+        "execution": _stamp_steps(execution, steps),
+        "failed_step": _failed_step(steps),
+        "last_completed_step": _last_completed(steps),
     }
     if plan and plan.get("execution_mode") == "free":
         from finalize import _read_user_goal

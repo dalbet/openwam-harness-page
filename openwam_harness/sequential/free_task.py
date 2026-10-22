@@ -176,8 +176,24 @@ def judge_user_goal(
 
             dst = _pos(objects, predicate["target_ref"])
             shaped = relation_check(obj, dst, predicate["object_ref"], predicate["target_ref"])
+            if (
+                isinstance(shaped, dict)
+                and predicate.get("relation") == "on"
+                and shaped.get("predicate") == "bowl_interior"
+            ):
+                from transfer_geometry import official_ontop
+
+                official = official_ontop(obj, dst, None)
+                official["diagnostic_interior"] = shaped
+                shaped = official
             if shaped is not None:
-                held = bool(shaped["ok"])
+                if shaped.get("predicate") == "ObjectState.check_ontop":
+                    held = bool(shaped.get("geometry_ok")) and shaped.get("contact_ok") is not False
+                    if shaped.get("missing"):
+                        held = False
+                        metrics["user_goal_status"] = "unknown"
+                else:
+                    held = bool(shaped["ok"])
                 source = "asset_geometry"
                 metrics.update(shaped)
             elif obj is not None and dst is not None:
@@ -202,9 +218,12 @@ def judge_user_goal(
             }
         )
     end_rows = [row for row in rows if row["hold"] == "end"]
+    unknown = any((row.get("metrics") or {}).get("user_goal_status") == "unknown" for row in end_rows)
+    success = bool(end_rows) and all(row["held_at_end"] for row in end_rows) and not unknown
     return {
         "subgoal_results": rows,
-        "user_goal_success": bool(end_rows) and all(row["held_at_end"] for row in end_rows),
+        "user_goal_success": success,
+        "user_goal_status": "unknown" if unknown else ("met" if success else "unmet"),
         "evidence_source": "per_item" if len(sources) > 1 else (next(iter(sources)) if sources else "sim_state"),
         "vision": False,
     }

@@ -22,10 +22,15 @@ ASSETS = {
         "floor_z": -0.012,
         "rim_z": 0.04,
         "inner_xy_m": 0.025,
+        # horizontal_radius_site sits at (0.025, 0.025).
+        "footprint_xy_m": 0.03536,
     },
     "plate": {
         "source": "stable_scanned_objects/plate/plate.xml",
         "kind_when_target": "support_body",
+        # Corner of the collision boxes, not horizontal_radius_site (0.035 m)
+        # and not ObjectState.check_ontop's 0.03 m origin test.
+        "support_radius_m": 0.07316,
         "bottom_z": -0.02744,
         "support_z": 0.00535,
         "xy_limit_m": 0.03,
@@ -117,6 +122,72 @@ def motion_target(
         "object_bottom_z": bottom,
         "source": target.get("source"),
     }
+
+
+def official_ontop(obj, target_pos, contact: dict | None = None) -> dict[str, Any]:
+    """Same conditions as ``On(object, target)`` → ``target.check_ontop(object)``.
+
+    The installed predicate requires the target origin to be no higher than the
+    object origin, a real contact, and an XY origin gap below 0.03 m. A missing
+    contact does not count as success and does not count as a measured miss.
+    """
+    if not isinstance(obj, list) or not isinstance(target_pos, list) or len(obj) < 3 or len(target_pos) < 3:
+        return {
+            "ok": False,
+            "geometry_ok": False,
+            "predicate": "ObjectState.check_ontop",
+            "reason_code": "pose_not_provided",
+            "reason": "官方 On 缺少对象或目标原点",
+            "contact_status": "not_provided",
+            "missing": ["object_pos"],
+        }
+    xy = math.hypot(float(obj[0]) - float(target_pos[0]), float(obj[1]) - float(target_pos[1]))
+    z_ok = float(target_pos[2]) <= float(obj[2])
+    xy_ok = xy < OFFICIAL_ON_XY_M
+    geometry_ok = z_ok and xy_ok
+    contact_ok = None
+    contact_status = "not_provided"
+    if isinstance(contact, dict) and "contact" in contact:
+        contact_ok = bool(contact.get("contact"))
+        contact_status = "provided"
+    if geometry_ok and contact_ok is True:
+        reason = ""
+    elif not z_ok:
+        reason = "官方 On 不成立：目标原点高于物体原点"
+    elif not xy_ok:
+        reason = f"官方 On 不成立：xy {round(xy, 4)} m 不小于 {OFFICIAL_ON_XY_M} m"
+    else:
+        reason = "官方 On 的几何成立，但这次观测没有接触，不能记成成功"
+    return {
+        "ok": bool(geometry_ok and contact_ok is True),
+        "geometry_ok": geometry_ok,
+        "predicate": "ObjectState.check_ontop",
+        "caller": "On(object, target) => target.check_ontop(object)",
+        "xy_m": round(xy, 4),
+        "xy_limit_m": OFFICIAL_ON_XY_M,
+        "object_z": round(float(obj[2]), 4),
+        "target_z": round(float(target_pos[2]), 4),
+        "z_ok": z_ok,
+        "contact_status": contact_status,
+        "contact_ok": contact_ok,
+        "missing": ["official_contact"] if geometry_ok and contact_ok is None else [],
+        "reason": reason,
+    }
+
+
+def support_span(target_name: str | None, site_size: list[float] | None, kind: str) -> dict[str, Any]:
+    """Physical support used to sample a landing point. Not the 0.03 m On test."""
+    target = asset_of(target_name) or {}
+    if kind == "interior":
+        return {"shape": "disc", "radius_m": float(target.get("inner_xy_m", OFFICIAL_ON_XY_M))}
+    if kind == "support_body":
+        return {"shape": "disc", "radius_m": float(target.get("support_radius_m", OFFICIAL_ON_XY_M))}
+    if isinstance(site_size, list) and len(site_size) >= 2:
+        return {"shape": "box", "half_xy_m": [abs(float(site_size[0])), abs(float(site_size[1]))]}
+    if "site_half_xy_m" in target:
+        half = float(target["site_half_xy_m"])
+        return {"shape": "box", "half_xy_m": [half, half]}
+    return {"shape": "disc", "radius_m": OFFICIAL_ON_XY_M}
 
 
 def relation_check(obj, target_pos, object_name: str | None, target_name: str | None) -> dict[str, Any] | None:
