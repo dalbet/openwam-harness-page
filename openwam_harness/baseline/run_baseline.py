@@ -18,7 +18,7 @@ from pathlib import Path
 from episode_log import LIBERO10_TASKS, build_episode, utc_now, write_episode
 from runtime_patches import apply_null_mount_patch, link_libero_assets
 
-ROOT = Path("/root/Page_dmh/openwam_harness")
+ROOT = Path(__file__).resolve().parents[1]
 RPENT = ROOT / "envs" / "rpent" / "bin" / "rpent"
 DEFAULT_RUNS = ROOT / "runs" / "baseline_original"
 
@@ -177,8 +177,16 @@ def main() -> int:
         print(f"missing rpent entrypoint: {RPENT}", file=sys.stderr)
         return 2
     print(f"null-mount patch: {apply_null_mount_patch()}", flush=True)
-    site = Path(
-        "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/libero/libero/assets"
+    site = (
+        ROOT
+        / "envs"
+        / "rpent"
+        / "lib"
+        / "python3.10"
+        / "site-packages"
+        / "libero"
+        / "libero"
+        / "assets"
     )
     print(
         "libero assets: "

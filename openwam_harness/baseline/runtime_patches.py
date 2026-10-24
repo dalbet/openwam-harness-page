@@ -31,17 +31,15 @@ NEW = """\
 
 
 def factory_path() -> Path:
-    """Locate robosuite inside the rpent env, not the system interpreter."""
-    candidate = Path(
-        "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages"
-        "/robosuite/models/bases/robot_base_factory.py"
-    )
-    if candidate.is_file():
-        return candidate
-    spec = importlib.util.find_spec("robosuite.models.bases.robot_base_factory")
-    if spec is None or not spec.origin:
-        raise FileNotFoundError("robosuite robot_base_factory is not installed")
-    return Path(spec.origin)
+    """Locate robosuite in the current Python environment."""
+    from importlib.metadata import distribution
+
+    target = Path(distribution("robosuite").locate_file(
+        "robosuite/models/bases/robot_base_factory.py"
+    ))
+    if not target.is_file():
+        raise FileNotFoundError(f"robot_base_factory not found: {target}")
+    return target
 
 
 def apply_null_mount_patch(path: Path | None = None) -> str:

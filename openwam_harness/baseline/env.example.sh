@@ -2,7 +2,8 @@
 # Copy to a local file that is gitignored. Do not put real API keys here.
 # The local planner uses a dummy key because vLLM does not check it.
 
-export HARNESS_ROOT=/root/Page_dmh/openwam_harness
+_ENV_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export HARNESS_ROOT="$(cd "${_ENV_DIR}/.." && pwd)"
 export PI05_CHECKPOINT_PATH="${HARNESS_ROOT}/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT"
 export SAM3_CHECKPOINT_PATH="${HARNESS_ROOT}/checkpoints/sam3/sam3.pt"
 export PLANNER_MODEL_PATH="${HARNESS_ROOT}/checkpoints/Qwen3.5-9B"

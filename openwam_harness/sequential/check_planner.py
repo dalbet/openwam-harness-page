@@ -20,7 +20,7 @@ URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8000/v1")
 def _tokenizer():
     checkpoint = os.environ.get(
         "PLANNER_MODEL_PATH",
-        "/root/Page_dmh/openwam_harness/checkpoints/Qwen3.5-9B",
+        str(Path(__file__).resolve().parents[1] / "checkpoints" / "Qwen3.5-9B"),
     )
     try:
         from transformers import AutoTokenizer
