@@ -30,6 +30,10 @@ __pycache__/
 *.ckpt
 models/
 
+# 本机配置与可再生成的运行输出
+config/libero.env
+runtime/
+
 # 密钥与环境
 *.env
 .env*

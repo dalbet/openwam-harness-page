@@ -12,13 +12,11 @@ from planner import FREE_OUTPUT_FORMAT
 from schema import prepare_plan
 from step_display import apply_display_event, display_steps
 from suites import _catalog, objects_for_names
+from site_paths import site
 from task_catalog import lookup_task, planner_task_context, scene_examples, single_task_block
 
 ROOT = Path(__file__).resolve().parent
-BDDL = Path(
-    "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
-    "liberopro/liberopro/bddl_files/libero_goal/put_the_bowl_on_the_stove.bddl"
-)
+BDDL = site("liberopro", "liberopro", "bddl_files", "libero_goal", "put_the_bowl_on_the_stove.bddl")
 GOAL_NAMES = [
     "akita_black_bowl_1",
     "cream_cheese_1",

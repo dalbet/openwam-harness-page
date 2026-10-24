@@ -14,13 +14,11 @@ from planner import request_plan
 from regions import clear_pose_cache, on_site, parse_bddl_regions, placement_mode, query_region
 from store import new_observation
 from suites import _catalog, objects_for_names
+from site_paths import site
 from verify import observation_ok
 
 ROOT = Path(__file__).resolve().parent
-BDDL = Path(
-    "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
-    "liberopro/liberopro/bddl_files/libero_goal"
-)
+BDDL = site("liberopro", "liberopro", "bddl_files", "libero_goal")
 WINE_PLAN = {
     "plan_id": "bowl_to_stove",
     "goal": "把碗放在炉灶上，然后将红酒瓶放在架子上",
@@ -60,7 +58,7 @@ WINE_PLAN = {
 
 
 def _names():
-    state = json.loads((ROOT.parent / "runs" / "sequential" / "874f6a80bddf" / "states.json").read_text(encoding="utf-8"))
+    state = json.loads((ROOT / "fixtures" / "goal_task1_state_names.json").read_text(encoding="utf-8"))
     names = list(state["steps"][-1]["state"]["object_names"])
     catalog = _catalog(str(BDDL / "put_the_bowl_on_the_stove.bddl"))
     for item in catalog["instances"] + catalog["fixtures"]:

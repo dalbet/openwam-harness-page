@@ -1,5 +1,7 @@
 # LIBERO Goal 十任务支持
 
+启动、停止和当前目录职责见 `docs/harness-sequential.md`。下面是任务支持记录，不是启动说明。
+
 数据来自本机 `fixtures/libero_task_catalog.json`、`libero_goal/*.bddl`、资产 XML，以及 `skills.py`。CPU 测试通过不等于机器人任务成功。没有真机或仿真人工验收的条目只标“已实现，待人工验收”。
 
 场景都是 `libero_goal`。官方成功仍是环境 `terminated` 且未 `truncated`。几何检查只作诊断，不代替这个标志。

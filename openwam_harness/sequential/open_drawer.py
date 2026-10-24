@@ -13,13 +13,15 @@ import time
 from pathlib import Path
 from typing import Any
 
-ASSET = Path(
-    "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
-    "libero/libero/assets/articulated_objects/wooden_cabinet.xml"
-)
-BDDL = Path(
-    "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
-    "liberopro/liberopro/bddl_files/libero_goal/open_the_middle_drawer_of_the_cabinet.bddl"
+from site_paths import site
+
+ASSET = site("libero", "libero", "assets", "articulated_objects", "wooden_cabinet.xml")
+BDDL = site(
+    "liberopro",
+    "liberopro",
+    "bddl_files",
+    "libero_goal",
+    "open_the_middle_drawer_of_the_cabinet.bddl",
 )
 MAX_CHUNKS = 8
 UPSTREAM_CHUNK_BUDGET = 20

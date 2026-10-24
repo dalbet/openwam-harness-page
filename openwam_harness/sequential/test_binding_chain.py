@@ -10,15 +10,13 @@ from candidates import resolve_plan_bindings, scene_graph
 from executor import Session, ToolOutcome, run_plan
 from finalize import finalize_run
 from schema import PlanError, prepare_plan
+from site_paths import site
 from suites import _catalog, objects_for_names
 
 ROOT = Path(__file__).resolve().parent
 SAVED = ROOT / "fixtures" / "planner_seq_68c884edeb80.json"
-STATES = ROOT.parent / "runs" / "sequential" / "874f6a80bddf" / "states.json"
-BDDL = Path(
-    "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
-    "liberopro/liberopro/bddl_files/libero_goal/put_the_bowl_on_the_stove.bddl"
-)
+STATES = ROOT / "fixtures" / "goal_task1_state_names.json"
+BDDL = site("liberopro", "liberopro", "bddl_files", "libero_goal", "put_the_bowl_on_the_stove.bddl")
 
 
 def _saved_arguments(role: str) -> dict:

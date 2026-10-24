@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 
 from candidates import resolve_plan_bindings, scene_graph
+from site_paths import site
 from free_task import judge_user_goal
 from placement import resolve_motion_step
 from suites import _catalog, objects_for_names
@@ -101,10 +102,7 @@ class TransferGeometryTest(unittest.TestCase):
     def test_official_cabinet_sentence_selects_top_side_only(self):
         from pathlib import Path
 
-        bddl = Path(
-            "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
-            "liberopro/liberopro/bddl_files/libero_goal/put_the_bowl_on_the_stove.bddl"
-        )
+        bddl = site("liberopro", "liberopro", "bddl_files", "libero_goal", "put_the_bowl_on_the_stove.bddl")
         catalog = _catalog(str(bddl))
         names = [item["name"] for item in catalog["instances"] + catalog["fixtures"]]
         objects = objects_for_names(names, catalog)
@@ -142,10 +140,7 @@ class TransferGeometryTest(unittest.TestCase):
         from schema import prepare_plan
         from verify import _target_reading, verify_step
 
-        bddl = Path(
-            "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
-            "liberopro/liberopro/bddl_files/libero_goal/put_the_bowl_on_the_stove.bddl"
-        )
+        bddl = site("liberopro", "liberopro", "bddl_files", "libero_goal", "put_the_bowl_on_the_stove.bddl")
         catalog = _catalog(str(bddl))
         names = [item["name"] for item in catalog["instances"] + catalog["fixtures"]]
         objects = objects_for_names(names, catalog)
@@ -343,10 +338,7 @@ class TransferGeometryTest(unittest.TestCase):
 
         from schema import prepare_plan
 
-        bddl = Path(
-            "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
-            "liberopro/liberopro/bddl_files/libero_goal/put_the_bowl_on_the_stove.bddl"
-        )
+        bddl = site("liberopro", "liberopro", "bddl_files", "libero_goal", "put_the_bowl_on_the_stove.bddl")
         catalog = _catalog(str(bddl))
         names = [item["name"] for item in catalog["instances"] + catalog["fixtures"]]
         objects = objects_for_names(names, catalog)

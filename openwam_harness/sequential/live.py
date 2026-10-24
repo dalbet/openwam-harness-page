@@ -744,6 +744,10 @@ def _timed_toolkit(robot_spec, runtime_kwargs, events, config, output_dir):
             return orig_dump(*args, **kwargs)
         finally:
             marks["first_frame_s"] = round(time.perf_counter() - started, 3)
+            if os.environ.get("SEQUENTIAL_DEBUG", "0") != "1":
+                from log_budget import prune_observation_steps
+
+                prune_observation_steps(output_dir)
 
     LiberoPrimitives.reset = reset
     tools.dump_state = dump

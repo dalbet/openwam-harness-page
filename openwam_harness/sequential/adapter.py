@@ -20,6 +20,7 @@ from pathlib import Path
 from aiohttp import web, WSMsgType
 
 from executor import Session, ToolOutcome, run_plan
+from log_budget import append_jsonl, debug_enabled, prune_episode_dirs, retention_enabled
 from planner import SHORT_MEMORY, load_human_plan, make_openai_client, request_plan
 from planner_profiles import comparison_record, profiles, public_profile
 from run_context import RunContext
@@ -499,10 +500,7 @@ class App:
         self.run_journal.append(row)
         self.run_journal = self.run_journal[-200:]
         try:
-            path = ROOT / "records" / "run_journal.jsonl"
-            path.parent.mkdir(exist_ok=True)
-            with path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+            append_jsonl(ROOT / "records" / "run_journal.jsonl", row)
         except OSError:
             pass
         self.broadcast({"type": "run_stage", **row})
@@ -629,6 +627,8 @@ class App:
         self._save_display_jpeg(header, agent)
 
     def _save_display_jpeg(self, header: dict, agent: bytes) -> None:
+        if not debug_enabled():
+            return
         out = getattr(self.backend, "output_dir", None)
         if out is None or not agent:
             return
@@ -780,6 +780,13 @@ class App:
             self.scene_spec = spec
             self.binding = None
         out = ROOT.parents[0] / "runs" / "sequential" / episode
+        out.mkdir(parents=True, exist_ok=True)
+        protect = []
+        current_out = getattr(self.backend, "output_dir", None) if self.backend is not None else None
+        if current_out is not None:
+            protect.append(Path(current_out))
+        if retention_enabled():
+            prune_episode_dirs(out.parent, protect=protect)
         box: dict = {}
         abandoned = threading.Event()
         same = (
@@ -2214,7 +2221,12 @@ class App:
 
     def _persist_run(self) -> None:
         try:
-            self.runs.save(ROOT / "records" / "runs")
+            directory = ROOT / "records" / "runs"
+            self.runs.save(directory)
+            from log_budget import prune_summaries
+
+            if retention_enabled():
+                prune_summaries(directory)
         except Exception as exc:
             self.log(f"run record failed: {exc}")
 
@@ -2518,4 +2530,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if LIVE:
+        os.environ["SEQUENTIAL_PRUNE_EPISODES"] = "1"
     main()

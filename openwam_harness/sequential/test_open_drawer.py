@@ -14,14 +14,12 @@ from schema import PlanError, failure_stage, prepare_plan, resolve_args
 from skills import implemented_skills, skill_rejection
 from suites import _catalog, objects_for_names
 from task_catalog import lookup_task, single_task_block, tasks_for_scene
+from site_paths import site
 from verify import verify_step
 
 
 ROOT = Path(__file__).resolve().parent
-STOVE = Path(
-    "/root/Page_dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/"
-    "liberopro/liberopro/bddl_files/libero_goal/put_the_bowl_on_the_stove.bddl"
-)
+STOVE = site("liberopro", "liberopro", "bddl_files", "libero_goal", "put_the_bowl_on_the_stove.bddl")
 
 
 def _objects():
