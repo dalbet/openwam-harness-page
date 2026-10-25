@@ -8,7 +8,7 @@
 
 | 位置 | 提交 | 说明 |
 | --- | --- | --- |
-| 本仓库 `main` | `a9c559e` | PHASE2A 运行时修复；比 `origin/main` 的 `df7e083` 超前 3 个提交（文档提交随后 +1） |
+| 本仓库 `main` | `a9c559e` | PHASE2A 运行时修复；文档提交紧随其后 |
 | `openwam_harness/RPent` | `a8c5311` | detached，editable 安装，`import rpent` 指向这份源码 |
 | `openwam_harness/OpenWAM` | `4d7f642` | detached，当前执行链不调用它，源码保留 |
 
