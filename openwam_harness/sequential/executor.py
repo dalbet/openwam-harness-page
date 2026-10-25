@@ -18,6 +18,7 @@ from store import LocalizationCache, new_observation
 from verify import THRESHOLDS, call_failure_receipt, receipt, verify_step
 
 WORLD_SKILLS = frozenset({"pi0_pick", "move_to", "set_gripper"})
+NATIVE_FINISH_PHASES = frozenset({"descending", "releasing", "retreat"})
 
 
 def _vla_arm(episode_id: str, scene_epoch: int, plan_version: int, skill: str) -> None:
@@ -158,6 +159,10 @@ def run_plan(
     emit("executing", detail="plan accepted")
     queue = list(plan["steps"])
     index = 0
+    native_finish_scope = None
+    native_finish_deadline = None
+    native_finish_budget_s = None
+    native_finish_start_count = None
     while index < len(queue):
         step = queue[index]
         if stale():
@@ -175,7 +180,27 @@ def run_plan(
                 llm_calls,
             )
         _vla_arm(session.episode_id, started_epoch, started_version, step.get("skill") or "")
-        gate = native_execution_gate(plan, backend)
+        gate = native_execution_gate(plan, backend, step=step, steps=steps)
+        if gate == "finish_native":
+            budget = _finish_window_budget(queue[index:], step.get("subtask"))
+            if budget <= 0:
+                gate = "stop_native"
+            else:
+                if native_finish_scope is None:
+                    native_finish_scope = step.get("subtask")
+                    native_finish_budget_s = budget
+                    native_finish_start_count = _env_step(backend)
+                    native_finish_deadline = clock() + budget
+                    emit(
+                        "executing",
+                        step_id=step["step_id"],
+                        skill=step.get("skill"),
+                        detail="NATIVE_GOAL_FINISH",
+                        reason_code="NATIVE_GOAL",
+                        evidence_source="libero_terminated",
+                        native_finish_scope=native_finish_scope,
+                        native_finish_budget_s=native_finish_budget_s,
+                    )
         if gate == "stop_uncontinuable":
             return _finish(
                 "failed",
@@ -198,6 +223,18 @@ def run_plan(
                 reason_code="NATIVE_SUCCESS",
                 evidence_source="libero_terminated",
             )
+            if plan.get("execution_mode") == "free":
+                return _finish(
+                    "native_goal_stopped",
+                    "NATIVE_GOAL_STOPPED",
+                    session,
+                    started_epoch,
+                    started_version,
+                    steps,
+                    backend,
+                    llm_calls,
+                    plan=plan,
+                )
             return _finish(
                 "completed",
                 "NATIVE_SUCCESS",
@@ -218,6 +255,23 @@ def run_plan(
                 reason_code="NATIVE_GOAL",
                 evidence_source="libero_terminated",
             )
+        if gate == "finish_native":
+            if native_finish_deadline is not None and clock() >= native_finish_deadline:
+                return _finish(
+                    "failed",
+                    "native_finish_budget_exhausted",
+                    session,
+                    started_epoch,
+                    started_version,
+                    steps,
+                    backend,
+                    llm_calls,
+                    plan=plan,
+                )
+            step["_native_finish"] = True
+            step["_native_finish_scope"] = native_finish_scope
+            step["_native_finish_budget_s"] = native_finish_budget_s
+            step["_native_finish_start_sim_action"] = native_finish_start_count
         skill = step["skill"]
         emit("executing", step_id=step["step_id"], skill=skill, detail=step.get("subtask") or skill)
         if skill == "pause_for_confirm":
@@ -491,10 +545,10 @@ def run_plan(
                 )
             elif observed is not None:
                 eef = observed
-        if outcome.executed and native_execution_gate(plan, backend) == "stop_native":
+        if outcome.executed and _native_stop(plan, backend):
             verification = _as_native_success(verification)
         _write_trace(backend, step, verification)
-        if verification.get("reason_code") == "NATIVE_SUCCESS" and native_execution_gate(plan, backend) == "stop_native":
+        if verification.get("reason_code") == "NATIVE_SUCCESS" and _native_stop(plan, backend):
             _vla_clear("terminated")
             if post:
                 last_obs = post[-1]
@@ -764,9 +818,11 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
     if isinstance(returned, dict):
         fresh = new_observation(returned, scene_epoch=scene_epoch)
         fresh["state_source"] = returned.get("state_source") or "action_return"
-    stop_native = _native(backend) and plan.get("task_scope") != "combo"
+    stop_native = _native_stop(plan, backend)
     if stop_native:
-        # Keep the geometric read of the action return. Do not sample or retreat.
+        # Benchmark keeps the geometric read of the action return. Do not
+        # sample or retreat after the official goal. Free mode verifies the
+        # release instead, and the executor gate bounds what may follow.
         verdict = verify_step(
             step,
             outcome,
@@ -819,7 +875,7 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
     if (
         verdict["reason_code"] == "NEED_STABILITY_SAMPLE"
         and step.get("completion_check") != "grasp_held"
-        and native_execution_gate(plan, backend) not in {"stop_native", "stop_uncontinuable"}
+        and _sampling_allowed(plan, backend)
     ):
         # Keep the gripper where this step left it. A placement window must
         # not close the gripper, and a finished episode must not be stepped.
@@ -847,6 +903,7 @@ def _judge(step, outcome, backend, before, scene_epoch, min_step, plan, support_
     elif (
         verdict["reason_code"] == "NEED_STABILITY_SAMPLE"
         and step.get("completion_check") != "grasp_held"
+        and plan.get("execution_mode") != "free"
         and native_execution_gate(plan, backend) == "stop_native"
     ):
         verdict = _as_native_success(verdict)
@@ -868,16 +925,64 @@ def _relation_for(plan: dict[str, Any], step: dict[str, Any]) -> str | None:
     return plan.get("goal_relation")
 
 
-def native_execution_gate(plan: dict[str, Any], backend: Any) -> str:
-    """Benchmark mode stops on the native goal. Free mode records it and continues."""
+def native_execution_gate(
+    plan: dict[str, Any],
+    backend: Any,
+    *,
+    step: dict[str, Any] | None = None,
+    steps: list[dict[str, Any]] | None = None,
+) -> str:
+    """Decide what a native goal means for this plan.
+
+    Benchmark stops at the goal. Free mode records it, and only the current
+    transfer's descend/release/retreat may still run. Any other step stops.
+    """
     checker = getattr(backend, "episode_continuable", None)
     if checker is not None and not bool(checker()):
         return "stop_uncontinuable"
-    if _native(backend) and plan.get("task_scope") == "combo":
-        return "record_native"
-    if _native(backend):
+    if not _native(backend):
+        return "continue"
+    if plan.get("execution_mode") == "free":
+        if plan.get("task_scope") == "combo":
+            return "record_native"
+        if _native_finish_step(step, steps):
+            return "finish_native"
         return "stop_native"
-    return "continue"
+    if plan.get("task_scope") == "combo":
+        return "record_native"
+    return "stop_native"
+
+
+def _native_stop(plan: dict[str, Any], backend: Any) -> bool:
+    """True only when this plan's native goal must stop execution immediately."""
+    return plan.get("execution_mode") != "free" and _native(backend)
+
+
+def _native_finish_step(step: dict[str, Any] | None, steps: list[dict[str, Any]] | None) -> bool:
+    if not isinstance(step, dict) or not steps:
+        return False
+    trigger = steps[-1].get("subtask") if isinstance(steps[-1], dict) else None
+    if not trigger or step.get("subtask") != trigger:
+        return False
+    return step.get("transfer_phase") in NATIVE_FINISH_PHASES
+
+
+def _finish_window_budget(remaining: list[dict[str, Any]], scope: str | None) -> float:
+    total = 0.0
+    for item in remaining:
+        if item.get("subtask") != scope:
+            break
+        if item.get("transfer_phase") not in NATIVE_FINISH_PHASES:
+            continue
+        total += float((item.get("budget") or {}).get("max_s") or 0.0)
+    return round(total, 3)
+
+
+def _sampling_allowed(plan: dict[str, Any], backend: Any) -> bool:
+    checker = getattr(backend, "episode_continuable", None)
+    if checker is not None and not bool(checker()):
+        return False
+    return plan.get("execution_mode") == "free" or not _native(backend)
 
 
 def _native(backend: Any) -> bool:
@@ -913,8 +1018,6 @@ def _hold_window(backend: Any, scene_epoch: int, gripper: float = -1.0) -> list[
     """Advance a non-grasp check without changing the gripper command."""
     checker = getattr(backend, "episode_continuable", None)
     if checker is not None and not bool(checker()):
-        return []
-    if _native(backend):
         return []
     grasp = THRESHOLDS["grasp"]
     calls = int(grasp.get("window_calls", 2))
@@ -1407,6 +1510,61 @@ def _env_step(backend: Any) -> int | None:
         return None
 
 
+def _terminal_outcomes(steps: list[dict]) -> dict[str, Any]:
+    place_rows = [
+        item
+        for item in steps
+        if isinstance(item, dict)
+        and (
+            item.get("stage") == "place"
+            or (item.get("action") == "set_gripper" and item.get("completion_check") == "object_placed")
+        )
+    ]
+    released = []
+    for item in place_rows:
+        verification = item.get("verification") or {}
+        metrics = verification.get("metrics") or {}
+        if verification.get("reason_code") == "PLACED" and metrics.get("released_required"):
+            released.append(item)
+    first = place_rows[-1] if place_rows else None
+    metrics = ((first or {}).get("verification") or {}).get("metrics") if first else {}
+    observation = (first or {}).get("observation") or {}
+    retreat_rows = [
+        item
+        for item in steps
+        if isinstance(item, dict)
+        and (
+            item.get("stage") == "retreat"
+            or (item.get("action") == "move_to" and item.get("completion_check") == "retreated")
+        )
+    ]
+    return {
+        "release": {
+            "command_executed": any(bool(item.get("tool_executed")) for item in place_rows),
+            "verified": bool(released),
+            "reason_code": ((first or {}).get("verification") or {}).get("reason_code"),
+            "observation_id": observation.get("observation_id"),
+            "sim_action_count": observation.get("sim_action_count"),
+            "gripper_opening_m": (metrics or {}).get("gripper_opening_m"),
+        },
+        "retreat_complete": any(
+            ((item.get("verification") or {}).get("reason_code") == "RETREATED") for item in retreat_rows
+        ),
+    }
+
+
+def _native_finish_window(steps: list[dict]) -> dict[str, Any] | None:
+    rows = [item for item in steps if isinstance(item, dict) and item.get("native_finish")]
+    if not rows:
+        return None
+    return {
+        "scope": rows[0].get("native_finish_scope"),
+        "budget_s": rows[0].get("native_finish_budget_s"),
+        "start_sim_action": rows[0].get("native_finish_start_sim_action"),
+        "steps": [item.get("step_id") for item in rows],
+    }
+
+
 def _step_record(step: dict, outcome: ToolOutcome, verification: dict | None, observation: Any = None) -> dict[str, Any]:
     grasp = outcome.grasp_signal if step["skill"] == "pi0_pick" else None
     subtask_status = (verification or {}).get("status") or ("unknown" if outcome.executed else "failure")
@@ -1416,6 +1574,15 @@ def _step_record(step: dict, outcome: ToolOutcome, verification: dict | None, ob
         "action": step["skill"],
         "skill": step["skill"],
         "subtask": step.get("subtask"),
+        "completion_check": step.get("completion_check"),
+        "transfer_phase": step.get("transfer_phase"),
+        "object_ref": step.get("object_ref"),
+        "target_ref": step.get("target_ref"),
+        "relation": step.get("relation"),
+        "native_finish": bool(step.get("_native_finish")),
+        "native_finish_scope": step.get("_native_finish_scope"),
+        "native_finish_budget_s": step.get("_native_finish_budget_s"),
+        "native_finish_start_sim_action": step.get("_native_finish_start_sim_action"),
         "tool_executed": outcome.executed,
         "tool_result": {
             "executed": outcome.executed,
@@ -1444,6 +1611,8 @@ def _public_observation(observation: Any) -> dict | None:
     return {
         "observation_id": observation.get("observation_id"),
         "scene_epoch": observation.get("scene_epoch"),
+        "scene_generation": observation.get("scene_generation"),
+        "sim_action_count": observation.get("sim_action_count"),
         "env_step": observation.get("env_step"),
         "timestamp": observation.get("timestamp"),
         "cameras": observation.get("cameras"),
@@ -1565,7 +1734,9 @@ def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, 
         "execution": _stamp_steps(execution, steps),
         "failed_step": _failed_step(steps),
         "last_completed_step": _last_completed(steps),
+        "native_finish_window": _native_finish_window(steps),
     }
+    payload.update(_terminal_outcomes(steps))
     if plan and plan.get("execution_mode") == "free":
         from finalize import _read_user_goal
 
@@ -1574,7 +1745,11 @@ def _finish(status, reason, session, epoch, version, steps, backend, llm_calls, 
             "user_goal_status": payload["user_goal_status"],
             "native_task_success": native,
             "retreat_error": retreat_error,
+            "retreat_complete": payload.get("retreat_complete"),
+            "release": payload.get("release"),
+            "native_finish_window": payload.get("native_finish_window"),
             "evidence_source": payload["evidence_source"],
             "extra_step": False,
         }
+        payload["final_check"]["unknown_reason"] = payload.get("unknown_reason")
     return payload

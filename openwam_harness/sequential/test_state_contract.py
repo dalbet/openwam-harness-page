@@ -214,14 +214,15 @@ class StateContractTest(unittest.TestCase):
         self.assertEqual(reading["joints"]["cream_cheese_1_joint0"], 0.1)
         self.assertEqual(reading["joints"]["wooden_cabinet_1_middle_level"], -0.15)
 
-    def test_official_single_refuses_another_step_after_termination(self):
+    def test_free_native_goal_continues_but_benchmark_still_refuses(self):
         publish_mode("free", task_scope="official_single")
         self.assertEqual(read_mode(), "free")
         self.assertEqual(read_task_scope(), "official_single")
         decision = classify_step(True, False, "free", task_scope="official_single")
-        self.assertTrue(decision["terminated"])
-        self.assertFalse(decision["continuable"])
-        self.assertFalse(decision["clear_terminated"])
+        self.assertFalse(decision["terminated"])
+        self.assertTrue(decision["continuable"])
+        self.assertTrue(decision["clear_terminated"])
+        self.assertTrue(decision["native_goal"])
 
         class Facade:
             def __init__(self):
@@ -248,19 +249,40 @@ class StateContractTest(unittest.TestCase):
         env = Facade()
         env._register_rpc()
         _obs, _reward, term, trunc, info = env.step([0.0])
-        self.assertTrue(term)
+        self.assertFalse(term)
         self.assertFalse(trunc)
+        self.assertTrue(info["native_goal"])
+        self.assertTrue(info["episode_continuable"])
         self.assertEqual(info["sim_action_count"], 1)
-        self.assertEqual(env.steps, 1)
+        _obs, _reward, term, _trunc, info = env.step([0.0])
+        self.assertFalse(term)
+        self.assertTrue(info["episode_continuable"])
+        self.assertEqual(env.steps, 2)
+        snap = env.state_snapshot()
+        self.assertEqual(snap["sim_action_count"], 2)
+        self.assertEqual(snap["observation_id_meaning"], "readonly_or_action_query")
+        self.assertGreater(snap["query_seq"], 0)
+        self.assertTrue(snap["native_goal"])
+        self.assertFalse(snap["terminated"])
+        self.assertTrue(snap["continuable"])
+        self.assertNotIn("step", str(type(snap)))
+        old_id = snap["observation_id"]
+        old_generation = snap["scene_generation"]
+        env.reset()
+        fresh = env.state_snapshot()
+        self.assertFalse(fresh["native_goal"])
+        self.assertEqual(fresh["sim_action_count"], 0)
+        self.assertGreater(fresh["scene_generation"], old_generation)
+        self.assertNotEqual(fresh["observation_id"], old_id)
+
+        publish_mode("benchmark", task_scope="official_single")
+        _obs, _reward, bench_term, bench_trunc, _info = env.step([0.0])
+        self.assertTrue(bench_term)
+        self.assertFalse(bench_trunc)
         with self.assertRaises(RuntimeError) as raised:
             env.step([0.0])
         self.assertIn("env.step refused", str(raised.exception))
         self.assertEqual(env.steps, 1)
-        snap = env.state_snapshot()
-        self.assertEqual(snap["sim_action_count"], 1)
-        self.assertEqual(snap["observation_id_meaning"], "readonly_or_action_query")
-        self.assertGreater(snap["query_seq"], 0)
-        self.assertNotIn("step", str(type(snap)))
 
 
 if __name__ == "__main__":

@@ -2,9 +2,9 @@
 
 Benchmark mode still publishes the gym terminated flag and the client keeps
 its latch. Free mode records the native goal and does not turn that event
-into an episode end. Truncation, a real service error, and an explicit stop
-still end the episode. This module does not clear a client latch and does
-not reset the scene.
+into an episode end; the executor may finish the current transfer only.
+Truncation, a real service error, and an explicit stop still end the episode.
+This module does not clear a client latch and does not reset the scene.
 """
 
 from __future__ import annotations
@@ -63,7 +63,9 @@ def classify_step(terminated: bool, truncated: bool, mode: str, task_scope: str 
             "clear_terminated": False,
             "kind": "time_limit",
         }
-    if terminated and mode == "free" and task_scope == "combo":
+    if terminated and mode == "free":
+        # The executor limits what runs after this event. The environment
+        # itself can still step, so the RPC client must not latch terminated.
         return {
             "terminated": False,
             "truncated": False,
@@ -206,10 +208,15 @@ def _wrap(cls) -> None:
             for key in ("bodies", "sites", "site_geometry", "evidence_source", "error")
             if isinstance(poses, dict) and key in poses
         }
+        native_goal = bool(getattr(self, "_sequential_native_goal", False))
+        truncated = bool(getattr(self, "_sequential_truncated", False))
+        refusing = bool(getattr(self, "_sequential_refusing_step", False))
         body = {
             "named_poses": named,
             "sim": sim,
             "joints": poses.get("joints") if isinstance(poses, dict) else {},
+            "native_goal": native_goal,
+            "continuable": not truncated and not refusing,
         }
         return stamp_snapshot(
             body,
@@ -218,8 +225,8 @@ def _wrap(cls) -> None:
             scene_generation=self._scene_generation,
             sim_action_count=self._sim_action_count,
             query_seq=self._query_seq,
-            terminated=bool(getattr(self, "_sequential_native_goal", False) or getattr(self, "_sequential_refusing_step", False)),
-            truncated=bool(getattr(self, "_sequential_truncated", False)),
+            terminated=bool(refusing and not truncated),
+            truncated=truncated,
             source="readonly_rpc",
         )
 

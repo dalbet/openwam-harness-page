@@ -152,9 +152,10 @@ class FreeTaskTest(unittest.TestCase):
         self.assertTrue(native["clear_terminated"])
         self.assertTrue(combo.continuable())
         official = EpisodeFlags("free")
-        stopped = official.absorb(True, False)
-        self.assertFalse(stopped["clear_terminated"])
-        self.assertFalse(official.continuable())
+        continued = official.absorb(True, False)
+        self.assertTrue(continued["clear_terminated"])
+        self.assertTrue(official.continuable())
+        self.assertTrue(official.native_goal_met)
         limited = EpisodeFlags("free", task_scope="combo")
         self.assertFalse(limited.absorb(False, True)["continuable"])
         benchmark = EpisodeFlags("benchmark")
@@ -176,6 +177,21 @@ class FreeTaskTest(unittest.TestCase):
         self.assertEqual(native_execution_gate({"execution_mode": "free"}, Backend(True, True)), "stop_native")
         self.assertEqual(native_execution_gate({"execution_mode": "free", "task_scope": "combo"}, Backend(True, True)), "record_native")
         self.assertEqual(native_execution_gate({"execution_mode": "free"}, Backend(True, False)), "stop_uncontinuable")
+        finish = {"subtask": "bowl_on_stove", "transfer_phase": "releasing"}
+        trigger = [{"subtask": "bowl_on_stove", "transfer_phase": "descending"}]
+        self.assertEqual(
+            native_execution_gate({"execution_mode": "free"}, Backend(True, True), step=finish, steps=trigger),
+            "finish_native",
+        )
+        self.assertEqual(
+            native_execution_gate(
+                {"execution_mode": "free"},
+                Backend(True, True),
+                step={"subtask": "cheese_on_plate", "transfer_phase": "releasing"},
+                steps=trigger,
+            ),
+            "stop_native",
+        )
 
     def test_site_goal_uses_the_official_on_check(self):
         predicates = [{"object_ref": "akita_black_bowl_1", "target_ref": "flat_stove_1", "relation": "on", "hold": "end"}]

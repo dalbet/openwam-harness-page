@@ -134,7 +134,26 @@ class GoalHandoffTest(unittest.TestCase):
             {"goal_alignment": "native"},
             "free",
         )
-        self.assertEqual(native[0], "completed")
+        self.assertEqual(native[0], "incomplete")
+        self.assertIn("放置未完成", native[2])
+        held = completion_phase(
+            {
+                "status": "completed",
+                "reason": "NATIVE_SUCCESS",
+                "native_task_success": True,
+                "user_goal_status": "met",
+                "release": {"verified": True},
+            },
+            {"goal_alignment": "native"},
+            "free",
+        )
+        self.assertEqual(held[0], "completed")
+        benchmark = completion_phase(
+            {"status": "completed", "reason": "NATIVE_SUCCESS", "native_task_success": True},
+            {"goal_alignment": "native"},
+            "benchmark",
+        )
+        self.assertEqual(benchmark[0], "completed")
         other = completion_phase(
             {"status": "completed", "reason": "NATIVE_SUCCESS", "native_task_success": True, "user_goal_status": "unmet"},
             {"goal_alignment": "requested"},

@@ -50,6 +50,10 @@ def completion_phase(result: dict, plan: dict | None, execution_mode: str) -> tu
         return "stopped", status, "诊断停止 · " + (result.get("reason") or "")
     if status == "diagnostic_saved":
         return "stopped", status, "预算到时 · " + (result.get("reason") or "")
+    if execution_mode == "free" and result.get("retreat_error"):
+        if user_status == "met":
+            return "incomplete", status, "用户目标已完成，但退离未完成"
+        return "incomplete", status, "退离未完成，请求目标未完成"
     if alignment == "requested" and status not in {"failed", "exception", "needs_clarification"}:
         if user_status == "met":
             return "completed", "completed", "用户目标完成"
@@ -57,10 +61,13 @@ def completion_phase(result: dict, plan: dict | None, execution_mode: str) -> tu
             return "incomplete", status, "当前加载任务的原生目标已达成，请求目标未完成"
         if user_status == "unmet":
             return "incomplete", status, "请求目标未完成"
-        if result.get("retreat_error"):
-            return "incomplete", status, "退离未完成，请求目标未能复查"
         return "incomplete", status, "请求目标未验证"
     if native or (status == "completed" and result.get("reason") == "NATIVE_SUCCESS"):
+        if execution_mode == "free":
+            release = result.get("release") or {}
+            if user_status == "met" and release.get("verified"):
+                return "completed", "completed", "用户目标完成"
+            return "incomplete", status, "原生目标已达成，但放置未完成（缺少释放后验证）"
         return "completed", "completed", "任务完成"
     if execution_mode == "free" and user_status == "met":
         return "incomplete", status, "计划已执行，环境未判定成功"
@@ -2161,6 +2168,10 @@ class App:
             "verification_error": report.get("verification_error"),
             "subgoal_results": report.get("subgoal_results"),
             "completed_subgoals": report.get("completed_subgoals"),
+            "release": report.get("release"),
+            "release_evidence": report.get("release_evidence"),
+            "retreat_complete": report.get("retreat_complete"),
+            "native_finish_window": report.get("native_finish_window"),
             "execution_mode": self.execution_mode,
             "plan_source": plan.get("plan_source"),
             "status": report.get("execution_status") or report.get("status"),

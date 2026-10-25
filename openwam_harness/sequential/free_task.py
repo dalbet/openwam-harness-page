@@ -26,7 +26,11 @@ _ZH = (
 
 
 class EpisodeFlags:
-    """Official single tasks stop when the native goal is met. Combo is explicit."""
+    """Benchmark tasks stop at the native goal. Free mode keeps the env steppable.
+
+    The executor, not this flag, limits a free run to the current transfer's
+    release and retreat. Truncation always ends the episode immediately.
+    """
 
     def __init__(self, mode: str = "benchmark", task_scope: str = "official_single") -> None:
         if mode not in {"benchmark", "free"}:
@@ -44,13 +48,15 @@ class EpisodeFlags:
             return {"kind": "time_limit", "clear_terminated": False, "continuable": False}
         if terminated:
             self.native_goal_met = True
-            if self.mode == "free" and self.task_scope == "combo":
-                return {"kind": "native_goal", "clear_terminated": True, "continuable": True}
+            if self.mode == "free":
+                return {"kind": "native_goal", "clear_terminated": True, "continuable": self.continuable()}
             return {"kind": "native_goal", "clear_terminated": False, "continuable": False}
         return {"kind": "running", "clear_terminated": False, "continuable": self.continuable()}
 
     def continuable(self) -> bool:
-        if self.truncated or self.native_goal_met and not (self.mode == "free" and self.task_scope == "combo"):
+        if self.truncated:
+            return False
+        if self.native_goal_met and self.mode != "free":
             return False
         return True
 

@@ -58,7 +58,7 @@ class RetreatGeometryTest(unittest.TestCase):
         self.assertEqual(blocked["code"], "support_occupied")
         self.assertNotIn("object_origin", blocked)
 
-    def test_retreat_error_does_not_assign_the_user_goal(self):
+    def test_retreat_error_without_release_evidence_is_unknown(self):
         plan = {
             "plan_id": "retreat",
             "goal": "把奶酪放到盘子上",
@@ -91,9 +91,11 @@ class RetreatGeometryTest(unittest.TestCase):
         session.begin_episode()
         result = run_plan(plan, backend, session, lambda _name: None, task=plan["goal"])
         self.assertEqual(result["execution_status"], "retreat_error")
-        self.assertEqual(result["user_goal_status"], "met")
+        self.assertEqual(result["user_goal_status"], "unknown")
+        self.assertIsNone(result["user_goal_success"])
         self.assertTrue(result["retreat_error"])
         self.assertEqual(result["evidence_source"], "sim_state")
+        self.assertIn("释放后证据不足", result["unknown_reason"])
         self.assertEqual(backend.steps, 0)
         self.assertIsNotNone(result["final_check"])
         self.assertFalse(result["final_check"]["extra_step"])
@@ -108,9 +110,10 @@ class RetreatGeometryTest(unittest.TestCase):
         self.assertFalse(combo["terminated"])
         self.assertTrue(combo["native_goal"])
         self.assertTrue(combo["continuable"])
-        self.assertTrue(official["terminated"])
-        self.assertFalse(official["continuable"])
-        self.assertFalse(official["clear_terminated"])
+        self.assertFalse(official["terminated"])
+        self.assertTrue(official["native_goal"])
+        self.assertTrue(official["continuable"])
+        self.assertTrue(official["clear_terminated"])
         self.assertTrue(limited["truncated"])
         self.assertFalse(limited["continuable"])
         self.assertFalse(limited["terminated"])
