@@ -18,7 +18,7 @@ LIBERO 的 `On` 只做几何/接触判定，不要求松手：
 - `episode_service.py:51-90` 的 `classify_step` 把自由模式的原生 `terminated` 原样发布为终止；`_publish`（498）把它写给客户端。
 - RPent 的 `env_client.py:49-65` 用 `self.terminated |= term` 锁存，后续 `step` 断言失败；env server 本身没有锁存（`env_server.py:67-68`，`auto_reset=False`、`ignore_terminations=False`），仍可继续 step。
 - `live.py:166-174` 的 `_ended_reason` 和 `executor.py:928-954` 的 `native_execution_gate` 因此返回不可继续，release/retreat 不执行。
-- `free_task.py:147-235` 的 `judge_user_goal` 只按几何算 `held_at_end`；`finalize.py` 直接采信它，没有释放证据，于是抓着碗的 `On` 也被写成 `user_goal_status=met`。finalize 本身只在终态运行一次，提前的是“原生即终态”这个判断，不是 finalize 的调用时机。
+- `free_task.py:147-235` 的 `judge_user_goal` 只按几何算 `held_at_end`；`finalize.py` 直接采信它，没有释放证据，于是抓着碗的 `On` 也被写成 `user_goal_status=met`。`held_at_end` 的读取来自终态的新观测，新鲜度没有问题，但它只表示炉灶区域几何，不表示夹爪已松开。finalize 本身只在终态运行一次，提前的是“原生即终态”这个判断，不是 finalize 的调用时机。
 
 ## 修复
 
@@ -58,6 +58,7 @@ LIBERO 的 `On` 只做几何/接触判定，不要求松手：
 - 首次原生 On 的 `sim_action_count` 取原生事件前最后一次 `descend_bowl_transfer` 观测的编号计数（60/62/60），释放后观测编号从 68/70/68 开始；不是日志行号或帧号。
 - 原生事件为 `NATIVE_GOAL_FINISH`，`native_finish_scope=bowl_transfer`，`native_finish_budget_s=60`；原生到 `RETREATED` 分别 13.05s/13.09s/13.10s，均在预算内。
 - 释放后最终关系均为 `inside_xy=true`、`supported=true`，`delta_site` 分别为 `[-0.0014,-0.0004,0.0239]`、`[-0.0005,-0.0016,0.0239]`、`[0.0006,-0.0019,0.0239]`；释放证据 `status=verified`，最终开度 0.07823，均高于 0.05。
+- finalize 的复查使用同一 episode 和 `scene_epoch` 的退离后新观测：`scene_generation` 2/3/4，最终 `sim_action_count` 82/84/82，晚于释放后的 76/78/76；不是原生时刻或抓取时的旧观测。
 - 三次 `sim_action_count` 从 0 到 82/84/82；每次 reset 后回到 0，episode 和 `scene_epoch` 递增（2/3/4），没有旧回合完成信号进入新回合。
 
 ## 停止与重置
