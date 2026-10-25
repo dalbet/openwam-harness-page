@@ -2,6 +2,8 @@
 
 标记：**PHASE1_COMPLETE**
 
+> PHASE2A 修订：本文三次运行只证明 LIBERO 原生 `On` 可达。当时 `execution_status=failed`、release/retreat 未执行，`user_goal_status=met` 只是按几何关系判定，不能当作放置完成。修复和复验见 `docs/phase2a-acceptance.md`。
+
 清理后的服务已重新启动，Pi0.5、SAM3 和 LIBERO 在加载场景后实际拉起，代表任务连续 3 次达到 LIBERO 原生目标。生命周期、双相机和 145 项单元测试通过。计划里的 release / retreat 在原生目标成立后没有执行，这是清理前基线里已有的行为，记在文末，留给第二阶段。
 
 ## 版本与链路
@@ -72,3 +74,5 @@ bash /home/host/page-dmh/scripts/stop.sh
 ## 第二阶段断点
 
 自由模式在 LIBERO `On` 成立后，环境不再 `continuable`。`native_execution_gate` 以 `episode_not_continuable` 结束，`execution_status` 仍是 `failed`，夹爪仍握着碗，release 和 retreat 不会执行。下一阶段先处理这个收尾，而不是更换 Planner、Pi0.5 或 SAM3。
+
+PHASE2A 已处理该断点：自由模式的原生目标改为事件，只允许当前 transfer 在既有预算内完成释放和退离，用户目标要求释放后证据。复验见 `docs/phase2a-acceptance.md`。

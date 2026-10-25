@@ -8,7 +8,7 @@
 
 | 位置 | 提交 | 说明 |
 | --- | --- | --- |
-| 本仓库 `main` | `885e64a` | 比 `origin/main` 的 `df7e083` 超前 1 个提交 |
+| 本仓库 `main` | `a9c559e` | PHASE2A 运行时修复；比 `origin/main` 的 `df7e083` 超前 3 个提交（文档提交随后 +1） |
 | `openwam_harness/RPent` | `a8c5311` | detached，editable 安装，`import rpent` 指向这份源码 |
 | `openwam_harness/OpenWAM` | `4d7f642` | detached，当前执行链不调用它，源码保留 |
 
@@ -67,7 +67,26 @@ bash /home/host/page-dmh/scripts/stop.sh
 
 代表任务以注册表为准：`libero_goal` task 1，语言是 `put the bowl on the stove`，BDDL 是 `put_the_bowl_on_the_stove.bddl`，目标原子是 `On(akita_black_bowl_1, flat_stove_1_cook_region)`。
 
-成功要分开看：工具是否执行、抓取信号、技能是否走完、LIBERO `terminated` 且未 `truncated`、用户目标几何、退离、人工确认。`grasp_signal` 或单独的 `terminated` 误读不是成功。
+成功要分开看：工具是否执行、抓取信号、技能是否走完、LIBERO `terminated` 且未 `truncated`、用户目标几何、释放、退离、人工确认。`grasp_signal` 或单独的 `terminated` 误读不是成功。
+
+## 完成条件
+
+原生目标、执行完成和用户目标不是同一件事：
+
+- LIBERO 的 `On` 是几何/接触判定（`ObjectState.check_ontop`、`SiteObject.under`），不要求松手。抓着碗进入炉灶区域也可能 `terminated=true`。
+- 自由模式下原生目标只发布为 `NATIVE_GOAL_FINISH` 事件（`native_goal=true`、`terminated=false`、`episode_continuable=true`），保留首次原生成功。benchmark 模式仍按 `terminated` 结束，`truncated` 始终终止。
+- 原生成立后只允许当前 transfer 剩余的 `descending`、`releasing`、`retreat` 阶段继续。预算取同一子任务剩余阶段的既有预算（本任务为 place 30s + retreat 30s，共 60s），并记录 `native_finish_scope`、`native_finish_budget_s`、`native_finish_start_sim_action`。不运行其他步骤或其他事务；stop、reset、取消、真实终止立即生效。
+- 用户目标要求释放后证据：`PLACED` 收据带 `released_required`，夹爪开度不低于 `gripper_open_min_m=0.05`，释放后观测有 `sim_action_count`，最终观测的 `sim_action_count` 不小于释放后观测，观测 ID 不同，最终夹爪仍打开，并且最终关系仍成立。抓着碗的 `On` 只是 `held_at_end` 几何，不算放置完成。
+- 关系成立但缺少释放证据记为 `unknown` 并列出缺失项；关系不成立记为 `unmet`。用户目标 `met` 但退离失败时保留 `user_goal_status=met` 和 `retreat_error`，同时 `finalization=user_goal_met_retreat_error`，执行不记为完成。
+- 时间、动作数和观测 ID 取 env server 的 `sim_action_count` 与观测编号，不用日志行号、帧号或工具步数代替；只读查询不推进仿真。
+
+## 已知限制
+
+- `On` 的原生判定不含释放，原生成功只证明关系可达，不能单独证明放置完成。
+- 自由模式的“原生后有限收尾”是本顺序系统自己的契约，不是 LIBERO 或 RPent 的通用行为；benchmark 仍保持原生终止语义。
+- 收尾窗口沿用现有 `place`/`retreat` 预算（任务 1 为 60s），只覆盖当前 transfer；任务 1 之外的目标尚未做三回合回归。
+- 成功结束消息的内联 `ended` 仍不带 `release`、`retreat_complete`、`native_finish_window` 字段；释放证据在 `subgoal_results[*].release_evidence`，收尾窗口在事件流和执行结果里。失败/取消路径已带这些字段。
+- adapter `/health` 的 `commit` 是进程启动时的 HEAD；运行中提交代码后 `disk_head` 会变化，`running_commit_matches_disk_head=false` 不能单独当作运行代码不同的证据。
 
 ## 日志
 
@@ -85,10 +104,9 @@ bash /home/host/page-dmh/scripts/stop.sh
 ## 回归
 
 ```bash
-cd /home/host/page-dmh/openwam_harness/sequential
-/home/host/page-dmh/openwam_harness/envs/rpent/bin/python -m unittest \
-  test_log_budget test_lifecycle test_run_life test_start_contract test_load_contract \
-  test_binding_chain test_state_contract test_protocol_regression
+cd /home/host/page-dmh
+/home/host/page-dmh/openwam_harness/envs/rpent/bin/python -m unittest discover \
+  -s openwam_harness/sequential -p 'test_*.py'
 ```
 
-这些测试不占用 8766，也不加载 Pi0.5。本阶段验收记录在 `docs/phase1-acceptance.md`。
+这些测试不占用 8766，也不加载 Pi0.5。PHASE1 的原生可达记录在 `docs/phase1-acceptance.md`；PHASE2A 的收尾修复与复验在 `docs/phase2a-acceptance.md`。
