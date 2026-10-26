@@ -1,0 +1,1026 @@
+{
+  "schema": "embodied_engine.run.v1",
+  "task_id": 7,
+  "task_bddl": "turn_on_the_stove.bddl",
+  "instruction": "turn on the stove",
+  "episode_id": "ep-20261026-124447-2f90b3",
+  "run_id": 6,
+  "scene_epoch": 4,
+  "started_at": "2026-10-26T12:44:47",
+  "ended_at": "2026-10-26T12:45:15",
+  "duration_s": 27.833,
+  "phase": "completed",
+  "execution_status": "completed",
+  "native_task_success": true,
+  "native_goal_final": true,
+  "user_goal_success": true,
+  "user_goal_status": "met",
+  "failure_code": null,
+  "failure_reason": null,
+  "failure_evidence": null,
+  "plan": {
+    "interpretation": "Turn on the flat_stove_1 appliance.",
+    "success_condition": "The native Turnon goal atom for flat_stove_1 is true.",
+    "steps": [
+      {
+        "skill": "turn_on",
+        "object_n": null,
+        "target_n": "flat_stove_1_burner",
+        "relation": "turn_on",
+        "prompt": "turn on the stove"
+      }
+    ],
+    "source": "qwen3.5-9b",
+    "planner_vision": false,
+    "latency_s": 9.401,
+    "agent_response": {
+      "status": "ok",
+      "steps": [
+        {
+          "skill": "turn_on",
+          "object_n": null,
+          "target_n": "flat_stove_1_burner",
+          "relation": "turn_on",
+          "prompt": "turn on the stove"
+        }
+      ],
+      "errors": [],
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "initial",
+          "timing": {
+            "elapsed_s": 4.612,
+            "prompt_tokens": 1704,
+            "completion_tokens": 100,
+            "model": "Qwen3.5-9B"
+          },
+          "raw_chars": 296,
+          "errors": [
+            {
+              "field": "steps[0].target_n",
+              "code": "target_not_in_scene",
+              "value": "flat_stove_1",
+              "expected": "a site or object in this scene"
+            }
+          ]
+        },
+        {
+          "attempt": 2,
+          "kind": "format_repair",
+          "timing": {
+            "elapsed_s": 4.783,
+            "prompt_tokens": 1880,
+            "completion_tokens": 103,
+            "model": "Qwen3.5-9B"
+          },
+          "raw_chars": 303
+        }
+      ],
+      "total_s": 9.396,
+      "source": "qwen3.5-9b",
+      "planner_vision": false
+    }
+  },
+  "steps": [
+    {
+      "skill": "turn_on",
+      "object_n": null,
+      "target_n": "flat_stove_1_burner",
+      "relation": "turn_on",
+      "prompt": "turn on the stove",
+      "phase_reached": "verify",
+      "ok": true,
+      "verification": {
+        "skill": "turn_on",
+        "samples": 3,
+        "required_samples": 3,
+        "stable": true,
+        "per_sample_ok": [
+          true,
+          true,
+          true
+        ],
+        "last": {
+          "skill": "turn_on",
+          "native_goal": true,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:100:318",
+          "sim_action_count": 100,
+          "scene_epoch": 4,
+          "release_required": false,
+          "ok": true,
+          "ready": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.8503384573105348,
+          "threshold": 0.5,
+          "evidence_source": "sim_joint"
+        },
+        "evidence_source": "sim_state",
+        "release_required": false,
+        "release": null,
+        "ok": true,
+        "reason_code": null,
+        "verify_s": 0.237,
+        "release_matches_step": null
+      },
+      "release": null,
+      "grasp": {
+        "held": false,
+        "held_streak": 0,
+        "final_opening_m": 0.07790120449839394
+      },
+      "native_events": [
+        {
+          "sim_action_count": 82,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:82:300"
+        }
+      ],
+      "chunks_used": 1,
+      "attempt": 2,
+      "rehome": {
+        "attempt": 2,
+        "applied": false,
+        "actions": 0,
+        "start_eef": [
+          -0.4249748300587023,
+          0.20872580744368627,
+          0.9303379374998151
+        ],
+        "start_opening_m": 0.027076993459793634,
+        "reason": "gripper_closed_may_hold_object"
+      },
+      "chunk_budget": 16,
+      "chunk_budget_hard": 16,
+      "budget_extensions": 0,
+      "sim_actions": 20,
+      "timing": {
+        "total_s": 1.94,
+        "inference_s_sum": 0.345,
+        "env_step_s_sum": 1.377,
+        "snapshot_s_sum": 0.191,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.367,
+        "prefetch_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "release_s": 1.178,
+        "verification_s": 0.237
+      },
+      "prefetch": {
+        "enabled": true,
+        "used": 0,
+        "discarded": 0,
+        "reinfer": 0,
+        "max_age_actions": 5
+      },
+      "chunks": [
+        {
+          "chunk": 0,
+          "prefetched": false,
+          "inference_s": 0.345,
+          "wait_s": 0.3666,
+          "age_actions": null,
+          "actions": 5,
+          "env_step_start_s": 0.3667,
+          "env_step_end_s": 0.5245,
+          "prompt": "turn on the stove",
+          "duration_s": 0.1578
+        }
+      ],
+      "observations": [
+        {
+          "sim_action_count": 81,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:81:299",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.4877434586156831,
+          "relation": null,
+          "eef_pos": [
+            -0.4247031926711964,
+            0.2073486175902556,
+            0.9303166514627803
+          ],
+          "gripper_opening_m": 0.027097226434243685
+        },
+        {
+          "sim_action_count": 82,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:82:300",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.5218527613650419,
+          "relation": null,
+          "eef_pos": [
+            -0.424310032795425,
+            0.2058660544449029,
+            0.9302679764256582
+          ],
+          "gripper_opening_m": 0.02713410017217974
+        },
+        {
+          "sim_action_count": 83,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:83:301",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.5519875510746348,
+          "relation": null,
+          "eef_pos": [
+            -0.42397540702203595,
+            0.2047913107217484,
+            0.9325072938015037
+          ],
+          "gripper_opening_m": 0.027759217578016672
+        },
+        {
+          "sim_action_count": 84,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:84:302",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.5795065856806705,
+          "relation": null,
+          "eef_pos": [
+            -0.42394669848950767,
+            0.2044441483805599,
+            0.9370852179832931
+          ],
+          "gripper_opening_m": 0.028180941437176366
+        },
+        {
+          "sim_action_count": 85,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:85:303",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.6049757246811867,
+          "relation": null,
+          "eef_pos": [
+            -0.4239974173274169,
+            0.20437239263291537,
+            0.9425510658321766
+          ],
+          "gripper_opening_m": 0.029703743356522455
+        },
+        {
+          "sim_action_count": 86,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:86:304",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.6286641368183298,
+          "relation": null,
+          "eef_pos": [
+            -0.42411225293431,
+            0.2044474476551111,
+            0.9484721988163889
+          ],
+          "gripper_opening_m": 0.032530278775044524
+        },
+        {
+          "sim_action_count": 87,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:87:305",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.6508347803152685,
+          "relation": null,
+          "eef_pos": [
+            -0.4242500089659911,
+            0.2045892474502229,
+            0.9546537551961628
+          ],
+          "gripper_opening_m": 0.036129937074220714
+        },
+        {
+          "sim_action_count": 88,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:88:306",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.6716643613063906,
+          "relation": null,
+          "eef_pos": [
+            -0.4243853858236431,
+            0.20477671460223987,
+            0.9609954195765056
+          ],
+          "gripper_opening_m": 0.04140666668158503
+        },
+        {
+          "sim_action_count": 89,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:89:307",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.6913040197848248,
+          "relation": null,
+          "eef_pos": [
+            -0.42459000124102103,
+            0.20495071363235973,
+            0.9674337606202501
+          ],
+          "gripper_opening_m": 0.04623896644808233
+        },
+        {
+          "sim_action_count": 90,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:90:308",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.7099108860097573,
+          "relation": null,
+          "eef_pos": [
+            -0.4248325690964143,
+            0.20512470842910757,
+            0.9739350470441616
+          ],
+          "gripper_opening_m": 0.05226695443899221
+        },
+        {
+          "sim_action_count": 91,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:91:309",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.7275430303063508,
+          "relation": null,
+          "eef_pos": [
+            -0.4250617932193706,
+            0.20524193260280546,
+            0.9804554489940256
+          ],
+          "gripper_opening_m": 0.059156755626469625
+        },
+        {
+          "sim_action_count": 92,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:92:310",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.7442548764932783,
+          "relation": null,
+          "eef_pos": [
+            -0.4252728119959059,
+            0.2052956291658187,
+            0.9869785871050457
+          ],
+          "gripper_opening_m": 0.06653426880332682
+        },
+        {
+          "sim_action_count": 93,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:93:311",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.7600974694900862,
+          "relation": null,
+          "eef_pos": [
+            -0.42547945036282847,
+            0.20527851322038396,
+            0.9932982553924661
+          ],
+          "gripper_opening_m": 0.07155419437624788
+        },
+        {
+          "sim_action_count": 94,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:94:312",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.7751187194258526,
+          "relation": null,
+          "eef_pos": [
+            -0.42573774527849073,
+            0.20511769273083255,
+            0.9986579661777251
+          ],
+          "gripper_opening_m": 0.07439271937841696
+        },
+        {
+          "sim_action_count": 95,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:95:313",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.7893636246947908,
+          "relation": null,
+          "eef_pos": [
+            -0.4261047691684003,
+            0.20475366492650215,
+            1.0025417353401609
+          ],
+          "gripper_opening_m": 0.07598271875548537
+        },
+        {
+          "sim_action_count": 96,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:96:314",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.8028744761107864,
+          "relation": null,
+          "eef_pos": [
+            -0.42653376475735194,
+            0.20429194506702036,
+            1.0051061166476019
+          ],
+          "gripper_opening_m": 0.07687225046264712
+        },
+        {
+          "sim_action_count": 97,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:97:315",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.8156910440588833,
+          "relation": null,
+          "eef_pos": [
+            -0.4269420848585175,
+            0.20387444686734046,
+            1.0066997647563432
+          ],
+          "gripper_opening_m": 0.07736963944157094
+        },
+        {
+          "sim_action_count": 98,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:98:316",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.8278507503214824,
+          "relation": null,
+          "eef_pos": [
+            -0.4275320434898304,
+            0.20336836367354652,
+            1.0072665735058266
+          ],
+          "gripper_opening_m": 0.07764767822321222
+        },
+        {
+          "sim_action_count": 99,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:99:317",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.8393888260655786,
+          "relation": null,
+          "eef_pos": [
+            -0.4282334313633631,
+            0.20280673226350754,
+            1.0071815263994173
+          ],
+          "gripper_opening_m": 0.07780307141352935
+        },
+        {
+          "sim_action_count": 100,
+          "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:100:318",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "stove_button",
+          "joint": "flat_stove_1_button",
+          "qpos": 0.8503384573105348,
+          "relation": null,
+          "eef_pos": [
+            -0.4288506937655499,
+            0.2023669507988376,
+            1.007001003099634
+          ],
+          "gripper_opening_m": 0.07790120449839394
+        }
+      ],
+      "action_trace": [
+        {
+          "n": 1,
+          "a": [
+            0.0042,
+            0.0127,
+            -0.3193,
+            0.0606,
+            -0.012,
+            0.385,
+            0.9975
+          ],
+          "eef": [
+            -0.4247031926711964,
+            0.2073486175902556,
+            0.9303166514627803
+          ],
+          "grip": 0.027097226434243685
+        },
+        {
+          "n": 2,
+          "a": [
+            0.003,
+            0.0087,
+            -0.3218,
+            0.0507,
+            -0.0087,
+            0.3805,
+            0.9938
+          ],
+          "eef": [
+            -0.424310032795425,
+            0.2058660544449029,
+            0.9302679764256582
+          ],
+          "grip": 0.02713410017217974
+        },
+        {
+          "n": 3,
+          "a": [
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.42397540702203595,
+            0.2047913107217484,
+            0.9325072938015037
+          ],
+          "grip": 0.027759217578016672
+        },
+        {
+          "n": 4,
+          "a": [
+            -0.0067,
+            0.0215,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.42394669848950767,
+            0.2044441483805599,
+            0.9370852179832931
+          ],
+          "grip": 0.028180941437176366
+        },
+        {
+          "n": 5,
+          "a": [
+            -0.0073,
+            0.0284,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4239974173274169,
+            0.20437239263291537,
+            0.9425510658321766
+          ],
+          "grip": 0.029703743356522455
+        },
+        {
+          "n": 6,
+          "a": [
+            -0.0063,
+            0.0299,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.42411225293431,
+            0.2044474476551111,
+            0.9484721988163889
+          ],
+          "grip": 0.032530278775044524
+        },
+        {
+          "n": 7,
+          "a": [
+            -0.004,
+            0.0284,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4242500089659911,
+            0.2045892474502229,
+            0.9546537551961628
+          ],
+          "grip": 0.036129937074220714
+        },
+        {
+          "n": 8,
+          "a": [
+            -0.0012,
+            0.0255,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4243853858236431,
+            0.20477671460223987,
+            0.9609954195765056
+          ],
+          "grip": 0.04140666668158503
+        },
+        {
+          "n": 9,
+          "a": [
+            0.0015,
+            0.0218,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.42459000124102103,
+            0.20495071363235973,
+            0.9674337606202501
+          ],
+          "grip": 0.04623896644808233
+        },
+        {
+          "n": 10,
+          "a": [
+            0.0056,
+            0.0183,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4248325690964143,
+            0.20512470842910757,
+            0.9739350470441616
+          ],
+          "grip": 0.05226695443899221
+        },
+        {
+          "n": 11,
+          "a": [
+            0.0105,
+            0.0148,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4250617932193706,
+            0.20524193260280546,
+            0.9804554489940256
+          ],
+          "grip": 0.059156755626469625
+        },
+        {
+          "n": 12,
+          "a": [
+            0.015,
+            0.0125,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4252728119959059,
+            0.2052956291658187,
+            0.9869785871050457
+          ],
+          "grip": 0.06653426880332682
+        },
+        {
+          "n": 13,
+          "a": [
+            0.0193,
+            0.0114,
+            0.4658,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.42547945036282847,
+            0.20527851322038396,
+            0.9932982553924661
+          ],
+          "grip": 0.07155419437624788
+        },
+        {
+          "n": 14,
+          "a": [
+            0.0234,
+            0.0118,
+            0.3394,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.42573774527849073,
+            0.20511769273083255,
+            0.9986579661777251
+          ],
+          "grip": 0.07439271937841696
+        },
+        {
+          "n": 15,
+          "a": [
+            0.0286,
+            0.015,
+            0.2322,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4261047691684003,
+            0.20475366492650215,
+            1.0025417353401609
+          ],
+          "grip": 0.07598271875548537
+        },
+        {
+          "n": 16,
+          "a": [
+            0.0359,
+            0.0222,
+            0.1545,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.42653376475735194,
+            0.20429194506702036,
+            1.0051061166476019
+          ],
+          "grip": 0.07687225046264712
+        },
+        {
+          "n": 17,
+          "a": [
+            0.0445,
+            0.0315,
+            0.1032,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4269420848585175,
+            0.20387444686734046,
+            1.0066997647563432
+          ],
+          "grip": 0.07736963944157094
+        },
+        {
+          "n": 18,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4275320434898304,
+            0.20336836367354652,
+            1.0072665735058266
+          ],
+          "grip": 0.07764767822321222
+        },
+        {
+          "n": 19,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4282334313633631,
+            0.20280673226350754,
+            1.0071815263994173
+          ],
+          "grip": 0.07780307141352935
+        },
+        {
+          "n": 20,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            -0.4288506937655499,
+            0.2023669507988376,
+            1.007001003099634
+          ],
+          "grip": 0.07790120449839394
+        }
+      ],
+      "step": {
+        "skill": "turn_on",
+        "object_n": null,
+        "target_n": "flat_stove_1_burner",
+        "relation": "turn_on",
+        "prompt": "turn on the stove"
+      }
+    }
+  ],
+  "final_verification": {
+    "ok": true,
+    "samples": 3,
+    "steps": [
+      {
+        "step": {
+          "skill": "turn_on",
+          "object_n": null,
+          "target_n": "flat_stove_1_burner",
+          "relation": "turn_on",
+          "prompt": "turn on the stove"
+        },
+        "ok": true,
+        "verification": {
+          "skill": "turn_on",
+          "samples": 3,
+          "required_samples": 3,
+          "stable": true,
+          "per_sample_ok": [
+            true,
+            true,
+            true
+          ],
+          "last": {
+            "skill": "turn_on",
+            "native_goal": true,
+            "observation_id": "query-73ec65b4180a478c8e91835a4099ee40:4:103:321",
+            "sim_action_count": 103,
+            "scene_epoch": 4,
+            "release_required": false,
+            "ok": true,
+            "ready": true,
+            "predicate": "stove_button",
+            "joint": "flat_stove_1_button",
+            "qpos": 0.8799606124321303,
+            "threshold": 0.5,
+            "evidence_source": "sim_joint"
+          },
+          "evidence_source": "sim_state",
+          "release_required": false,
+          "release": null,
+          "ok": true,
+          "reason_code": null
+        }
+      }
+    ]
+  },
+  "timing": {
+    "planner_s": 9.401,
+    "execution_s": 12.052,
+    "release_s": 1.178,
+    "verification_s": 0.473,
+    "inference_s_sum": 6.141,
+    "env_step_s_sum": 6.889,
+    "snapshot_s_sum": 0.914,
+    "chunk_gap_s_sum": 0.0,
+    "chunk_decision_wait_s_sum": 3.967,
+    "prefetch_inference_overlap_s_est": 5.447,
+    "recovery_s": 2.938,
+    "total_s_engine": 27.833,
+    "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+  },
+  "sim_action_count": 103,
+  "episode_sim_actions": 103,
+  "recovery_count": 1,
+  "recovery_log": [
+    {
+      "step": {
+        "skill": "turn_on",
+        "object_n": null,
+        "target_n": "flat_stove_1_burner",
+        "relation": "turn_on",
+        "prompt": "turn on the stove"
+      },
+      "failure_code": "chunk_budget_exhausted",
+      "chunks_used": 16,
+      "decision": "retry",
+      "policy": "qwen",
+      "reason": "Transient execution failure (chunk budget exhausted) on a valid turn_on attempt; the stove button state (0.454) is close to the threshold (0.5), suggesting the action may succeed on a subsequent attempt.",
+      "agent_s": 2.932
+    }
+  ],
+  "human_interventions": 0,
+  "inference_mode": "async_chunk_prefetch",
+  "model": {
+    "backend": "pi05",
+    "name": "Pi0.5 LIBERO-130 SFT",
+    "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+    "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
+    "action_chunk": 5,
+    "action_dim": 7,
+    "control_frequency_hz": 20,
+    "openwam": {
+      "name": "OpenWAM-Alpha-Sim-LIBERO",
+      "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+      "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+      "checkpoint_file": "checkpoint_step_10690.safetensors",
+      "action_horizon": 10,
+      "denoise_steps": 10,
+      "integration": "not_on_execution_path",
+      "reason": "no verified LIBERO action weights on disk; video-only checkpoint is not control"
+    }
+  },
+  "agent_model": "Qwen3.5-9B",
+  "env": {
+    "suite": "libero_goal",
+    "seed": 0,
+    "task_id": 7,
+    "port": 14561,
+    "identity": {
+      "service_instance_id": "73ec65b4180a478c8e91835a4099ee40",
+      "scene_generation": 3,
+      "sim_action_count": 110,
+      "task_scope": "official_single",
+      "mode": "free",
+      "code": "episode-service-state-1"
+    },
+    "ready": true
+  },
+  "page": {
+    "ui": "page_ui (restored old Page, backend bridge)",
+    "human_confirmation": false
+  }
+}

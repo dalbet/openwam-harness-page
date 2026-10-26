@@ -1,0 +1,107 @@
+{
+  "project_root": "/home/host/page-dmh/embodied_engine",
+  "harness_root": "/home/host/page-dmh/openwam_harness",
+  "services": {
+    "agent": {
+      "host": "127.0.0.1",
+      "port": 14700
+    },
+    "inference": {
+      "host": "127.0.0.1",
+      "port": 14600
+    },
+    "engine": {
+      "host": "127.0.0.1",
+      "port": 14800
+    },
+    "page_ui": {
+      "host": "127.0.0.1",
+      "port": 14900
+    },
+    "pi05": {
+      "host": "127.0.0.1",
+      "port": 14510
+    },
+    "openwam": {
+      "host": "127.0.0.1",
+      "port": 14520
+    },
+    "env": {
+      "host": "127.0.0.1",
+      "port": 14561
+    },
+    "planner_llm": {
+      "host": "127.0.0.1",
+      "port": 8001
+    }
+  },
+  "agent": {
+    "llm_model": "Qwen3.5-9B",
+    "llm_base_url": "http://127.0.0.1:8001/v1",
+    "temperature": 0.0,
+    "max_tokens": 900,
+    "planner_vision": false,
+    "jev": {
+      "endpoint": "https://api.typesafe.ai/v1/systemone",
+      "credential_env": "TYPESAFE_API_KEY",
+      "official": true,
+      "enabled": false
+    }
+  },
+  "action_model": {
+    "backend": "pi05",
+    "name": "Pi0.5 LIBERO-130 SFT",
+    "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+    "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
+    "action_chunk": 5,
+    "action_dim": 7,
+    "control_frequency_hz": 20,
+    "openwam": {
+      "name": "OpenWAM-Alpha-Sim-LIBERO",
+      "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+      "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+      "checkpoint_file": "checkpoint_step_10690.safetensors",
+      "action_horizon": 10,
+      "denoise_steps": 10
+    }
+  },
+  "env": {
+    "suite": "libero_goal",
+    "seed": 0,
+    "max_episode_steps": 10000,
+    "cuda_device": 3,
+    "python": "/home/host/page-dmh/openwam_harness/envs/rpent/bin/python",
+    "rpent_root": "/home/host/page-dmh/openwam_harness/RPent"
+  },
+  "inference": {
+    "mode": "async_chunk_prefetch",
+    "queue_size": 1,
+    "allow_prefetch_boundaries": false,
+    "max_chunk_age_actions": 5,
+    "pi05_timeout_s": 120
+  },
+  "execution": {
+    "pick_max_chunks": 40,
+    "open_drawer_max_chunks": 40,
+    "push_max_chunks": 20,
+    "turn_on_max_chunks": 16,
+    "contact_max_chunks": 14,
+    "move_step_clip_m": 0.025,
+    "move_action_scale_m": 0.05,
+    "move_max_steps": 90,
+    "release_steps": 8,
+    "retreat_m": 0.12,
+    "grasp_lift_m": 0.03,
+    "grasp_open_min_m": 0.008,
+    "grasp_open_max_m": 0.06,
+    "release_open_min_m": 0.05,
+    "stable_samples": 3,
+    "max_recoveries": 2,
+    "open_drawer_hard_chunks": 70,
+    "pick_hard_chunks": 60
+  },
+  "timing": {
+    "stop_join_s": 5.0,
+    "frame_period_s": 0.2
+  }
+}

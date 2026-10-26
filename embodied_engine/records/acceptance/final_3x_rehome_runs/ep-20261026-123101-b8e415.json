@@ -1,0 +1,7305 @@
+{
+  "schema": "embodied_engine.run.v1",
+  "task_id": 2,
+  "task_bddl": "put_the_wine_bottle_on_top_of_the_cabinet.bddl",
+  "instruction": "put the wine bottle on top of the cabinet",
+  "episode_id": "ep-20261026-123101-b8e415",
+  "run_id": 7,
+  "scene_epoch": 4,
+  "started_at": "2026-10-26T12:31:01",
+  "ended_at": "2026-10-26T12:31:26",
+  "duration_s": 24.703,
+  "phase": "completed",
+  "execution_status": "completed",
+  "native_task_success": true,
+  "native_goal_final": true,
+  "user_goal_success": true,
+  "user_goal_status": "met",
+  "failure_code": null,
+  "failure_reason": null,
+  "failure_evidence": null,
+  "plan": {
+    "interpretation": "Pick up the wine bottle and place it on top of the wooden cabinet.",
+    "success_condition": "The wine_bottle_1 is placed on the wooden_cabinet_1_top_side, verified by the native goal atom 'On wine_bottle_1 wooden_cabinet_1_top_side' being true after release.",
+    "steps": [
+      {
+        "skill": "pick_place",
+        "object_n": "wine_bottle_1",
+        "target_n": "wooden_cabinet_1_top_side",
+        "relation": "on",
+        "prompt": "put the wine bottle on top of the cabinet"
+      }
+    ],
+    "source": "qwen3.5-9b",
+    "planner_vision": false,
+    "latency_s": 7.263,
+    "agent_response": {
+      "status": "ok",
+      "steps": [
+        {
+          "skill": "pick_place",
+          "object_n": "wine_bottle_1",
+          "target_n": "wooden_cabinet_1_top_side",
+          "relation": "on",
+          "prompt": "put the wine bottle on top of the cabinet"
+        }
+      ],
+      "errors": [],
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "initial",
+          "timing": {
+            "elapsed_s": 7.257,
+            "prompt_tokens": 1729,
+            "completion_tokens": 154,
+            "model": "Qwen3.5-9B"
+          },
+          "raw_chars": 509
+        }
+      ],
+      "total_s": 7.258,
+      "source": "qwen3.5-9b",
+      "planner_vision": false
+    }
+  },
+  "steps": [
+    {
+      "skill": "pick_place",
+      "object_n": "wine_bottle_1",
+      "target_n": "wooden_cabinet_1_top_side",
+      "relation": "on",
+      "prompt": "put the wine bottle on top of the cabinet",
+      "phase_reached": "release",
+      "ok": true,
+      "verification": {
+        "skill": "pick_place",
+        "samples": 3,
+        "required_samples": 3,
+        "stable": true,
+        "per_sample_ok": [
+          true,
+          true,
+          true
+        ],
+        "last": {
+          "skill": "pick_place",
+          "native_goal": true,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:118:382",
+          "sim_action_count": 118,
+          "scene_epoch": 4,
+          "release_required": true,
+          "ok": true,
+          "ready": true,
+          "predicate": "relation+release_height",
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "height": {
+            "ready": true,
+            "kind": "site",
+            "object_bottom_z": 1.128,
+            "surface_z": 1.128,
+            "delta_m": -0.0
+          },
+          "object_pose": [
+            0.02169036168775189,
+            -0.2067187113895835,
+            1.1268798430399993
+          ],
+          "drop_release": {
+            "trigger": false,
+            "reason": "not_in_place"
+          },
+          "evidence_source": "mujoco_site"
+        },
+        "evidence_source": "sim_state",
+        "release_required": true,
+        "release": {
+          "commanded": true,
+          "gripper_command": -1.0,
+          "command_sim_action_count": 89,
+          "command_observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:89:353",
+          "opening_before_m": 0.014891710483523033,
+          "relation_before": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0047,
+              -0.0607,
+              0.0358
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "descent": {
+            "applied": false,
+            "reason": "no_drop_trigger"
+          },
+          "actions": 10,
+          "sim_action_count": 99,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:99:363",
+          "gripper_opening_m": 0.06588005357979694,
+          "retreat_s": 2.045,
+          "after_retreat": {
+            "sim_action_count": 115,
+            "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:115:379"
+          }
+        },
+        "release_evidence": {
+          "status": "verified",
+          "release_opening_m": 0.06588005357979694,
+          "final_opening_m": 0.07869835955479657,
+          "release_sim_action_count": 99,
+          "final_sim_action_count": 118,
+          "release_observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:99:363",
+          "final_observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:118:382",
+          "min_opening_m": 0.05
+        },
+        "ok": true,
+        "reason_code": null,
+        "verify_s": 0.233,
+        "release_matches_step": true
+      },
+      "release": {
+        "commanded": true,
+        "gripper_command": -1.0,
+        "command_sim_action_count": 89,
+        "command_observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:89:353",
+        "opening_before_m": 0.014891710483523033,
+        "relation_before": {
+          "ok": true,
+          "predicate": "SiteObject.under",
+          "delta_site": [
+            -0.0047,
+            -0.0607,
+            0.0358
+          ],
+          "inside_xy": true,
+          "supported": true,
+          "site_size": [
+            0.12534,
+            0.09438,
+            0.00147
+          ],
+          "target_pose": [
+            0.019759028806413045,
+            -0.2647411860950322,
+            1.12652
+          ],
+          "evidence_source": "mujoco_site"
+        },
+        "descent": {
+          "applied": false,
+          "reason": "no_drop_trigger"
+        },
+        "actions": 10,
+        "sim_action_count": 99,
+        "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:99:363",
+        "gripper_opening_m": 0.06588005357979694,
+        "retreat_s": 2.045,
+        "after_retreat": {
+          "sim_action_count": 115,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:115:379"
+        }
+      },
+      "grasp": {
+        "held": true,
+        "held_streak": 0,
+        "final_opening_m": 0.07869835955479657
+      },
+      "native_events": [
+        {
+          "sim_action_count": 93,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:93:357"
+        }
+      ],
+      "chunks_used": 18,
+      "attempt": 1,
+      "rehome": null,
+      "chunk_budget": 40,
+      "chunk_budget_hard": 60,
+      "budget_extensions": 0,
+      "sim_actions": 118,
+      "timing": {
+        "total_s": 13.963,
+        "inference_s_sum": 6.372,
+        "env_step_s_sum": 8.299,
+        "snapshot_s_sum": 1.047,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 4.309,
+        "prefetch_wait_s_sum": 3.419,
+        "prefetch_inference_overlap_s_est": 5.683,
+        "release_s": 2.046,
+        "verification_s": 0.233
+      },
+      "prefetch": {
+        "enabled": true,
+        "used": 16,
+        "discarded": 2,
+        "reinfer": 0,
+        "max_age_actions": 5
+      },
+      "chunks": [
+        {
+          "chunk": 0,
+          "prefetched": false,
+          "inference_s": 0.3412,
+          "wait_s": 0.3586,
+          "age_actions": null,
+          "actions": 5,
+          "env_step_start_s": 0.3588,
+          "env_step_end_s": 0.7884,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4297
+        },
+        {
+          "chunk": 1,
+          "prefetched": true,
+          "inference_s": 0.3707,
+          "wait_s": 0.2243,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 1.0128,
+          "env_step_end_s": 1.4089,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.3961
+        },
+        {
+          "chunk": 2,
+          "prefetched": true,
+          "inference_s": 0.3846,
+          "wait_s": 0.2441,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 1.653,
+          "env_step_end_s": 2.0725,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4195
+        },
+        {
+          "chunk": 3,
+          "prefetched": true,
+          "inference_s": 0.3546,
+          "wait_s": 0.2236,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 2.2962,
+          "env_step_end_s": 2.6874,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.3913
+        },
+        {
+          "chunk": 4,
+          "prefetched": true,
+          "inference_s": 0.3492,
+          "wait_s": 0.2237,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 2.9111,
+          "env_step_end_s": 3.3176,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4065
+        },
+        {
+          "chunk": 5,
+          "prefetched": true,
+          "inference_s": 0.3498,
+          "wait_s": 0.2034,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 3.5211,
+          "env_step_end_s": 3.9327,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4116
+        },
+        {
+          "chunk": 6,
+          "prefetched": true,
+          "inference_s": 0.3508,
+          "wait_s": 0.2038,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 4.1366,
+          "env_step_end_s": 4.562,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4254
+        },
+        {
+          "chunk": 7,
+          "prefetched": true,
+          "inference_s": 0.3495,
+          "wait_s": 0.2037,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 4.7658,
+          "env_step_end_s": 5.1783,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4126
+        },
+        {
+          "chunk": 8,
+          "prefetched": true,
+          "inference_s": 0.3488,
+          "wait_s": 0.2036,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 5.382,
+          "env_step_end_s": 5.8023,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4203
+        },
+        {
+          "chunk": 9,
+          "prefetched": true,
+          "inference_s": 0.3599,
+          "wait_s": 0.2035,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 6.0059,
+          "env_step_end_s": 6.4145,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4087
+        },
+        {
+          "chunk": 10,
+          "prefetched": true,
+          "inference_s": 0.3513,
+          "wait_s": 0.2232,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 6.6377,
+          "env_step_end_s": 7.0739,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4362
+        },
+        {
+          "chunk": 11,
+          "prefetched": false,
+          "inference_s": 0.3475,
+          "wait_s": 0.5316,
+          "age_actions": null,
+          "actions": 5,
+          "env_step_start_s": 7.6057,
+          "env_step_end_s": 8.0103,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4046
+        },
+        {
+          "chunk": 12,
+          "prefetched": true,
+          "inference_s": 0.3497,
+          "wait_s": 0.2036,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 8.2139,
+          "env_step_end_s": 8.6279,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.414
+        },
+        {
+          "chunk": 13,
+          "prefetched": true,
+          "inference_s": 0.3522,
+          "wait_s": 0.2034,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 8.8314,
+          "env_step_end_s": 9.2124,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.3811
+        },
+        {
+          "chunk": 14,
+          "prefetched": true,
+          "inference_s": 0.3567,
+          "wait_s": 0.2238,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 9.4362,
+          "env_step_end_s": 9.8569,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4206
+        },
+        {
+          "chunk": 15,
+          "prefetched": true,
+          "inference_s": 0.3474,
+          "wait_s": 0.204,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 10.0609,
+          "env_step_end_s": 10.496,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4351
+        },
+        {
+          "chunk": 16,
+          "prefetched": true,
+          "inference_s": 0.3565,
+          "wait_s": 0.2035,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 10.6995,
+          "env_step_end_s": 11.1013,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.4018
+        },
+        {
+          "chunk": 17,
+          "prefetched": true,
+          "inference_s": 0.3513,
+          "wait_s": 0.2235,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 11.3249,
+          "env_step_end_s": 11.6831,
+          "prompt": "put the wine bottle on top of the cabinet",
+          "duration_s": 0.3582
+        }
+      ],
+      "observations": [
+        {
+          "sim_action_count": 1,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:1:265",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.21082056449528502,
+            -0.014747845777669574,
+            1.160003307115225
+          ],
+          "gripper_opening_m": 0.07816154527370833
+        },
+        {
+          "sim_action_count": 2,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:2:266",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.20969162414362086,
+            -0.016064780779873958,
+            1.158370292308518
+          ],
+          "gripper_opening_m": 0.0782403858037968
+        },
+        {
+          "sim_action_count": 3,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:3:267",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.20770800000178638,
+            -0.017784242936374227,
+            1.156897014635708
+          ],
+          "gripper_opening_m": 0.07831584121736435
+        },
+        {
+          "sim_action_count": 4,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:4:268",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.20507734390993546,
+            -0.01977874174506,
+            1.155663068168913
+          ],
+          "gripper_opening_m": 0.07838805797700515
+        },
+        {
+          "sim_action_count": 5,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:5:269",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.20192768817360435,
+            -0.021856721557454953,
+            1.1546770550892969
+          ],
+          "gripper_opening_m": 0.07845717696740408
+        },
+        {
+          "sim_action_count": 6,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:6:270",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19844959982261823,
+            -0.024005464391627908,
+            1.154028801538681
+          ],
+          "gripper_opening_m": 0.07852333167174486
+        },
+        {
+          "sim_action_count": 7,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:7:271",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19476669552332415,
+            -0.026147760290588844,
+            1.1534949330879594
+          ],
+          "gripper_opening_m": 0.07858664932311282
+        },
+        {
+          "sim_action_count": 8,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:8:272",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1908151703304623,
+            -0.02811569565498951,
+            1.152878961866746
+          ],
+          "gripper_opening_m": 0.07864725294883845
+        },
+        {
+          "sim_action_count": 9,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:9:273",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.18662364352129537,
+            -0.029809214304356024,
+            1.1521824928159237
+          ],
+          "gripper_opening_m": 0.07870525989216115
+        },
+        {
+          "sim_action_count": 10,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:10:274",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1822522404650257,
+            -0.031194045144721672,
+            1.1513711651899023
+          ],
+          "gripper_opening_m": 0.07876078169766551
+        },
+        {
+          "sim_action_count": 11,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:11:275",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.17762859037796386,
+            -0.03247649471357177,
+            1.1493855849130747
+          ],
+          "gripper_opening_m": 0.07881392414965505
+        },
+        {
+          "sim_action_count": 12,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:12:276",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.17301630965410467,
+            -0.033883699228848554,
+            1.1458939438632099
+          ],
+          "gripper_opening_m": 0.07886478784344997
+        },
+        {
+          "sim_action_count": 13,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:13:277",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.16877046811334864,
+            -0.03511113471164863,
+            1.141524974510781
+          ],
+          "gripper_opening_m": 0.07891347144335861
+        },
+        {
+          "sim_action_count": 14,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:14:278",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.16489974987369604,
+            -0.03601436805362558,
+            1.1364870153996716
+          ],
+          "gripper_opening_m": 0.07896006918536796
+        },
+        {
+          "sim_action_count": 15,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:15:279",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1614853189922399,
+            -0.036591409724464,
+            1.1308231307501864
+          ],
+          "gripper_opening_m": 0.07900467010100212
+        },
+        {
+          "sim_action_count": 16,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:16:280",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.15875894166003363,
+            -0.03685041729977192,
+            1.1245362907870395
+          ],
+          "gripper_opening_m": 0.07904735964218691
+        },
+        {
+          "sim_action_count": 17,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:17:281",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.15668139142984328,
+            -0.03695035060432006,
+            1.117816091510654
+          ],
+          "gripper_opening_m": 0.07908821897623859
+        },
+        {
+          "sim_action_count": 18,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:18:282",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1552766480121179,
+            -0.03694342588032755,
+            1.1107537564599104
+          ],
+          "gripper_opening_m": 0.07912732603907477
+        },
+        {
+          "sim_action_count": 19,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:19:283",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1545345676884522,
+            -0.03688746621150172,
+            1.1034258287149141
+          ],
+          "gripper_opening_m": 0.07916475591294435
+        },
+        {
+          "sim_action_count": 20,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:20:284",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.15460569718913514,
+            -0.036842629806284985,
+            1.0958626488612127
+          ],
+          "gripper_opening_m": 0.0792005800943897
+        },
+        {
+          "sim_action_count": 21,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:21:285",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1557475794503389,
+            -0.03688013024305146,
+            1.088129859495149
+          ],
+          "gripper_opening_m": 0.07923486755074285
+        },
+        {
+          "sim_action_count": 22,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:22:286",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.15783888509822613,
+            -0.037103293126332634,
+            1.0802577664515272
+          ],
+          "gripper_opening_m": 0.0792676838383509
+        },
+        {
+          "sim_action_count": 23,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:23:287",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.16054475577988767,
+            -0.03738907026166186,
+            1.0723325599371605
+          ],
+          "gripper_opening_m": 0.07929909205598007
+        },
+        {
+          "sim_action_count": 24,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:24:288",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1639168904381048,
+            -0.03765889255700191,
+            1.0643510329941899
+          ],
+          "gripper_opening_m": 0.07932915314726646
+        },
+        {
+          "sim_action_count": 25,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:25:289",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.16795179252378378,
+            -0.03794551938622799,
+            1.0563387499284596
+          ],
+          "gripper_opening_m": 0.0793579247736991
+        },
+        {
+          "sim_action_count": 26,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:26:290",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1724407629687085,
+            -0.03833266400484038,
+            1.0485784982525022
+          ],
+          "gripper_opening_m": 0.07938546189720222
+        },
+        {
+          "sim_action_count": 27,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:27:291",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.177164025860965,
+            -0.038764468823047106,
+            1.0410484186270543
+          ],
+          "gripper_opening_m": 0.07941181764930161
+        },
+        {
+          "sim_action_count": 28,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:28:292",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1821373759630699,
+            -0.039146818068681116,
+            1.0335124411943224
+          ],
+          "gripper_opening_m": 0.07943704335137364
+        },
+        {
+          "sim_action_count": 29,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:29:293",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.216,
+              -0.2255,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.18749705091052613,
+            -0.039482866468991365,
+            1.0259435018976837
+          ],
+          "gripper_opening_m": 0.07946118753481973
+        },
+        {
+          "sim_action_count": 30,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:30:294",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2255,
+              -0.2303
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19245242037335988,
+            -0.03993269375295844,
+            1.019427285894124
+          ],
+          "gripper_opening_m": 0.07948429629872639
+        },
+        {
+          "sim_action_count": 31,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:31:295",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2255,
+              -0.2309
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1941093261878261,
+            -0.04097917904810279,
+            1.0177179744846843
+          ],
+          "gripper_opening_m": 0.07950641326128641
+        },
+        {
+          "sim_action_count": 32,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:32:296",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2255,
+              -0.2308
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19470982086723373,
+            -0.04235757409907415,
+            1.017809634032607
+          ],
+          "gripper_opening_m": 0.07952758102100588
+        },
+        {
+          "sim_action_count": 33,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:33:297",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2307
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19517676736892667,
+            -0.04368794048477984,
+            1.0180315334895829
+          ],
+          "gripper_opening_m": 0.0795478414080712
+        },
+        {
+          "sim_action_count": 34,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:34:298",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2305
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19536157670278953,
+            -0.044825880900699985,
+            1.018237165124164
+          ],
+          "gripper_opening_m": 0.07772333251275851
+        },
+        {
+          "sim_action_count": 35,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:35:299",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2304
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19531223075275295,
+            -0.045621004391960276,
+            1.018478993896511
+          ],
+          "gripper_opening_m": 0.07346520453674765
+        },
+        {
+          "sim_action_count": 36,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:36:300",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2304
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19539884717458317,
+            -0.04613358960016836,
+            1.0184345179299492
+          ],
+          "gripper_opening_m": 0.07249563792782715
+        },
+        {
+          "sim_action_count": 37,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:37:301",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2303
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1952738055274635,
+            -0.04650667073550356,
+            1.0184794176187197
+          ],
+          "gripper_opening_m": 0.07034308748431914
+        },
+        {
+          "sim_action_count": 38,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:38:302",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2302
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19478946949012277,
+            -0.04682552716276201,
+            1.0187975133579434
+          ],
+          "gripper_opening_m": 0.06581398555469453
+        },
+        {
+          "sim_action_count": 39,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:39:303",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.23
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1940883071190753,
+            -0.04693687201046975,
+            1.019247008820222
+          ],
+          "gripper_opening_m": 0.05976487319788175
+        },
+        {
+          "sim_action_count": 40,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:40:304",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2298
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19324041344268772,
+            -0.046835698636896926,
+            1.0198360276308565
+          ],
+          "gripper_opening_m": 0.052859446716145495
+        },
+        {
+          "sim_action_count": 41,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:41:305",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2298
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19283331363601247,
+            -0.046755609892189985,
+            1.019881907113291
+          ],
+          "gripper_opening_m": 0.045473849049140466
+        },
+        {
+          "sim_action_count": 42,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:42:306",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2297
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1924234359700107,
+            -0.046817343016095414,
+            1.019981818803065
+          ],
+          "gripper_opening_m": 0.03781882395138717
+        },
+        {
+          "sim_action_count": 43,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:43:307",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2295
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19167096533817762,
+            -0.04688144581102031,
+            1.020575669828128
+          ],
+          "gripper_opening_m": 0.030012559469124296
+        },
+        {
+          "sim_action_count": 44,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:44:308",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2256,
+              -0.2291
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1909645780960373,
+            -0.046877114096478864,
+            1.0213937641151647
+          ],
+          "gripper_opening_m": 0.02212135429952641
+        },
+        {
+          "sim_action_count": 45,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:45:309",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2159,
+              -0.2254,
+              -0.2281
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.19035552385096036,
+            -0.046621212104358066,
+            1.022523873929555
+          ],
+          "gripper_opening_m": 0.017220558639211854
+        },
+        {
+          "sim_action_count": 46,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:46:310",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2156,
+              -0.2246,
+              -0.2275
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.18971298782024293,
+            -0.04617982492104109,
+            1.0231152130044938
+          ],
+          "gripper_opening_m": 0.014768033560540869
+        },
+        {
+          "sim_action_count": 47,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:47:311",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2154,
+              -0.2243,
+              -0.2277
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.18912228196811792,
+            -0.04577633225426258,
+            1.0230222574413677
+          ],
+          "gripper_opening_m": 0.014823935404518929
+        },
+        {
+          "sim_action_count": 48,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:48:312",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2149,
+              -0.2238,
+              -0.2276
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1883339803190512,
+            -0.045414778093673946,
+            1.023137638325317
+          ],
+          "gripper_opening_m": 0.014824517341072733
+        },
+        {
+          "sim_action_count": 49,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:49:313",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2138,
+              -0.2221,
+              -0.2269
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.18710760016165137,
+            -0.045156207273691344,
+            1.0238753590125111
+          ],
+          "gripper_opening_m": 0.014811565746443758
+        },
+        {
+          "sim_action_count": 50,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:50:314",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2123,
+              -0.2199,
+              -0.2252
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.18551400071465537,
+            -0.04508161797661699,
+            1.0255739655208935
+          ],
+          "gripper_opening_m": 0.014774823185352292
+        },
+        {
+          "sim_action_count": 51,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:51:315",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2095,
+              -0.2181,
+              -0.2203
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.18266699169043027,
+            -0.04521987788952761,
+            1.0305034534961586
+          ],
+          "gripper_opening_m": 0.014763150700866381
+        },
+        {
+          "sim_action_count": 52,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:52:316",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2053,
+              -0.2164,
+              -0.212
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.17846859972778095,
+            -0.045746637902482803,
+            1.0388137140264506
+          ],
+          "gripper_opening_m": 0.014758150781573335
+        },
+        {
+          "sim_action_count": 53,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:53:317",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.2004,
+              -0.2145,
+              -0.202
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.17345152133772238,
+            -0.04659513150997007,
+            1.048776829164669
+          ],
+          "gripper_opening_m": 0.014755742477158638
+        },
+        {
+          "sim_action_count": 54,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:54:318",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1947,
+              -0.2127,
+              -0.1909
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1676809008806014,
+            -0.04765360644445389,
+            1.0598239010797272
+          ],
+          "gripper_opening_m": 0.014754194054425246
+        },
+        {
+          "sim_action_count": 55,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:55:319",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1886,
+              -0.2107,
+              -0.1792
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1614313728641516,
+            -0.04888408755647463,
+            1.0715318174327568
+          ],
+          "gripper_opening_m": 0.014912208353129319
+        },
+        {
+          "sim_action_count": 56,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:56:320",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1817,
+              -0.2085,
+              -0.1672
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1545055425474965,
+            -0.05064098067366821,
+            1.0835275726205962
+          ],
+          "gripper_opening_m": 0.014903384001676795
+        },
+        {
+          "sim_action_count": 57,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:57:321",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1742,
+              -0.2056,
+              -0.1551
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.14709759583450832,
+            -0.053253194444362224,
+            1.0956012504422876
+          ],
+          "gripper_opening_m": 0.014902458211144423
+        },
+        {
+          "sim_action_count": 58,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:58:322",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1662,
+              -0.2022,
+              -0.1429
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.13933699757125265,
+            -0.056467179170128015,
+            1.1078324799317758
+          ],
+          "gripper_opening_m": 0.014901998466406809
+        },
+        {
+          "sim_action_count": 59,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:59:323",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.158,
+              -0.1986,
+              -0.1306
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.13144866979061395,
+            -0.06006105776552763,
+            1.1201682595184304
+          ],
+          "gripper_opening_m": 0.01490151321859133
+        },
+        {
+          "sim_action_count": 60,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:60:324",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1497,
+              -0.1946,
+              -0.1182
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.1235325742487513,
+            -0.06404795222962925,
+            1.1326039372594567
+          ],
+          "gripper_opening_m": 0.014901026090424128
+        },
+        {
+          "sim_action_count": 61,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:61:325",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1416,
+              -0.1906,
+              -0.1059
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.11580978334592151,
+            -0.0679062264490086,
+            1.1449768734285235
+          ],
+          "gripper_opening_m": 0.01490052325536375
+        },
+        {
+          "sim_action_count": 62,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:62:326",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1336,
+              -0.187,
+              -0.0936
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.10812662188137084,
+            -0.07134417952220777,
+            1.157315363281353
+          ],
+          "gripper_opening_m": 0.014900024694494883
+        },
+        {
+          "sim_action_count": 63,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:63:327",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1253,
+              -0.1836,
+              -0.0812
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.10026333637826074,
+            -0.07467429362862117,
+            1.1697563567267495
+          ],
+          "gripper_opening_m": 0.014899505171757432
+        },
+        {
+          "sim_action_count": 64,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:64:328",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1168,
+              -0.18,
+              -0.0688
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.09234530863788248,
+            -0.07814588183452034,
+            1.1822038693633365
+          ],
+          "gripper_opening_m": 0.014898971742458866
+        },
+        {
+          "sim_action_count": 65,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:65:329",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.1085,
+              -0.1762,
+              -0.0565
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.08455406181548446,
+            -0.08183319436753567,
+            1.1945430045554006
+          ],
+          "gripper_opening_m": 0.014898429165785824
+        },
+        {
+          "sim_action_count": 66,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:66:330",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0996,
+              -0.1723,
+              -0.0448
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.0763913759946172,
+            -0.08570038520627812,
+            1.2062391549641707
+          ],
+          "gripper_opening_m": 0.014897889552639005
+        },
+        {
+          "sim_action_count": 67,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:67:331",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0901,
+              -0.1682,
+              -0.0338
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.06786715821512515,
+            -0.08987487960150235,
+            1.2173160203813571
+          ],
+          "gripper_opening_m": 0.014897349607046933
+        },
+        {
+          "sim_action_count": 68,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:68:332",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0808,
+              -0.1638,
+              -0.0229
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.05946096036173548,
+            -0.09441769103735204,
+            1.228179719269095
+          ],
+          "gripper_opening_m": 0.014896811710105505
+        },
+        {
+          "sim_action_count": 69,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:69:333",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0715,
+              -0.1591,
+              -0.0122
+            ],
+            "inside_xy": false,
+            "supported": false,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.05117600792845115,
+            -0.09936829489671832,
+            1.2389408083580045
+          ],
+          "gripper_opening_m": 0.014896289682208998
+        },
+        {
+          "sim_action_count": 70,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:70:334",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0625,
+              -0.1541,
+              -0.0016
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.04319515201350871,
+            -0.10473497140031772,
+            1.249547716752463
+          ],
+          "gripper_opening_m": 0.014895782669661885
+        },
+        {
+          "sim_action_count": 71,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:71:335",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0552,
+              -0.149,
+              0.009
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.03653431405336644,
+            -0.1103373532306512,
+            1.260214005425636
+          ],
+          "gripper_opening_m": 0.014895291155941424
+        },
+        {
+          "sim_action_count": 72,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:72:336",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0489,
+              -0.1436,
+              0.0199
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.03079871493665708,
+            -0.1162860465184565,
+            1.2711625964033608
+          ],
+          "gripper_opening_m": 0.014894832401367707
+        },
+        {
+          "sim_action_count": 73,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:73:337",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0428,
+              -0.138,
+              0.0307
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.02536643224730869,
+            -0.12266131028973874,
+            1.2819792835569817
+          ],
+          "gripper_opening_m": 0.014894393028277657
+        },
+        {
+          "sim_action_count": 74,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:74:338",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0369,
+              -0.1321,
+              0.0411
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.020198049477551893,
+            -0.12942703705886904,
+            1.292422870421138
+          ],
+          "gripper_opening_m": 0.014893997596491253
+        },
+        {
+          "sim_action_count": 75,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:75:339",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0312,
+              -0.1259,
+              0.0509
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.015376461028898471,
+            -0.1365433578514406,
+            1.302230665320415
+          ],
+          "gripper_opening_m": 0.014893643951081885
+        },
+        {
+          "sim_action_count": 76,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:76:340",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0255,
+              -0.1199,
+              0.0599
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.010695493737950198,
+            -0.1437694310363459,
+            1.3111761861072604
+          ],
+          "gripper_opening_m": 0.01489332518404428
+        },
+        {
+          "sim_action_count": 77,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:77:341",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0199,
+              -0.1138,
+              0.0678
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.006255293380408974,
+            -0.15120207054191448,
+            1.3190625440443562
+          ],
+          "gripper_opening_m": 0.014893074565046228
+        },
+        {
+          "sim_action_count": 78,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:78:342",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0146,
+              -0.1075,
+              0.0747
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            -0.0021536667125219046,
+            -0.15880684920310983,
+            1.3258402854933817
+          ],
+          "gripper_opening_m": 0.014892880134275383
+        },
+        {
+          "sim_action_count": 79,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:79:343",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0098,
+              -0.1012,
+              0.0803
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.0015331100520205102,
+            -0.16660358151244178,
+            1.3313766585492266
+          ],
+          "gripper_opening_m": 0.014892741741391529
+        },
+        {
+          "sim_action_count": 80,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:80:344",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0054,
+              -0.0947,
+              0.0846
+            ],
+            "inside_xy": false,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.004813361809209132,
+            -0.17448126247305754,
+            1.3355044073149605
+          ],
+          "gripper_opening_m": 0.014892680729033263
+        },
+        {
+          "sim_action_count": 81,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:81:345",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              0.0019,
+              -0.0888,
+              0.0857
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.0076747393338789174,
+            -0.18202483971236488,
+            1.3365305741300315
+          ],
+          "gripper_opening_m": 0.014892680228737878
+        },
+        {
+          "sim_action_count": 82,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:82:346",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0011,
+              -0.0833,
+              0.0839
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.010387789239594684,
+            -0.18913627666169797,
+            1.334627630875445
+          ],
+          "gripper_opening_m": 0.014892626561774163
+        },
+        {
+          "sim_action_count": 83,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:83:347",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0035,
+              -0.0782,
+              0.0803
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.012702583598601125,
+            -0.19592914939806236,
+            1.3308933037472894
+          ],
+          "gripper_opening_m": 0.01489252314379489
+        },
+        {
+          "sim_action_count": 84,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:84:348",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0054,
+              -0.0735,
+              0.0751
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.01465298775259806,
+            -0.20228523963168457,
+            1.3255994559729594
+          ],
+          "gripper_opening_m": 0.014892382637878579
+        },
+        {
+          "sim_action_count": 85,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:85:349",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0068,
+              -0.0693,
+              0.0686
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.01627144158661585,
+            -0.20814607857330356,
+            1.318900288879512
+          ],
+          "gripper_opening_m": 0.014892220408079904
+        },
+        {
+          "sim_action_count": 86,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:86:350",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0073,
+              -0.0659,
+              0.0613
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.017302056160451933,
+            -0.21299275539526746,
+            1.3115745709836155
+          ],
+          "gripper_opening_m": 0.014892062167672894
+        },
+        {
+          "sim_action_count": 87,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:87:351",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0069,
+              -0.0635,
+              0.0535
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.017665457095050765,
+            -0.21671732571309094,
+            1.3036642170042403
+          ],
+          "gripper_opening_m": 0.014891910323078973
+        },
+        {
+          "sim_action_count": 88,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:88:352",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.006,
+              -0.0617,
+              0.0449
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.017721578426574996,
+            -0.2195256530140189,
+            1.2949910875783506
+          ],
+          "gripper_opening_m": 0.014891809010906497
+        },
+        {
+          "sim_action_count": 89,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:89:353",
+          "ok": true,
+          "ready": true,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0047,
+              -0.0607,
+              0.0358
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.01755828801765973,
+            -0.22146574823049886,
+            1.2858126559227117
+          ],
+          "gripper_opening_m": 0.014891710483523033
+        },
+        {
+          "sim_action_count": 90,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:90:354",
+          "ok": true,
+          "ready": true,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0044,
+              -0.0597,
+              0.0306
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.017428148548626152,
+            -0.22270909239373235,
+            1.2806213783660034
+          ],
+          "gripper_opening_m": 0.015048798229011166
+        },
+        {
+          "sim_action_count": 91,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:91:355",
+          "ok": true,
+          "ready": true,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0042,
+              -0.0589,
+              0.0288
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.01671846564976264,
+            -0.22326588708400386,
+            1.2791657011799142
+          ],
+          "gripper_opening_m": 0.015351918363468307
+        },
+        {
+          "sim_action_count": 92,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:92:356",
+          "ok": true,
+          "ready": true,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0034,
+              -0.0588,
+              0.0156
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.015624482947803092,
+            -0.22347833755758537,
+            1.2782346100718247
+          ],
+          "gripper_opening_m": 0.0175830120553669
+        },
+        {
+          "sim_action_count": 93,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:93:357",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.0574,
+              0.0038
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.014331025643320394,
+            -0.2235399966443774,
+            1.2772804515393834
+          ],
+          "gripper_opening_m": 0.022163415750177225
+        },
+        {
+          "sim_action_count": 94,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:94:358",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.0575,
+              0.0032
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.012884997720091641,
+            -0.22352354495941368,
+            1.276213225049731
+          ],
+          "gripper_opening_m": 0.028223848725932074
+        },
+        {
+          "sim_action_count": 95,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:95:359",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0016,
+              -0.0577,
+              0.0022
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.011936992511695617,
+            -0.22420604831741717,
+            1.2722092828812361
+          ],
+          "gripper_opening_m": 0.03515070050769127
+        },
+        {
+          "sim_action_count": 96,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:96:360",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0017,
+              -0.0576,
+              0.0021
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.012323259519285937,
+            -0.22547072276297658,
+            1.2689021852570932
+          ],
+          "gripper_opening_m": 0.04253421044154228
+        },
+        {
+          "sim_action_count": 97,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:97:361",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0017,
+              -0.0576,
+              0.0022
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.012413446333709773,
+            -0.22602581462942156,
+            1.2683428990143002
+          ],
+          "gripper_opening_m": 0.05018475881805762
+        },
+        {
+          "sim_action_count": 98,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:98:362",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0017,
+              -0.0577,
+              0.0011
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.01239191906851781,
+            -0.22626164504944557,
+            1.2682573380405926
+          ],
+          "gripper_opening_m": 0.057989313335028006
+        },
+        {
+          "sim_action_count": 99,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:99:363",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0017,
+              -0.0579,
+              0.0008
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.012368187960646388,
+            -0.22635735681861133,
+            1.2682645967890247
+          ],
+          "gripper_opening_m": 0.06588005357979694
+        },
+        {
+          "sim_action_count": 100,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:100:364",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0005
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.012154897690984073,
+            -0.22633335926082004,
+            1.2709509717585115
+          ],
+          "gripper_opening_m": 0.07118842074229803
+        },
+        {
+          "sim_action_count": 101,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:101:365",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0006
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.011525230427022191,
+            -0.22616711669783696,
+            1.2759034123995088
+          ],
+          "gripper_opening_m": 0.0741871895583366
+        },
+        {
+          "sim_action_count": 102,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:102:366",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0005
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.010851986822917251,
+            -0.225955544944799,
+            1.2814310749480693
+          ],
+          "gripper_opening_m": 0.07586646343653786
+        },
+        {
+          "sim_action_count": 103,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:103:367",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0005
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.01024300751974948,
+            -0.22572953322643774,
+            1.2871106464377242
+          ],
+          "gripper_opening_m": 0.07680611310018287
+        },
+        {
+          "sim_action_count": 104,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:104:368",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.009748213800440022,
+            -0.22552148585578202,
+            1.2927737780168147
+          ],
+          "gripper_opening_m": 0.07733195378698549
+        },
+        {
+          "sim_action_count": 105,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:105:369",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.009343278965944397,
+            -0.2253340001381799,
+            1.2984003244235447
+          ],
+          "gripper_opening_m": 0.0776262195728398
+        },
+        {
+          "sim_action_count": 106,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:106:370",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.009018789902606912,
+            -0.22517164329204414,
+            1.3039972990766586
+          ],
+          "gripper_opening_m": 0.07779088344495635
+        },
+        {
+          "sim_action_count": 107,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:107:371",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.00877390541538244,
+            -0.2250391546569958,
+            1.3095612759532271
+          ],
+          "gripper_opening_m": 0.07789178830939314
+        },
+        {
+          "sim_action_count": 108,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:108:372",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.008594805691409408,
+            -0.2249346336105102,
+            1.3150951543618816
+          ],
+          "gripper_opening_m": 0.07798226014697052
+        },
+        {
+          "sim_action_count": 109,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:109:373",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.008467243228634585,
+            -0.22485465248655923,
+            1.3206039006912933
+          ],
+          "gripper_opening_m": 0.07806879547831896
+        },
+        {
+          "sim_action_count": 110,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:110:374",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.008378578188902334,
+            -0.224795485100494,
+            1.3260916683062107
+          ],
+          "gripper_opening_m": 0.0781516196560786
+        },
+        {
+          "sim_action_count": 111,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:111:375",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.00831815781095348,
+            -0.2247533037054947,
+            1.3315611808005632
+          ],
+          "gripper_opening_m": 0.07823089220534449
+        },
+        {
+          "sim_action_count": 112,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:112:376",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.008277704495160562,
+            -0.2247225158439114,
+            1.3370139970400678
+          ],
+          "gripper_opening_m": 0.07830676534077269
+        },
+        {
+          "sim_action_count": 113,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:113:377",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.008249589673969736,
+            -0.22470069507985932,
+            1.3424503093234346
+          ],
+          "gripper_opening_m": 0.07837938477923152
+        },
+        {
+          "sim_action_count": 114,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:114:378",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.00822351821170492,
+            -0.2246972651012815,
+            1.3478691334778716
+          ],
+          "gripper_opening_m": 0.07844889009709213
+        },
+        {
+          "sim_action_count": 115,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:115:379",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.008197028149520995,
+            -0.2247035127943518,
+            1.3532683372230956
+          ],
+          "gripper_opening_m": 0.07851541477158991
+        },
+        {
+          "sim_action_count": 116,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:116:380",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.008013115341742755,
+            -0.22463260449968334,
+            1.3561415054694335
+          ],
+          "gripper_opening_m": 0.07857908643206993
+        },
+        {
+          "sim_action_count": 117,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:117:381",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.008074692646534723,
+            -0.22465363146185258,
+            1.3569074758371091
+          ],
+          "gripper_opening_m": 0.0786400296098851
+        },
+        {
+          "sim_action_count": 118,
+          "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:118:382",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "SiteObject.under",
+            "delta_site": [
+              -0.0019,
+              -0.058,
+              0.0004
+            ],
+            "inside_xy": true,
+            "supported": true,
+            "site_size": [
+              0.12534,
+              0.09438,
+              0.00147
+            ],
+            "target_pose": [
+              0.019759028806413045,
+              -0.2647411860950322,
+              1.12652
+            ],
+            "evidence_source": "mujoco_site"
+          },
+          "eef_pos": [
+            0.008266387613498134,
+            -0.22472944040938447,
+            1.3573335016079062
+          ],
+          "gripper_opening_m": 0.07869835955479657
+        }
+      ],
+      "action_trace": [
+        {
+          "n": 1,
+          "a": [
+            0.3243,
+            -0.1407,
+            0.0346,
+            0.0225,
+            0.1273,
+            0.0038,
+            -1.0169
+          ],
+          "eef": [
+            -0.21082056449528502,
+            -0.014747845777669574,
+            1.160003307115225
+          ],
+          "grip": 0.07816154527370833
+        },
+        {
+          "n": 2,
+          "a": [
+            0.3511,
+            -0.1482,
+            0.0347,
+            0.0249,
+            0.1412,
+            0.0041,
+            -1.0144
+          ],
+          "eef": [
+            -0.20969162414362086,
+            -0.016064780779873958,
+            1.158370292308518
+          ],
+          "grip": 0.0782403858037968
+        },
+        {
+          "n": 3,
+          "a": [
+            0.3768,
+            -0.1593,
+            0.0351,
+            0.02,
+            0.1407,
+            0.0075,
+            -1.0171
+          ],
+          "eef": [
+            -0.20770800000178638,
+            -0.017784242936374227,
+            1.156897014635708
+          ],
+          "grip": 0.07831584121736435
+        },
+        {
+          "n": 4,
+          "a": [
+            0.3768,
+            -0.1661,
+            0.026,
+            0.0172,
+            0.1435,
+            0.0033,
+            -1.0154
+          ],
+          "eef": [
+            -0.20507734390993546,
+            -0.01977874174506,
+            1.155663068168913
+          ],
+          "grip": 0.07838805797700515
+        },
+        {
+          "n": 5,
+          "a": [
+            0.3756,
+            -0.1675,
+            0.0188,
+            0.0201,
+            0.1366,
+            0.0068,
+            -1.0165
+          ],
+          "eef": [
+            -0.20192768817360435,
+            -0.021856721557454953,
+            1.1546770550892969
+          ],
+          "grip": 0.07845717696740408
+        },
+        {
+          "n": 6,
+          "a": [
+            0.3396,
+            -0.1611,
+            0.021,
+            0.0146,
+            0.1242,
+            -0.0058,
+            -1.0177
+          ],
+          "eef": [
+            -0.19844959982261823,
+            -0.024005464391627908,
+            1.154028801538681
+          ],
+          "grip": 0.07852333167174486
+        },
+        {
+          "n": 7,
+          "a": [
+            0.3595,
+            -0.1508,
+            0.0024,
+            0.0077,
+            0.13,
+            -0.0032,
+            -1.0126
+          ],
+          "eef": [
+            -0.19476669552332415,
+            -0.026147760290588844,
+            1.1534949330879594
+          ],
+          "grip": 0.07858664932311282
+        },
+        {
+          "n": 8,
+          "a": [
+            0.3726,
+            -0.1336,
+            -0.0075,
+            0.006,
+            0.129,
+            -0.0019,
+            -1.014
+          ],
+          "eef": [
+            -0.1908151703304623,
+            -0.02811569565498951,
+            1.152878961866746
+          ],
+          "grip": 0.07864725294883845
+        },
+        {
+          "n": 9,
+          "a": [
+            0.3773,
+            -0.1088,
+            -0.0214,
+            0.0037,
+            0.127,
+            -0.0013,
+            -1.0182
+          ],
+          "eef": [
+            -0.18662364352129537,
+            -0.029809214304356024,
+            1.1521824928159237
+          ],
+          "grip": 0.07870525989216115
+        },
+        {
+          "n": 10,
+          "a": [
+            0.3684,
+            -0.0831,
+            -0.0447,
+            0.0005,
+            0.1196,
+            -0.0013,
+            -1.0125
+          ],
+          "eef": [
+            -0.1822522404650257,
+            -0.031194045144721672,
+            1.1513711651899023
+          ],
+          "grip": 0.07876078169766551
+        },
+        {
+          "n": 11,
+          "a": [
+            0.2939,
+            -0.1456,
+            -0.2962,
+            0.0311,
+            0.0678,
+            -0.0014,
+            -1.0105
+          ],
+          "eef": [
+            -0.17762859037796386,
+            -0.03247649471357177,
+            1.1493855849130747
+          ],
+          "grip": 0.07881392414965505
+        },
+        {
+          "n": 12,
+          "a": [
+            0.2764,
+            -0.1147,
+            -0.3443,
+            0.0274,
+            0.0576,
+            -0.0017,
+            -1.0101
+          ],
+          "eef": [
+            -0.17301630965410467,
+            -0.033883699228848554,
+            1.1458939438632099
+          ],
+          "grip": 0.07886478784344997
+        },
+        {
+          "n": 13,
+          "a": [
+            0.2426,
+            -0.0747,
+            -0.3925,
+            0.0263,
+            0.0578,
+            0.0031,
+            -1.0153
+          ],
+          "eef": [
+            -0.16877046811334864,
+            -0.03511113471164863,
+            1.141524974510781
+          ],
+          "grip": 0.07891347144335861
+        },
+        {
+          "n": 14,
+          "a": [
+            0.2141,
+            -0.042,
+            -0.4396,
+            0.0225,
+            0.0503,
+            0.0042,
+            -1.0119
+          ],
+          "eef": [
+            -0.16489974987369604,
+            -0.03601436805362558,
+            1.1364870153996716
+          ],
+          "grip": 0.07896006918536796
+        },
+        {
+          "n": 15,
+          "a": [
+            0.1564,
+            -0.0151,
+            -0.4941,
+            0.0191,
+            0.0423,
+            0.0051,
+            -1.0106
+          ],
+          "eef": [
+            -0.1614853189922399,
+            -0.036591409724464,
+            1.1308231307501864
+          ],
+          "grip": 0.07900467010100212
+        },
+        {
+          "n": 16,
+          "a": [
+            0.0883,
+            0.0051,
+            -0.5438,
+            0.0187,
+            0.0402,
+            0.0058,
+            -1.0129
+          ],
+          "eef": [
+            -0.15875894166003363,
+            -0.03685041729977192,
+            1.1245362907870395
+          ],
+          "grip": 0.07904735964218691
+        },
+        {
+          "n": 17,
+          "a": [
+            0.0235,
+            0.01,
+            -0.5781,
+            0.0148,
+            0.0261,
+            0.0073,
+            -1.0119
+          ],
+          "eef": [
+            -0.15668139142984328,
+            -0.03695035060432006,
+            1.117816091510654
+          ],
+          "grip": 0.07908821897623859
+        },
+        {
+          "n": 18,
+          "a": [
+            -0.0366,
+            0.0178,
+            -0.6051,
+            0.0154,
+            0.0206,
+            0.0086,
+            -1.0146
+          ],
+          "eef": [
+            -0.1552766480121179,
+            -0.03694342588032755,
+            1.1107537564599104
+          ],
+          "grip": 0.07912732603907477
+        },
+        {
+          "n": 19,
+          "a": [
+            -0.097,
+            0.0176,
+            -0.6268,
+            0.012,
+            0.008,
+            0.0103,
+            -1.0134
+          ],
+          "eef": [
+            -0.1545345676884522,
+            -0.03688746621150172,
+            1.1034258287149141
+          ],
+          "grip": 0.07916475591294435
+        },
+        {
+          "n": 20,
+          "a": [
+            -0.167,
+            0.0136,
+            -0.6419,
+            0.0116,
+            0.0068,
+            0.0093,
+            -1.0089
+          ],
+          "eef": [
+            -0.15460569718913514,
+            -0.036842629806284985,
+            1.0958626488612127
+          ],
+          "grip": 0.0792005800943897
+        },
+        {
+          "n": 21,
+          "a": [
+            -0.2723,
+            -0.0161,
+            -0.6553,
+            0.019,
+            0.0065,
+            0.0189,
+            -1.0134
+          ],
+          "eef": [
+            -0.1557475794503389,
+            -0.03688013024305146,
+            1.088129859495149
+          ],
+          "grip": 0.07923486755074285
+        },
+        {
+          "n": 22,
+          "a": [
+            -0.318,
+            -0.0141,
+            -0.666,
+            0.0111,
+            0.0074,
+            0.0171,
+            -1.0136
+          ],
+          "eef": [
+            -0.15783888509822613,
+            -0.037103293126332634,
+            1.0802577664515272
+          ],
+          "grip": 0.0792676838383509
+        },
+        {
+          "n": 23,
+          "a": [
+            -0.3574,
+            -0.0127,
+            -0.6631,
+            0.0102,
+            -0.0043,
+            0.0171,
+            -1.0099
+          ],
+          "eef": [
+            -0.16054475577988767,
+            -0.03738907026166186,
+            1.0723325599371605
+          ],
+          "grip": 0.07929909205598007
+        },
+        {
+          "n": 24,
+          "a": [
+            -0.401,
+            -0.0101,
+            -0.6649,
+            0.0085,
+            -0.0032,
+            0.0157,
+            -1.0108
+          ],
+          "eef": [
+            -0.1639168904381048,
+            -0.03765889255700191,
+            1.0643510329941899
+          ],
+          "grip": 0.07932915314726646
+        },
+        {
+          "n": 25,
+          "a": [
+            -0.4477,
+            -0.0153,
+            -0.6629,
+            0.0064,
+            -0.0102,
+            0.0155,
+            -1.0094
+          ],
+          "eef": [
+            -0.16795179252378378,
+            -0.03794551938622799,
+            1.0563387499284596
+          ],
+          "grip": 0.0793579247736991
+        },
+        {
+          "n": 26,
+          "a": [
+            -0.3901,
+            -0.028,
+            -0.5869,
+            0.0027,
+            0.0129,
+            0.0109,
+            -1.0044
+          ],
+          "eef": [
+            -0.1724407629687085,
+            -0.03833266400484038,
+            1.0485784982525022
+          ],
+          "grip": 0.07938546189720222
+        },
+        {
+          "n": 27,
+          "a": [
+            -0.4145,
+            -0.0279,
+            -0.5968,
+            -0.0006,
+            0.005,
+            0.0146,
+            -1.0043
+          ],
+          "eef": [
+            -0.177164025860965,
+            -0.038764468823047106,
+            1.0410484186270543
+          ],
+          "grip": 0.07941181764930161
+        },
+        {
+          "n": 28,
+          "a": [
+            -0.4409,
+            -0.0213,
+            -0.6023,
+            -0.0034,
+            -0.0016,
+            0.0184,
+            -1.0035
+          ],
+          "eef": [
+            -0.1821373759630699,
+            -0.039146818068681116,
+            1.0335124411943224
+          ],
+          "grip": 0.07943704335137364
+        },
+        {
+          "n": 29,
+          "a": [
+            -0.4752,
+            -0.0252,
+            -0.603,
+            -0.0023,
+            -0.0026,
+            0.0173,
+            -1.0064
+          ],
+          "eef": [
+            -0.18749705091052613,
+            -0.039482866468991365,
+            1.0259435018976837
+          ],
+          "grip": 0.07946118753481973
+        },
+        {
+          "n": 30,
+          "a": [
+            -0.5082,
+            -0.024,
+            -0.5956,
+            -0.007,
+            -0.0105,
+            0.0211,
+            -1.0063
+          ],
+          "eef": [
+            -0.19245242037335988,
+            -0.03993269375295844,
+            1.019427285894124
+          ],
+          "grip": 0.07948429629872639
+        },
+        {
+          "n": 31,
+          "a": [
+            -0.4787,
+            -0.1045,
+            -0.5995,
+            0.0135,
+            -0.0075,
+            0.022,
+            -1.0092
+          ],
+          "eef": [
+            -0.1941093261878261,
+            -0.04097917904810279,
+            1.0177179744846843
+          ],
+          "grip": 0.07950641326128641
+        },
+        {
+          "n": 32,
+          "a": [
+            -0.4792,
+            -0.0828,
+            -0.5669,
+            0.0089,
+            -0.0097,
+            0.0285,
+            -1.0119
+          ],
+          "eef": [
+            -0.19470982086723373,
+            -0.04235757409907415,
+            1.017809634032607
+          ],
+          "grip": 0.07952758102100588
+        },
+        {
+          "n": 33,
+          "a": [
+            -0.4596,
+            -0.0625,
+            -0.5428,
+            0.006,
+            -0.0037,
+            0.0244,
+            -1.0049
+          ],
+          "eef": [
+            -0.19517676736892667,
+            -0.04368794048477984,
+            1.0180315334895829
+          ],
+          "grip": 0.0795478414080712
+        },
+        {
+          "n": 34,
+          "a": [
+            -0.4448,
+            -0.0521,
+            -0.5246,
+            0.0108,
+            -0.0175,
+            0.0185,
+            1.0028
+          ],
+          "eef": [
+            -0.19536157670278953,
+            -0.044825880900699985,
+            1.018237165124164
+          ],
+          "grip": 0.07772333251275851
+        },
+        {
+          "n": 35,
+          "a": [
+            -0.4027,
+            -0.0312,
+            -0.4728,
+            0.0026,
+            -0.0159,
+            0.0184,
+            1.011
+          ],
+          "eef": [
+            -0.19531223075275295,
+            -0.045621004391960276,
+            1.018478993896511
+          ],
+          "grip": 0.07346520453674765
+        },
+        {
+          "n": 36,
+          "a": [
+            -0.4276,
+            -0.0182,
+            -0.5271,
+            0.0031,
+            0.0005,
+            0.0023,
+            -0.9932
+          ],
+          "eef": [
+            -0.19539884717458317,
+            -0.04613358960016836,
+            1.0184345179299492
+          ],
+          "grip": 0.07249563792782715
+        },
+        {
+          "n": 37,
+          "a": [
+            -0.3823,
+            -0.0127,
+            -0.475,
+            -0.0026,
+            0.0017,
+            0.0073,
+            0.9991
+          ],
+          "eef": [
+            -0.1952738055274635,
+            -0.04650667073550356,
+            1.0184794176187197
+          ],
+          "grip": 0.07034308748431914
+        },
+        {
+          "n": 38,
+          "a": [
+            -0.2875,
+            0.0048,
+            -0.3846,
+            -0.016,
+            0.0034,
+            0.0074,
+            1.0009
+          ],
+          "eef": [
+            -0.19478946949012277,
+            -0.04682552716276201,
+            1.0187975133579434
+          ],
+          "grip": 0.06581398555469453
+        },
+        {
+          "n": 39,
+          "a": [
+            -0.1983,
+            0.0272,
+            -0.2954,
+            -0.0169,
+            0.012,
+            0.0025,
+            1.0039
+          ],
+          "eef": [
+            -0.1940883071190753,
+            -0.04693687201046975,
+            1.019247008820222
+          ],
+          "grip": 0.05976487319788175
+        },
+        {
+          "n": 40,
+          "a": [
+            -0.1097,
+            0.0405,
+            -0.1899,
+            -0.0261,
+            0.0158,
+            0.004,
+            1.0022
+          ],
+          "eef": [
+            -0.19324041344268772,
+            -0.046835698636896926,
+            1.0198360276308565
+          ],
+          "grip": 0.052859446716145495
+        },
+        {
+          "n": 41,
+          "a": [
+            -0.2089,
+            0.0008,
+            -0.2875,
+            -0.0232,
+            0.0157,
+            0.0143,
+            1.0041
+          ],
+          "eef": [
+            -0.19283331363601247,
+            -0.046755609892189985,
+            1.019881907113291
+          ],
+          "grip": 0.045473849049140466
+        },
+        {
+          "n": 42,
+          "a": [
+            -0.1514,
+            0.0109,
+            -0.2027,
+            -0.0314,
+            0.0174,
+            0.0105,
+            1.004
+          ],
+          "eef": [
+            -0.1924234359700107,
+            -0.046817343016095414,
+            1.019981818803065
+          ],
+          "grip": 0.03781882395138717
+        },
+        {
+          "n": 43,
+          "a": [
+            -0.069,
+            0.0233,
+            -0.1042,
+            -0.0406,
+            0.0075,
+            0.0061,
+            1.0045
+          ],
+          "eef": [
+            -0.19167096533817762,
+            -0.04688144581102031,
+            1.020575669828128
+          ],
+          "grip": 0.030012559469124296
+        },
+        {
+          "n": 44,
+          "a": [
+            0.0115,
+            0.0285,
+            -0.0046,
+            -0.0481,
+            0.0302,
+            0.0001,
+            1.0075
+          ],
+          "eef": [
+            -0.1909645780960373,
+            -0.046877114096478864,
+            1.0213937641151647
+          ],
+          "grip": 0.02212135429952641
+        },
+        {
+          "n": 45,
+          "a": [
+            0.1068,
+            0.0303,
+            0.1192,
+            -0.0537,
+            0.0418,
+            -0.0017,
+            0.9983
+          ],
+          "eef": [
+            -0.19035552385096036,
+            -0.046621212104358066,
+            1.022523873929555
+          ],
+          "grip": 0.017220558639211854
+        },
+        {
+          "n": 46,
+          "a": [
+            0.0242,
+            0.0134,
+            -0.0453,
+            -0.0515,
+            0.0143,
+            0.0006,
+            1.0018
+          ],
+          "eef": [
+            -0.18971298782024293,
+            -0.04617982492104109,
+            1.0231152130044938
+          ],
+          "grip": 0.014768033560540869
+        },
+        {
+          "n": 47,
+          "a": [
+            0.0557,
+            0.0115,
+            -0.0149,
+            -0.0491,
+            0.0186,
+            -0.0031,
+            1.0023
+          ],
+          "eef": [
+            -0.18912228196811792,
+            -0.04577633225426258,
+            1.0230222574413677
+          ],
+          "grip": 0.014823935404518929
+        },
+        {
+          "n": 48,
+          "a": [
+            0.1,
+            0.0128,
+            0.0325,
+            -0.0528,
+            0.0188,
+            -0.002,
+            1.0019
+          ],
+          "eef": [
+            -0.1883339803190512,
+            -0.045414778093673946,
+            1.023137638325317
+          ],
+          "grip": 0.014824517341072733
+        },
+        {
+          "n": 49,
+          "a": [
+            0.1541,
+            0.0087,
+            0.1079,
+            -0.0526,
+            0.0187,
+            -0.0074,
+            1.0018
+          ],
+          "eef": [
+            -0.18710760016165137,
+            -0.045156207273691344,
+            1.0238753590125111
+          ],
+          "grip": 0.014811565746443758
+        },
+        {
+          "n": 50,
+          "a": [
+            0.2125,
+            0.0049,
+            0.2226,
+            -0.0561,
+            0.0366,
+            -0.0094,
+            1.0003
+          ],
+          "eef": [
+            -0.18551400071465537,
+            -0.04508161797661699,
+            1.0255739655208935
+          ],
+          "grip": 0.014774823185352292
+        },
+        {
+          "n": 51,
+          "a": [
+            0.4966,
+            -0.0687,
+            0.7063,
+            -0.0291,
+            0.0638,
+            -0.0397,
+            1.0032
+          ],
+          "eef": [
+            -0.18266699169043027,
+            -0.04521987788952761,
+            1.0305034534961586
+          ],
+          "grip": 0.014763150700866381
+        },
+        {
+          "n": 52,
+          "a": [
+            0.55,
+            -0.0799,
+            0.8081,
+            -0.0297,
+            0.0625,
+            -0.041,
+            1.005
+          ],
+          "eef": [
+            -0.17846859972778095,
+            -0.045746637902482803,
+            1.0388137140264506
+          ],
+          "grip": 0.014758150781573335
+        },
+        {
+          "n": 53,
+          "a": [
+            0.5985,
+            -0.0955,
+            0.8822,
+            -0.0291,
+            0.0652,
+            -0.0368,
+            1.0051
+          ],
+          "eef": [
+            -0.17345152133772238,
+            -0.04659513150997007,
+            1.048776829164669
+          ],
+          "grip": 0.014755742477158638
+        },
+        {
+          "n": 54,
+          "a": [
+            0.6308,
+            -0.1057,
+            0.9336,
+            -0.0249,
+            0.0546,
+            -0.0366,
+            1.0049
+          ],
+          "eef": [
+            -0.1676809008806014,
+            -0.04765360644445389,
+            1.0598239010797272
+          ],
+          "grip": 0.014754194054425246
+        },
+        {
+          "n": 55,
+          "a": [
+            0.6561,
+            -0.1146,
+            0.9633,
+            -0.0241,
+            0.0611,
+            -0.0336,
+            1.0052
+          ],
+          "eef": [
+            -0.1614313728641516,
+            -0.04888408755647463,
+            1.0715318174327568
+          ],
+          "grip": 0.014912208353129319
+        },
+        {
+          "n": 56,
+          "a": [
+            0.6757,
+            -0.2366,
+            0.9419,
+            0.001,
+            0.0312,
+            -0.0107,
+            1.0046
+          ],
+          "eef": [
+            -0.1545055425474965,
+            -0.05064098067366821,
+            1.0835275726205962
+          ],
+          "grip": 0.014903384001676795
+        },
+        {
+          "n": 57,
+          "a": [
+            0.6821,
+            -0.2696,
+            0.9489,
+            0.0,
+            0.0225,
+            -0.0082,
+            0.9987
+          ],
+          "eef": [
+            -0.14709759583450832,
+            -0.053253194444362224,
+            1.0956012504422876
+          ],
+          "grip": 0.014902458211144423
+        },
+        {
+          "n": 58,
+          "a": [
+            0.6924,
+            -0.292,
+            0.9541,
+            0.003,
+            0.0042,
+            -0.0064,
+            1.0027
+          ],
+          "eef": [
+            -0.13933699757125265,
+            -0.056467179170128015,
+            1.1078324799317758
+          ],
+          "grip": 0.014901998466406809
+        },
+        {
+          "n": 59,
+          "a": [
+            0.6987,
+            -0.3167,
+            0.9648,
+            0.0108,
+            0.0056,
+            -0.0054,
+            1.0005
+          ],
+          "eef": [
+            -0.13144866979061395,
+            -0.06006105776552763,
+            1.1201682595184304
+          ],
+          "grip": 0.01490151321859133
+        },
+        {
+          "n": 60,
+          "a": [
+            0.7025,
+            -0.3413,
+            0.9761,
+            0.0088,
+            0.0025,
+            0.0016,
+            0.9994
+          ],
+          "eef": [
+            -0.1235325742487513,
+            -0.06404795222962925,
+            1.1326039372594567
+          ],
+          "grip": 0.014901026090424128
+        },
+        {
+          "n": 61,
+          "a": [
+            0.6699,
+            -0.2409,
+            0.9552,
+            -0.0108,
+            0.0079,
+            0.0059,
+            0.999
+          ],
+          "eef": [
+            -0.11580978334592151,
+            -0.0679062264490086,
+            1.1449768734285235
+          ],
+          "grip": 0.01490052325536375
+        },
+        {
+          "n": 62,
+          "a": [
+            0.6929,
+            -0.2543,
+            0.9714,
+            -0.0056,
+            0.0088,
+            0.0043,
+            1.0022
+          ],
+          "eef": [
+            -0.10812662188137084,
+            -0.07134417952220777,
+            1.157315363281353
+          ],
+          "grip": 0.014900024694494883
+        },
+        {
+          "n": 63,
+          "a": [
+            0.6946,
+            -0.2703,
+            0.9768,
+            0.0024,
+            -0.0054,
+            0.0081,
+            1.0021
+          ],
+          "eef": [
+            -0.10026333637826074,
+            -0.07467429362862117,
+            1.1697563567267495
+          ],
+          "grip": 0.014899505171757432
+        },
+        {
+          "n": 64,
+          "a": [
+            0.7027,
+            -0.2905,
+            0.9777,
+            0.001,
+            -0.0046,
+            0.0056,
+            1.0018
+          ],
+          "eef": [
+            -0.09234530863788248,
+            -0.07814588183452034,
+            1.1822038693633365
+          ],
+          "grip": 0.014898971742458866
+        },
+        {
+          "n": 65,
+          "a": [
+            0.6948,
+            -0.3149,
+            0.9765,
+            0.0051,
+            0.0006,
+            0.0108,
+            1.0039
+          ],
+          "eef": [
+            -0.08455406181548446,
+            -0.08183319436753567,
+            1.1945430045554006
+          ],
+          "grip": 0.014898429165785824
+        },
+        {
+          "n": 66,
+          "a": [
+            0.7692,
+            -0.3306,
+            0.8763,
+            0.0117,
+            -0.0116,
+            0.0044,
+            1.0068
+          ],
+          "eef": [
+            -0.0763913759946172,
+            -0.08570038520627812,
+            1.2062391549641707
+          ],
+          "grip": 0.014897889552639005
+        },
+        {
+          "n": 67,
+          "a": [
+            0.755,
+            -0.3732,
+            0.8819,
+            0.0173,
+            -0.0253,
+            0.0044,
+            0.9989
+          ],
+          "eef": [
+            -0.06786715821512515,
+            -0.08987487960150235,
+            1.2173160203813571
+          ],
+          "grip": 0.014897349607046933
+        },
+        {
+          "n": 68,
+          "a": [
+            0.7452,
+            -0.4049,
+            0.8768,
+            0.0269,
+            -0.0199,
+            0.0027,
+            1.0008
+          ],
+          "eef": [
+            -0.05946096036173548,
+            -0.09441769103735204,
+            1.228179719269095
+          ],
+          "grip": 0.014896811710105505
+        },
+        {
+          "n": 69,
+          "a": [
+            0.7271,
+            -0.446,
+            0.8705,
+            0.0345,
+            -0.0328,
+            0.0026,
+            1.0033
+          ],
+          "eef": [
+            -0.05117600792845115,
+            -0.09936829489671832,
+            1.2389408083580045
+          ],
+          "grip": 0.014896289682208998
+        },
+        {
+          "n": 70,
+          "a": [
+            0.7057,
+            -0.4742,
+            0.8659,
+            0.04,
+            -0.0237,
+            0.0067,
+            1.0029
+          ],
+          "eef": [
+            -0.04319515201350871,
+            -0.10473497140031772,
+            1.249547716752463
+          ],
+          "grip": 0.014895782669661885
+        },
+        {
+          "n": 71,
+          "a": [
+            0.531,
+            -0.4777,
+            0.9076,
+            0.047,
+            0.0029,
+            0.0053,
+            1.0001
+          ],
+          "eef": [
+            -0.03653431405336644,
+            -0.1103373532306512,
+            1.260214005425636
+          ],
+          "grip": 0.014895291155941424
+        },
+        {
+          "n": 72,
+          "a": [
+            0.5215,
+            -0.5378,
+            0.8956,
+            0.0582,
+            -0.0005,
+            0.0063,
+            1.0004
+          ],
+          "eef": [
+            -0.03079871493665708,
+            -0.1162860465184565,
+            1.2711625964033608
+          ],
+          "grip": 0.014894832401367707
+        },
+        {
+          "n": 73,
+          "a": [
+            0.5068,
+            -0.5726,
+            0.8773,
+            0.0697,
+            -0.0065,
+            0.0099,
+            1.0023
+          ],
+          "eef": [
+            -0.02536643224730869,
+            -0.12266131028973874,
+            1.2819792835569817
+          ],
+          "grip": 0.014894393028277657
+        },
+        {
+          "n": 74,
+          "a": [
+            0.4929,
+            -0.6047,
+            0.845,
+            0.077,
+            -0.0127,
+            0.0132,
+            1.0028
+          ],
+          "eef": [
+            -0.020198049477551893,
+            -0.12942703705886904,
+            1.292422870421138
+          ],
+          "grip": 0.014893997596491253
+        },
+        {
+          "n": 75,
+          "a": [
+            0.4828,
+            -0.6266,
+            0.8028,
+            0.0834,
+            -0.0053,
+            0.0105,
+            1.0046
+          ],
+          "eef": [
+            -0.015376461028898471,
+            -0.1365433578514406,
+            1.302230665320415
+          ],
+          "grip": 0.014893643951081885
+        },
+        {
+          "n": 76,
+          "a": [
+            0.4781,
+            -0.6444,
+            0.7215,
+            0.1087,
+            -0.0233,
+            -0.001,
+            1.0039
+          ],
+          "eef": [
+            -0.010695493737950198,
+            -0.1437694310363459,
+            1.3111761861072604
+          ],
+          "grip": 0.01489332518404428
+        },
+        {
+          "n": 77,
+          "a": [
+            0.4578,
+            -0.657,
+            0.6534,
+            0.108,
+            -0.0173,
+            0.0037,
+            0.9982
+          ],
+          "eef": [
+            -0.006255293380408974,
+            -0.15120207054191448,
+            1.3190625440443562
+          ],
+          "grip": 0.014893074565046228
+        },
+        {
+          "n": 78,
+          "a": [
+            0.4388,
+            -0.6717,
+            0.5758,
+            0.1185,
+            -0.0165,
+            0.0054,
+            1.001
+          ],
+          "eef": [
+            -0.0021536667125219046,
+            -0.15880684920310983,
+            1.3258402854933817
+          ],
+          "grip": 0.014892880134275383
+        },
+        {
+          "n": 79,
+          "a": [
+            0.4116,
+            -0.6816,
+            0.4858,
+            0.1153,
+            -0.0064,
+            0.0096,
+            1.0046
+          ],
+          "eef": [
+            0.0015331100520205102,
+            -0.16660358151244178,
+            1.3313766585492266
+          ],
+          "grip": 0.014892741741391529
+        },
+        {
+          "n": 80,
+          "a": [
+            0.386,
+            -0.687,
+            0.3767,
+            0.124,
+            -0.0015,
+            0.0107,
+            1.0039
+          ],
+          "eef": [
+            0.004813361809209132,
+            -0.17448126247305754,
+            1.3355044073149605
+          ],
+          "grip": 0.014892680729033263
+        },
+        {
+          "n": 81,
+          "a": [
+            0.3356,
+            -0.5881,
+            -0.0299,
+            0.1163,
+            0.0165,
+            0.0122,
+            1.0059
+          ],
+          "eef": [
+            0.0076747393338789174,
+            -0.18202483971236488,
+            1.3365305741300315
+          ],
+          "grip": 0.014892680228737878
+        },
+        {
+          "n": 82,
+          "a": [
+            0.3153,
+            -0.5622,
+            -0.1362,
+            0.1199,
+            0.0295,
+            0.0194,
+            1.0041
+          ],
+          "eef": [
+            0.010387789239594684,
+            -0.18913627666169797,
+            1.334627630875445
+          ],
+          "grip": 0.014892626561774163
+        },
+        {
+          "n": 83,
+          "a": [
+            0.2982,
+            -0.5343,
+            -0.2359,
+            0.1225,
+            0.0604,
+            0.0179,
+            1.005
+          ],
+          "eef": [
+            0.012702583598601125,
+            -0.19592914939806236,
+            1.3308933037472894
+          ],
+          "grip": 0.01489252314379489
+        },
+        {
+          "n": 84,
+          "a": [
+            0.2901,
+            -0.4832,
+            -0.3405,
+            0.1235,
+            0.0717,
+            0.0235,
+            1.0034
+          ],
+          "eef": [
+            0.01465298775259806,
+            -0.20228523963168457,
+            1.3255994559729594
+          ],
+          "grip": 0.014892382637878579
+        },
+        {
+          "n": 85,
+          "a": [
+            0.2889,
+            -0.4317,
+            -0.4224,
+            0.1193,
+            0.0943,
+            0.0256,
+            1.0033
+          ],
+          "eef": [
+            0.01627144158661585,
+            -0.20814607857330356,
+            1.318900288879512
+          ],
+          "grip": 0.014892220408079904
+        },
+        {
+          "n": 86,
+          "a": [
+            0.258,
+            -0.2585,
+            -0.3892,
+            0.09,
+            0.1219,
+            0.0551,
+            1.0034
+          ],
+          "eef": [
+            0.017302056160451933,
+            -0.21299275539526746,
+            1.3115745709836155
+          ],
+          "grip": 0.014892062167672894
+        },
+        {
+          "n": 87,
+          "a": [
+            0.2457,
+            -0.1999,
+            -0.4611,
+            0.082,
+            0.1565,
+            0.0545,
+            1.0009
+          ],
+          "eef": [
+            0.017665457095050765,
+            -0.21671732571309094,
+            1.3036642170042403
+          ],
+          "grip": 0.014891910323078973
+        },
+        {
+          "n": 88,
+          "a": [
+            0.2286,
+            -0.147,
+            -0.5036,
+            0.0762,
+            0.1685,
+            0.0528,
+            1.0046
+          ],
+          "eef": [
+            0.017721578426574996,
+            -0.2195256530140189,
+            1.2949910875783506
+          ],
+          "grip": 0.014891809010906497
+        },
+        {
+          "n": 89,
+          "a": [
+            0.2238,
+            -0.106,
+            -0.5242,
+            0.0664,
+            0.1866,
+            0.0546,
+            1.0019
+          ],
+          "eef": [
+            0.01755828801765973,
+            -0.22146574823049886,
+            1.2858126559227117
+          ],
+          "grip": 0.014891710483523033
+        },
+        {
+          "n": 90,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.017428148548626152,
+            -0.22270909239373235,
+            1.2806213783660034
+          ],
+          "grip": 0.015048798229011166
+        },
+        {
+          "n": 91,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.01671846564976264,
+            -0.22326588708400386,
+            1.2791657011799142
+          ],
+          "grip": 0.015351918363468307
+        },
+        {
+          "n": 92,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.015624482947803092,
+            -0.22347833755758537,
+            1.2782346100718247
+          ],
+          "grip": 0.0175830120553669
+        },
+        {
+          "n": 93,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.014331025643320394,
+            -0.2235399966443774,
+            1.2772804515393834
+          ],
+          "grip": 0.022163415750177225
+        },
+        {
+          "n": 94,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.012884997720091641,
+            -0.22352354495941368,
+            1.276213225049731
+          ],
+          "grip": 0.028223848725932074
+        },
+        {
+          "n": 95,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.011936992511695617,
+            -0.22420604831741717,
+            1.2722092828812361
+          ],
+          "grip": 0.03515070050769127
+        },
+        {
+          "n": 96,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.012323259519285937,
+            -0.22547072276297658,
+            1.2689021852570932
+          ],
+          "grip": 0.04253421044154228
+        },
+        {
+          "n": 97,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.012413446333709773,
+            -0.22602581462942156,
+            1.2683428990143002
+          ],
+          "grip": 0.05018475881805762
+        },
+        {
+          "n": 98,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.01239191906851781,
+            -0.22626164504944557,
+            1.2682573380405926
+          ],
+          "grip": 0.057989313335028006
+        },
+        {
+          "n": 99,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.012368187960646388,
+            -0.22635735681861133,
+            1.2682645967890247
+          ],
+          "grip": 0.06588005357979694
+        },
+        {
+          "n": 100,
+          "a": [
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.012154897690984073,
+            -0.22633335926082004,
+            1.2709509717585115
+          ],
+          "grip": 0.07118842074229803
+        },
+        {
+          "n": 101,
+          "a": [
+            0.0043,
+            -0.0005,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.011525230427022191,
+            -0.22616711669783696,
+            1.2759034123995088
+          ],
+          "grip": 0.0741871895583366
+        },
+        {
+          "n": 102,
+          "a": [
+            0.0169,
+            -0.0038,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.010851986822917251,
+            -0.225955544944799,
+            1.2814310749480693
+          ],
+          "grip": 0.07586646343653786
+        },
+        {
+          "n": 103,
+          "a": [
+            0.0303,
+            -0.008,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.01024300751974948,
+            -0.22572953322643774,
+            1.2871106464377242
+          ],
+          "grip": 0.07680611310018287
+        },
+        {
+          "n": 104,
+          "a": [
+            0.0425,
+            -0.0126,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.009748213800440022,
+            -0.22552148585578202,
+            1.2927737780168147
+          ],
+          "grip": 0.07733195378698549
+        },
+        {
+          "n": 105,
+          "a": [
+            0.0524,
+            -0.0167,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.009343278965944397,
+            -0.2253340001381799,
+            1.2984003244235447
+          ],
+          "grip": 0.0776262195728398
+        },
+        {
+          "n": 106,
+          "a": [
+            0.0605,
+            -0.0205,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.009018789902606912,
+            -0.22517164329204414,
+            1.3039972990766586
+          ],
+          "grip": 0.07779088344495635
+        },
+        {
+          "n": 107,
+          "a": [
+            0.067,
+            -0.0237,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.00877390541538244,
+            -0.2250391546569958,
+            1.3095612759532271
+          ],
+          "grip": 0.07789178830939314
+        },
+        {
+          "n": 108,
+          "a": [
+            0.0719,
+            -0.0264,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.008594805691409408,
+            -0.2249346336105102,
+            1.3150951543618816
+          ],
+          "grip": 0.07798226014697052
+        },
+        {
+          "n": 109,
+          "a": [
+            0.0755,
+            -0.0285,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.008467243228634585,
+            -0.22485465248655923,
+            1.3206039006912933
+          ],
+          "grip": 0.07806879547831896
+        },
+        {
+          "n": 110,
+          "a": [
+            0.078,
+            -0.0301,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.008378578188902334,
+            -0.224795485100494,
+            1.3260916683062107
+          ],
+          "grip": 0.0781516196560786
+        },
+        {
+          "n": 111,
+          "a": [
+            0.0798,
+            -0.0312,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.00831815781095348,
+            -0.2247533037054947,
+            1.3315611808005632
+          ],
+          "grip": 0.07823089220534449
+        },
+        {
+          "n": 112,
+          "a": [
+            0.081,
+            -0.0321,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.008277704495160562,
+            -0.2247225158439114,
+            1.3370139970400678
+          ],
+          "grip": 0.07830676534077269
+        },
+        {
+          "n": 113,
+          "a": [
+            0.0818,
+            -0.0327,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.008249589673969736,
+            -0.22470069507985932,
+            1.3424503093234346
+          ],
+          "grip": 0.07837938477923152
+        },
+        {
+          "n": 114,
+          "a": [
+            0.0824,
+            -0.0331,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.00822351821170492,
+            -0.2246972651012815,
+            1.3478691334778716
+          ],
+          "grip": 0.07844889009709213
+        },
+        {
+          "n": 115,
+          "a": [
+            0.0829,
+            -0.0332,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.008197028149520995,
+            -0.2247035127943518,
+            1.3532683372230956
+          ],
+          "grip": 0.07851541477158991
+        },
+        {
+          "n": 116,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.008013115341742755,
+            -0.22463260449968334,
+            1.3561415054694335
+          ],
+          "grip": 0.07857908643206993
+        },
+        {
+          "n": 117,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.008074692646534723,
+            -0.22465363146185258,
+            1.3569074758371091
+          ],
+          "grip": 0.0786400296098851
+        },
+        {
+          "n": 118,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.008266387613498134,
+            -0.22472944040938447,
+            1.3573335016079062
+          ],
+          "grip": 0.07869835955479657
+        }
+      ],
+      "step": {
+        "skill": "pick_place",
+        "object_n": "wine_bottle_1",
+        "target_n": "wooden_cabinet_1_top_side",
+        "relation": "on",
+        "prompt": "put the wine bottle on top of the cabinet"
+      }
+    }
+  ],
+  "final_verification": {
+    "ok": true,
+    "samples": 3,
+    "steps": [
+      {
+        "step": {
+          "skill": "pick_place",
+          "object_n": "wine_bottle_1",
+          "target_n": "wooden_cabinet_1_top_side",
+          "relation": "on",
+          "prompt": "put the wine bottle on top of the cabinet"
+        },
+        "ok": true,
+        "verification": {
+          "skill": "pick_place",
+          "samples": 3,
+          "required_samples": 3,
+          "stable": true,
+          "per_sample_ok": [
+            true,
+            true,
+            true
+          ],
+          "last": {
+            "skill": "pick_place",
+            "native_goal": true,
+            "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:121:385",
+            "sim_action_count": 121,
+            "scene_epoch": 4,
+            "release_required": true,
+            "ok": true,
+            "ready": true,
+            "predicate": "relation+release_height",
+            "relation": {
+              "ok": true,
+              "predicate": "SiteObject.under",
+              "delta_site": [
+                -0.0019,
+                -0.058,
+                0.0004
+              ],
+              "inside_xy": true,
+              "supported": true,
+              "site_size": [
+                0.12534,
+                0.09438,
+                0.00147
+              ],
+              "target_pose": [
+                0.019759028806413045,
+                -0.2647411860950322,
+                1.12652
+              ],
+              "evidence_source": "mujoco_site"
+            },
+            "height": {
+              "ready": true,
+              "kind": "site",
+              "object_bottom_z": 1.128,
+              "surface_z": 1.128,
+              "delta_m": -0.0
+            },
+            "object_pose": [
+              0.02169036168775189,
+              -0.2067187113895835,
+              1.1268798430399993
+            ],
+            "drop_release": {
+              "trigger": false,
+              "reason": "not_in_place"
+            },
+            "evidence_source": "mujoco_site"
+          },
+          "evidence_source": "sim_state",
+          "release_required": true,
+          "release": {
+            "commanded": true,
+            "gripper_command": -1.0,
+            "command_sim_action_count": 89,
+            "command_observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:89:353",
+            "opening_before_m": 0.014891710483523033,
+            "relation_before": {
+              "ok": true,
+              "predicate": "SiteObject.under",
+              "delta_site": [
+                -0.0047,
+                -0.0607,
+                0.0358
+              ],
+              "inside_xy": true,
+              "supported": true,
+              "site_size": [
+                0.12534,
+                0.09438,
+                0.00147
+              ],
+              "target_pose": [
+                0.019759028806413045,
+                -0.2647411860950322,
+                1.12652
+              ],
+              "evidence_source": "mujoco_site"
+            },
+            "descent": {
+              "applied": false,
+              "reason": "no_drop_trigger"
+            },
+            "actions": 10,
+            "sim_action_count": 99,
+            "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:99:363",
+            "gripper_opening_m": 0.06588005357979694,
+            "retreat_s": 2.045,
+            "after_retreat": {
+              "sim_action_count": 115,
+              "observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:115:379"
+            }
+          },
+          "release_evidence": {
+            "status": "verified",
+            "release_opening_m": 0.06588005357979694,
+            "final_opening_m": 0.07885876265699826,
+            "release_sim_action_count": 99,
+            "final_sim_action_count": 121,
+            "release_observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:99:363",
+            "final_observation_id": "query-a73a7d923a054d52af9812a04f83e29b:4:121:385",
+            "min_opening_m": 0.05
+          },
+          "ok": true,
+          "reason_code": null
+        }
+      }
+    ]
+  },
+  "timing": {
+    "planner_s": 7.263,
+    "execution_s": 13.971,
+    "release_s": 2.046,
+    "verification_s": 0.463,
+    "inference_s_sum": 6.372,
+    "env_step_s_sum": 8.299,
+    "snapshot_s_sum": 1.047,
+    "chunk_gap_s_sum": 0.0,
+    "chunk_decision_wait_s_sum": 4.309,
+    "prefetch_inference_overlap_s_est": 5.683,
+    "recovery_s": 0.0,
+    "total_s_engine": 24.703,
+    "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+  },
+  "sim_action_count": 121,
+  "episode_sim_actions": 121,
+  "recovery_count": 0,
+  "recovery_log": [],
+  "human_interventions": 0,
+  "inference_mode": "async_chunk_prefetch",
+  "model": {
+    "backend": "pi05",
+    "name": "Pi0.5 LIBERO-130 SFT",
+    "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+    "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
+    "action_chunk": 5,
+    "action_dim": 7,
+    "control_frequency_hz": 20,
+    "openwam": {
+      "name": "OpenWAM-Alpha-Sim-LIBERO",
+      "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+      "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+      "checkpoint_file": "checkpoint_step_10690.safetensors",
+      "action_horizon": 10,
+      "denoise_steps": 10,
+      "integration": "not_on_execution_path",
+      "reason": "no verified LIBERO action weights on disk; video-only checkpoint is not control"
+    }
+  },
+  "agent_model": "Qwen3.5-9B",
+  "env": {
+    "suite": "libero_goal",
+    "seed": 0,
+    "task_id": 2,
+    "port": 14561,
+    "identity": {
+      "service_instance_id": "a73a7d923a054d52af9812a04f83e29b",
+      "scene_generation": 3,
+      "sim_action_count": 137,
+      "task_scope": "official_single",
+      "mode": "free",
+      "code": "episode-service-state-1"
+    },
+    "ready": true
+  },
+  "page": {
+    "ui": "page_ui (restored old Page, backend bridge)",
+    "human_confirmation": false
+  }
+}

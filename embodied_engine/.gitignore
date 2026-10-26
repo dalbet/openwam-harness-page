@@ -1,0 +1,16 @@
+# Runtime state, not source.
+__pycache__/
+*.pyc
+records/*.pid
+records/logs/
+records/runs/
+records/run_journal.jsonl
+records/episode_mode.json
+records/explore_summary.json
+
+# Acceptance evidence (records/acceptance/*.json plus the archived
+# <suite>_runs/ folders) is intentionally kept in version control: the report
+# cites it and the engine prunes records/runs at runtime.
+
+# Restored page log (runtime).
+page_ui/logs/

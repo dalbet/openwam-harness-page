@@ -1,0 +1,6403 @@
+{
+  "schema": "embodied_engine.run.v1",
+  "task_id": 0,
+  "task_bddl": "open_the_middle_drawer_of_the_cabinet.bddl",
+  "instruction": "open the middle drawer of the cabinet",
+  "episode_id": "ep-20261026-122715-f4ec53",
+  "run_id": 12,
+  "scene_epoch": 5,
+  "started_at": "2026-10-26T12:27:15",
+  "ended_at": "2026-10-26T12:27:44",
+  "duration_s": 28.538,
+  "phase": "completed",
+  "execution_status": "completed",
+  "native_task_success": true,
+  "native_goal_final": true,
+  "user_goal_success": true,
+  "user_goal_status": "met",
+  "failure_code": null,
+  "failure_reason": null,
+  "failure_evidence": null,
+  "plan": {
+    "interpretation": "Open the middle drawer of the wooden cabinet.",
+    "success_condition": "The drawer joint for wooden_cabinet_1_middle_region is below -0.14 rad.",
+    "steps": [
+      {
+        "skill": "open_drawer",
+        "object_n": null,
+        "target_n": "wooden_cabinet_1_middle_region",
+        "relation": "open",
+        "prompt": "open the middle drawer of the cabinet"
+      }
+    ],
+    "source": "qwen3.5-9b",
+    "planner_vision": false,
+    "latency_s": 5.506,
+    "agent_response": {
+      "status": "ok",
+      "steps": [
+        {
+          "skill": "open_drawer",
+          "object_n": null,
+          "target_n": "wooden_cabinet_1_middle_region",
+          "relation": "open",
+          "prompt": "open the middle drawer of the cabinet"
+        }
+      ],
+      "errors": [],
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "initial",
+          "timing": {
+            "elapsed_s": 5.498,
+            "prompt_tokens": 1712,
+            "completion_tokens": 117,
+            "model": "Qwen3.5-9B"
+          },
+          "raw_chars": 387
+        }
+      ],
+      "total_s": 5.499,
+      "source": "qwen3.5-9b",
+      "planner_vision": false
+    }
+  },
+  "steps": [
+    {
+      "skill": "open_drawer",
+      "object_n": null,
+      "target_n": "wooden_cabinet_1_middle_region",
+      "relation": "open",
+      "prompt": "open the middle drawer of the cabinet",
+      "phase_reached": "verify",
+      "ok": true,
+      "verification": {
+        "skill": "open_drawer",
+        "samples": 3,
+        "required_samples": 3,
+        "stable": true,
+        "per_sample_ok": [
+          true,
+          true,
+          true
+        ],
+        "last": {
+          "skill": "open_drawer",
+          "native_goal": true,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:165:474",
+          "sim_action_count": 165,
+          "scene_epoch": 5,
+          "release_required": false,
+          "ok": true,
+          "ready": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15661766531658347,
+          "threshold": -0.14,
+          "evidence_source": "sim_joint"
+        },
+        "evidence_source": "sim_state",
+        "release_required": false,
+        "release": null,
+        "ok": true,
+        "reason_code": null,
+        "verify_s": 0.234,
+        "release_matches_step": null
+      },
+      "release": null,
+      "grasp": {
+        "held": false,
+        "held_streak": 0,
+        "final_opening_m": 0.07981867666938758
+      },
+      "native_events": [
+        {
+          "sim_action_count": 149,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:149:458"
+        }
+      ],
+      "chunks_used": 30,
+      "attempt": 1,
+      "rehome": null,
+      "chunk_budget": 40,
+      "chunk_budget_hard": 70,
+      "budget_extensions": 0,
+      "sim_actions": 165,
+      "timing": {
+        "total_s": 19.536,
+        "inference_s_sum": 10.528,
+        "env_step_s_sum": 11.132,
+        "snapshot_s_sum": 1.52,
+        "chunk_gap_s_sum": 0.001,
+        "chunk_decision_wait_s_sum": 6.396,
+        "prefetch_wait_s_sum": 6.03,
+        "prefetch_inference_overlap_s_est": 10.178,
+        "release_s": 0.986,
+        "verification_s": 0.234
+      },
+      "prefetch": {
+        "enabled": true,
+        "used": 29,
+        "discarded": 1,
+        "reinfer": 0,
+        "max_age_actions": 5
+      },
+      "chunks": [
+        {
+          "chunk": 0,
+          "prefetched": false,
+          "inference_s": 0.3496,
+          "wait_s": 0.3663,
+          "age_actions": null,
+          "actions": 5,
+          "env_step_start_s": 0.3664,
+          "env_step_end_s": 0.7607,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3943
+        },
+        {
+          "chunk": 1,
+          "prefetched": true,
+          "inference_s": 0.3442,
+          "wait_s": 0.2037,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 0.9644,
+          "env_step_end_s": 1.3528,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3883
+        },
+        {
+          "chunk": 2,
+          "prefetched": true,
+          "inference_s": 0.3477,
+          "wait_s": 0.2237,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 1.5766,
+          "env_step_end_s": 1.9712,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3946
+        },
+        {
+          "chunk": 3,
+          "prefetched": true,
+          "inference_s": 0.3464,
+          "wait_s": 0.2037,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 2.1749,
+          "env_step_end_s": 2.5255,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3506
+        },
+        {
+          "chunk": 4,
+          "prefetched": true,
+          "inference_s": 0.3466,
+          "wait_s": 0.2038,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 2.7293,
+          "env_step_end_s": 3.1249,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3955
+        },
+        {
+          "chunk": 5,
+          "prefetched": true,
+          "inference_s": 0.3488,
+          "wait_s": 0.2035,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 3.3284,
+          "env_step_end_s": 3.7207,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3923
+        },
+        {
+          "chunk": 6,
+          "prefetched": true,
+          "inference_s": 0.3471,
+          "wait_s": 0.2038,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 3.9246,
+          "env_step_end_s": 4.3196,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.395
+        },
+        {
+          "chunk": 7,
+          "prefetched": true,
+          "inference_s": 0.3507,
+          "wait_s": 0.2038,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 4.5234,
+          "env_step_end_s": 4.9183,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3949
+        },
+        {
+          "chunk": 8,
+          "prefetched": true,
+          "inference_s": 0.3527,
+          "wait_s": 0.2039,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 5.1223,
+          "env_step_end_s": 5.5224,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4
+        },
+        {
+          "chunk": 9,
+          "prefetched": true,
+          "inference_s": 0.3559,
+          "wait_s": 0.2238,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 5.7462,
+          "env_step_end_s": 6.1464,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4002
+        },
+        {
+          "chunk": 10,
+          "prefetched": true,
+          "inference_s": 0.3492,
+          "wait_s": 0.2038,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 6.3503,
+          "env_step_end_s": 6.7459,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3956
+        },
+        {
+          "chunk": 11,
+          "prefetched": true,
+          "inference_s": 0.348,
+          "wait_s": 0.2036,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 6.9496,
+          "env_step_end_s": 7.3637,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4142
+        },
+        {
+          "chunk": 12,
+          "prefetched": true,
+          "inference_s": 0.4174,
+          "wait_s": 0.2643,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 7.6281,
+          "env_step_end_s": 8.0284,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4003
+        },
+        {
+          "chunk": 13,
+          "prefetched": true,
+          "inference_s": 0.3452,
+          "wait_s": 0.2034,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 8.2319,
+          "env_step_end_s": 8.6334,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4015
+        },
+        {
+          "chunk": 14,
+          "prefetched": true,
+          "inference_s": 0.349,
+          "wait_s": 0.2038,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 8.8373,
+          "env_step_end_s": 9.2416,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4044
+        },
+        {
+          "chunk": 15,
+          "prefetched": true,
+          "inference_s": 0.3472,
+          "wait_s": 0.2037,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 9.4454,
+          "env_step_end_s": 9.8546,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4091
+        },
+        {
+          "chunk": 16,
+          "prefetched": true,
+          "inference_s": 0.3509,
+          "wait_s": 0.2243,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 10.0789,
+          "env_step_end_s": 10.4872,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4083
+        },
+        {
+          "chunk": 17,
+          "prefetched": true,
+          "inference_s": 0.3511,
+          "wait_s": 0.2036,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 10.6909,
+          "env_step_end_s": 11.1104,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4195
+        },
+        {
+          "chunk": 18,
+          "prefetched": true,
+          "inference_s": 0.3461,
+          "wait_s": 0.1839,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 11.2943,
+          "env_step_end_s": 11.6905,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3961
+        },
+        {
+          "chunk": 19,
+          "prefetched": true,
+          "inference_s": 0.351,
+          "wait_s": 0.2037,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 11.8942,
+          "env_step_end_s": 12.3107,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4165
+        },
+        {
+          "chunk": 20,
+          "prefetched": true,
+          "inference_s": 0.3499,
+          "wait_s": 0.2037,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 12.5145,
+          "env_step_end_s": 12.9234,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.409
+        },
+        {
+          "chunk": 21,
+          "prefetched": true,
+          "inference_s": 0.3452,
+          "wait_s": 0.2037,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 13.1272,
+          "env_step_end_s": 13.5418,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4146
+        },
+        {
+          "chunk": 22,
+          "prefetched": true,
+          "inference_s": 0.352,
+          "wait_s": 0.2039,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 13.7458,
+          "env_step_end_s": 14.1639,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4182
+        },
+        {
+          "chunk": 23,
+          "prefetched": true,
+          "inference_s": 0.3339,
+          "wait_s": 0.1835,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 14.3475,
+          "env_step_end_s": 14.754,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4065
+        },
+        {
+          "chunk": 24,
+          "prefetched": true,
+          "inference_s": 0.3492,
+          "wait_s": 0.2037,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 14.9578,
+          "env_step_end_s": 15.3681,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.4103
+        },
+        {
+          "chunk": 25,
+          "prefetched": true,
+          "inference_s": 0.3456,
+          "wait_s": 0.2038,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 15.5719,
+          "env_step_end_s": 15.964,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3921
+        },
+        {
+          "chunk": 26,
+          "prefetched": true,
+          "inference_s": 0.3482,
+          "wait_s": 0.2036,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 16.1676,
+          "env_step_end_s": 16.5555,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3879
+        },
+        {
+          "chunk": 27,
+          "prefetched": true,
+          "inference_s": 0.3655,
+          "wait_s": 0.2438,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 16.7993,
+          "env_step_end_s": 17.1909,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3915
+        },
+        {
+          "chunk": 28,
+          "prefetched": true,
+          "inference_s": 0.3458,
+          "wait_s": 0.1836,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 17.3746,
+          "env_step_end_s": 17.7629,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3884
+        },
+        {
+          "chunk": 29,
+          "prefetched": true,
+          "inference_s": 0.3476,
+          "wait_s": 0.225,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 17.9881,
+          "env_step_end_s": 18.3158,
+          "prompt": "open the middle drawer of the cabinet",
+          "duration_s": 0.3277
+        }
+      ],
+      "observations": [
+        {
+          "sim_action_count": 1,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:1:310",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.21482108547726805,
+            0.009404405976949914,
+            1.1707191685071623
+          ],
+          "gripper_opening_m": 0.07816156312143552
+        },
+        {
+          "sim_action_count": 2,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:2:311",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.21099658942095836,
+            0.008922287896885817,
+            1.169363024599687
+          ],
+          "gripper_opening_m": 0.07824043436845475
+        },
+        {
+          "sim_action_count": 3,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:3:312",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.20616310503074473,
+            0.008232021661289775,
+            1.1679756024970585
+          ],
+          "gripper_opening_m": 0.07831593104175308
+        },
+        {
+          "sim_action_count": 4,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:4:313",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.20043310373536158,
+            0.0074415781178395965,
+            1.1668929365627736
+          ],
+          "gripper_opening_m": 0.07838819379547492
+        },
+        {
+          "sim_action_count": 5,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:5:314",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.19400348351083327,
+            0.006635398143567256,
+            1.1660915245764747
+          ],
+          "gripper_opening_m": 0.078457358283537
+        },
+        {
+          "sim_action_count": 6,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:6:315",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.1875832913795096,
+            0.006135254406603163,
+            1.1655571197570607
+          ],
+          "gripper_opening_m": 0.07852356579530717
+        },
+        {
+          "sim_action_count": 7,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:7:316",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.18121146741017008,
+            0.005931045984160765,
+            1.1653362375090017
+          ],
+          "gripper_opening_m": 0.07858694748153278
+        },
+        {
+          "sim_action_count": 8,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:8:317",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.17468467050125494,
+            0.005760370737282071,
+            1.1651672451453412
+          ],
+          "gripper_opening_m": 0.07864761114563759
+        },
+        {
+          "sim_action_count": 9,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:9:318",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.16815808081548278,
+            0.005609628298449156,
+            1.1648461446637153
+          ],
+          "gripper_opening_m": 0.07870567044247931
+        },
+        {
+          "sim_action_count": 10,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:10:319",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.16143602655487443,
+            0.005423308214110812,
+            1.1646079279272248
+          ],
+          "gripper_opening_m": 0.07876123614039073
+        },
+        {
+          "sim_action_count": 11,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:11:320",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.15497616274342685,
+            0.005110785496291851,
+            1.1649183746986895
+          ],
+          "gripper_opening_m": 0.07881444082708025
+        },
+        {
+          "sim_action_count": 12,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:12:321",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.14911650721704708,
+            0.004657163194258062,
+            1.1655417347142507
+          ],
+          "gripper_opening_m": 0.07886540355965214
+        },
+        {
+          "sim_action_count": 13,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:13:322",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.14359362303758708,
+            0.004128730640081195,
+            1.1660838431287055
+          ],
+          "gripper_opening_m": 0.07891419126213095
+        },
+        {
+          "sim_action_count": 14,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:14:323",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.13837808610450944,
+            0.003497193866904516,
+            1.1663537920539535
+          ],
+          "gripper_opening_m": 0.07896088596807366
+        },
+        {
+          "sim_action_count": 15,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:15:324",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.13342027612851357,
+            0.00289074252585173,
+            1.1663530219019151
+          ],
+          "gripper_opening_m": 0.07900557533754722
+        },
+        {
+          "sim_action_count": 16,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:16:325",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.12855946398974133,
+            0.0021782674587189667,
+            1.1661896637556939
+          ],
+          "gripper_opening_m": 0.07904834098047464
+        },
+        {
+          "sim_action_count": 17,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:17:326",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.12361458315122922,
+            0.0013164074929385046,
+            1.1659985129650325
+          ],
+          "gripper_opening_m": 0.07908926885076387
+        },
+        {
+          "sim_action_count": 18,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:18:327",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.11882509182150514,
+            0.00041543701749981177,
+            1.1656099032524518
+          ],
+          "gripper_opening_m": 0.07912844052438459
+        },
+        {
+          "sim_action_count": 19,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:19:328",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.11418273356324192,
+            -0.0005297428935235812,
+            1.1650014842653673
+          ],
+          "gripper_opening_m": 0.07916592908402245
+        },
+        {
+          "sim_action_count": 20,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:20:329",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.10957167316017154,
+            -0.0015444162258410887,
+            1.1642898298074011
+          ],
+          "gripper_opening_m": 0.0792018092941385
+        },
+        {
+          "sim_action_count": 21,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:21:330",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.10506899644374526,
+            -0.002359842502434765,
+            1.1632990054177559
+          ],
+          "gripper_opening_m": 0.07923614975404747
+        },
+        {
+          "sim_action_count": 22,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:22:331",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.1004914164408589,
+            -0.0030288573736802216,
+            1.1621741078636072
+          ],
+          "gripper_opening_m": 0.07926901531417538
+        },
+        {
+          "sim_action_count": 23,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:23:332",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.09565836572211331,
+            -0.003640155016933249,
+            1.1611979845028686
+          ],
+          "gripper_opening_m": 0.07930047044591701
+        },
+        {
+          "sim_action_count": 24,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:24:333",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.09085241883093727,
+            -0.004162310531152347,
+            1.1601771662759135
+          ],
+          "gripper_opening_m": 0.07933057576174565
+        },
+        {
+          "sim_action_count": 25,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:25:334",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.08613378968905594,
+            -0.004595537997821711,
+            1.1589693784817832
+          ],
+          "gripper_opening_m": 0.07935938982789986
+        },
+        {
+          "sim_action_count": 26,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:26:335",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.08231478975045547,
+            -0.0046033097651339075,
+            1.1569790916077325
+          ],
+          "gripper_opening_m": 0.07938700160010424
+        },
+        {
+          "sim_action_count": 27,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:27:336",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.07943764190295673,
+            -0.004314533813931466,
+            1.1542927647545658
+          ],
+          "gripper_opening_m": 0.07941348128538597
+        },
+        {
+          "sim_action_count": 28,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:28:337",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.07703244882819707,
+            -0.004010273006717149,
+            1.1513246281024978
+          ],
+          "gripper_opening_m": 0.07943883994161047
+        },
+        {
+          "sim_action_count": 29,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:29:338",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.07510830074395265,
+            -0.003696370435954853,
+            1.1480773286348693
+          ],
+          "gripper_opening_m": 0.07946311603887354
+        },
+        {
+          "sim_action_count": 30,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:30:339",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.07359692383044836,
+            -0.003396521509673761,
+            1.1445404979260307
+          ],
+          "gripper_opening_m": 0.07948635079220062
+        },
+        {
+          "sim_action_count": 31,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:31:340",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.07203263973357549,
+            -0.0030612031211380286,
+            1.1412658037654393
+          ],
+          "gripper_opening_m": 0.07950860261435978
+        },
+        {
+          "sim_action_count": 32,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:32:341",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.07068113831539515,
+            -0.002783606385536014,
+            1.1381056380424104
+          ],
+          "gripper_opening_m": 0.07952992202442015
+        },
+        {
+          "sim_action_count": 33,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:33:342",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06960504367317896,
+            -0.0025333705476277626,
+            1.1347809485445957
+          ],
+          "gripper_opening_m": 0.079550329482019
+        },
+        {
+          "sim_action_count": 34,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:34:343",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06869170133788863,
+            -0.0022759449745601568,
+            1.1313677906991466
+          ],
+          "gripper_opening_m": 0.07956985954035241
+        },
+        {
+          "sim_action_count": 35,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:35:344",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06797803500387409,
+            -0.0020326710555253757,
+            1.1278569151183648
+          ],
+          "gripper_opening_m": 0.07958855079329887
+        },
+        {
+          "sim_action_count": 36,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:36:345",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06758270986280869,
+            -0.0016410576311028796,
+            1.1241244913580022
+          ],
+          "gripper_opening_m": 0.07960643657007906
+        },
+        {
+          "sim_action_count": 37,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:37:346",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06732191018370443,
+            -0.0012274965322430567,
+            1.1203748820319237
+          ],
+          "gripper_opening_m": 0.07962355273106694
+        },
+        {
+          "sim_action_count": 38,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:38:347",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.0671494448772684,
+            -0.0009279110382246561,
+            1.1166620942269352
+          ],
+          "gripper_opening_m": 0.07963303143322101
+        },
+        {
+          "sim_action_count": 39,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:39:348",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06707739322151697,
+            -0.0006174916875462816,
+            1.1129100251333035
+          ],
+          "gripper_opening_m": 0.07963797981533915
+        },
+        {
+          "sim_action_count": 40,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:40:349",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06710121641825892,
+            -0.00036507864227118547,
+            1.109105108161482
+          ],
+          "gripper_opening_m": 0.0796414986636182
+        },
+        {
+          "sim_action_count": 41,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:41:350",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06663406187638277,
+            -0.00013012472420706467,
+            1.105718884172695
+          ],
+          "gripper_opening_m": 0.07964345402880732
+        },
+        {
+          "sim_action_count": 42,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:42:351",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06591712737234477,
+            6.309049422579399e-05,
+            1.1024143945464184
+          ],
+          "gripper_opening_m": 0.07964567694100225
+        },
+        {
+          "sim_action_count": 43,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:43:352",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06526431151937381,
+            9.795410535454185e-05,
+            1.0988652535168166
+          ],
+          "gripper_opening_m": 0.07964807502050744
+        },
+        {
+          "sim_action_count": 44,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:44:353",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06473159479044242,
+            3.7353665710906925e-06,
+            1.094985416370938
+          ],
+          "gripper_opening_m": 0.07965074351413459
+        },
+        {
+          "sim_action_count": 45,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:45:354",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06419388990380373,
+            -0.00025557935657836983,
+            1.0908952679143311
+          ],
+          "gripper_opening_m": 0.07965336368909201
+        },
+        {
+          "sim_action_count": 46,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:46:355",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.0643091196969482,
+            -0.0002727505942534472,
+            1.0864560539171821
+          ],
+          "gripper_opening_m": 0.07965745327178655
+        },
+        {
+          "sim_action_count": 47,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:47:356",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06458393120170322,
+            -0.0001373878953405197,
+            1.0822620009960937
+          ],
+          "gripper_opening_m": 0.07966079230923899
+        },
+        {
+          "sim_action_count": 48,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:48:357",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06458824466328682,
+            -0.00013294183118991304,
+            1.0783141719715903
+          ],
+          "gripper_opening_m": 0.07966435462502454
+        },
+        {
+          "sim_action_count": 49,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:49:358",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06445229846283024,
+            -0.00036232732206768065,
+            1.0743406324677551
+          ],
+          "gripper_opening_m": 0.07966850174354057
+        },
+        {
+          "sim_action_count": 50,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:50:359",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06414795752423802,
+            -0.0008264966202396473,
+            1.0703409701994453
+          ],
+          "gripper_opening_m": 0.07967317945907887
+        },
+        {
+          "sim_action_count": 51,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:51:360",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.06297067149616982,
+            -0.0013067854030608672,
+            1.0669261739798805
+          ],
+          "gripper_opening_m": 0.07967735187567482
+        },
+        {
+          "sim_action_count": 52,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:52:361",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.061281010801762265,
+            -0.0018797992945966818,
+            1.0638850927528873
+          ],
+          "gripper_opening_m": 0.07968283937733384
+        },
+        {
+          "sim_action_count": 53,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:53:362",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.05945132578856051,
+            -0.002609096941968453,
+            1.060907627336703
+          ],
+          "gripper_opening_m": 0.07968919451805537
+        },
+        {
+          "sim_action_count": 54,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:54:363",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.05730718105331537,
+            -0.003607286006080526,
+            1.0581541093071354
+          ],
+          "gripper_opening_m": 0.07969598691318422
+        },
+        {
+          "sim_action_count": 55,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:55:364",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.05468871037541458,
+            -0.005070838371061273,
+            1.0556525072889749
+          ],
+          "gripper_opening_m": 0.07970316263711344
+        },
+        {
+          "sim_action_count": 56,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:56:365",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.05073767180945126,
+            -0.007194375750625107,
+            1.0535699948903454
+          ],
+          "gripper_opening_m": 0.07970940227692047
+        },
+        {
+          "sim_action_count": 57,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:57:366",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.045618294477253726,
+            -0.010143031281248521,
+            1.0519642543750392
+          ],
+          "gripper_opening_m": 0.07971613883445969
+        },
+        {
+          "sim_action_count": 58,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:58:367",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.03996652672430892,
+            -0.013674219218633557,
+            1.0506407598032808
+          ],
+          "gripper_opening_m": 0.07972348468869453
+        },
+        {
+          "sim_action_count": 59,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:59:368",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.03392307217740842,
+            -0.01760585467428362,
+            1.0495807194058193
+          ],
+          "gripper_opening_m": 0.07973114306437269
+        },
+        {
+          "sim_action_count": 60,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:60:369",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.0275146242643157,
+            -0.02190990038251274,
+            1.0488622430017267
+          ],
+          "gripper_opening_m": 0.07973900816724387
+        },
+        {
+          "sim_action_count": 61,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:61:370",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.02174587262574479,
+            -0.025387365861752248,
+            1.0476270960452403
+          ],
+          "gripper_opening_m": 0.07974840052821044
+        },
+        {
+          "sim_action_count": 62,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:62:371",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.01611811574226262,
+            -0.028225439461512236,
+            1.0465185179899013
+          ],
+          "gripper_opening_m": 0.07975746272177109
+        },
+        {
+          "sim_action_count": 63,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:63:372",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.01005891534698981,
+            -0.03135488053962521,
+            1.0459677328264416
+          ],
+          "gripper_opening_m": 0.07976665311636329
+        },
+        {
+          "sim_action_count": 64,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:64:373",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            -0.003582384602128773,
+            -0.03491652924326487,
+            1.0459546765498706
+          ],
+          "gripper_opening_m": 0.07977599138002281
+        },
+        {
+          "sim_action_count": 65,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:65:374",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.003082155731128631,
+            -0.03899906451416596,
+            1.046365575014776
+          ],
+          "gripper_opening_m": 0.07978553814490605
+        },
+        {
+          "sim_action_count": 66,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:66:375",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.00934992456007625,
+            -0.0436276762846748,
+            1.0471600541042008
+          ],
+          "gripper_opening_m": 0.07979477149080122
+        },
+        {
+          "sim_action_count": 67,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:67:376",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.015268389090880028,
+            -0.04857647446179282,
+            1.0483504551878946
+          ],
+          "gripper_opening_m": 0.0798036125789436
+        },
+        {
+          "sim_action_count": 68,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:68:377",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.02106782834690509,
+            -0.05363128877525118,
+            1.0497214896162512
+          ],
+          "gripper_opening_m": 0.0798120700515225
+        },
+        {
+          "sim_action_count": 69,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:69:378",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.02680462022393243,
+            -0.05875982970725367,
+            1.0511863745336765
+          ],
+          "gripper_opening_m": 0.07982015788248582
+        },
+        {
+          "sim_action_count": 70,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:70:379",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.03228501473996515,
+            -0.06391835529986112,
+            1.0525385807312686
+          ],
+          "gripper_opening_m": 0.07982789460116085
+        },
+        {
+          "sim_action_count": 71,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:71:380",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.0365302001940855,
+            -0.06833734254335595,
+            1.0533729347124439
+          ],
+          "gripper_opening_m": 0.07983530928068247
+        },
+        {
+          "sim_action_count": 72,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:72:381",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.039972267381591285,
+            -0.07208635080894572,
+            1.054199630430875
+          ],
+          "gripper_opening_m": 0.0798424164901959
+        },
+        {
+          "sim_action_count": 73,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:73:382",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.043184977437217206,
+            -0.07575154874086265,
+            1.055082492168507
+          ],
+          "gripper_opening_m": 0.07984921042687729
+        },
+        {
+          "sim_action_count": 74,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:74:383",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.04609201555447843,
+            -0.07945523206034852,
+            1.0557897683893025
+          ],
+          "gripper_opening_m": 0.07985570350536432
+        },
+        {
+          "sim_action_count": 75,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:75:384",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.048912558527602484,
+            -0.08317817508112453,
+            1.0565691274565392
+          ],
+          "gripper_opening_m": 0.07986191047339543
+        },
+        {
+          "sim_action_count": 76,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:76:385",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05119665632611852,
+            -0.08640184222838614,
+            1.057328736255741
+          ],
+          "gripper_opening_m": 0.0798678535882599
+        },
+        {
+          "sim_action_count": 77,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:77:386",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05310153487317862,
+            -0.0890804327892871,
+            1.058231861231239
+          ],
+          "gripper_opening_m": 0.07987355015242498
+        },
+        {
+          "sim_action_count": 78,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:78:387",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05477541117532414,
+            -0.09167638252057185,
+            1.0591507387623016
+          ],
+          "gripper_opening_m": 0.07987899772952013
+        },
+        {
+          "sim_action_count": 79,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:79:388",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05608267528453702,
+            -0.09434761415679044,
+            1.0598907587294597
+          ],
+          "gripper_opening_m": 0.07988420811451802
+        },
+        {
+          "sim_action_count": 80,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:80:389",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.057123340478684746,
+            -0.09701095933441112,
+            1.0604665575983903
+          ],
+          "gripper_opening_m": 0.07988919432225777
+        },
+        {
+          "sim_action_count": 81,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:81:390",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.058019722241039344,
+            -0.09921546579801759,
+            1.0609629657825932
+          ],
+          "gripper_opening_m": 0.07989397124406675
+        },
+        {
+          "sim_action_count": 82,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:82:391",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05870904617429074,
+            -0.10112251006480974,
+            1.0613938741071476
+          ],
+          "gripper_opening_m": 0.0798958370392896
+        },
+        {
+          "sim_action_count": 83,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:83:392",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05919218562089705,
+            -0.10299478954158447,
+            1.061727568888372
+          ],
+          "gripper_opening_m": 0.07989150267686791
+        },
+        {
+          "sim_action_count": 84,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:84:393",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05928832561503684,
+            -0.10479466213761582,
+            1.061733291918915
+          ],
+          "gripper_opening_m": 0.07981436986830864
+        },
+        {
+          "sim_action_count": 85,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:85:394",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05889309912502118,
+            -0.1060115403190035,
+            1.0611355995105842
+          ],
+          "gripper_opening_m": 0.07949487452935501
+        },
+        {
+          "sim_action_count": 86,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:86:395",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05848849255618788,
+            -0.10668385731567254,
+            1.0598872091162357
+          ],
+          "gripper_opening_m": 0.07910116554376738
+        },
+        {
+          "sim_action_count": 87,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:87:396",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05832897065163709,
+            -0.10761778215193521,
+            1.0583844306307049
+          ],
+          "gripper_opening_m": 0.07873702680079223
+        },
+        {
+          "sim_action_count": 88,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:88:397",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05826087365701683,
+            -0.10861038043907825,
+            1.056912103417335
+          ],
+          "gripper_opening_m": 0.07840949004809605
+        },
+        {
+          "sim_action_count": 89,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:89:398",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05807129803250567,
+            -0.10986381703171473,
+            1.0553121474770226
+          ],
+          "gripper_opening_m": 0.07805587713046047
+        },
+        {
+          "sim_action_count": 90,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:90:399",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.057757748283437306,
+            -0.11123871787346692,
+            1.0535578450860175
+          ],
+          "gripper_opening_m": 0.07779638293413015
+        },
+        {
+          "sim_action_count": 91,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:91:400",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05799108485376901,
+            -0.1126385541565009,
+            1.0515346947202109
+          ],
+          "gripper_opening_m": 0.07782861704572584
+        },
+        {
+          "sim_action_count": 92,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:92:401",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.058407373889279295,
+            -0.11417650343141567,
+            1.0492011462201516
+          ],
+          "gripper_opening_m": 0.07782156200819998
+        },
+        {
+          "sim_action_count": 93,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:93:402",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05857090128921433,
+            -0.11572385527427224,
+            1.0467976982782679
+          ],
+          "gripper_opening_m": 0.07771253479017837
+        },
+        {
+          "sim_action_count": 94,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:94:403",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05854153818172322,
+            -0.11741115985452406,
+            1.0443927655877936
+          ],
+          "gripper_opening_m": 0.07778264954944009
+        },
+        {
+          "sim_action_count": 95,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:95:404",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.058425055001021714,
+            -0.1184950832611618,
+            1.0426858164155177
+          ],
+          "gripper_opening_m": 0.07788997284025896
+        },
+        {
+          "sim_action_count": 96,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:96:405",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05852244238563447,
+            -0.11843031779235029,
+            1.0428725345452314
+          ],
+          "gripper_opening_m": 0.07808346643270783
+        },
+        {
+          "sim_action_count": 97,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:97:406",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05883066775034609,
+            -0.11870650329988437,
+            1.0430824687157112
+          ],
+          "gripper_opening_m": 0.07812068341837199
+        },
+        {
+          "sim_action_count": 98,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:98:407",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05928177716472163,
+            -0.11905333458129108,
+            1.0433481196221008
+          ],
+          "gripper_opening_m": 0.07819978633606267
+        },
+        {
+          "sim_action_count": 99,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:99:408",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.05980899824042036,
+            -0.11944997304815924,
+            1.0436604879046947
+          ],
+          "gripper_opening_m": 0.07827684499878973
+        },
+        {
+          "sim_action_count": 100,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:100:409",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.060383142382563176,
+            -0.11991809807426529,
+            1.0440370058461446
+          ],
+          "gripper_opening_m": 0.07832234919772191
+        },
+        {
+          "sim_action_count": 101,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:101:410",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06081777725822149,
+            -0.12036278144652171,
+            1.0442871856987797
+          ],
+          "gripper_opening_m": 0.07835966865574409
+        },
+        {
+          "sim_action_count": 102,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:102:411",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06108465554231749,
+            -0.12071795642311225,
+            1.0443771348130928
+          ],
+          "gripper_opening_m": 0.07838232047292938
+        },
+        {
+          "sim_action_count": 103,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:103:412",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06135435138478819,
+            -0.12107120717512689,
+            1.0444592071912673
+          ],
+          "gripper_opening_m": 0.07841736974898528
+        },
+        {
+          "sim_action_count": 104,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:104:413",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.061625331288419044,
+            -0.1214111070535247,
+            1.0445531797693561
+          ],
+          "gripper_opening_m": 0.07844773544060352
+        },
+        {
+          "sim_action_count": 105,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:105:414",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.061763158136414434,
+            -0.12181242543347488,
+            1.0440707858705702
+          ],
+          "gripper_opening_m": 0.0785548506875194
+        },
+        {
+          "sim_action_count": 106,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:106:415",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.062150656999772666,
+            -0.12210611892209214,
+            1.0434546314798754
+          ],
+          "gripper_opening_m": 0.07863317515185159
+        },
+        {
+          "sim_action_count": 107,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:107:416",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06261994550399098,
+            -0.12236503342172186,
+            1.0430998407367675
+          ],
+          "gripper_opening_m": 0.07868384056981012
+        },
+        {
+          "sim_action_count": 108,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:108:417",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06294687821221394,
+            -0.12269970799050064,
+            1.042606551563888
+          ],
+          "gripper_opening_m": 0.07872794865656604
+        },
+        {
+          "sim_action_count": 109,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:109:418",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06306824185806433,
+            -0.12308420445114122,
+            1.0420185484183289
+          ],
+          "gripper_opening_m": 0.07876992167210145
+        },
+        {
+          "sim_action_count": 110,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:110:419",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06302211317406259,
+            -0.12346867669150276,
+            1.0412388646977553
+          ],
+          "gripper_opening_m": 0.07881011435007378
+        },
+        {
+          "sim_action_count": 111,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:111:420",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06309491258703376,
+            -0.12370872762615465,
+            1.0403822731022534
+          ],
+          "gripper_opening_m": 0.07884891377068678
+        },
+        {
+          "sim_action_count": 112,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:112:421",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06322416600160176,
+            -0.12393520941511586,
+            1.0393304362619324
+          ],
+          "gripper_opening_m": 0.07888593238696567
+        },
+        {
+          "sim_action_count": 113,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:113:422",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06333641265728247,
+            -0.12420764398122251,
+            1.038132420426368
+          ],
+          "gripper_opening_m": 0.07892128465685447
+        },
+        {
+          "sim_action_count": 114,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:114:423",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06330233799018764,
+            -0.12458018997122115,
+            1.036587441583117
+          ],
+          "gripper_opening_m": 0.07895500386784429
+        },
+        {
+          "sim_action_count": 115,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:115:424",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06318506748703259,
+            -0.12490692589335411,
+            1.0349178463883915
+          ],
+          "gripper_opening_m": 0.0789874455899924
+        },
+        {
+          "sim_action_count": 116,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:116:425",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06327465409016841,
+            -0.12535418114956964,
+            1.034338085056828
+          ],
+          "gripper_opening_m": 0.07901821283984618
+        },
+        {
+          "sim_action_count": 117,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:117:426",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06351485476792598,
+            -0.12573546539400904,
+            1.0344361384416256
+          ],
+          "gripper_opening_m": 0.07904798364259356
+        },
+        {
+          "sim_action_count": 118,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:118:427",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06357665293957367,
+            -0.1261309482264001,
+            1.0335960488473155
+          ],
+          "gripper_opening_m": 0.07907674304755993
+        },
+        {
+          "sim_action_count": 119,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:119:428",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.06343879915578533,
+            -0.1265269373005448,
+            1.0311901149499074
+          ],
+          "gripper_opening_m": 0.07910464555021873
+        },
+        {
+          "sim_action_count": 120,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:120:429",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0,
+          "relation": null,
+          "eef_pos": [
+            0.0628972662608311,
+            -0.1279126003515876,
+            1.0258490320712694
+          ],
+          "gripper_opening_m": 0.07913122508411566
+        },
+        {
+          "sim_action_count": 121,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:121:430",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0016678474424052419,
+          "relation": null,
+          "eef_pos": [
+            0.06385505615547798,
+            -0.13035608851703528,
+            1.023764737816536
+          ],
+          "gripper_opening_m": 0.08046123266557617
+        },
+        {
+          "sim_action_count": 122,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:122:431",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0016600249812644835,
+          "relation": null,
+          "eef_pos": [
+            0.06441859394183141,
+            -0.13076779957910784,
+            1.0236389018636731
+          ],
+          "gripper_opening_m": 0.08071103338346997
+        },
+        {
+          "sim_action_count": 123,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:123:432",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0016599547248320524,
+          "relation": null,
+          "eef_pos": [
+            0.06444444944364339,
+            -0.13077207320373607,
+            1.023576609600793
+          ],
+          "gripper_opening_m": 0.08072749371991227
+        },
+        {
+          "sim_action_count": 124,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:124:433",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.001659956845795097,
+          "relation": null,
+          "eef_pos": [
+            0.064486209640267,
+            -0.1307711834725116,
+            1.0235697664641579
+          ],
+          "gripper_opening_m": 0.08076157162599204
+        },
+        {
+          "sim_action_count": 125,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:125:434",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 0.0016599545115024035,
+          "relation": null,
+          "eef_pos": [
+            0.06450558283242469,
+            -0.13077800785677246,
+            1.023580815851375
+          ],
+          "gripper_opening_m": 0.08077012348152898
+        },
+        {
+          "sim_action_count": 126,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:126:435",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": 5.720376138430962e-05,
+          "relation": null,
+          "eef_pos": [
+            0.06458973466541634,
+            -0.12933726423223874,
+            1.0235463077017095
+          ],
+          "gripper_opening_m": 0.08085496829043916
+        },
+        {
+          "sim_action_count": 127,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:127:436",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.003117384987226058,
+          "relation": null,
+          "eef_pos": [
+            0.064662372440571,
+            -0.126215141803369,
+            1.0234448610351954
+          ],
+          "gripper_opening_m": 0.08092318963843814
+        },
+        {
+          "sim_action_count": 128,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:128:437",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.007072856210970217,
+          "relation": null,
+          "eef_pos": [
+            0.06469355138187258,
+            -0.12229726915098511,
+            1.0232864523406329
+          ],
+          "gripper_opening_m": 0.08094862367159486
+        },
+        {
+          "sim_action_count": 129,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:129:438",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.011656835520356665,
+          "relation": null,
+          "eef_pos": [
+            0.06471305980011882,
+            -0.11775154955321011,
+            1.023084116372563
+          ],
+          "gripper_opening_m": 0.08096360458068991
+        },
+        {
+          "sim_action_count": 130,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:130:439",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.01677740834998182,
+          "relation": null,
+          "eef_pos": [
+            0.06472020046843172,
+            -0.11266428561068949,
+            1.022852878009842
+          ],
+          "gripper_opening_m": 0.08096770648642423
+        },
+        {
+          "sim_action_count": 131,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:131:440",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.022056580907684687,
+          "relation": null,
+          "eef_pos": [
+            0.06473310699616038,
+            -0.10737066442444884,
+            1.022586574611251
+          ],
+          "gripper_opening_m": 0.0809816061098973
+        },
+        {
+          "sim_action_count": 132,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:132:441",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.027362002275423392,
+          "relation": null,
+          "eef_pos": [
+            0.06473394712483892,
+            -0.10206989370003715,
+            1.022319903139779
+          ],
+          "gripper_opening_m": 0.08098420305004513
+        },
+        {
+          "sim_action_count": 133,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:133:442",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.032814860750124984,
+          "relation": null,
+          "eef_pos": [
+            0.06471196443722702,
+            -0.0966335926419522,
+            1.0220682199471745
+          ],
+          "gripper_opening_m": 0.08096417512624354
+        },
+        {
+          "sim_action_count": 134,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:134:443",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.0385529572867827,
+          "relation": null,
+          "eef_pos": [
+            0.06468797268649817,
+            -0.09092358173317583,
+            1.0218323842107766
+          ],
+          "gripper_opening_m": 0.08094433690111243
+        },
+        {
+          "sim_action_count": 135,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:135:444",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.04457972036644749,
+          "relation": null,
+          "eef_pos": [
+            0.06465005939966398,
+            -0.08492427958172935,
+            1.0216173171525516
+          ],
+          "gripper_opening_m": 0.08091092838772976
+        },
+        {
+          "sim_action_count": 136,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:136:445",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.05052400769159497,
+          "relation": null,
+          "eef_pos": [
+            0.06468912080047526,
+            -0.07894025020007905,
+            1.0213750411394327
+          ],
+          "gripper_opening_m": 0.08096511196846981
+        },
+        {
+          "sim_action_count": 137,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:137:446",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.05644432839249098,
+          "relation": null,
+          "eef_pos": [
+            0.06471796119934205,
+            -0.0730159847917348,
+            1.0211106606810438
+          ],
+          "gripper_opening_m": 0.08100601364449089
+        },
+        {
+          "sim_action_count": 138,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:138:447",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.06257104106723321,
+          "relation": null,
+          "eef_pos": [
+            0.06472838668107239,
+            -0.06690472984862313,
+            1.020841342155507
+          ],
+          "gripper_opening_m": 0.08102948881476527
+        },
+        {
+          "sim_action_count": 139,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:139:448",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.06887268474892015,
+          "relation": null,
+          "eef_pos": [
+            0.06471450834831985,
+            -0.06061964618360921,
+            1.020563900852766
+          ],
+          "gripper_opening_m": 0.08102800063811733
+        },
+        {
+          "sim_action_count": 140,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:140:449",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.07542688593371093,
+          "relation": null,
+          "eef_pos": [
+            0.0646948670391393,
+            -0.054099724193696005,
+            1.0202827366734721
+          ],
+          "gripper_opening_m": 0.08102357711284602
+        },
+        {
+          "sim_action_count": 141,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:141:450",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.08228605928917551,
+          "relation": null,
+          "eef_pos": [
+            0.06465936695547753,
+            -0.047275705156564,
+            1.0199386148564042
+          ],
+          "gripper_opening_m": 0.08101123675404523
+        },
+        {
+          "sim_action_count": 142,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:142:451",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.08932121488007057,
+          "relation": null,
+          "eef_pos": [
+            0.06464946623285248,
+            -0.040251451577043906,
+            1.019532604536035
+          ],
+          "gripper_opening_m": 0.08103994198764056
+        },
+        {
+          "sim_action_count": 143,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:143:452",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.09653112003223303,
+          "relation": null,
+          "eef_pos": [
+            0.06463292562460943,
+            -0.03306135383475857,
+            1.019082650215917
+          ],
+          "gripper_opening_m": 0.08106940260121623
+        },
+        {
+          "sim_action_count": 144,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:144:453",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.10399112022991189,
+          "relation": null,
+          "eef_pos": [
+            0.06459395728558164,
+            -0.025634115537125565,
+            1.0186070949773547
+          ],
+          "gripper_opening_m": 0.08108397120448287
+        },
+        {
+          "sim_action_count": 145,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:145:454",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.11163655132395646,
+          "relation": null,
+          "eef_pos": [
+            0.06453745096718597,
+            -0.018018225334030996,
+            1.0181211955197444
+          ],
+          "gripper_opening_m": 0.0810879944414767
+        },
+        {
+          "sim_action_count": 146,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:146:455",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.11979768025256245,
+          "relation": null,
+          "eef_pos": [
+            0.06447761221558138,
+            -0.009939520141568556,
+            1.0176556472995952
+          ],
+          "gripper_opening_m": 0.08109095986138759
+        },
+        {
+          "sim_action_count": 147,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:147:456",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.12838916199391612,
+          "relation": null,
+          "eef_pos": [
+            0.0644038169374812,
+            -0.0014031071671285616,
+            1.0172373522290183
+          ],
+          "gripper_opening_m": 0.08107676798571377
+        },
+        {
+          "sim_action_count": 148,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:148:457",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.13715973984112495,
+          "relation": null,
+          "eef_pos": [
+            0.06431448785030237,
+            0.007306235219977128,
+            1.016846686471585
+          ],
+          "gripper_opening_m": 0.08104625477107835
+        },
+        {
+          "sim_action_count": 149,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:149:458",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.14605879215126846,
+          "relation": null,
+          "eef_pos": [
+            0.06423203182197716,
+            0.016147607098067965,
+            1.016472439857059
+          ],
+          "gripper_opening_m": 0.08102524086543278
+        },
+        {
+          "sim_action_count": 150,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:150:459",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15197135406196358,
+          "relation": null,
+          "eef_pos": [
+            0.06469595507201734,
+            0.02224091973004902,
+            1.019103810784006
+          ],
+          "gripper_opening_m": 0.08035557291855097
+        },
+        {
+          "sim_action_count": 151,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:151:460",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15457186454886399,
+          "relation": null,
+          "eef_pos": [
+            0.0658051495408903,
+            0.025129272244126852,
+            1.0244908306869576
+          ],
+          "gripper_opening_m": 0.08009449063832391
+        },
+        {
+          "sim_action_count": 152,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:152:461",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15571662617803222,
+          "relation": null,
+          "eef_pos": [
+            0.06700879213591522,
+            0.026347165800242794,
+            1.0305850495443571
+          ],
+          "gripper_opening_m": 0.08004240602412396
+        },
+        {
+          "sim_action_count": 153,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:153:462",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15622077248175695,
+          "relation": null,
+          "eef_pos": [
+            0.06806879610828134,
+            0.026549835374844732,
+            1.0370292765559643
+          ],
+          "gripper_opening_m": 0.08001885467087931
+        },
+        {
+          "sim_action_count": 154,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:154:463",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.1564428372026289,
+          "relation": null,
+          "eef_pos": [
+            0.06888283867929193,
+            0.026183558585547634,
+            1.043662271884195
+          ],
+          "gripper_opening_m": 0.07999786546720788
+        },
+        {
+          "sim_action_count": 155,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:155:464",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15654065962664876,
+          "relation": null,
+          "eef_pos": [
+            0.06942193059534923,
+            0.025531079723552952,
+            1.0504007797146486
+          ],
+          "gripper_opening_m": 0.07997763842669198
+        },
+        {
+          "sim_action_count": 156,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:156:465",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15658375325605295,
+          "relation": null,
+          "eef_pos": [
+            0.06969775996571033,
+            0.024755379040899236,
+            1.0571962502402152
+          ],
+          "gripper_opening_m": 0.0799581088740407
+        },
+        {
+          "sim_action_count": 157,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:157:466",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15660273756027066,
+          "relation": null,
+          "eef_pos": [
+            0.06974333187208419,
+            0.02394299673005089,
+            1.0640131760559246
+          ],
+          "gripper_opening_m": 0.07993924563352867
+        },
+        {
+          "sim_action_count": 158,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:158:467",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15661110089276425,
+          "relation": null,
+          "eef_pos": [
+            0.06960008771989958,
+            0.023136770230343273,
+            1.0708281885636222
+          ],
+          "gripper_opening_m": 0.0799210299476595
+        },
+        {
+          "sim_action_count": 159,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:159:468",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15661478528104297,
+          "relation": null,
+          "eef_pos": [
+            0.06931042283591202,
+            0.022356213409786718,
+            1.0776270994603663
+          ],
+          "gripper_opening_m": 0.07990345137018748
+        },
+        {
+          "sim_action_count": 160,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:160:469",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15661640840622643,
+          "relation": null,
+          "eef_pos": [
+            0.06892335454059556,
+            0.02157051572914473,
+            1.0837313437736975
+          ],
+          "gripper_opening_m": 0.0798870445932884
+        },
+        {
+          "sim_action_count": 161,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:161:470",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15661712346032824,
+          "relation": null,
+          "eef_pos": [
+            0.06845467776377452,
+            0.020706448800288407,
+            1.0884474017451686
+          ],
+          "gripper_opening_m": 0.07987172941406964
+        },
+        {
+          "sim_action_count": 162,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:162:471",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15661743847146206,
+          "relation": null,
+          "eef_pos": [
+            0.06792081452217867,
+            0.01979932743126489,
+            1.0917637232338433
+          ],
+          "gripper_opening_m": 0.07985726228636222
+        },
+        {
+          "sim_action_count": 163,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:163:472",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15661757724701178,
+          "relation": null,
+          "eef_pos": [
+            0.06765185308287223,
+            0.019218168129385885,
+            1.093406730616255
+          ],
+          "gripper_opening_m": 0.07984440331622719
+        },
+        {
+          "sim_action_count": 164,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:164:473",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15661763838343562,
+          "relation": null,
+          "eef_pos": [
+            0.06751090568586356,
+            0.018821131222692036,
+            1.0938937858697209
+          ],
+          "gripper_opening_m": 0.07983146812166211
+        },
+        {
+          "sim_action_count": 165,
+          "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:165:474",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "drawer_open",
+          "joint": "wooden_cabinet_1_middle_level",
+          "qpos": -0.15661766531658347,
+          "relation": null,
+          "eef_pos": [
+            0.06734323450315041,
+            0.018486202824588238,
+            1.094075799560084
+          ],
+          "gripper_opening_m": 0.07981867666938758
+        }
+      ],
+      "action_trace": [
+        {
+          "n": 1,
+          "a": [
+            0.517,
+            -0.043,
+            0.046,
+            -0.0307,
+            0.0786,
+            0.1189,
+            -1.012
+          ],
+          "eef": [
+            -0.21482108547726805,
+            0.009404405976949914,
+            1.1707191685071623
+          ],
+          "grip": 0.07816156312143552
+        },
+        {
+          "n": 2,
+          "a": [
+            0.5616,
+            -0.0466,
+            0.0451,
+            -0.0388,
+            0.0717,
+            0.1283,
+            -1.0102
+          ],
+          "eef": [
+            -0.21099658942095836,
+            0.008922287896885817,
+            1.169363024599687
+          ],
+          "grip": 0.07824043436845475
+        },
+        {
+          "n": 3,
+          "a": [
+            0.5867,
+            -0.0517,
+            0.0398,
+            -0.0452,
+            0.0797,
+            0.1362,
+            -1.0106
+          ],
+          "eef": [
+            -0.20616310503074473,
+            0.008232021661289775,
+            1.1679756024970585
+          ],
+          "grip": 0.07831593104175308
+        },
+        {
+          "n": 4,
+          "a": [
+            0.6002,
+            -0.0526,
+            0.0383,
+            -0.0508,
+            0.0616,
+            0.1418,
+            -1.0067
+          ],
+          "eef": [
+            -0.20043310373536158,
+            0.0074415781178395965,
+            1.1668929365627736
+          ],
+          "grip": 0.07838819379547492
+        },
+        {
+          "n": 5,
+          "a": [
+            0.6073,
+            -0.056,
+            0.0282,
+            -0.0479,
+            0.0545,
+            0.1395,
+            -1.0053
+          ],
+          "eef": [
+            -0.19400348351083327,
+            0.006635398143567256,
+            1.1660915245764747
+          ],
+          "grip": 0.078457358283537
+        },
+        {
+          "n": 6,
+          "a": [
+            0.5153,
+            -0.0023,
+            0.028,
+            -0.06,
+            0.049,
+            0.1744,
+            -1.0112
+          ],
+          "eef": [
+            -0.1875832913795096,
+            0.006135254406603163,
+            1.1655571197570607
+          ],
+          "grip": 0.07852356579530717
+        },
+        {
+          "n": 7,
+          "a": [
+            0.5309,
+            0.0024,
+            0.0312,
+            -0.0614,
+            0.0499,
+            0.17,
+            -1.0121
+          ],
+          "eef": [
+            -0.18121146741017008,
+            0.005931045984160765,
+            1.1653362375090017
+          ],
+          "grip": 0.07858694748153278
+        },
+        {
+          "n": 8,
+          "a": [
+            0.5451,
+            0.0041,
+            0.0239,
+            -0.0691,
+            0.0536,
+            0.1664,
+            -1.013
+          ],
+          "eef": [
+            -0.17468467050125494,
+            0.005760370737282071,
+            1.1651672451453412
+          ],
+          "grip": 0.07864761114563759
+        },
+        {
+          "n": 9,
+          "a": [
+            0.5541,
+            0.0028,
+            0.0216,
+            -0.0685,
+            0.071,
+            0.1579,
+            -1.0106
+          ],
+          "eef": [
+            -0.16815808081548278,
+            0.005609628298449156,
+            1.1648461446637153
+          ],
+          "grip": 0.07870567044247931
+        },
+        {
+          "n": 10,
+          "a": [
+            0.5531,
+            -0.0043,
+            0.0223,
+            -0.0741,
+            0.0564,
+            0.1566,
+            -1.0053
+          ],
+          "eef": [
+            -0.16143602655487443,
+            0.005423308214110812,
+            1.1646079279272248
+          ],
+          "grip": 0.07876123614039073
+        },
+        {
+          "n": 11,
+          "a": [
+            0.3126,
+            -0.0427,
+            -0.0283,
+            -0.1006,
+            -0.0147,
+            0.2436,
+            -1.0115
+          ],
+          "eef": [
+            -0.15497616274342685,
+            0.005110785496291851,
+            1.1649183746986895
+          ],
+          "grip": 0.07881444082708025
+        },
+        {
+          "n": 12,
+          "a": [
+            0.3181,
+            -0.0408,
+            -0.0283,
+            -0.1095,
+            -0.0115,
+            0.25,
+            -1.012
+          ],
+          "eef": [
+            -0.14911650721704708,
+            0.004657163194258062,
+            1.1655417347142507
+          ],
+          "grip": 0.07886540355965214
+        },
+        {
+          "n": 13,
+          "a": [
+            0.3131,
+            -0.0503,
+            -0.0272,
+            -0.11,
+            -0.0173,
+            0.2443,
+            -1.0096
+          ],
+          "eef": [
+            -0.14359362303758708,
+            0.004128730640081195,
+            1.1660838431287055
+          ],
+          "grip": 0.07891419126213095
+        },
+        {
+          "n": 14,
+          "a": [
+            0.3278,
+            -0.0446,
+            -0.0361,
+            -0.1199,
+            -0.0061,
+            0.2365,
+            -1.0121
+          ],
+          "eef": [
+            -0.13837808610450944,
+            0.003497193866904516,
+            1.1663537920539535
+          ],
+          "grip": 0.07896088596807366
+        },
+        {
+          "n": 15,
+          "a": [
+            0.3372,
+            -0.0488,
+            -0.0233,
+            -0.1138,
+            0.0034,
+            0.2295,
+            -1.0055
+          ],
+          "eef": [
+            -0.13342027612851357,
+            0.00289074252585173,
+            1.1663530219019151
+          ],
+          "grip": 0.07900557533754722
+        },
+        {
+          "n": 16,
+          "a": [
+            0.3302,
+            -0.0722,
+            -0.0453,
+            -0.1127,
+            -0.0044,
+            0.2202,
+            -1.0117
+          ],
+          "eef": [
+            -0.12855946398974133,
+            0.0021782674587189667,
+            1.1661896637556939
+          ],
+          "grip": 0.07904834098047464
+        },
+        {
+          "n": 17,
+          "a": [
+            0.3303,
+            -0.0762,
+            -0.045,
+            -0.1162,
+            -0.0195,
+            0.2231,
+            -1.0126
+          ],
+          "eef": [
+            -0.12361458315122922,
+            0.0013164074929385046,
+            1.1659985129650325
+          ],
+          "grip": 0.07908926885076387
+        },
+        {
+          "n": 18,
+          "a": [
+            0.3388,
+            -0.078,
+            -0.0506,
+            -0.1118,
+            -0.003,
+            0.2159,
+            -1.011
+          ],
+          "eef": [
+            -0.11882509182150514,
+            0.00041543701749981177,
+            1.1656099032524518
+          ],
+          "grip": 0.07912844052438459
+        },
+        {
+          "n": 19,
+          "a": [
+            0.3423,
+            -0.0705,
+            -0.0568,
+            -0.1163,
+            0.0011,
+            0.2126,
+            -1.0129
+          ],
+          "eef": [
+            -0.11418273356324192,
+            -0.0005297428935235812,
+            1.1650014842653673
+          ],
+          "grip": 0.07916592908402245
+        },
+        {
+          "n": 20,
+          "a": [
+            0.3525,
+            -0.0614,
+            -0.0576,
+            -0.1264,
+            0.0056,
+            0.2057,
+            -1.0109
+          ],
+          "eef": [
+            -0.10957167316017154,
+            -0.0015444162258410887,
+            1.1642898298074011
+          ],
+          "grip": 0.0792018092941385
+        },
+        {
+          "n": 21,
+          "a": [
+            0.4028,
+            -0.0242,
+            -0.0381,
+            -0.1248,
+            0.0434,
+            0.1975,
+            -1.008
+          ],
+          "eef": [
+            -0.10506899644374526,
+            -0.002359842502434765,
+            1.1632990054177559
+          ],
+          "grip": 0.07923614975404747
+        },
+        {
+          "n": 22,
+          "a": [
+            0.412,
+            -0.0212,
+            -0.0417,
+            -0.1309,
+            0.0463,
+            0.1945,
+            -1.0127
+          ],
+          "eef": [
+            -0.1004914164408589,
+            -0.0030288573736802216,
+            1.1621741078636072
+          ],
+          "grip": 0.07926901531417538
+        },
+        {
+          "n": 23,
+          "a": [
+            0.4071,
+            -0.019,
+            -0.0399,
+            -0.1342,
+            0.0338,
+            0.1918,
+            -1.0151
+          ],
+          "eef": [
+            -0.09565836572211331,
+            -0.003640155016933249,
+            1.1611979845028686
+          ],
+          "grip": 0.07930047044591701
+        },
+        {
+          "n": 24,
+          "a": [
+            0.4052,
+            -0.0178,
+            -0.0451,
+            -0.135,
+            0.0515,
+            0.1901,
+            -1.0102
+          ],
+          "eef": [
+            -0.09085241883093727,
+            -0.004162310531152347,
+            1.1601771662759135
+          ],
+          "grip": 0.07933057576174565
+        },
+        {
+          "n": 25,
+          "a": [
+            0.3996,
+            -0.0168,
+            -0.0626,
+            -0.1338,
+            0.0597,
+            0.192,
+            -1.0126
+          ],
+          "eef": [
+            -0.08613378968905594,
+            -0.004595537997821711,
+            1.1589693784817832
+          ],
+          "grip": 0.07935938982789986
+        },
+        {
+          "n": 26,
+          "a": [
+            0.1401,
+            -0.0003,
+            -0.2569,
+            -0.1496,
+            0.057,
+            0.2935,
+            -1.0033
+          ],
+          "eef": [
+            -0.08231478975045547,
+            -0.0046033097651339075,
+            1.1569790916077325
+          ],
+          "grip": 0.07938700160010424
+        },
+        {
+          "n": 27,
+          "a": [
+            0.1115,
+            -0.0026,
+            -0.277,
+            -0.1496,
+            0.0664,
+            0.2996,
+            -1.0089
+          ],
+          "eef": [
+            -0.07943764190295673,
+            -0.004314533813931466,
+            1.1542927647545658
+          ],
+          "grip": 0.07941348128538597
+        },
+        {
+          "n": 28,
+          "a": [
+            0.0892,
+            -0.0018,
+            -0.2848,
+            -0.1523,
+            0.0682,
+            0.3034,
+            -1.011
+          ],
+          "eef": [
+            -0.07703244882819707,
+            -0.004010273006717149,
+            1.1513246281024978
+          ],
+          "grip": 0.07943883994161047
+        },
+        {
+          "n": 29,
+          "a": [
+            0.0723,
+            -0.0045,
+            -0.2896,
+            -0.1482,
+            0.0819,
+            0.3022,
+            -1.0088
+          ],
+          "eef": [
+            -0.07510830074395265,
+            -0.003696370435954853,
+            1.1480773286348693
+          ],
+          "grip": 0.07946311603887354
+        },
+        {
+          "n": 30,
+          "a": [
+            0.0635,
+            0.0009,
+            -0.3013,
+            -0.147,
+            0.0916,
+            0.2985,
+            -0.9998
+          ],
+          "eef": [
+            -0.07359692383044836,
+            -0.003396521509673761,
+            1.1445404979260307
+          ],
+          "grip": 0.07948635079220062
+        },
+        {
+          "n": 31,
+          "a": [
+            0.0435,
+            -0.0085,
+            -0.2787,
+            -0.1536,
+            0.0656,
+            0.3372,
+            -1.0076
+          ],
+          "eef": [
+            -0.07203263973357549,
+            -0.0030612031211380286,
+            1.1412658037654393
+          ],
+          "grip": 0.07950860261435978
+        },
+        {
+          "n": 32,
+          "a": [
+            0.0345,
+            -0.0051,
+            -0.282,
+            -0.1599,
+            0.0801,
+            0.3362,
+            -0.9995
+          ],
+          "eef": [
+            -0.07068113831539515,
+            -0.002783606385536014,
+            1.1381056380424104
+          ],
+          "grip": 0.07952992202442015
+        },
+        {
+          "n": 33,
+          "a": [
+            0.0316,
+            -0.0062,
+            -0.2882,
+            -0.1556,
+            0.0816,
+            0.3301,
+            -1.0082
+          ],
+          "eef": [
+            -0.06960504367317896,
+            -0.0025333705476277626,
+            1.1347809485445957
+          ],
+          "grip": 0.079550329482019
+        },
+        {
+          "n": 34,
+          "a": [
+            0.0238,
+            -0.0017,
+            -0.2862,
+            -0.157,
+            0.086,
+            0.3319,
+            -1.007
+          ],
+          "eef": [
+            -0.06869170133788863,
+            -0.0022759449745601568,
+            1.1313677906991466
+          ],
+          "grip": 0.07956985954035241
+        },
+        {
+          "n": 35,
+          "a": [
+            0.0222,
+            0.0023,
+            -0.2875,
+            -0.1571,
+            0.0941,
+            0.3252,
+            -1.0024
+          ],
+          "eef": [
+            -0.06797803500387409,
+            -0.0020326710555253757,
+            1.1278569151183648
+          ],
+          "grip": 0.07958855079329887
+        },
+        {
+          "n": 36,
+          "a": [
+            0.0089,
+            0.002,
+            -0.2818,
+            -0.1401,
+            0.1135,
+            0.3277,
+            -1.0073
+          ],
+          "eef": [
+            -0.06758270986280869,
+            -0.0016410576311028796,
+            1.1241244913580022
+          ],
+          "grip": 0.07960643657007906
+        },
+        {
+          "n": 37,
+          "a": [
+            0.0069,
+            0.0049,
+            -0.2842,
+            -0.1401,
+            0.1141,
+            0.3263,
+            -1.0097
+          ],
+          "eef": [
+            -0.06732191018370443,
+            -0.0012274965322430567,
+            1.1203748820319237
+          ],
+          "grip": 0.07962355273106694
+        },
+        {
+          "n": 38,
+          "a": [
+            0.0022,
+            0.0052,
+            -0.2808,
+            -0.1406,
+            0.1205,
+            0.3191,
+            -1.0146
+          ],
+          "eef": [
+            -0.0671494448772684,
+            -0.0009279110382246561,
+            1.1166620942269352
+          ],
+          "grip": 0.07963303143322101
+        },
+        {
+          "n": 39,
+          "a": [
+            0.0041,
+            0.013,
+            -0.281,
+            -0.1344,
+            0.1272,
+            0.3143,
+            -1.0079
+          ],
+          "eef": [
+            -0.06707739322151697,
+            -0.0006174916875462816,
+            1.1129100251333035
+          ],
+          "grip": 0.07963797981533915
+        },
+        {
+          "n": 40,
+          "a": [
+            0.0071,
+            0.0086,
+            -0.2773,
+            -0.1365,
+            0.1398,
+            0.3116,
+            -1.0052
+          ],
+          "eef": [
+            -0.06710121641825892,
+            -0.00036507864227118547,
+            1.109105108161482
+          ],
+          "grip": 0.0796414986636182
+        },
+        {
+          "n": 41,
+          "a": [
+            0.0203,
+            -0.0076,
+            -0.2667,
+            -0.125,
+            0.0889,
+            0.3036,
+            -1.0093
+          ],
+          "eef": [
+            -0.06663406187638277,
+            -0.00013012472420706467,
+            1.105718884172695
+          ],
+          "grip": 0.07964345402880732
+        },
+        {
+          "n": 42,
+          "a": [
+            0.0316,
+            -0.0073,
+            -0.2798,
+            -0.1305,
+            0.0956,
+            0.3052,
+            -1.0036
+          ],
+          "eef": [
+            -0.06591712737234477,
+            6.309049422579399e-05,
+            1.1024143945464184
+          ],
+          "grip": 0.07964567694100225
+        },
+        {
+          "n": 43,
+          "a": [
+            0.0446,
+            -0.0108,
+            -0.2847,
+            -0.1359,
+            0.1072,
+            0.302,
+            -1.0043
+          ],
+          "eef": [
+            -0.06526431151937381,
+            9.795410535454185e-05,
+            1.0988652535168166
+          ],
+          "grip": 0.07964807502050744
+        },
+        {
+          "n": 44,
+          "a": [
+            0.0613,
+            -0.0139,
+            -0.289,
+            -0.1336,
+            0.1277,
+            0.2954,
+            -1.0054
+          ],
+          "eef": [
+            -0.06473159479044242,
+            3.7353665710906925e-06,
+            1.094985416370938
+          ],
+          "grip": 0.07965074351413459
+        },
+        {
+          "n": 45,
+          "a": [
+            0.0847,
+            -0.0186,
+            -0.2853,
+            -0.1324,
+            0.1384,
+            0.2817,
+            -1.0106
+          ],
+          "eef": [
+            -0.06419388990380373,
+            -0.00025557935657836983,
+            1.0908952679143311
+          ],
+          "grip": 0.07965336368909201
+        },
+        {
+          "n": 46,
+          "a": [
+            0.045,
+            0.0193,
+            -0.2416,
+            -0.1148,
+            0.206,
+            0.2846,
+            -1.0038
+          ],
+          "eef": [
+            -0.0643091196969482,
+            -0.0002727505942534472,
+            1.0864560539171821
+          ],
+          "grip": 0.07965745327178655
+        },
+        {
+          "n": 47,
+          "a": [
+            0.0607,
+            0.0136,
+            -0.2376,
+            -0.1121,
+            0.2032,
+            0.2753,
+            -1.0036
+          ],
+          "eef": [
+            -0.06458393120170322,
+            -0.0001373878953405197,
+            1.0822620009960937
+          ],
+          "grip": 0.07966079230923899
+        },
+        {
+          "n": 48,
+          "a": [
+            0.0795,
+            0.018,
+            -0.2406,
+            -0.1136,
+            0.2125,
+            0.2658,
+            -1.003
+          ],
+          "eef": [
+            -0.06458824466328682,
+            -0.00013294183118991304,
+            1.0783141719715903
+          ],
+          "grip": 0.07966435462502454
+        },
+        {
+          "n": 49,
+          "a": [
+            0.1009,
+            0.0095,
+            -0.2409,
+            -0.1169,
+            0.2309,
+            0.2534,
+            -1.0034
+          ],
+          "eef": [
+            -0.06445229846283024,
+            -0.00036232732206768065,
+            1.0743406324677551
+          ],
+          "grip": 0.07966850174354057
+        },
+        {
+          "n": 50,
+          "a": [
+            0.1271,
+            0.0038,
+            -0.2331,
+            -0.115,
+            0.2444,
+            0.2388,
+            -1.0019
+          ],
+          "eef": [
+            -0.06414795752423802,
+            -0.0008264966202396473,
+            1.0703409701994453
+          ],
+          "grip": 0.07967317945907887
+        },
+        {
+          "n": 51,
+          "a": [
+            0.1494,
+            -0.0195,
+            -0.2213,
+            -0.1021,
+            0.1872,
+            0.234,
+            -1.0011
+          ],
+          "eef": [
+            -0.06297067149616982,
+            -0.0013067854030608672,
+            1.0669261739798805
+          ],
+          "grip": 0.07967735187567482
+        },
+        {
+          "n": 52,
+          "a": [
+            0.1635,
+            -0.0291,
+            -0.2053,
+            -0.1048,
+            0.1894,
+            0.2247,
+            -0.9997
+          ],
+          "eef": [
+            -0.061281010801762265,
+            -0.0018797992945966818,
+            1.0638850927528873
+          ],
+          "grip": 0.07968283937733384
+        },
+        {
+          "n": 53,
+          "a": [
+            0.1964,
+            -0.0352,
+            -0.1876,
+            -0.1057,
+            0.1998,
+            0.2162,
+            -1.0084
+          ],
+          "eef": [
+            -0.05945132578856051,
+            -0.002609096941968453,
+            1.060907627336703
+          ],
+          "grip": 0.07968919451805537
+        },
+        {
+          "n": 54,
+          "a": [
+            0.2376,
+            -0.0565,
+            -0.154,
+            -0.1042,
+            0.1952,
+            0.1941,
+            -1.0089
+          ],
+          "eef": [
+            -0.05730718105331537,
+            -0.003607286006080526,
+            1.0581541093071354
+          ],
+          "grip": 0.07969598691318422
+        },
+        {
+          "n": 55,
+          "a": [
+            0.3149,
+            -0.0853,
+            -0.1186,
+            -0.1052,
+            0.2032,
+            0.168,
+            -1.0049
+          ],
+          "eef": [
+            -0.05468871037541458,
+            -0.005070838371061273,
+            1.0556525072889749
+          ],
+          "grip": 0.07970316263711344
+        },
+        {
+          "n": 56,
+          "a": [
+            0.4289,
+            -0.2034,
+            -0.0982,
+            -0.0692,
+            0.1495,
+            0.1416,
+            -1.0177
+          ],
+          "eef": [
+            -0.05073767180945126,
+            -0.007194375750625107,
+            1.0535699948903454
+          ],
+          "grip": 0.07970940227692047
+        },
+        {
+          "n": 57,
+          "a": [
+            0.4647,
+            -0.2472,
+            -0.062,
+            -0.0634,
+            0.1264,
+            0.1211,
+            -1.0146
+          ],
+          "eef": [
+            -0.045618294477253726,
+            -0.010143031281248521,
+            1.0519642543750392
+          ],
+          "grip": 0.07971613883445969
+        },
+        {
+          "n": 58,
+          "a": [
+            0.4971,
+            -0.2864,
+            -0.0491,
+            -0.0541,
+            0.1223,
+            0.1083,
+            -1.0176
+          ],
+          "eef": [
+            -0.03996652672430892,
+            -0.013674219218633557,
+            1.0506407598032808
+          ],
+          "grip": 0.07972348468869453
+        },
+        {
+          "n": 59,
+          "a": [
+            0.5153,
+            -0.3114,
+            -0.0249,
+            -0.0461,
+            0.113,
+            0.1,
+            -1.019
+          ],
+          "eef": [
+            -0.03392307217740842,
+            -0.01760585467428362,
+            1.0495807194058193
+          ],
+          "grip": 0.07973114306437269
+        },
+        {
+          "n": 60,
+          "a": [
+            0.5364,
+            -0.3306,
+            -0.0141,
+            -0.0432,
+            0.0984,
+            0.0836,
+            -1.0138
+          ],
+          "eef": [
+            -0.0275146242643157,
+            -0.02190990038251274,
+            1.0488622430017267
+          ],
+          "grip": 0.07973900816724387
+        },
+        {
+          "n": 61,
+          "a": [
+            0.5118,
+            -0.132,
+            -0.0227,
+            -0.0497,
+            0.1929,
+            0.1127,
+            -1.0082
+          ],
+          "eef": [
+            -0.02174587262574479,
+            -0.025387365861752248,
+            1.0476270960452403
+          ],
+          "grip": 0.07974840052821044
+        },
+        {
+          "n": 62,
+          "a": [
+            0.5378,
+            -0.166,
+            0.0077,
+            -0.0445,
+            0.1785,
+            0.0987,
+            -1.0142
+          ],
+          "eef": [
+            -0.01611811574226262,
+            -0.028225439461512236,
+            1.0465185179899013
+          ],
+          "grip": 0.07975746272177109
+        },
+        {
+          "n": 63,
+          "a": [
+            0.5477,
+            -0.2174,
+            0.028,
+            -0.0383,
+            0.1626,
+            0.0836,
+            -1.0076
+          ],
+          "eef": [
+            -0.01005891534698981,
+            -0.03135488053962521,
+            1.0459677328264416
+          ],
+          "grip": 0.07976665311636329
+        },
+        {
+          "n": 64,
+          "a": [
+            0.5373,
+            -0.2769,
+            0.0433,
+            -0.0301,
+            0.1318,
+            0.0754,
+            -1.0158
+          ],
+          "eef": [
+            -0.003582384602128773,
+            -0.03491652924326487,
+            1.0459546765498706
+          ],
+          "grip": 0.07977599138002281
+        },
+        {
+          "n": 65,
+          "a": [
+            0.5154,
+            -0.3344,
+            0.0521,
+            -0.027,
+            0.111,
+            0.0652,
+            -1.0131
+          ],
+          "eef": [
+            0.003082155731128631,
+            -0.03899906451416596,
+            1.046365575014776
+          ],
+          "grip": 0.07978553814490605
+        },
+        {
+          "n": 66,
+          "a": [
+            0.416,
+            -0.4053,
+            0.0765,
+            -0.0329,
+            0.1109,
+            0.0814,
+            -1.0148
+          ],
+          "eef": [
+            0.00934992456007625,
+            -0.0436276762846748,
+            1.0471600541042008
+          ],
+          "grip": 0.07979477149080122
+        },
+        {
+          "n": 67,
+          "a": [
+            0.4071,
+            -0.4118,
+            0.0824,
+            -0.0381,
+            0.1012,
+            0.079,
+            -1.0139
+          ],
+          "eef": [
+            0.015268389090880028,
+            -0.04857647446179282,
+            1.0483504551878946
+          ],
+          "grip": 0.0798036125789436
+        },
+        {
+          "n": 68,
+          "a": [
+            0.3939,
+            -0.4196,
+            0.0856,
+            -0.031,
+            0.0851,
+            0.0763,
+            -1.0148
+          ],
+          "eef": [
+            0.02106782834690509,
+            -0.05363128877525118,
+            1.0497214896162512
+          ],
+          "grip": 0.0798120700515225
+        },
+        {
+          "n": 69,
+          "a": [
+            0.3884,
+            -0.4145,
+            0.0795,
+            -0.0333,
+            0.068,
+            0.0735,
+            -1.011
+          ],
+          "eef": [
+            0.02680462022393243,
+            -0.05875982970725367,
+            1.0511863745336765
+          ],
+          "grip": 0.07982015788248582
+        },
+        {
+          "n": 70,
+          "a": [
+            0.3686,
+            -0.4047,
+            0.0704,
+            -0.0348,
+            0.0677,
+            0.0703,
+            -1.0125
+          ],
+          "eef": [
+            0.03228501473996515,
+            -0.06391835529986112,
+            1.0525385807312686
+          ],
+          "grip": 0.07982789460116085
+        },
+        {
+          "n": 71,
+          "a": [
+            0.181,
+            -0.2871,
+            -0.0008,
+            -0.0472,
+            0.0978,
+            0.0989,
+            -1.0122
+          ],
+          "eef": [
+            0.0365302001940855,
+            -0.06833734254335595,
+            1.0533729347124439
+          ],
+          "grip": 0.07983530928068247
+        },
+        {
+          "n": 72,
+          "a": [
+            0.1709,
+            -0.2996,
+            0.0118,
+            -0.0529,
+            0.0792,
+            0.0957,
+            -1.01
+          ],
+          "eef": [
+            0.039972267381591285,
+            -0.07208635080894572,
+            1.054199630430875
+          ],
+          "grip": 0.0798424164901959
+        },
+        {
+          "n": 73,
+          "a": [
+            0.1583,
+            -0.3074,
+            0.0056,
+            -0.0472,
+            0.0572,
+            0.0801,
+            -1.0117
+          ],
+          "eef": [
+            0.043184977437217206,
+            -0.07575154874086265,
+            1.055082492168507
+          ],
+          "grip": 0.07984921042687729
+        },
+        {
+          "n": 74,
+          "a": [
+            0.1519,
+            -0.314,
+            0.0079,
+            -0.047,
+            0.0542,
+            0.0716,
+            -1.0083
+          ],
+          "eef": [
+            0.04609201555447843,
+            -0.07945523206034852,
+            1.0557897683893025
+          ],
+          "grip": 0.07985570350536432
+        },
+        {
+          "n": 75,
+          "a": [
+            0.1407,
+            -0.3133,
+            0.0143,
+            -0.0455,
+            0.0243,
+            0.0657,
+            -1.0116
+          ],
+          "eef": [
+            0.048912558527602484,
+            -0.08317817508112453,
+            1.0565691274565392
+          ],
+          "grip": 0.07986191047339543
+        },
+        {
+          "n": 76,
+          "a": [
+            0.0369,
+            -0.2336,
+            -0.0097,
+            -0.0708,
+            0.0507,
+            0.1123,
+            -1.0098
+          ],
+          "eef": [
+            0.05119665632611852,
+            -0.08640184222838614,
+            1.057328736255741
+          ],
+          "grip": 0.0798678535882599
+        },
+        {
+          "n": 77,
+          "a": [
+            0.0356,
+            -0.2428,
+            0.0083,
+            -0.067,
+            0.0285,
+            0.1113,
+            -1.0146
+          ],
+          "eef": [
+            0.05310153487317862,
+            -0.0890804327892871,
+            1.058231861231239
+          ],
+          "grip": 0.07987355015242498
+        },
+        {
+          "n": 78,
+          "a": [
+            0.0352,
+            -0.2494,
+            0.0159,
+            -0.0616,
+            0.0218,
+            0.1,
+            -1.0103
+          ],
+          "eef": [
+            0.05477541117532414,
+            -0.09167638252057185,
+            1.0591507387623016
+          ],
+          "grip": 0.07987899772952013
+        },
+        {
+          "n": 79,
+          "a": [
+            0.0292,
+            -0.2497,
+            0.0188,
+            -0.0624,
+            0.03,
+            0.0942,
+            -1.0109
+          ],
+          "eef": [
+            0.05608267528453702,
+            -0.09434761415679044,
+            1.0598907587294597
+          ],
+          "grip": 0.07988420811451802
+        },
+        {
+          "n": 80,
+          "a": [
+            0.0224,
+            -0.2472,
+            0.0173,
+            -0.0563,
+            0.03,
+            0.0943,
+            -1.0125
+          ],
+          "eef": [
+            0.057123340478684746,
+            -0.09701095933441112,
+            1.0604665575983903
+          ],
+          "grip": 0.07988919432225777
+        },
+        {
+          "n": 81,
+          "a": [
+            -0.0344,
+            -0.1848,
+            -0.0245,
+            -0.0677,
+            0.0287,
+            0.1345,
+            -1.0066
+          ],
+          "eef": [
+            0.058019722241039344,
+            -0.09921546579801759,
+            1.0609629657825932
+          ],
+          "grip": 0.07989397124406675
+        },
+        {
+          "n": 82,
+          "a": [
+            -0.0283,
+            -0.1805,
+            -0.0212,
+            -0.0744,
+            0.0301,
+            0.1295,
+            -1.0133
+          ],
+          "eef": [
+            0.05870904617429074,
+            -0.10112251006480974,
+            1.0613938741071476
+          ],
+          "grip": 0.0798958370392896
+        },
+        {
+          "n": 83,
+          "a": [
+            -0.0348,
+            -0.1846,
+            -0.0133,
+            -0.067,
+            0.0212,
+            0.1216,
+            -1.0106
+          ],
+          "eef": [
+            0.05919218562089705,
+            -0.10299478954158447,
+            1.061727568888372
+          ],
+          "grip": 0.07989150267686791
+        },
+        {
+          "n": 84,
+          "a": [
+            -0.0347,
+            -0.1847,
+            -0.0088,
+            -0.0607,
+            0.0309,
+            0.1119,
+            -1.0147
+          ],
+          "eef": [
+            0.05928832561503684,
+            -0.10479466213761582,
+            1.061733291918915
+          ],
+          "grip": 0.07981436986830864
+        },
+        {
+          "n": 85,
+          "a": [
+            -0.0427,
+            -0.1824,
+            0.0008,
+            -0.0545,
+            0.0171,
+            0.1072,
+            -1.0116
+          ],
+          "eef": [
+            0.05889309912502118,
+            -0.1060115403190035,
+            1.0611355995105842
+          ],
+          "grip": 0.07949487452935501
+        },
+        {
+          "n": 86,
+          "a": [
+            0.0273,
+            -0.2823,
+            -0.0439,
+            -0.0467,
+            0.0353,
+            0.0905,
+            -1.0112
+          ],
+          "eef": [
+            0.05848849255618788,
+            -0.10668385731567254,
+            1.0598872091162357
+          ],
+          "grip": 0.07910116554376738
+        },
+        {
+          "n": 87,
+          "a": [
+            0.0214,
+            -0.3003,
+            -0.0316,
+            -0.0442,
+            0.018,
+            0.0793,
+            -1.0152
+          ],
+          "eef": [
+            0.05832897065163709,
+            -0.10761778215193521,
+            1.0583844306307049
+          ],
+          "grip": 0.07873702680079223
+        },
+        {
+          "n": 88,
+          "a": [
+            0.0039,
+            -0.3128,
+            -0.0438,
+            -0.0334,
+            -0.0021,
+            0.0661,
+            -1.0125
+          ],
+          "eef": [
+            0.05826087365701683,
+            -0.10861038043907825,
+            1.056912103417335
+          ],
+          "grip": 0.07840949004809605
+        },
+        {
+          "n": 89,
+          "a": [
+            -0.0123,
+            -0.3239,
+            -0.0636,
+            -0.0308,
+            0.0056,
+            0.0504,
+            -1.0136
+          ],
+          "eef": [
+            0.05807129803250567,
+            -0.10986381703171473,
+            1.0553121474770226
+          ],
+          "grip": 0.07805587713046047
+        },
+        {
+          "n": 90,
+          "a": [
+            -0.0321,
+            -0.3267,
+            -0.0831,
+            -0.0228,
+            0.002,
+            0.0407,
+            -1.0165
+          ],
+          "eef": [
+            0.057757748283437306,
+            -0.11123871787346692,
+            1.0535578450860175
+          ],
+          "grip": 0.07779638293413015
+        },
+        {
+          "n": 91,
+          "a": [
+            0.0124,
+            -0.3089,
+            -0.1518,
+            -0.0126,
+            -0.0062,
+            0.0903,
+            -1.0116
+          ],
+          "eef": [
+            0.05799108485376901,
+            -0.1126385541565009,
+            1.0515346947202109
+          ],
+          "grip": 0.07782861704572584
+        },
+        {
+          "n": 92,
+          "a": [
+            -0.0005,
+            -0.3132,
+            -0.1376,
+            -0.0147,
+            -0.0063,
+            0.0878,
+            -1.0091
+          ],
+          "eef": [
+            0.058407373889279295,
+            -0.11417650343141567,
+            1.0492011462201516
+          ],
+          "grip": 0.07782156200819998
+        },
+        {
+          "n": 93,
+          "a": [
+            -0.0143,
+            -0.3087,
+            -0.1429,
+            -0.0215,
+            -0.0004,
+            0.0793,
+            -1.0052
+          ],
+          "eef": [
+            0.05857090128921433,
+            -0.11572385527427224,
+            1.0467976982782679
+          ],
+          "grip": 0.07771253479017837
+        },
+        {
+          "n": 94,
+          "a": [
+            -0.0251,
+            -0.2853,
+            -0.1467,
+            -0.0158,
+            0.0061,
+            0.0736,
+            -1.0022
+          ],
+          "eef": [
+            0.05854153818172322,
+            -0.11741115985452406,
+            1.0443927655877936
+          ],
+          "grip": 0.07778264954944009
+        },
+        {
+          "n": 95,
+          "a": [
+            -0.0329,
+            -0.2754,
+            -0.1544,
+            -0.0153,
+            -0.0014,
+            0.0665,
+            -1.0025
+          ],
+          "eef": [
+            0.058425055001021714,
+            -0.1184950832611618,
+            1.0426858164155177
+          ],
+          "grip": 0.07788997284025896
+        },
+        {
+          "n": 96,
+          "a": [
+            -0.0051,
+            -0.3031,
+            -0.1506,
+            0.0143,
+            -0.0358,
+            -0.0506,
+            -1.0049
+          ],
+          "eef": [
+            0.05852244238563447,
+            -0.11843031779235029,
+            1.0428725345452314
+          ],
+          "grip": 0.07808346643270783
+        },
+        {
+          "n": 97,
+          "a": [
+            -0.0135,
+            -0.3137,
+            -0.1658,
+            0.0209,
+            -0.042,
+            -0.0593,
+            -1.0155
+          ],
+          "eef": [
+            0.05883066775034609,
+            -0.11870650329988437,
+            1.0430824687157112
+          ],
+          "grip": 0.07812068341837199
+        },
+        {
+          "n": 98,
+          "a": [
+            -0.0151,
+            -0.3108,
+            -0.1953,
+            0.028,
+            -0.0433,
+            -0.0736,
+            -1.0144
+          ],
+          "eef": [
+            0.05928177716472163,
+            -0.11905333458129108,
+            1.0433481196221008
+          ],
+          "grip": 0.07819978633606267
+        },
+        {
+          "n": 99,
+          "a": [
+            -0.0233,
+            -0.3033,
+            -0.2419,
+            0.033,
+            -0.0526,
+            -0.0891,
+            -1.0054
+          ],
+          "eef": [
+            0.05980899824042036,
+            -0.11944997304815924,
+            1.0436604879046947
+          ],
+          "grip": 0.07827684499878973
+        },
+        {
+          "n": 100,
+          "a": [
+            -0.0341,
+            -0.3051,
+            -0.2954,
+            0.0502,
+            -0.0585,
+            -0.1024,
+            -1.006
+          ],
+          "eef": [
+            0.060383142382563176,
+            -0.11991809807426529,
+            1.0440370058461446
+          ],
+          "grip": 0.07832234919772191
+        },
+        {
+          "n": 101,
+          "a": [
+            -0.0275,
+            -0.3311,
+            -0.2151,
+            -0.0006,
+            -0.0128,
+            -0.0236,
+            -1.0151
+          ],
+          "eef": [
+            0.06081777725822149,
+            -0.12036278144652171,
+            1.0442871856987797
+          ],
+          "grip": 0.07835966865574409
+        },
+        {
+          "n": 102,
+          "a": [
+            -0.0373,
+            -0.3329,
+            -0.2544,
+            0.0036,
+            -0.011,
+            -0.0247,
+            -1.0091
+          ],
+          "eef": [
+            0.06108465554231749,
+            -0.12071795642311225,
+            1.0443771348130928
+          ],
+          "grip": 0.07838232047292938
+        },
+        {
+          "n": 103,
+          "a": [
+            -0.0573,
+            -0.3219,
+            -0.3095,
+            0.0113,
+            -0.0232,
+            -0.0343,
+            -1.0115
+          ],
+          "eef": [
+            0.06135435138478819,
+            -0.12107120717512689,
+            1.0444592071912673
+          ],
+          "grip": 0.07841736974898528
+        },
+        {
+          "n": 104,
+          "a": [
+            -0.0673,
+            -0.3102,
+            -0.3761,
+            0.0134,
+            -0.0193,
+            -0.0365,
+            -1.0037
+          ],
+          "eef": [
+            0.061625331288419044,
+            -0.1214111070535247,
+            1.0445531797693561
+          ],
+          "grip": 0.07844773544060352
+        },
+        {
+          "n": 105,
+          "a": [
+            -0.0757,
+            -0.2983,
+            -0.4335,
+            0.0185,
+            -0.0211,
+            -0.0435,
+            -1.0095
+          ],
+          "eef": [
+            0.061763158136414434,
+            -0.12181242543347488,
+            1.0440707858705702
+          ],
+          "grip": 0.0785548506875194
+        },
+        {
+          "n": 106,
+          "a": [
+            0.0756,
+            -0.082,
+            -0.0876,
+            -0.0484,
+            -0.0057,
+            0.0091,
+            -1.011
+          ],
+          "eef": [
+            0.062150656999772666,
+            -0.12210611892209214,
+            1.0434546314798754
+          ],
+          "grip": 0.07863317515185159
+        },
+        {
+          "n": 107,
+          "a": [
+            0.0526,
+            -0.0957,
+            -0.09,
+            -0.0561,
+            -0.0108,
+            0.0093,
+            -1.0046
+          ],
+          "eef": [
+            0.06261994550399098,
+            -0.12236503342172186,
+            1.0430998407367675
+          ],
+          "grip": 0.07868384056981012
+        },
+        {
+          "n": 108,
+          "a": [
+            0.0048,
+            -0.1526,
+            -0.1072,
+            -0.0407,
+            -0.0168,
+            0.0114,
+            -1.0062
+          ],
+          "eef": [
+            0.06294687821221394,
+            -0.12269970799050064,
+            1.042606551563888
+          ],
+          "grip": 0.07872794865656604
+        },
+        {
+          "n": 109,
+          "a": [
+            -0.0446,
+            -0.2371,
+            -0.1654,
+            -0.0193,
+            -0.0144,
+            0.0091,
+            -1.0104
+          ],
+          "eef": [
+            0.06306824185806433,
+            -0.12308420445114122,
+            1.0420185484183289
+          ],
+          "grip": 0.07876992167210145
+        },
+        {
+          "n": 110,
+          "a": [
+            -0.0956,
+            -0.3167,
+            -0.2513,
+            0.006,
+            -0.0122,
+            0.002,
+            -1.0044
+          ],
+          "eef": [
+            0.06302211317406259,
+            -0.12346867669150276,
+            1.0412388646977553
+          ],
+          "grip": 0.07881011435007378
+        },
+        {
+          "n": 111,
+          "a": [
+            -0.0832,
+            -0.2766,
+            -0.3323,
+            -0.0105,
+            -0.0257,
+            0.0218,
+            -1.0109
+          ],
+          "eef": [
+            0.06309491258703376,
+            -0.12370872762615465,
+            1.0403822731022534
+          ],
+          "grip": 0.07884891377068678
+        },
+        {
+          "n": 112,
+          "a": [
+            -0.0801,
+            -0.2696,
+            -0.3251,
+            -0.0123,
+            -0.0355,
+            0.0199,
+            -1.0134
+          ],
+          "eef": [
+            0.06322416600160176,
+            -0.12393520941511586,
+            1.0393304362619324
+          ],
+          "grip": 0.07888593238696567
+        },
+        {
+          "n": 113,
+          "a": [
+            -0.0776,
+            -0.2629,
+            -0.3225,
+            -0.0115,
+            -0.039,
+            0.0096,
+            -1.0092
+          ],
+          "eef": [
+            0.06333641265728247,
+            -0.12420764398122251,
+            1.038132420426368
+          ],
+          "grip": 0.07892128465685447
+        },
+        {
+          "n": 114,
+          "a": [
+            -0.0885,
+            -0.2699,
+            -0.3363,
+            -0.0106,
+            -0.0247,
+            0.0066,
+            -1.0096
+          ],
+          "eef": [
+            0.06330233799018764,
+            -0.12458018997122115,
+            1.036587441583117
+          ],
+          "grip": 0.07895500386784429
+        },
+        {
+          "n": 115,
+          "a": [
+            -0.1078,
+            -0.2908,
+            -0.354,
+            -0.002,
+            -0.0297,
+            0.0034,
+            -1.0088
+          ],
+          "eef": [
+            0.06318506748703259,
+            -0.12490692589335411,
+            1.0349178463883915
+          ],
+          "grip": 0.0789874455899924
+        },
+        {
+          "n": 116,
+          "a": [
+            -0.1239,
+            -0.3471,
+            -0.1996,
+            -0.014,
+            -0.0516,
+            0.0124,
+            -1.0032
+          ],
+          "eef": [
+            0.06327465409016841,
+            -0.12535418114956964,
+            1.034338085056828
+          ],
+          "grip": 0.07901821283984618
+        },
+        {
+          "n": 117,
+          "a": [
+            -0.132,
+            -0.3516,
+            -0.2797,
+            -0.0027,
+            -0.0612,
+            0.0046,
+            -1.0045
+          ],
+          "eef": [
+            0.06351485476792598,
+            -0.12573546539400904,
+            1.0344361384416256
+          ],
+          "grip": 0.07904798364259356
+        },
+        {
+          "n": 118,
+          "a": [
+            -0.1381,
+            -0.3449,
+            -0.4019,
+            0.01,
+            -0.0619,
+            -0.0109,
+            -0.9995
+          ],
+          "eef": [
+            0.06357665293957367,
+            -0.1261309482264001,
+            1.0335960488473155
+          ],
+          "grip": 0.07907674304755993
+        },
+        {
+          "n": 119,
+          "a": [
+            -0.1346,
+            -0.3091,
+            -0.5353,
+            0.0264,
+            -0.0734,
+            -0.0249,
+            -1.002
+          ],
+          "eef": [
+            0.06343879915578533,
+            -0.1265269373005448,
+            1.0311901149499074
+          ],
+          "grip": 0.07910464555021873
+        },
+        {
+          "n": 120,
+          "a": [
+            -0.1195,
+            -0.2589,
+            -0.6406,
+            0.0404,
+            -0.075,
+            -0.0308,
+            -1.0005
+          ],
+          "eef": [
+            0.0628972662608311,
+            -0.1279126003515876,
+            1.0258490320712694
+          ],
+          "grip": 0.07913122508411566
+        },
+        {
+          "n": 121,
+          "a": [
+            -0.151,
+            -0.3227,
+            -0.4242,
+            0.0177,
+            -0.0078,
+            0.0394,
+            -1.0035
+          ],
+          "eef": [
+            0.06385505615547798,
+            -0.13035608851703528,
+            1.023764737816536
+          ],
+          "grip": 0.08046123266557617
+        },
+        {
+          "n": 122,
+          "a": [
+            -0.1704,
+            -0.3457,
+            -0.4563,
+            0.0209,
+            -0.0067,
+            0.036,
+            -1.0014
+          ],
+          "eef": [
+            0.06441859394183141,
+            -0.13076779957910784,
+            1.0236389018636731
+          ],
+          "grip": 0.08071103338346997
+        },
+        {
+          "n": 123,
+          "a": [
+            -0.1844,
+            -0.352,
+            -0.4895,
+            0.0346,
+            -0.0235,
+            0.0329,
+            -1.0049
+          ],
+          "eef": [
+            0.06444444944364339,
+            -0.13077207320373607,
+            1.023576609600793
+          ],
+          "grip": 0.08072749371991227
+        },
+        {
+          "n": 124,
+          "a": [
+            -0.1973,
+            -0.335,
+            -0.555,
+            0.0357,
+            -0.0392,
+            0.0272,
+            -1.0039
+          ],
+          "eef": [
+            0.064486209640267,
+            -0.1307711834725116,
+            1.0235697664641579
+          ],
+          "grip": 0.08076157162599204
+        },
+        {
+          "n": 125,
+          "a": [
+            -0.2149,
+            -0.2888,
+            -0.6264,
+            0.0377,
+            -0.0257,
+            0.0283,
+            -1.001
+          ],
+          "eef": [
+            0.06450558283242469,
+            -0.13077800785677246,
+            1.023580815851375
+          ],
+          "grip": 0.08077012348152898
+        },
+        {
+          "n": 126,
+          "a": [
+            -0.0221,
+            0.7301,
+            -0.8062,
+            0.0358,
+            0.0228,
+            0.0035,
+            -1.003
+          ],
+          "eef": [
+            0.06458973466541634,
+            -0.12933726423223874,
+            1.0235463077017095
+          ],
+          "grip": 0.08085496829043916
+        },
+        {
+          "n": 127,
+          "a": [
+            -0.0314,
+            0.7792,
+            -0.8054,
+            0.0287,
+            0.0242,
+            0.0041,
+            -1.0039
+          ],
+          "eef": [
+            0.064662372440571,
+            -0.126215141803369,
+            1.0234448610351954
+          ],
+          "grip": 0.08092318963843814
+        },
+        {
+          "n": 128,
+          "a": [
+            -0.0362,
+            0.8169,
+            -0.8011,
+            0.0159,
+            0.0211,
+            0.0069,
+            -1.0044
+          ],
+          "eef": [
+            0.06469355138187258,
+            -0.12229726915098511,
+            1.0232864523406329
+          ],
+          "grip": 0.08094862367159486
+        },
+        {
+          "n": 129,
+          "a": [
+            -0.0442,
+            0.838,
+            -0.7959,
+            0.0157,
+            0.0184,
+            0.0086,
+            -0.9996
+          ],
+          "eef": [
+            0.06471305980011882,
+            -0.11775154955321011,
+            1.023084116372563
+          ],
+          "grip": 0.08096360458068991
+        },
+        {
+          "n": 130,
+          "a": [
+            -0.0526,
+            0.8601,
+            -0.7957,
+            0.0105,
+            0.0194,
+            0.0117,
+            -1.0024
+          ],
+          "eef": [
+            0.06472020046843172,
+            -0.11266428561068949,
+            1.022852878009842
+          ],
+          "grip": 0.08096770648642423
+        },
+        {
+          "n": 131,
+          "a": [
+            -0.0761,
+            0.7759,
+            -0.8021,
+            0.0335,
+            0.0203,
+            -0.0006,
+            -0.9997
+          ],
+          "eef": [
+            0.06473310699616038,
+            -0.10737066442444884,
+            1.022586574611251
+          ],
+          "grip": 0.0809816061098973
+        },
+        {
+          "n": 132,
+          "a": [
+            -0.087,
+            0.8026,
+            -0.8086,
+            0.0289,
+            0.0232,
+            0.0006,
+            -1.0046
+          ],
+          "eef": [
+            0.06473394712483892,
+            -0.10206989370003715,
+            1.022319903139779
+          ],
+          "grip": 0.08098420305004513
+        },
+        {
+          "n": 133,
+          "a": [
+            -0.0996,
+            0.8187,
+            -0.799,
+            0.0188,
+            0.0178,
+            0.0024,
+            -1.004
+          ],
+          "eef": [
+            0.06471196443722702,
+            -0.0966335926419522,
+            1.0220682199471745
+          ],
+          "grip": 0.08096417512624354
+        },
+        {
+          "n": 134,
+          "a": [
+            -0.11,
+            0.8404,
+            -0.8035,
+            0.0213,
+            0.014,
+            0.0022,
+            -1.005
+          ],
+          "eef": [
+            0.06468797268649817,
+            -0.09092358173317583,
+            1.0218323842107766
+          ],
+          "grip": 0.08094433690111243
+        },
+        {
+          "n": 135,
+          "a": [
+            -0.118,
+            0.8575,
+            -0.7979,
+            0.0157,
+            0.0179,
+            0.0054,
+            -1.0029
+          ],
+          "eef": [
+            0.06465005939966398,
+            -0.08492427958172935,
+            1.0216173171525516
+          ],
+          "grip": 0.08091092838772976
+        },
+        {
+          "n": 136,
+          "a": [
+            -0.051,
+            0.8423,
+            -0.7824,
+            0.0049,
+            0.012,
+            0.0076,
+            -1.0064
+          ],
+          "eef": [
+            0.06468912080047526,
+            -0.07894025020007905,
+            1.0213750411394327
+          ],
+          "grip": 0.08096511196846981
+        },
+        {
+          "n": 137,
+          "a": [
+            -0.0555,
+            0.8423,
+            -0.7784,
+            0.003,
+            0.0145,
+            0.007,
+            -1.0034
+          ],
+          "eef": [
+            0.06471796119934205,
+            -0.0730159847917348,
+            1.0211106606810438
+          ],
+          "grip": 0.08100601364449089
+        },
+        {
+          "n": 138,
+          "a": [
+            -0.0549,
+            0.8485,
+            -0.7775,
+            0.0005,
+            0.0032,
+            0.0114,
+            -1.008
+          ],
+          "eef": [
+            0.06472838668107239,
+            -0.06690472984862313,
+            1.020841342155507
+          ],
+          "grip": 0.08102948881476527
+        },
+        {
+          "n": 139,
+          "a": [
+            -0.056,
+            0.8461,
+            -0.7681,
+            -0.0075,
+            0.0125,
+            0.013,
+            -0.9971
+          ],
+          "eef": [
+            0.06471450834831985,
+            -0.06061964618360921,
+            1.020563900852766
+          ],
+          "grip": 0.08102800063811733
+        },
+        {
+          "n": 140,
+          "a": [
+            -0.0593,
+            0.8443,
+            -0.7515,
+            -0.0005,
+            0.0058,
+            0.0139,
+            -1.01
+          ],
+          "eef": [
+            0.0646948670391393,
+            -0.054099724193696005,
+            1.0202827366734721
+          ],
+          "grip": 0.08102357711284602
+        },
+        {
+          "n": 141,
+          "a": [
+            -0.072,
+            0.8826,
+            -0.8606,
+            0.0121,
+            0.0418,
+            0.017,
+            -1.006
+          ],
+          "eef": [
+            0.06465936695547753,
+            -0.047275705156564,
+            1.0199386148564042
+          ],
+          "grip": 0.08101123675404523
+        },
+        {
+          "n": 142,
+          "a": [
+            -0.0691,
+            0.8821,
+            -0.8547,
+            0.0044,
+            0.0323,
+            0.0138,
+            -1.0042
+          ],
+          "eef": [
+            0.06464946623285248,
+            -0.040251451577043906,
+            1.019532604536035
+          ],
+          "grip": 0.08103994198764056
+        },
+        {
+          "n": 143,
+          "a": [
+            -0.0703,
+            0.8787,
+            -0.852,
+            0.0037,
+            0.0341,
+            0.017,
+            -0.994
+          ],
+          "eef": [
+            0.06463292562460943,
+            -0.03306135383475857,
+            1.019082650215917
+          ],
+          "grip": 0.08106940260121623
+        },
+        {
+          "n": 144,
+          "a": [
+            -0.0757,
+            0.8731,
+            -0.8449,
+            0.0091,
+            0.0354,
+            0.0181,
+            -1.0036
+          ],
+          "eef": [
+            0.06459395728558164,
+            -0.025634115537125565,
+            1.0186070949773547
+          ],
+          "grip": 0.08108397120448287
+        },
+        {
+          "n": 145,
+          "a": [
+            -0.0802,
+            0.8719,
+            -0.8353,
+            0.0049,
+            0.0361,
+            0.0179,
+            -1.0021
+          ],
+          "eef": [
+            0.06453745096718597,
+            -0.018018225334030996,
+            1.0181211955197444
+          ],
+          "grip": 0.0810879944414767
+        },
+        {
+          "n": 146,
+          "a": [
+            -0.1322,
+            0.9412,
+            -0.9205,
+            0.0043,
+            0.0031,
+            0.0319,
+            -1.0034
+          ],
+          "eef": [
+            0.06447761221558138,
+            -0.009939520141568556,
+            1.0176556472995952
+          ],
+          "grip": 0.08109095986138759
+        },
+        {
+          "n": 147,
+          "a": [
+            -0.1323,
+            0.9306,
+            -0.8949,
+            -0.0028,
+            0.0072,
+            0.0295,
+            -1.0031
+          ],
+          "eef": [
+            0.0644038169374812,
+            -0.0014031071671285616,
+            1.0172373522290183
+          ],
+          "grip": 0.08107676798571377
+        },
+        {
+          "n": 148,
+          "a": [
+            -0.1351,
+            0.9278,
+            -0.8813,
+            -0.0045,
+            0.0089,
+            0.0329,
+            -1.0022
+          ],
+          "eef": [
+            0.06431448785030237,
+            0.007306235219977128,
+            1.016846686471585
+          ],
+          "grip": 0.08104625477107835
+        },
+        {
+          "n": 149,
+          "a": [
+            -0.1384,
+            0.9186,
+            -0.8806,
+            -0.0008,
+            0.0048,
+            0.0337,
+            -1.0057
+          ],
+          "eef": [
+            0.06423203182197716,
+            0.016147607098067965,
+            1.016472439857059
+          ],
+          "grip": 0.08102524086543278
+        },
+        {
+          "n": 150,
+          "a": [
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06469595507201734,
+            0.02224091973004902,
+            1.019103810784006
+          ],
+          "grip": 0.08035557291855097
+        },
+        {
+          "n": 151,
+          "a": [
+            -0.0093,
+            -0.1219,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.0658051495408903,
+            0.025129272244126852,
+            1.0244908306869576
+          ],
+          "grip": 0.08009449063832391
+        },
+        {
+          "n": 152,
+          "a": [
+            -0.0315,
+            -0.1796,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06700879213591522,
+            0.026347165800242794,
+            1.0305850495443571
+          ],
+          "grip": 0.08004240602412396
+        },
+        {
+          "n": 153,
+          "a": [
+            -0.0555,
+            -0.204,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06806879610828134,
+            0.026549835374844732,
+            1.0370292765559643
+          ],
+          "grip": 0.08001885467087931
+        },
+        {
+          "n": 154,
+          "a": [
+            -0.0767,
+            -0.208,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06888283867929193,
+            0.026183558585547634,
+            1.043662271884195
+          ],
+          "grip": 0.07999786546720788
+        },
+        {
+          "n": 155,
+          "a": [
+            -0.093,
+            -0.2007,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06942193059534923,
+            0.025531079723552952,
+            1.0504007797146486
+          ],
+          "grip": 0.07997763842669198
+        },
+        {
+          "n": 156,
+          "a": [
+            -0.1038,
+            -0.1877,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06969775996571033,
+            0.024755379040899236,
+            1.0571962502402152
+          ],
+          "grip": 0.0799581088740407
+        },
+        {
+          "n": 157,
+          "a": [
+            -0.1093,
+            -0.1722,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06974333187208419,
+            0.02394299673005089,
+            1.0640131760559246
+          ],
+          "grip": 0.07993924563352867
+        },
+        {
+          "n": 158,
+          "a": [
+            -0.1102,
+            -0.1559,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06960008771989958,
+            0.023136770230343273,
+            1.0708281885636222
+          ],
+          "grip": 0.0799210299476595
+        },
+        {
+          "n": 159,
+          "a": [
+            -0.1074,
+            -0.1398,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06931042283591202,
+            0.022356213409786718,
+            1.0776270994603663
+          ],
+          "grip": 0.07990345137018748
+        },
+        {
+          "n": 160,
+          "a": [
+            -0.1016,
+            -0.1242,
+            0.3769,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06892335454059556,
+            0.02157051572914473,
+            1.0837313437736975
+          ],
+          "grip": 0.0798870445932884
+        },
+        {
+          "n": 161,
+          "a": [
+            -0.0938,
+            -0.1085,
+            0.2548,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06845467776377452,
+            0.020706448800288407,
+            1.0884474017451686
+          ],
+          "grip": 0.07987172941406964
+        },
+        {
+          "n": 162,
+          "a": [
+            -0.0845,
+            -0.0912,
+            0.1605,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06792081452217867,
+            0.01979932743126489,
+            1.0917637232338433
+          ],
+          "grip": 0.07985726228636222
+        },
+        {
+          "n": 163,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06765185308287223,
+            0.019218168129385885,
+            1.093406730616255
+          ],
+          "grip": 0.07984440331622719
+        },
+        {
+          "n": 164,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06751090568586356,
+            0.018821131222692036,
+            1.0938937858697209
+          ],
+          "grip": 0.07983146812166211
+        },
+        {
+          "n": 165,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.06734323450315041,
+            0.018486202824588238,
+            1.094075799560084
+          ],
+          "grip": 0.07981867666938758
+        }
+      ],
+      "step": {
+        "skill": "open_drawer",
+        "object_n": null,
+        "target_n": "wooden_cabinet_1_middle_region",
+        "relation": "open",
+        "prompt": "open the middle drawer of the cabinet"
+      }
+    }
+  ],
+  "final_verification": {
+    "ok": true,
+    "samples": 3,
+    "steps": [
+      {
+        "step": {
+          "skill": "open_drawer",
+          "object_n": null,
+          "target_n": "wooden_cabinet_1_middle_region",
+          "relation": "open",
+          "prompt": "open the middle drawer of the cabinet"
+        },
+        "ok": true,
+        "verification": {
+          "skill": "open_drawer",
+          "samples": 3,
+          "required_samples": 3,
+          "stable": true,
+          "per_sample_ok": [
+            true,
+            true,
+            true
+          ],
+          "last": {
+            "skill": "open_drawer",
+            "native_goal": true,
+            "observation_id": "query-47f830536ef448a9a7bcdd7a3923efff:5:168:477",
+            "sim_action_count": 168,
+            "scene_epoch": 5,
+            "release_required": false,
+            "ok": true,
+            "ready": true,
+            "predicate": "drawer_open",
+            "joint": "wooden_cabinet_1_middle_level",
+            "qpos": -0.15661768471162438,
+            "threshold": -0.14,
+            "evidence_source": "sim_joint"
+          },
+          "evidence_source": "sim_state",
+          "release_required": false,
+          "release": null,
+          "ok": true,
+          "reason_code": null
+        }
+      }
+    ]
+  },
+  "timing": {
+    "planner_s": 5.506,
+    "execution_s": 19.543,
+    "release_s": 0.986,
+    "verification_s": 0.461,
+    "inference_s_sum": 10.528,
+    "env_step_s_sum": 11.132,
+    "snapshot_s_sum": 1.52,
+    "chunk_gap_s_sum": 0.001,
+    "chunk_decision_wait_s_sum": 6.396,
+    "prefetch_inference_overlap_s_est": 10.178,
+    "recovery_s": 0.0,
+    "total_s_engine": 28.538,
+    "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+  },
+  "sim_action_count": 168,
+  "episode_sim_actions": 168,
+  "recovery_count": 0,
+  "recovery_log": [],
+  "human_interventions": 0,
+  "inference_mode": "async_chunk_prefetch",
+  "model": {
+    "backend": "pi05",
+    "name": "Pi0.5 LIBERO-130 SFT",
+    "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+    "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
+    "action_chunk": 5,
+    "action_dim": 7,
+    "control_frequency_hz": 20,
+    "openwam": {
+      "name": "OpenWAM-Alpha-Sim-LIBERO",
+      "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+      "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+      "checkpoint_file": "checkpoint_step_10690.safetensors",
+      "action_horizon": 10,
+      "denoise_steps": 10,
+      "integration": "not_on_execution_path",
+      "reason": "no verified LIBERO action weights on disk; video-only checkpoint is not control"
+    }
+  },
+  "agent_model": "Qwen3.5-9B",
+  "env": {
+    "suite": "libero_goal",
+    "seed": 0,
+    "task_id": 0,
+    "port": 14561,
+    "identity": {
+      "service_instance_id": "47f830536ef448a9a7bcdd7a3923efff",
+      "scene_generation": 4,
+      "sim_action_count": 151,
+      "task_scope": "official_single",
+      "mode": "free",
+      "code": "episode-service-state-1"
+    },
+    "ready": true
+  },
+  "page": {
+    "ui": "page_ui (restored old Page, backend bridge)",
+    "human_confirmation": false
+  }
+}

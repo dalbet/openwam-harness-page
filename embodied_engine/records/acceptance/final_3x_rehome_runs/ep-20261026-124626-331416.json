@@ -1,0 +1,6777 @@
+{
+  "schema": "embodied_engine.run.v1",
+  "task_id": 8,
+  "task_bddl": "put_the_bowl_on_the_plate.bddl",
+  "instruction": "put the bowl on the plate",
+  "episode_id": "ep-20261026-124626-331416",
+  "run_id": 6,
+  "scene_epoch": 4,
+  "started_at": "2026-10-26T12:46:26",
+  "ended_at": "2026-10-26T12:46:51",
+  "duration_s": 24.577,
+  "phase": "completed",
+  "execution_status": "completed",
+  "native_task_success": true,
+  "native_goal_final": true,
+  "user_goal_success": true,
+  "user_goal_status": "met",
+  "failure_code": null,
+  "failure_reason": null,
+  "failure_evidence": null,
+  "plan": {
+    "interpretation": "Pick up the akita_black_bowl_1 and place it on the plate_1.",
+    "success_condition": "The native goal atom 'On akita_black_bowl_1 plate_1' is true after the release.",
+    "steps": [
+      {
+        "skill": "pick_place",
+        "object_n": "akita_black_bowl_1",
+        "target_n": "plate_1",
+        "relation": "on",
+        "prompt": "put the black bowl on the plate"
+      }
+    ],
+    "source": "qwen3.5-9b",
+    "planner_vision": false,
+    "latency_s": 6.06,
+    "agent_response": {
+      "status": "ok",
+      "steps": [
+        {
+          "skill": "pick_place",
+          "object_n": "akita_black_bowl_1",
+          "target_n": "plate_1",
+          "relation": "on",
+          "prompt": "put the black bowl on the plate"
+        }
+      ],
+      "errors": [],
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "initial",
+          "timing": {
+            "elapsed_s": 6.053,
+            "prompt_tokens": 1715,
+            "completion_tokens": 132,
+            "model": "Qwen3.5-9B"
+          },
+          "raw_chars": 393
+        }
+      ],
+      "total_s": 6.054,
+      "source": "qwen3.5-9b",
+      "planner_vision": false
+    }
+  },
+  "steps": [
+    {
+      "skill": "pick_place",
+      "object_n": "akita_black_bowl_1",
+      "target_n": "plate_1",
+      "relation": "on",
+      "prompt": "put the black bowl on the plate",
+      "phase_reached": "release",
+      "ok": true,
+      "verification": {
+        "skill": "pick_place",
+        "samples": 3,
+        "required_samples": 3,
+        "stable": true,
+        "per_sample_ok": [
+          true,
+          true,
+          true
+        ],
+        "last": {
+          "skill": "pick_place",
+          "native_goal": true,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:127:404",
+          "sim_action_count": 127,
+          "scene_epoch": 4,
+          "release_required": true,
+          "ok": true,
+          "ready": true,
+          "predicate": "relation+release_height",
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.0219,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.0689554479108759,
+              -0.004327204879174216,
+              0.9024930615935173
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "height": {
+            "ready": true,
+            "kind": "support_plane",
+            "object_bottom_z": 0.8964,
+            "surface_z": 0.9078,
+            "delta_m": -0.0115
+          },
+          "object_pose": [
+            0.08725563329541414,
+            -0.016436435581836575,
+            0.9083645216473082
+          ],
+          "drop_release": {
+            "trigger": false,
+            "reason": "not_in_place"
+          },
+          "evidence_source": "asset_geometry"
+        },
+        "evidence_source": "sim_state",
+        "release_required": true,
+        "release": {
+          "commanded": true,
+          "gripper_command": -1.0,
+          "command_sim_action_count": 98,
+          "command_observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:98:375",
+          "opening_before_m": 0.004782181764528552,
+          "relation_before": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.0261,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9028,
+            "support_z": 0.9102,
+            "target_pose": [
+              0.06311315161902936,
+              -0.008776197449347805,
+              0.904820531613938
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "descent": {
+            "applied": false,
+            "reason": "no_drop_trigger"
+          },
+          "actions": 10,
+          "sim_action_count": 108,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:108:385",
+          "gripper_opening_m": 0.06580687260247955,
+          "retreat_s": 2.087,
+          "after_retreat": {
+            "sim_action_count": 124,
+            "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:124:401"
+          }
+        },
+        "release_evidence": {
+          "status": "verified",
+          "release_opening_m": 0.06580687260247955,
+          "final_opening_m": 0.07869817928574852,
+          "release_sim_action_count": 108,
+          "final_sim_action_count": 127,
+          "release_observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:108:385",
+          "final_observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:127:404",
+          "min_opening_m": 0.05
+        },
+        "ok": true,
+        "reason_code": null,
+        "verify_s": 0.232,
+        "release_matches_step": true
+      },
+      "release": {
+        "commanded": true,
+        "gripper_command": -1.0,
+        "command_sim_action_count": 98,
+        "command_observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:98:375",
+        "opening_before_m": 0.004782181764528552,
+        "relation_before": {
+          "ok": true,
+          "predicate": "plate_support",
+          "xy_m": 0.0261,
+          "xy_limit_m": 0.03,
+          "object_bottom_z": 0.9028,
+          "support_z": 0.9102,
+          "target_pose": [
+            0.06311315161902936,
+            -0.008776197449347805,
+            0.904820531613938
+          ],
+          "evidence_source": "asset_geometry"
+        },
+        "descent": {
+          "applied": false,
+          "reason": "no_drop_trigger"
+        },
+        "actions": 10,
+        "sim_action_count": 108,
+        "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:108:385",
+        "gripper_opening_m": 0.06580687260247955,
+        "retreat_s": 2.087,
+        "after_retreat": {
+          "sim_action_count": 124,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:124:401"
+        }
+      },
+      "grasp": {
+        "held": true,
+        "held_streak": 0,
+        "final_opening_m": 0.07869817928574852
+      },
+      "native_events": [
+        {
+          "sim_action_count": 99,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:99:376"
+        }
+      ],
+      "chunks_used": 20,
+      "attempt": 1,
+      "rehome": null,
+      "chunk_budget": 40,
+      "chunk_budget_hard": 60,
+      "budget_extensions": 0,
+      "sim_actions": 127,
+      "timing": {
+        "total_s": 15.04,
+        "inference_s_sum": 7.018,
+        "env_step_s_sum": 8.995,
+        "snapshot_s_sum": 1.165,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 4.564,
+        "prefetch_wait_s_sum": 3.664,
+        "prefetch_inference_overlap_s_est": 6.327,
+        "release_s": 2.088,
+        "verification_s": 0.232
+      },
+      "prefetch": {
+        "enabled": true,
+        "used": 18,
+        "discarded": 1,
+        "reinfer": 0,
+        "max_age_actions": 5
+      },
+      "chunks": [
+        {
+          "chunk": 0,
+          "prefetched": false,
+          "inference_s": 0.346,
+          "wait_s": 0.3618,
+          "age_actions": null,
+          "actions": 5,
+          "env_step_start_s": 0.362,
+          "env_step_end_s": 0.7599,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.3979
+        },
+        {
+          "chunk": 1,
+          "prefetched": true,
+          "inference_s": 0.3522,
+          "wait_s": 0.2034,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 0.9633,
+          "env_step_end_s": 1.3799,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4166
+        },
+        {
+          "chunk": 2,
+          "prefetched": true,
+          "inference_s": 0.3487,
+          "wait_s": 0.2035,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 1.5835,
+          "env_step_end_s": 1.9955,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.412
+        },
+        {
+          "chunk": 3,
+          "prefetched": true,
+          "inference_s": 0.3515,
+          "wait_s": 0.2033,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 2.1988,
+          "env_step_end_s": 2.5733,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.3745
+        },
+        {
+          "chunk": 4,
+          "prefetched": true,
+          "inference_s": 0.3514,
+          "wait_s": 0.2035,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 2.7768,
+          "env_step_end_s": 3.2118,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4349
+        },
+        {
+          "chunk": 5,
+          "prefetched": true,
+          "inference_s": 0.3541,
+          "wait_s": 0.2034,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 3.4152,
+          "env_step_end_s": 3.8083,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.3931
+        },
+        {
+          "chunk": 6,
+          "prefetched": true,
+          "inference_s": 0.3281,
+          "wait_s": 0.1833,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 3.9916,
+          "env_step_end_s": 4.3841,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.3925
+        },
+        {
+          "chunk": 7,
+          "prefetched": true,
+          "inference_s": 0.3486,
+          "wait_s": 0.2033,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 4.5874,
+          "env_step_end_s": 4.9962,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4088
+        },
+        {
+          "chunk": 8,
+          "prefetched": true,
+          "inference_s": 0.3575,
+          "wait_s": 0.2035,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 5.1998,
+          "env_step_end_s": 5.6164,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4166
+        },
+        {
+          "chunk": 9,
+          "prefetched": true,
+          "inference_s": 0.3487,
+          "wait_s": 0.2035,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 5.82,
+          "env_step_end_s": 6.2334,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4134
+        },
+        {
+          "chunk": 10,
+          "prefetched": true,
+          "inference_s": 0.3556,
+          "wait_s": 0.2235,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 6.457,
+          "env_step_end_s": 6.8907,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4338
+        },
+        {
+          "chunk": 11,
+          "prefetched": true,
+          "inference_s": 0.3542,
+          "wait_s": 0.2036,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 7.0944,
+          "env_step_end_s": 7.5292,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4348
+        },
+        {
+          "chunk": 12,
+          "prefetched": false,
+          "inference_s": 0.3448,
+          "wait_s": 0.5383,
+          "age_actions": null,
+          "actions": 5,
+          "env_step_start_s": 8.0676,
+          "env_step_end_s": 8.4881,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4205
+        },
+        {
+          "chunk": 13,
+          "prefetched": true,
+          "inference_s": 0.3537,
+          "wait_s": 0.2035,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 8.6917,
+          "env_step_end_s": 9.123,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4313
+        },
+        {
+          "chunk": 14,
+          "prefetched": true,
+          "inference_s": 0.356,
+          "wait_s": 0.2031,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 9.3262,
+          "env_step_end_s": 9.756,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4298
+        },
+        {
+          "chunk": 15,
+          "prefetched": true,
+          "inference_s": 0.3599,
+          "wait_s": 0.2236,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 9.9796,
+          "env_step_end_s": 10.4011,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4215
+        },
+        {
+          "chunk": 16,
+          "prefetched": true,
+          "inference_s": 0.353,
+          "wait_s": 0.2036,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 10.6047,
+          "env_step_end_s": 11.0134,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4086
+        },
+        {
+          "chunk": 17,
+          "prefetched": true,
+          "inference_s": 0.3522,
+          "wait_s": 0.2042,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 11.2177,
+          "env_step_end_s": 11.6358,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4181
+        },
+        {
+          "chunk": 18,
+          "prefetched": true,
+          "inference_s": 0.3506,
+          "wait_s": 0.2034,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 11.8393,
+          "env_step_end_s": 12.2795,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.4403
+        },
+        {
+          "chunk": 19,
+          "prefetched": true,
+          "inference_s": 0.3515,
+          "wait_s": 0.1849,
+          "age_actions": 2,
+          "actions": 5,
+          "env_step_start_s": 12.4645,
+          "env_step_end_s": 12.7196,
+          "prompt": "put the black bowl on the plate",
+          "duration_s": 0.2551
+        }
+      ],
+      "observations": [
+        {
+          "sim_action_count": 1,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:1:278",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06207384342470282,
+              -0.00938208996269159,
+              0.9024998345568738
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.2038643398333699,
+            0.001718564430769123,
+            1.1790448218007485
+          ],
+          "gripper_opening_m": 0.07816157146391191
+        },
+        {
+          "sim_action_count": 2,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:2:279",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703505,
+              -0.009382089962672636,
+              0.9024998346368139
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.19858831385253473,
+            0.002288726814896886,
+            1.1777570585826194
+          ],
+          "gripper_opening_m": 0.0782404175563362
+        },
+        {
+          "sim_action_count": 3,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:3:280",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962667184,
+              0.9024998346586124
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.19164710486191172,
+            0.0033303354157672585,
+            1.1759849745824138
+          ],
+          "gripper_opening_m": 0.07831587673965645
+        },
+        {
+          "sim_action_count": 4,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:4:281",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665617,
+              0.9024998346645562
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.18348405245231278,
+            0.004790259603230913,
+            1.1741162102784763
+          ],
+          "gripper_opening_m": 0.07838809545224801
+        },
+        {
+          "sim_action_count": 5,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:5:282",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.00938208996266517,
+              0.9024998346661771
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.17440335447928282,
+            0.006669187514222176,
+            1.1723049187845251
+          ],
+          "gripper_opening_m": 0.07845721321054894
+        },
+        {
+          "sim_action_count": 6,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:6:283",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.00938208996266504,
+              0.9024998346666192
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.1659679507128017,
+            0.008250128505761133,
+            1.1711567020414477
+          ],
+          "gripper_opening_m": 0.07852336871101256
+        },
+        {
+          "sim_action_count": 7,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:7:284",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667397
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.15774642087091664,
+            0.00958186756497733,
+            1.1706475448427218
+          ],
+          "gripper_opening_m": 0.07858669142271367
+        },
+        {
+          "sim_action_count": 8,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:8:285",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667725
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.14863491906912601,
+            0.011122563241418235,
+            1.1699564155835465
+          ],
+          "gripper_opening_m": 0.07864729699150513
+        },
+        {
+          "sim_action_count": 9,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:9:286",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667815
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.13871647880752228,
+            0.012913518414074891,
+            1.1689741111083958
+          ],
+          "gripper_opening_m": 0.07870530175276189
+        },
+        {
+          "sim_action_count": 10,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:10:287",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.1282748043191095,
+            0.014869215070985996,
+            1.1677189966857782
+          ],
+          "gripper_opening_m": 0.07876081780038341
+        },
+        {
+          "sim_action_count": 11,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:11:288",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.11765417498021719,
+            0.01741061158739901,
+            1.1664843366493596
+          ],
+          "gripper_opening_m": 0.07881394924500683
+        },
+        {
+          "sim_action_count": 12,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:12:289",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.10707906544996328,
+            0.020277105833954874,
+            1.1651299181045187
+          ],
+          "gripper_opening_m": 0.07886479896205544
+        },
+        {
+          "sim_action_count": 13,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:13:290",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09648848592015763,
+            0.023098467591300582,
+            1.1633638609405637
+          ],
+          "gripper_opening_m": 0.0789134687867844
+        },
+        {
+          "sim_action_count": 14,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:14:291",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.0859017222991887,
+            0.025954707574397193,
+            1.1610886004725856
+          ],
+          "gripper_opening_m": 0.07896005189173247
+        },
+        {
+          "sim_action_count": 15,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:15:292",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.07529894316001022,
+            0.028777799953778743,
+            1.1582544826016872
+          ],
+          "gripper_opening_m": 0.07900463787371001
+        },
+        {
+          "sim_action_count": 16,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:16:293",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.06457104873224327,
+            0.03096974376596727,
+            1.1545190192499262
+          ],
+          "gripper_opening_m": 0.07904731460201028
+        },
+        {
+          "sim_action_count": 17,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:17:294",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.053928079015667915,
+            0.03231615911221267,
+            1.1497176860763123
+          ],
+          "gripper_opening_m": 0.07908816574726157
+        },
+        {
+          "sim_action_count": 18,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:18:295",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.043836522605925535,
+            0.033203853520109135,
+            1.1440055617672442
+          ],
+          "gripper_opening_m": 0.0791272682785241
+        },
+        {
+          "sim_action_count": 19,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:19:296",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.034790100589260985,
+            0.03383215742242324,
+            1.1372502474115782
+          ],
+          "gripper_opening_m": 0.07916469639246454
+        },
+        {
+          "sim_action_count": 20,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:20:297",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.027176900105623673,
+            0.034244822159779344,
+            1.129557048232078
+          ],
+          "gripper_opening_m": 0.07920052124359153
+        },
+        {
+          "sim_action_count": 21,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:21:298",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.021393804500684493,
+            0.0346228891439776,
+            1.1209977588224669
+          ],
+          "gripper_opening_m": 0.07923481168379284
+        },
+        {
+          "sim_action_count": 22,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:22:299",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.017168252648960387,
+            0.03493307599509695,
+            1.1117789312493498
+          ],
+          "gripper_opening_m": 0.07926763419903471
+        },
+        {
+          "sim_action_count": 23,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:23:300",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.014131527672248033,
+            0.03511727017637181,
+            1.1020519275206648
+          ],
+          "gripper_opening_m": 0.07929905019839517
+        },
+        {
+          "sim_action_count": 24,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:24:301",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.012091249070943158,
+            0.035177365272178455,
+            1.0920254448511921
+          ],
+          "gripper_opening_m": 0.07932911935715226
+        },
+        {
+          "sim_action_count": 25,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:25:302",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.011202633408200597,
+            0.03515331990366029,
+            1.081784169516982
+          ],
+          "gripper_opening_m": 0.07935789819323599
+        },
+        {
+          "sim_action_count": 26,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:26:303",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.011322005354006615,
+            0.03517567239877716,
+            1.0715548365302476
+          ],
+          "gripper_opening_m": 0.07938544225956684
+        },
+        {
+          "sim_action_count": 27,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:27:304",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.012439975318102321,
+            0.034999300822952835,
+            1.06126958388408
+          ],
+          "gripper_opening_m": 0.07941180398675787
+        },
+        {
+          "sim_action_count": 28,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:28:305",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.014556744862535964,
+            0.03479662896385238,
+            1.0509001733813528
+          ],
+          "gripper_opening_m": 0.07943703337154095
+        },
+        {
+          "sim_action_count": 29,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:29:306",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.017486085900345893,
+            0.03471346058146318,
+            1.040550892388243
+          ],
+          "gripper_opening_m": 0.07946118068796819
+        },
+        {
+          "sim_action_count": 30,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:30:307",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.021072474316514187,
+            0.03456913898968725,
+            1.030209181519092
+          ],
+          "gripper_opening_m": 0.07948429189027666
+        },
+        {
+          "sim_action_count": 31,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:31:308",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.024791240955969046,
+            0.034542680910205355,
+            1.0198692483927572
+          ],
+          "gripper_opening_m": 0.07950641133798594
+        },
+        {
+          "sim_action_count": 32,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:32:309",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.028835904829360524,
+            0.03471970312783904,
+            1.0094407685165256
+          ],
+          "gripper_opening_m": 0.0795275821661761
+        },
+        {
+          "sim_action_count": 33,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:33:310",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.033553750409156674,
+            0.03482649592517268,
+            0.9989118523923061
+          ],
+          "gripper_opening_m": 0.07954784429947939
+        },
+        {
+          "sim_action_count": 34,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:34:311",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.039008812389766154,
+            0.03498942336701595,
+            0.9884418602032311
+          ],
+          "gripper_opening_m": 0.07956723668897422
+        },
+        {
+          "sim_action_count": 35,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:35:312",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.04516633422387148,
+            0.035274052949016206,
+            0.9782071190742114
+          ],
+          "gripper_opening_m": 0.07958579755507705
+        },
+        {
+          "sim_action_count": 36,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:36:313",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.05191721948047828,
+            0.03529671437750968,
+            0.968551873705277
+          ],
+          "gripper_opening_m": 0.07960356196830154
+        },
+        {
+          "sim_action_count": 37,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:37:314",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.059175291093015184,
+            0.03518715871060489,
+            0.9594773860352349
+          ],
+          "gripper_opening_m": 0.07962056394745082
+        },
+        {
+          "sim_action_count": 38,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:38:315",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.06661736315309025,
+            0.035189926721908536,
+            0.9510233759897335
+          ],
+          "gripper_opening_m": 0.07963683654548569
+        },
+        {
+          "sim_action_count": 39,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:39:316",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.07381718362601371,
+            0.035137492158751504,
+            0.9434353930937519
+          ],
+          "gripper_opening_m": 0.07965241103771563
+        },
+        {
+          "sim_action_count": 40,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:40:317",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.08036874736371806,
+            0.035123970968413555,
+            0.9367563929770204
+          ],
+          "gripper_opening_m": 0.07966731753274367
+        },
+        {
+          "sim_action_count": 41,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:41:318",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8864,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.08626945352924985,
+            0.03488892267146658,
+            0.9309700230194304
+          ],
+          "gripper_opening_m": 0.07968158438306389
+        },
+        {
+          "sim_action_count": 42,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:42:319",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1597,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8866,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09118633977195928,
+            0.03438654406935372,
+            0.9263872626221694
+          ],
+          "gripper_opening_m": 0.07781240742908357
+        },
+        {
+          "sim_action_count": 43,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:43:320",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1596,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8872,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09463455080651438,
+            0.03344444742540983,
+            0.9234241823958672
+          ],
+          "gripper_opening_m": 0.07351756460742627
+        },
+        {
+          "sim_action_count": 44,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:44:321",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1596,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8877,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09668081490651159,
+            0.0325744714461072,
+            0.9220340775647493
+          ],
+          "gripper_opening_m": 0.06760141507317105
+        },
+        {
+          "sim_action_count": 45,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:45:322",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1596,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8879,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.0974190273122534,
+            0.03258136697213612,
+            0.922083052811284
+          ],
+          "gripper_opening_m": 0.060767987651450486
+        },
+        {
+          "sim_action_count": 46,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:46:323",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1596,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.888,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09758346944049838,
+            0.0325039513447035,
+            0.9221741094213773
+          ],
+          "gripper_opening_m": 0.05342251115802267
+        },
+        {
+          "sim_action_count": 47,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:47:324",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1596,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.888,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09743280209203142,
+            0.032437048070872554,
+            0.9222170954126792
+          ],
+          "gripper_opening_m": 0.04578998849650673
+        },
+        {
+          "sim_action_count": 48,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:48:325",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1596,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8881,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09731504331859678,
+            0.03232832848256895,
+            0.9224026879793272
+          ],
+          "gripper_opening_m": 0.03799635802486458
+        },
+        {
+          "sim_action_count": 49,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:49:326",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1596,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8883,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09727292617531054,
+            0.032173927249797146,
+            0.9227736380828857
+          ],
+          "gripper_opening_m": 0.030112281752765528
+        },
+        {
+          "sim_action_count": 50,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:50:327",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1596,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8887,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09743164168915767,
+            0.031979718172562094,
+            0.9232271621810297
+          ],
+          "gripper_opening_m": 0.022177427915254302
+        },
+        {
+          "sim_action_count": 51,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:51:328",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1598,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8892,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.097878796063414,
+            0.03196090985843119,
+            0.923957719603412
+          ],
+          "gripper_opening_m": 0.015758660282075215
+        },
+        {
+          "sim_action_count": 52,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:52:329",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1603,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8895,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09845110861588338,
+            0.031710235076993,
+            0.9252124830247193
+          ],
+          "gripper_opening_m": 0.013699823077775865
+        },
+        {
+          "sim_action_count": 53,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:53:330",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1609,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8901,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.0990610137692215,
+            0.0312562736335446,
+            0.9270484661557805
+          ],
+          "gripper_opening_m": 0.012173262153889326
+        },
+        {
+          "sim_action_count": 54,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:54:331",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1613,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8911,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.0996088514353775,
+            0.030716226311784535,
+            0.929764296617604
+          ],
+          "gripper_opening_m": 0.010385770341674594
+        },
+        {
+          "sim_action_count": 55,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:55:332",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1618,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8932,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.10005590114066462,
+            0.030425337346830544,
+            0.9337372620932616
+          ],
+          "gripper_opening_m": 0.008417080396455603
+        },
+        {
+          "sim_action_count": 56,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:56:333",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1619,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8971,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.0999254018107406,
+            0.030185572842035508,
+            0.9384540314735479
+          ],
+          "gripper_opening_m": 0.00750743096857732
+        },
+        {
+          "sim_action_count": 57,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:57:334",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1606,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8967,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09913136208913897,
+            0.02999793998687694,
+            0.9438208102972067
+          ],
+          "gripper_opening_m": 0.0058975964213335945
+        },
+        {
+          "sim_action_count": 58,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:58:335",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1604,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9029,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09777458269001008,
+            0.03019667517864325,
+            0.950499242981593
+          ],
+          "gripper_opening_m": 0.005044885791683556
+        },
+        {
+          "sim_action_count": 59,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:59:336",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1589,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9111,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.09581133403127191,
+            0.03085713316523936,
+            0.9585457500707361
+          ],
+          "gripper_opening_m": 0.005005109109373937
+        },
+        {
+          "sim_action_count": 60,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:60:337",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1568,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9203,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.0931897018304933,
+            0.03178338618945031,
+            0.9676476003062633
+          ],
+          "gripper_opening_m": 0.004979630805377371
+        },
+        {
+          "sim_action_count": 61,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:61:338",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1527,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9298,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.0885833233653592,
+            0.033222543811856894,
+            0.9769878182768701
+          ],
+          "gripper_opening_m": 0.004955586178055412
+        },
+        {
+          "sim_action_count": 62,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:62:339",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1469,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.939,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.08231878367835294,
+            0.03482858197277642,
+            0.9859996219391511
+          ],
+          "gripper_opening_m": 0.004932408140873979
+        },
+        {
+          "sim_action_count": 63,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:63:340",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1402,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9481,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.07510717731789322,
+            0.0363507617215982,
+            0.9950147709909918
+          ],
+          "gripper_opening_m": 0.00490957069710872
+        },
+        {
+          "sim_action_count": 64,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:64:341",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1327,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9573,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.0670334442858601,
+            0.03773791801899283,
+            1.0040505765141716
+          ],
+          "gripper_opening_m": 0.004887113847885437
+        },
+        {
+          "sim_action_count": 65,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:65:342",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1243,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9665,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.05817006263201349,
+            0.039030599777295685,
+            1.0130541476660204
+          ],
+          "gripper_opening_m": 0.004865052281477513
+        },
+        {
+          "sim_action_count": 66,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:66:343",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1156,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9751,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.04887659104995446,
+            0.03996671184047993,
+            1.0215991258312078
+          ],
+          "gripper_opening_m": 0.004843345244648297
+        },
+        {
+          "sim_action_count": 67,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:67:344",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.1064,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9831,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.039254721725089176,
+            0.04054155440606674,
+            1.0294746534415111
+          ],
+          "gripper_opening_m": 0.004821747378994347
+        },
+        {
+          "sim_action_count": 68,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:68:345",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0969,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9905,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.029302075735676333,
+            0.0408839607023501,
+            1.036678347528986
+          ],
+          "gripper_opening_m": 0.004799816594252891
+        },
+        {
+          "sim_action_count": 69,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:69:346",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0872,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.997,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.019160501891081767,
+            0.041036287319589825,
+            1.0430960169998584
+          ],
+          "gripper_opening_m": 0.004777370017880915
+        },
+        {
+          "sim_action_count": 70,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:70:347",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0772,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.0026,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            -0.008807927297300603,
+            0.04099585657255137,
+            1.0485680083323594
+          ],
+          "gripper_opening_m": 0.004754839562672641
+        },
+        {
+          "sim_action_count": 71,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:71:348",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0665,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.008,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.0020823138819769755,
+            0.040144603872463325,
+            1.053997354807161
+          ],
+          "gripper_opening_m": 0.004737264774198563
+        },
+        {
+          "sim_action_count": 72,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:72:349",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0553,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.013,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.01321487589878008,
+            0.038183206205184374,
+            1.0591082033834045
+          ],
+          "gripper_opening_m": 0.0047237175355707706
+        },
+        {
+          "sim_action_count": 73,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:73:350",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.044,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.0166,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.024342884377720843,
+            0.03556366396081781,
+            1.0628442589391915
+          ],
+          "gripper_opening_m": 0.00471347460646
+        },
+        {
+          "sim_action_count": 74,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:74:351",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0327,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.0184,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.035343667550143336,
+            0.03253284602178527,
+            1.0648303953920395
+          ],
+          "gripper_opening_m": 0.004704724431843716
+        },
+        {
+          "sim_action_count": 75,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:75:352",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0216,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.0183,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.04610227886736367,
+            0.02951551921242504,
+            1.064949949499259
+          ],
+          "gripper_opening_m": 0.004696881180868499
+        },
+        {
+          "sim_action_count": 76,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:76:353",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0113,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.0174,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.056499579301889376,
+            0.02597591752458278,
+            1.0642624372986473
+          ],
+          "gripper_opening_m": 0.0046895152260722816
+        },
+        {
+          "sim_action_count": 77,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:77:354",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0056,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.0162,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.06649053491316138,
+            0.022128573362374438,
+            1.0632024687071333
+          ],
+          "gripper_opening_m": 0.004682772956049831
+        },
+        {
+          "sim_action_count": 78,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:78:355",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.012,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.0138,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.07586290804197242,
+            0.018715583937369547,
+            1.0610496459711127
+          ],
+          "gripper_opening_m": 0.00467666354236088
+        },
+        {
+          "sim_action_count": 79,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:79:356",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0201,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.0101,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08428277951360288,
+            0.015988427822869685,
+            1.0575414442107802
+          ],
+          "gripper_opening_m": 0.004671012143927793
+        },
+        {
+          "sim_action_count": 80,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:80:357",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.027,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 1.0051,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.09133063657517183,
+            0.014050298747788566,
+            1.0527486118836524
+          ],
+          "gripper_opening_m": 0.004665528142242699
+        },
+        {
+          "sim_action_count": 81,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:81:358",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0325,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.999,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.09709413686197205,
+            0.012845493501622242,
+            1.0468592393722296
+          ],
+          "gripper_opening_m": 0.004660160417236499
+        },
+        {
+          "sim_action_count": 82,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:82:359",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.037,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9924,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.10190579291080455,
+            0.012446471851470265,
+            1.0402780010455033
+          ],
+          "gripper_opening_m": 0.004655139058471668
+        },
+        {
+          "sim_action_count": 83,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:83:360",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0409,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9857,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.10602704674574602,
+            0.012510278816122135,
+            1.0335527995084255
+          ],
+          "gripper_opening_m": 0.00465058342286045
+        },
+        {
+          "sim_action_count": 84,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:84:361",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0439,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9788,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.10933873397888515,
+            0.012869139990260094,
+            1.0266470663879594
+          ],
+          "gripper_opening_m": 0.004646156056722507
+        },
+        {
+          "sim_action_count": 85,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:85:362",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0462,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9718,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.11194014820268552,
+            0.013321236376530793,
+            1.0195619757166707
+          ],
+          "gripper_opening_m": 0.0046419010072403545
+        },
+        {
+          "sim_action_count": 86,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:86:363",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0476,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9644,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.11360392920367184,
+            0.014075354369951382,
+            1.0120964263423324
+          ],
+          "gripper_opening_m": 0.004637616520826342
+        },
+        {
+          "sim_action_count": 87,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:87:364",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0482,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.957,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.1145122560988722,
+            0.01481159022623764,
+            1.0046068336481406
+          ],
+          "gripper_opening_m": 0.004635643288306783
+        },
+        {
+          "sim_action_count": 88,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:88:365",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0482,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9497,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.11470275706294897,
+            0.01539519254419555,
+            0.9972982487476368
+          ],
+          "gripper_opening_m": 0.004634259060708279
+        },
+        {
+          "sim_action_count": 89,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:89:366",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0477,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9427,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.11440185283217019,
+            0.015930022477685882,
+            0.9902311751781652
+          ],
+          "gripper_opening_m": 0.004633074113350564
+        },
+        {
+          "sim_action_count": 90,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:90:367",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0469,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9359,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.11374778909862421,
+            0.016396551730426676,
+            0.9833598111006554
+          ],
+          "gripper_opening_m": 0.0046319764132758574
+        },
+        {
+          "sim_action_count": 91,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:91:368",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0454,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9302,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.11241571952713611,
+            0.01708264159494488,
+            0.9775194308296815
+          ],
+          "gripper_opening_m": 0.004630916017788317
+        },
+        {
+          "sim_action_count": 92,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:92:369",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0435,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9259,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.11066272481876539,
+            0.01810511780441383,
+            0.9730600458967857
+          ],
+          "gripper_opening_m": 0.00462974714158076
+        },
+        {
+          "sim_action_count": 93,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:93:370",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0412,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9221,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.10854659696253245,
+            0.019267987134118775,
+            0.969111700386792
+          ],
+          "gripper_opening_m": 0.004628695777868669
+        },
+        {
+          "sim_action_count": 94,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:94:371",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0386,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9184,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.10609291534427895,
+            0.02044322266657609,
+            0.9653678859424331
+          ],
+          "gripper_opening_m": 0.004627725959061586
+        },
+        {
+          "sim_action_count": 95,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:95:372",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0359,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.915,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.10345373259272576,
+            0.021485537869293126,
+            0.9617914755668451
+          ],
+          "gripper_opening_m": 0.004626866716597625
+        },
+        {
+          "sim_action_count": 96,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:96:373",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0331,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9108,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.10067713720045379,
+            0.022042216896360683,
+            0.9575252317094898
+          ],
+          "gripper_opening_m": 0.004626024567064896
+        },
+        {
+          "sim_action_count": 97,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:97:374",
+          "ok": false,
+          "ready": false,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": false,
+            "predicate": "plate_support",
+            "xy_m": 0.0301,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9062,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.062073843424703554,
+              -0.009382089962665003,
+              0.9024998346667837
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.0976307257503976,
+            0.02206265756603063,
+            0.9528153717974868
+          ],
+          "gripper_opening_m": 0.004625295617090557
+        },
+        {
+          "sim_action_count": 98,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:98:375",
+          "ok": true,
+          "ready": true,
+          "native_goal": false,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.0261,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9028,
+            "support_z": 0.9102,
+            "target_pose": [
+              0.06311315161902936,
+              -0.008776197449347805,
+              0.904820531613938
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.09429026774885885,
+            0.02187848103637435,
+            0.9488765753058473
+          ],
+          "gripper_opening_m": 0.004782181764528552
+        },
+        {
+          "sim_action_count": 99,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:99:376",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.0234,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9019,
+            "support_z": 0.9108,
+            "target_pose": [
+              0.06631699946628976,
+              -0.006214803107886356,
+              0.9054993261930397
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.09227191881513601,
+            0.02192839537650271,
+            0.9469479532802103
+          ],
+          "gripper_opening_m": 0.005668193278493192
+        },
+        {
+          "sim_action_count": 100,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:100:377",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.0218,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.9018,
+            "support_z": 0.9076,
+            "target_pose": [
+              0.06892913106082936,
+              -0.0043084793511431315,
+              0.9022682200377188
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.09112839064994926,
+            0.02204787838026069,
+            0.9460886623719308
+          ],
+          "gripper_opening_m": 0.00854689276683713
+        },
+        {
+          "sim_action_count": 101,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:101:378",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.0219,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8996,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894575012402555,
+              -0.0043249974668680925,
+              0.9024204684002968
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.09008476997912315,
+            0.022078359281561124,
+            0.9453728673448318
+          ],
+          "gripper_opening_m": 0.013566698387633566
+        },
+        {
+          "sim_action_count": 102,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:102:379",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8978,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894762492382472,
+              -0.004328371319286251,
+              0.9024738357086497
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08913035022601062,
+            0.022058483284330327,
+            0.9447271235246394
+          ],
+          "gripper_opening_m": 0.019889117942381827
+        },
+        {
+          "sim_action_count": 103,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:103:380",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8967,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894800627917667,
+              -0.004329127603358836,
+              0.9024880762983115
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08826140128617964,
+            0.022034573893429735,
+            0.9441388609676818
+          ],
+          "gripper_opening_m": 0.026948032958102098
+        },
+        {
+          "sim_action_count": 104,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:104:381",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8966,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894821498991906,
+              -0.0043292315623248544,
+              0.9024917804755449
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08747504843757752,
+            0.0220142632917005,
+            0.9436048292168397
+          ],
+          "gripper_opening_m": 0.03441852658624371
+        },
+        {
+          "sim_action_count": 105,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:105:382",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8965,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.0689482707696966,
+              -0.004329260550896413,
+              0.9024928215591287
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08676794857686729,
+            0.0219975481567367,
+            0.9431226067748053
+          ],
+          "gripper_opening_m": 0.042120763447409296
+        },
+        {
+          "sim_action_count": 106,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:106:383",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894828519557977,
+              -0.004329268670369307,
+              0.9024931063126272
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08613634031630249,
+            0.021984539582012755,
+            0.9426901539804264
+          ],
+          "gripper_opening_m": 0.049953536153063284
+        },
+        {
+          "sim_action_count": 107,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:107:384",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894832281361282,
+              -0.004329207088982623,
+              0.9024930113973233
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08557596353446567,
+            0.021975088037806578,
+            0.9423051105384974
+          ],
+          "gripper_opening_m": 0.05785961917543518
+        },
+        {
+          "sim_action_count": 108,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:108:385",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.0689483702735112,
+              -0.0043291616372111656,
+              0.9024930063027252
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08508224862666423,
+            0.02196899375209084,
+            0.9419648286930513
+          ],
+          "gripper_opening_m": 0.06580687260247955
+        },
+        {
+          "sim_action_count": 109,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:109:386",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.0689483728950995,
+              -0.004329158349703935,
+              0.9024930220044326
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08477541791304409,
+            0.021958297583522694,
+            0.9446176281524208
+          ],
+          "gripper_opening_m": 0.07114668350435219
+        },
+        {
+          "sim_action_count": 110,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:110:387",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.0689483741765604,
+              -0.004329157498451168,
+              0.9024930262786588
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08478613043166212,
+            0.02195077987718842,
+            0.9504666922318217
+          ],
+          "gripper_opening_m": 0.07416473036949078
+        },
+        {
+          "sim_action_count": 111,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:111:388",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894837446674618,
+              -0.004329157282110175,
+              0.9024930274553792
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08487229051036899,
+            0.02195195780134367,
+            0.9569652768744304
+          ],
+          "gripper_opening_m": 0.07585519546456562
+        },
+        {
+          "sim_action_count": 112,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:112:389",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894837448488889,
+              -0.004329157236857906,
+              0.9024930277862762
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.0849338678449166,
+            0.021955504718956312,
+            0.9635763191079405
+          ],
+          "gripper_opening_m": 0.07680091846660407
+        },
+        {
+          "sim_action_count": 113,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:113:390",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.0689483744228335,
+              -0.004329157239040097,
+              0.9024930278877443
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08495701550450058,
+            0.021958918593150904,
+            0.9701969644991886
+          ],
+          "gripper_opening_m": 0.07732974138292423
+        },
+        {
+          "sim_action_count": 114,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:114:391",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.0689483826791529,
+              -0.004329153885231584,
+              0.9024930131147385
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08494629465696658,
+            0.02196164523747636,
+            0.9768063392492374
+          ],
+          "gripper_opening_m": 0.07762536668227292
+        },
+        {
+          "sim_action_count": 115,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:115:392",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894838371725223,
+              -0.004329153257987208,
+              0.9024930111119281
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.0849090201008204,
+            0.02196369923489447,
+            0.9833991342539974
+          ],
+          "gripper_opening_m": 0.07779060572157044
+        },
+        {
+          "sim_action_count": 116,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:116:393",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894857263268223,
+              -0.004329375929908576,
+              0.9024930648843796
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08485228750656953,
+            0.02196523697085888,
+            0.9899735993273246
+          ],
+          "gripper_opening_m": 0.07789145394313787
+        },
+        {
+          "sim_action_count": 117,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:117:394",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894828681746111,
+              -0.004329406314234999,
+              0.9024928541283453
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08478241169444252,
+            0.021966440517826747,
+            0.9965292885261738
+          ],
+          "gripper_opening_m": 0.07798194392380783
+        },
+        {
+          "sim_action_count": 118,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:118:395",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894792905611492,
+              -0.004329730451034922,
+              0.9024928173493866
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08470481325166312,
+            0.021967476736086122,
+            1.0030665258605438
+          ],
+          "gripper_opening_m": 0.07806849873128252
+        },
+        {
+          "sim_action_count": 119,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:119:396",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894791631122764,
+              -0.004329719503190695,
+              0.9024929600338549
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08462400933960408,
+            0.021968491385456257,
+            1.009586183377958
+          ],
+          "gripper_opening_m": 0.07815134075704032
+        },
+        {
+          "sim_action_count": 120,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:120:397",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894791506937951,
+              -0.004329717001332174,
+              0.90249299684961
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08454364442885047,
+            0.02196960426014705,
+            1.016089525795722
+          ],
+          "gripper_opening_m": 0.07823062969498656
+        },
+        {
+          "sim_action_count": 121,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:121:398",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894792931756168,
+              -0.004329344482696055,
+              0.902492948574194
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08446654563969734,
+            0.021970908136885826,
+            1.0225780804610065
+          ],
+          "gripper_opening_m": 0.0783065179454396
+        },
+        {
+          "sim_action_count": 122,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:122:399",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06894797253793948,
+              -0.004329414126684325,
+              0.9024927732324338
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08439479499291623,
+            0.021972469191564807,
+            1.029053525873216
+          ],
+          "gripper_opening_m": 0.07837915136668655
+        },
+        {
+          "sim_action_count": 123,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:123:400",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.068950072925435,
+              -0.004328170753010584,
+              0.9024916797974621
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08432981284505614,
+            0.021974328552742502,
+            1.035517597800003
+          ],
+          "gripper_opening_m": 0.07844866955941884
+        },
+        {
+          "sim_action_count": 124,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:124:401",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.022,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06895045436386092,
+              -0.004328095773373093,
+              0.9024923893387375
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08427244753478567,
+            0.021976504684614845,
+            1.04197201249602
+          ],
+          "gripper_opening_m": 0.0785152061350092
+        },
+        {
+          "sim_action_count": 125,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:125:402",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.0219,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06895520773426267,
+              -0.0043270187063606195,
+              0.9024936145614515
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08414837372604436,
+            0.02197590876604288,
+            1.0455370164101185
+          ],
+          "gripper_opening_m": 0.07857888921949174
+        },
+        {
+          "sim_action_count": 126,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:126:403",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.0219,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.06895524547257934,
+              -0.004327038259213416,
+              0.9024931760088478
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08396846697664055,
+            0.02197121035703216,
+            1.0461466870458513
+          ],
+          "gripper_opening_m": 0.07863984132039313
+        },
+        {
+          "sim_action_count": 127,
+          "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:127:404",
+          "ok": true,
+          "ready": true,
+          "native_goal": true,
+          "predicate": "relation+release_height",
+          "joint": null,
+          "qpos": null,
+          "relation": {
+            "ok": true,
+            "predicate": "plate_support",
+            "xy_m": 0.0219,
+            "xy_limit_m": 0.03,
+            "object_bottom_z": 0.8964,
+            "support_z": 0.9078,
+            "target_pose": [
+              0.0689554479108759,
+              -0.004327204879174216,
+              0.9024930615935173
+            ],
+            "evidence_source": "asset_geometry"
+          },
+          "eef_pos": [
+            0.08380793707596905,
+            0.021966636687158293,
+            1.0461783460288716
+          ],
+          "gripper_opening_m": 0.07869817928574852
+        }
+      ],
+      "action_trace": [
+        {
+          "n": 1,
+          "a": [
+            0.5404,
+            0.0463,
+            0.0238,
+            -0.0124,
+            0.0209,
+            -0.0167,
+            -1.0143
+          ],
+          "eef": [
+            -0.2038643398333699,
+            0.001718564430769123,
+            1.1790448218007485
+          ],
+          "grip": 0.07816157146391191
+        },
+        {
+          "n": 2,
+          "a": [
+            0.6921,
+            0.0782,
+            0.0123,
+            -0.0098,
+            0.0178,
+            -0.0132,
+            -1.0131
+          ],
+          "eef": [
+            -0.19858831385253473,
+            0.002288726814896886,
+            1.1777570585826194
+          ],
+          "grip": 0.0782404175563362
+        },
+        {
+          "n": 3,
+          "a": [
+            0.7858,
+            0.11,
+            0.0036,
+            -0.0129,
+            0.0217,
+            -0.0089,
+            -1.0172
+          ],
+          "eef": [
+            -0.19164710486191172,
+            0.0033303354157672585,
+            1.1759849745824138
+          ],
+          "grip": 0.07831587673965645
+        },
+        {
+          "n": 4,
+          "a": [
+            0.8431,
+            0.1428,
+            0.0049,
+            -0.0147,
+            0.0218,
+            -0.0099,
+            -1.0185
+          ],
+          "eef": [
+            -0.18348405245231278,
+            0.004790259603230913,
+            1.1741162102784763
+          ],
+          "grip": 0.07838809545224801
+        },
+        {
+          "n": 5,
+          "a": [
+            0.881,
+            0.178,
+            -0.0004,
+            -0.0185,
+            0.024,
+            -0.0095,
+            -1.0145
+          ],
+          "eef": [
+            -0.17440335447928282,
+            0.006669187514222176,
+            1.1723049187845251
+          ],
+          "grip": 0.07845721321054894
+        },
+        {
+          "n": 6,
+          "a": [
+            0.571,
+            0.0787,
+            0.0124,
+            -0.0152,
+            -0.0045,
+            -0.0246,
+            -1.0182
+          ],
+          "eef": [
+            -0.1659679507128017,
+            0.008250128505761133,
+            1.1711567020414477
+          ],
+          "grip": 0.07852336871101256
+        },
+        {
+          "n": 7,
+          "a": [
+            0.7039,
+            0.1209,
+            0.0009,
+            -0.0203,
+            0.0048,
+            -0.0217,
+            -1.0195
+          ],
+          "eef": [
+            -0.15774642087091664,
+            0.00958186756497733,
+            1.1706475448427218
+          ],
+          "grip": 0.07858669142271367
+        },
+        {
+          "n": 8,
+          "a": [
+            0.8057,
+            0.1465,
+            -0.0047,
+            -0.0279,
+            0.0025,
+            -0.0207,
+            -1.0158
+          ],
+          "eef": [
+            -0.14863491906912601,
+            0.011122563241418235,
+            1.1699564155835465
+          ],
+          "grip": 0.07864729699150513
+        },
+        {
+          "n": 9,
+          "a": [
+            0.8674,
+            0.164,
+            -0.0119,
+            -0.0304,
+            0.0037,
+            -0.0186,
+            -1.0156
+          ],
+          "eef": [
+            -0.13871647880752228,
+            0.012913518414074891,
+            1.1689741111083958
+          ],
+          "grip": 0.07870530175276189
+        },
+        {
+          "n": 10,
+          "a": [
+            0.9016,
+            0.164,
+            -0.021,
+            -0.0322,
+            0.0094,
+            -0.0165,
+            -1.0149
+          ],
+          "eef": [
+            -0.1282748043191095,
+            0.014869215070985996,
+            1.1677189966857782
+          ],
+          "grip": 0.07876081780038341
+        },
+        {
+          "n": 11,
+          "a": [
+            0.8184,
+            0.2084,
+            -0.0517,
+            -0.0021,
+            -0.0204,
+            -0.0251,
+            -1.0121
+          ],
+          "eef": [
+            -0.11765417498021719,
+            0.01741061158739901,
+            1.1664843366493596
+          ],
+          "grip": 0.07881394924500683
+        },
+        {
+          "n": 12,
+          "a": [
+            0.826,
+            0.2129,
+            -0.0873,
+            -0.0025,
+            -0.0179,
+            -0.0266,
+            -1.016
+          ],
+          "eef": [
+            -0.10707906544996328,
+            0.020277105833954874,
+            1.1651299181045187
+          ],
+          "grip": 0.07886479896205544
+        },
+        {
+          "n": 13,
+          "a": [
+            0.8299,
+            0.2192,
+            -0.1202,
+            -0.0056,
+            -0.0181,
+            -0.028,
+            -1.0099
+          ],
+          "eef": [
+            -0.09648848592015763,
+            0.023098467591300582,
+            1.1633638609405637
+          ],
+          "grip": 0.0789134687867844
+        },
+        {
+          "n": 14,
+          "a": [
+            0.8221,
+            0.2211,
+            -0.1705,
+            -0.0017,
+            -0.0208,
+            -0.0297,
+            -1.0072
+          ],
+          "eef": [
+            -0.0859017222991887,
+            0.025954707574397193,
+            1.1610886004725856
+          ],
+          "grip": 0.07896005189173247
+        },
+        {
+          "n": 15,
+          "a": [
+            0.8047,
+            0.2089,
+            -0.2312,
+            -0.0005,
+            -0.0333,
+            -0.0295,
+            -1.0134
+          ],
+          "eef": [
+            -0.07529894316001022,
+            0.028777799953778743,
+            1.1582544826016872
+          ],
+          "grip": 0.07900463787371001
+        },
+        {
+          "n": 16,
+          "a": [
+            0.8426,
+            0.0621,
+            -0.3161,
+            0.0122,
+            -0.0294,
+            -0.0128,
+            -1.0179
+          ],
+          "eef": [
+            -0.06457104873224327,
+            0.03096974376596727,
+            1.1545190192499262
+          ],
+          "grip": 0.07904731460201028
+        },
+        {
+          "n": 17,
+          "a": [
+            0.783,
+            0.0379,
+            -0.4061,
+            0.0158,
+            -0.0389,
+            -0.0154,
+            -1.0142
+          ],
+          "eef": [
+            -0.053928079015667915,
+            0.03231615911221267,
+            1.1497176860763123
+          ],
+          "grip": 0.07908816574726157
+        },
+        {
+          "n": 18,
+          "a": [
+            0.6825,
+            0.0169,
+            -0.5004,
+            0.0256,
+            -0.0492,
+            -0.0214,
+            -1.0119
+          ],
+          "eef": [
+            -0.043836522605925535,
+            0.033203853520109135,
+            1.1440055617672442
+          ],
+          "grip": 0.0791272682785241
+        },
+        {
+          "n": 19,
+          "a": [
+            0.5478,
+            0.0068,
+            -0.6207,
+            0.0309,
+            -0.0504,
+            -0.0238,
+            -1.0071
+          ],
+          "eef": [
+            -0.034790100589260985,
+            0.03383215742242324,
+            1.1372502474115782
+          ],
+          "grip": 0.07916469639246454
+        },
+        {
+          "n": 20,
+          "a": [
+            0.3747,
+            -0.0045,
+            -0.7116,
+            0.0324,
+            -0.0577,
+            -0.0214,
+            -1.0062
+          ],
+          "eef": [
+            -0.027176900105623673,
+            0.034244822159779344,
+            1.129557048232078
+          ],
+          "grip": 0.07920052124359153
+        },
+        {
+          "n": 21,
+          "a": [
+            0.1686,
+            -0.0111,
+            -0.827,
+            0.0483,
+            -0.0617,
+            -0.0332,
+            -1.0148
+          ],
+          "eef": [
+            -0.021393804500684493,
+            0.0346228891439776,
+            1.1209977588224669
+          ],
+          "grip": 0.07923481168379284
+        },
+        {
+          "n": 22,
+          "a": [
+            0.0745,
+            -0.013,
+            -0.8682,
+            0.0464,
+            -0.0642,
+            -0.0289,
+            -1.0119
+          ],
+          "eef": [
+            -0.017168252648960387,
+            0.03493307599509695,
+            1.1117789312493498
+          ],
+          "grip": 0.07926763419903471
+        },
+        {
+          "n": 23,
+          "a": [
+            0.001,
+            -0.018,
+            -0.9013,
+            0.0459,
+            -0.0655,
+            -0.0262,
+            -1.0097
+          ],
+          "eef": [
+            -0.014131527672248033,
+            0.03511727017637181,
+            1.1020519275206648
+          ],
+          "grip": 0.07929905019839517
+        },
+        {
+          "n": 24,
+          "a": [
+            -0.0681,
+            -0.0199,
+            -0.909,
+            0.0427,
+            -0.0762,
+            -0.0224,
+            -1.0042
+          ],
+          "eef": [
+            -0.012091249070943158,
+            0.035177365272178455,
+            1.0920254448511921
+          ],
+          "grip": 0.07932911935715226
+        },
+        {
+          "n": 25,
+          "a": [
+            -0.1477,
+            -0.0143,
+            -0.9089,
+            0.0377,
+            -0.068,
+            -0.0196,
+            -1.0056
+          ],
+          "eef": [
+            -0.011202633408200597,
+            0.03515331990366029,
+            1.081784169516982
+          ],
+          "grip": 0.07935789819323599
+        },
+        {
+          "n": 26,
+          "a": [
+            -0.1925,
+            -0.0345,
+            -0.8838,
+            0.0483,
+            -0.0682,
+            -0.0182,
+            -1.0119
+          ],
+          "eef": [
+            -0.011322005354006615,
+            0.03517567239877716,
+            1.0715548365302476
+          ],
+          "grip": 0.07938544225956684
+        },
+        {
+          "n": 27,
+          "a": [
+            -0.266,
+            -0.0236,
+            -0.8941,
+            0.0339,
+            -0.0645,
+            -0.0183,
+            -1.0086
+          ],
+          "eef": [
+            -0.012439975318102321,
+            0.034999300822952835,
+            1.06126958388408
+          ],
+          "grip": 0.07941180398675787
+        },
+        {
+          "n": 28,
+          "a": [
+            -0.3225,
+            -0.0113,
+            -0.8839,
+            0.0332,
+            -0.0612,
+            -0.0197,
+            -1.0095
+          ],
+          "eef": [
+            -0.014556744862535964,
+            0.03479662896385238,
+            1.0509001733813528
+          ],
+          "grip": 0.07943703337154095
+        },
+        {
+          "n": 29,
+          "a": [
+            -0.3625,
+            -0.0069,
+            -0.874,
+            0.0335,
+            -0.0618,
+            -0.0213,
+            -1.0061
+          ],
+          "eef": [
+            -0.017486085900345893,
+            0.03471346058146318,
+            1.040550892388243
+          ],
+          "grip": 0.07946118068796819
+        },
+        {
+          "n": 30,
+          "a": [
+            -0.3934,
+            -0.0095,
+            -0.8669,
+            0.0265,
+            -0.0635,
+            -0.0237,
+            -1.0098
+          ],
+          "eef": [
+            -0.021072474316514187,
+            0.03456913898968725,
+            1.030209181519092
+          ],
+          "grip": 0.07948429189027666
+        },
+        {
+          "n": 31,
+          "a": [
+            -0.3734,
+            0.0038,
+            -0.88,
+            0.0265,
+            -0.0877,
+            -0.0108,
+            -0.9992
+          ],
+          "eef": [
+            -0.024791240955969046,
+            0.034542680910205355,
+            1.0198692483927572
+          ],
+          "grip": 0.07950641133798594
+        },
+        {
+          "n": 32,
+          "a": [
+            -0.4132,
+            0.0136,
+            -0.8673,
+            0.0275,
+            -0.0918,
+            -0.0111,
+            -1.0052
+          ],
+          "eef": [
+            -0.028835904829360524,
+            0.03471970312783904,
+            1.0094407685165256
+          ],
+          "grip": 0.0795275821661761
+        },
+        {
+          "n": 33,
+          "a": [
+            -0.4382,
+            0.0095,
+            -0.8598,
+            0.0188,
+            -0.0827,
+            -0.011,
+            -1.0007
+          ],
+          "eef": [
+            -0.033553750409156674,
+            0.03482649592517268,
+            0.9989118523923061
+          ],
+          "grip": 0.07954784429947939
+        },
+        {
+          "n": 34,
+          "a": [
+            -0.4941,
+            0.0087,
+            -0.8366,
+            0.0221,
+            -0.0807,
+            -0.009,
+            -1.0081
+          ],
+          "eef": [
+            -0.039008812389766154,
+            0.03498942336701595,
+            0.9884418602032311
+          ],
+          "grip": 0.07956723668897422
+        },
+        {
+          "n": 35,
+          "a": [
+            -0.5283,
+            0.0082,
+            -0.8097,
+            0.0236,
+            -0.0748,
+            -0.0098,
+            -1.0034
+          ],
+          "eef": [
+            -0.04516633422387148,
+            0.035274052949016206,
+            0.9782071190742114
+          ],
+          "grip": 0.07958579755507705
+        },
+        {
+          "n": 36,
+          "a": [
+            -0.5558,
+            -0.0057,
+            -0.7228,
+            0.016,
+            -0.0692,
+            -0.0258,
+            -1.0002
+          ],
+          "eef": [
+            -0.05191721948047828,
+            0.03529671437750968,
+            0.968551873705277
+          ],
+          "grip": 0.07960356196830154
+        },
+        {
+          "n": 37,
+          "a": [
+            -0.5634,
+            -0.0021,
+            -0.6877,
+            0.0117,
+            -0.0576,
+            -0.0192,
+            -0.9968
+          ],
+          "eef": [
+            -0.059175291093015184,
+            0.03518715871060489,
+            0.9594773860352349
+          ],
+          "grip": 0.07962056394745082
+        },
+        {
+          "n": 38,
+          "a": [
+            -0.5418,
+            -0.002,
+            -0.6094,
+            0.0121,
+            -0.0533,
+            -0.0172,
+            -0.9957
+          ],
+          "eef": [
+            -0.06661736315309025,
+            0.035189926721908536,
+            0.9510233759897335
+          ],
+          "grip": 0.07963683654548569
+        },
+        {
+          "n": 39,
+          "a": [
+            -0.4752,
+            -0.0024,
+            -0.5169,
+            0.0046,
+            -0.049,
+            -0.0137,
+            -0.9948
+          ],
+          "eef": [
+            -0.07381718362601371,
+            0.035137492158751504,
+            0.9434353930937519
+          ],
+          "grip": 0.07965241103771563
+        },
+        {
+          "n": 40,
+          "a": [
+            -0.3659,
+            0.0023,
+            -0.4198,
+            0.0055,
+            -0.0392,
+            -0.0145,
+            -0.9975
+          ],
+          "eef": [
+            -0.08036874736371806,
+            0.035123970968413555,
+            0.9367563929770204
+          ],
+          "grip": 0.07966731753274367
+        },
+        {
+          "n": 41,
+          "a": [
+            -0.1932,
+            0.036,
+            -0.2468,
+            -0.0149,
+            0.0204,
+            -0.0038,
+            -1.0022
+          ],
+          "eef": [
+            -0.08626945352924985,
+            0.03488892267146658,
+            0.9309700230194304
+          ],
+          "grip": 0.07968158438306389
+        },
+        {
+          "n": 42,
+          "a": [
+            -0.1294,
+            0.0268,
+            -0.1608,
+            -0.018,
+            0.0233,
+            -0.0149,
+            1.0088
+          ],
+          "eef": [
+            -0.09118633977195928,
+            0.03438654406935372,
+            0.9263872626221694
+          ],
+          "grip": 0.07781240742908357
+        },
+        {
+          "n": 43,
+          "a": [
+            -0.0649,
+            0.0227,
+            -0.0809,
+            -0.0151,
+            0.021,
+            -0.0208,
+            1.0022
+          ],
+          "eef": [
+            -0.09463455080651438,
+            0.03344444742540983,
+            0.9234241823958672
+          ],
+          "grip": 0.07351756460742627
+        },
+        {
+          "n": 44,
+          "a": [
+            -0.0276,
+            0.0135,
+            -0.0243,
+            -0.0182,
+            0.0352,
+            -0.0266,
+            0.9995
+          ],
+          "eef": [
+            -0.09668081490651159,
+            0.0325744714461072,
+            0.9220340775647493
+          ],
+          "grip": 0.06760141507317105
+        },
+        {
+          "n": 45,
+          "a": [
+            -0.0144,
+            0.0049,
+            0.0076,
+            -0.0128,
+            0.0385,
+            -0.0319,
+            0.9997
+          ],
+          "eef": [
+            -0.0974190273122534,
+            0.03258136697213612,
+            0.922083052811284
+          ],
+          "grip": 0.060767987651450486
+        },
+        {
+          "n": 46,
+          "a": [
+            -0.0518,
+            -0.0035,
+            -0.1029,
+            -0.0228,
+            0.0288,
+            -0.0207,
+            0.9968
+          ],
+          "eef": [
+            -0.09758346944049838,
+            0.0325039513447035,
+            0.9221741094213773
+          ],
+          "grip": 0.05342251115802267
+        },
+        {
+          "n": 47,
+          "a": [
+            -0.0473,
+            -0.0137,
+            -0.0617,
+            -0.0199,
+            0.0341,
+            -0.0298,
+            0.9985
+          ],
+          "eef": [
+            -0.09743280209203142,
+            0.032437048070872554,
+            0.9222170954126792
+          ],
+          "grip": 0.04578998849650673
+        },
+        {
+          "n": 48,
+          "a": [
+            -0.0392,
+            -0.0178,
+            -0.0378,
+            -0.0199,
+            0.0471,
+            -0.0409,
+            1.0014
+          ],
+          "eef": [
+            -0.09731504331859678,
+            0.03232832848256895,
+            0.9224026879793272
+          ],
+          "grip": 0.03799635802486458
+        },
+        {
+          "n": 49,
+          "a": [
+            -0.04,
+            -0.0256,
+            -0.0062,
+            -0.0172,
+            0.0478,
+            -0.0549,
+            0.9996
+          ],
+          "eef": [
+            -0.09727292617531054,
+            0.032173927249797146,
+            0.9227736380828857
+          ],
+          "grip": 0.030112281752765528
+        },
+        {
+          "n": 50,
+          "a": [
+            -0.0419,
+            -0.0267,
+            0.0094,
+            -0.0154,
+            0.0545,
+            -0.0646,
+            1.0037
+          ],
+          "eef": [
+            -0.09743164168915767,
+            0.031979718172562094,
+            0.9232271621810297
+          ],
+          "grip": 0.022177427915254302
+        },
+        {
+          "n": 51,
+          "a": [
+            -0.071,
+            -0.0154,
+            0.0573,
+            -0.017,
+            0.0543,
+            -0.0405,
+            1.0024
+          ],
+          "eef": [
+            -0.097878796063414,
+            0.03196090985843119,
+            0.923957719603412
+          ],
+          "grip": 0.015758660282075215
+        },
+        {
+          "n": 52,
+          "a": [
+            -0.0685,
+            -0.017,
+            0.1016,
+            -0.0211,
+            0.0595,
+            -0.0441,
+            0.9961
+          ],
+          "eef": [
+            -0.09845110861588338,
+            0.031710235076993,
+            0.9252124830247193
+          ],
+          "grip": 0.013699823077775865
+        },
+        {
+          "n": 53,
+          "a": [
+            -0.0418,
+            -0.0156,
+            0.1731,
+            -0.0222,
+            0.0691,
+            -0.0485,
+            0.9998
+          ],
+          "eef": [
+            -0.0990610137692215,
+            0.0312562736335446,
+            0.9270484661557805
+          ],
+          "grip": 0.012173262153889326
+        },
+        {
+          "n": 54,
+          "a": [
+            -0.0005,
+            -0.0036,
+            0.2837,
+            -0.0266,
+            0.0718,
+            -0.051,
+            0.9988
+          ],
+          "eef": [
+            -0.0996088514353775,
+            0.030716226311784535,
+            0.929764296617604
+          ],
+          "grip": 0.010385770341674594
+        },
+        {
+          "n": 55,
+          "a": [
+            0.0396,
+            0.0062,
+            0.418,
+            -0.0209,
+            0.0809,
+            -0.0514,
+            1.0032
+          ],
+          "eef": [
+            -0.10005590114066462,
+            0.030425337346830544,
+            0.9337372620932616
+          ],
+          "grip": 0.008417080396455603
+        },
+        {
+          "n": 56,
+          "a": [
+            0.1451,
+            0.039,
+            0.4196,
+            -0.0404,
+            0.0827,
+            -0.0222,
+            1.0058
+          ],
+          "eef": [
+            -0.0999254018107406,
+            0.030185572842035508,
+            0.9384540314735479
+          ],
+          "grip": 0.00750743096857732
+        },
+        {
+          "n": 57,
+          "a": [
+            0.2005,
+            0.0456,
+            0.5334,
+            -0.0432,
+            0.0937,
+            -0.0225,
+            1.0039
+          ],
+          "eef": [
+            -0.09913136208913897,
+            0.02999793998687694,
+            0.9438208102972067
+          ],
+          "grip": 0.0058975964213335945
+        },
+        {
+          "n": 58,
+          "a": [
+            0.2676,
+            0.0583,
+            0.6628,
+            -0.0391,
+            0.1025,
+            -0.0201,
+            1.0007
+          ],
+          "eef": [
+            -0.09777458269001008,
+            0.03019667517864325,
+            0.950499242981593
+          ],
+          "grip": 0.005044885791683556
+        },
+        {
+          "n": 59,
+          "a": [
+            0.3303,
+            0.0717,
+            0.7601,
+            -0.0356,
+            0.1117,
+            -0.0188,
+            1.0016
+          ],
+          "eef": [
+            -0.09581133403127191,
+            0.03085713316523936,
+            0.9585457500707361
+          ],
+          "grip": 0.005005109109373937
+        },
+        {
+          "n": 60,
+          "a": [
+            0.396,
+            0.0811,
+            0.8233,
+            -0.0375,
+            0.1207,
+            -0.0155,
+            1.0003
+          ],
+          "eef": [
+            -0.0931897018304933,
+            0.03178338618945031,
+            0.9676476003062633
+          ],
+          "grip": 0.004979630805377371
+        },
+        {
+          "n": 61,
+          "a": [
+            0.6895,
+            0.1198,
+            0.7859,
+            -0.0317,
+            0.1155,
+            -0.0031,
+            1.0043
+          ],
+          "eef": [
+            -0.0885833233653592,
+            0.033222543811856894,
+            0.9769878182768701
+          ],
+          "grip": 0.004955586178055412
+        },
+        {
+          "n": 62,
+          "a": [
+            0.7437,
+            0.111,
+            0.8018,
+            -0.0357,
+            0.1293,
+            -0.0001,
+            1.0078
+          ],
+          "eef": [
+            -0.08231878367835294,
+            0.03482858197277642,
+            0.9859996219391511
+          ],
+          "grip": 0.004932408140873979
+        },
+        {
+          "n": 63,
+          "a": [
+            0.7769,
+            0.095,
+            0.7781,
+            -0.0351,
+            0.1225,
+            0.0071,
+            1.0067
+          ],
+          "eef": [
+            -0.07510717731789322,
+            0.0363507617215982,
+            0.9950147709909918
+          ],
+          "grip": 0.00490957069710872
+        },
+        {
+          "n": 64,
+          "a": [
+            0.8034,
+            0.0772,
+            0.7552,
+            -0.0316,
+            0.1124,
+            0.0012,
+            1.0058
+          ],
+          "eef": [
+            -0.0670334442858601,
+            0.03773791801899283,
+            1.0040505765141716
+          ],
+          "grip": 0.004887113847885437
+        },
+        {
+          "n": 65,
+          "a": [
+            0.8409,
+            0.055,
+            0.7305,
+            -0.0228,
+            0.0999,
+            0.0065,
+            1.0087
+          ],
+          "eef": [
+            -0.05817006263201349,
+            0.039030599777295685,
+            1.0130541476660204
+          ],
+          "grip": 0.004865052281477513
+        },
+        {
+          "n": 66,
+          "a": [
+            0.8058,
+            0.0269,
+            0.6389,
+            -0.0221,
+            0.085,
+            -0.0003,
+            1.0037
+          ],
+          "eef": [
+            -0.04887659104995446,
+            0.03996671184047993,
+            1.0215991258312078
+          ],
+          "grip": 0.004843345244648297
+        },
+        {
+          "n": 67,
+          "a": [
+            0.8304,
+            0.0179,
+            0.5882,
+            -0.0228,
+            0.0764,
+            0.0075,
+            1.0034
+          ],
+          "eef": [
+            -0.039254721725089176,
+            0.04054155440606674,
+            1.0294746534415111
+          ],
+          "grip": 0.004821747378994347
+        },
+        {
+          "n": 68,
+          "a": [
+            0.8422,
+            0.0058,
+            0.5335,
+            -0.0212,
+            0.0671,
+            0.0107,
+            0.9978
+          ],
+          "eef": [
+            -0.029302075735676333,
+            0.0408839607023501,
+            1.036678347528986
+          ],
+          "grip": 0.004799816594252891
+        },
+        {
+          "n": 69,
+          "a": [
+            0.8484,
+            -0.0078,
+            0.4685,
+            -0.0176,
+            0.0622,
+            0.0077,
+            1.0016
+          ],
+          "eef": [
+            -0.019160501891081767,
+            0.041036287319589825,
+            1.0430960169998584
+          ],
+          "grip": 0.004777370017880915
+        },
+        {
+          "n": 70,
+          "a": [
+            0.8488,
+            -0.0345,
+            0.3747,
+            -0.011,
+            0.0458,
+            0.0103,
+            1.0027
+          ],
+          "eef": [
+            -0.008807927297300603,
+            0.04099585657255137,
+            1.0485680083323594
+          ],
+          "grip": 0.004754839562672641
+        },
+        {
+          "n": 71,
+          "a": [
+            0.8743,
+            -0.2569,
+            0.4372,
+            0.0305,
+            0.0081,
+            0.0027,
+            1.0035
+          ],
+          "eef": [
+            0.0020823138819769755,
+            0.040144603872463325,
+            1.053997354807161
+          ],
+          "grip": 0.004737264774198563
+        },
+        {
+          "n": 72,
+          "a": [
+            0.8707,
+            -0.276,
+            0.328,
+            0.0362,
+            -0.0005,
+            0.0022,
+            0.999
+          ],
+          "eef": [
+            0.01321487589878008,
+            0.038183206205184374,
+            1.0591082033834045
+          ],
+          "grip": 0.0047237175355707706
+        },
+        {
+          "n": 73,
+          "a": [
+            0.8678,
+            -0.281,
+            0.2008,
+            0.0428,
+            -0.0103,
+            0.0029,
+            1.0057
+          ],
+          "eef": [
+            0.024342884377720843,
+            0.03556366396081781,
+            1.0628442589391915
+          ],
+          "grip": 0.00471347460646
+        },
+        {
+          "n": 74,
+          "a": [
+            0.8564,
+            -0.2708,
+            0.0661,
+            0.0423,
+            -0.0128,
+            0.0017,
+            1.0045
+          ],
+          "eef": [
+            0.035343667550143336,
+            0.03253284602178527,
+            1.0648303953920395
+          ],
+          "grip": 0.004704724431843716
+        },
+        {
+          "n": 75,
+          "a": [
+            0.8199,
+            -0.2352,
+            -0.0829,
+            0.0491,
+            -0.0234,
+            0.0014,
+            0.9991
+          ],
+          "eef": [
+            0.04610227886736367,
+            0.02951551921242504,
+            1.064949949499259
+          ],
+          "grip": 0.004696881180868499
+        },
+        {
+          "n": 76,
+          "a": [
+            0.8008,
+            -0.3088,
+            -0.0245,
+            0.038,
+            -0.0202,
+            -0.0087,
+            1.0048
+          ],
+          "eef": [
+            0.056499579301889376,
+            0.02597591752458278,
+            1.0642624372986473
+          ],
+          "grip": 0.0046895152260722816
+        },
+        {
+          "n": 77,
+          "a": [
+            0.7573,
+            -0.2788,
+            -0.1108,
+            0.0372,
+            -0.0284,
+            -0.0115,
+            1.0073
+          ],
+          "eef": [
+            0.06649053491316138,
+            0.022128573362374438,
+            1.0632024687071333
+          ],
+          "grip": 0.004682772956049831
+        },
+        {
+          "n": 78,
+          "a": [
+            0.6583,
+            -0.2131,
+            -0.2477,
+            0.0388,
+            -0.0419,
+            -0.0151,
+            1.0004
+          ],
+          "eef": [
+            0.07586290804197242,
+            0.018715583937369547,
+            1.0610496459711127
+          ],
+          "grip": 0.00467666354236088
+        },
+        {
+          "n": 79,
+          "a": [
+            0.5192,
+            -0.1459,
+            -0.3904,
+            0.0371,
+            -0.0563,
+            -0.014,
+            1.0014
+          ],
+          "eef": [
+            0.08428277951360288,
+            0.015988427822869685,
+            1.0575414442107802
+          ],
+          "grip": 0.004671012143927793
+        },
+        {
+          "n": 80,
+          "a": [
+            0.3399,
+            -0.089,
+            -0.5182,
+            0.0428,
+            -0.0621,
+            -0.0175,
+            0.9978
+          ],
+          "eef": [
+            0.09133063657517183,
+            0.014050298747788566,
+            1.0527486118836524
+          ],
+          "grip": 0.004665528142242699
+        },
+        {
+          "n": 81,
+          "a": [
+            0.1932,
+            0.06,
+            -0.6521,
+            -0.0026,
+            -0.0822,
+            0.0019,
+            1.0064
+          ],
+          "eef": [
+            0.09709413686197205,
+            0.012845493501622242,
+            1.0468592393722296
+          ],
+          "grip": 0.004660160417236499
+        },
+        {
+          "n": 82,
+          "a": [
+            0.146,
+            0.0739,
+            -0.6603,
+            -0.0053,
+            -0.0777,
+            0.003,
+            1.006
+          ],
+          "eef": [
+            0.10190579291080455,
+            0.012446471851470265,
+            1.0402780010455033
+          ],
+          "grip": 0.004655139058471668
+        },
+        {
+          "n": 83,
+          "a": [
+            0.0978,
+            0.0781,
+            -0.6545,
+            -0.0183,
+            -0.0839,
+            0.0093,
+            1.0052
+          ],
+          "eef": [
+            0.10602704674574602,
+            0.012510278816122135,
+            1.0335527995084255
+          ],
+          "grip": 0.00465058342286045
+        },
+        {
+          "n": 84,
+          "a": [
+            0.0419,
+            0.0726,
+            -0.6687,
+            -0.0169,
+            -0.0706,
+            0.0079,
+            1.0061
+          ],
+          "eef": [
+            0.10933873397888515,
+            0.012869139990260094,
+            1.0266470663879594
+          ],
+          "grip": 0.004646156056722507
+        },
+        {
+          "n": 85,
+          "a": [
+            -0.002,
+            0.053,
+            -0.6776,
+            -0.0187,
+            -0.0708,
+            0.0119,
+            1.0045
+          ],
+          "eef": [
+            0.11194014820268552,
+            0.013321236376530793,
+            1.0195619757166707
+          ],
+          "grip": 0.0046419010072403545
+        },
+        {
+          "n": 86,
+          "a": [
+            -0.0597,
+            0.0693,
+            -0.6944,
+            -0.0026,
+            -0.0399,
+            0.0105,
+            0.9991
+          ],
+          "eef": [
+            0.11360392920367184,
+            0.014075354369951382,
+            1.0120964263423324
+          ],
+          "grip": 0.004637616520826342
+        },
+        {
+          "n": 87,
+          "a": [
+            -0.1192,
+            0.0524,
+            -0.6773,
+            -0.0119,
+            -0.0446,
+            0.0147,
+            0.9999
+          ],
+          "eef": [
+            0.1145122560988722,
+            0.01481159022623764,
+            1.0046068336481406
+          ],
+          "grip": 0.004635643288306783
+        },
+        {
+          "n": 88,
+          "a": [
+            -0.1874,
+            0.0362,
+            -0.673,
+            -0.009,
+            -0.0347,
+            0.0179,
+            0.9993
+          ],
+          "eef": [
+            0.11470275706294897,
+            0.01539519254419555,
+            0.9972982487476368
+          ],
+          "grip": 0.004634259060708279
+        },
+        {
+          "n": 89,
+          "a": [
+            -0.2271,
+            0.0298,
+            -0.6679,
+            -0.0086,
+            -0.0445,
+            0.0244,
+            1.0032
+          ],
+          "eef": [
+            0.11440185283217019,
+            0.015930022477685882,
+            0.9902311751781652
+          ],
+          "grip": 0.004633074113350564
+        },
+        {
+          "n": 90,
+          "a": [
+            -0.2503,
+            0.0252,
+            -0.6572,
+            -0.0086,
+            -0.0443,
+            0.0243,
+            1.0066
+          ],
+          "eef": [
+            0.11374778909862421,
+            0.016396551730426676,
+            0.9833598111006554
+          ],
+          "grip": 0.0046319764132758574
+        },
+        {
+          "n": 91,
+          "a": [
+            -0.3899,
+            0.0871,
+            -0.5305,
+            -0.0201,
+            -0.0565,
+            0.0499,
+            0.9994
+          ],
+          "eef": [
+            0.11241571952713611,
+            0.01708264159494488,
+            0.9775194308296815
+          ],
+          "grip": 0.004630916017788317
+        },
+        {
+          "n": 92,
+          "a": [
+            -0.4245,
+            0.1,
+            -0.5033,
+            -0.0202,
+            -0.0676,
+            0.0509,
+            0.9979
+          ],
+          "eef": [
+            0.11066272481876539,
+            0.01810511780441383,
+            0.9730600458967857
+          ],
+          "grip": 0.00462974714158076
+        },
+        {
+          "n": 93,
+          "a": [
+            -0.4319,
+            0.0948,
+            -0.4752,
+            -0.0218,
+            -0.0549,
+            0.0563,
+            0.9962
+          ],
+          "eef": [
+            0.10854659696253245,
+            0.019267987134118775,
+            0.969111700386792
+          ],
+          "grip": 0.004628695777868669
+        },
+        {
+          "n": 94,
+          "a": [
+            -0.4221,
+            0.0762,
+            -0.4431,
+            -0.0159,
+            -0.0458,
+            0.0511,
+            1.0005
+          ],
+          "eef": [
+            0.10609291534427895,
+            0.02044322266657609,
+            0.9653678859424331
+          ],
+          "grip": 0.004627725959061586
+        },
+        {
+          "n": 95,
+          "a": [
+            -0.4038,
+            0.0573,
+            -0.4072,
+            -0.0142,
+            -0.04,
+            0.0454,
+            0.9988
+          ],
+          "eef": [
+            0.10345373259272576,
+            0.021485537869293126,
+            0.9617914755668451
+          ],
+          "grip": 0.004626866716597625
+        },
+        {
+          "n": 96,
+          "a": [
+            -0.4379,
+            -0.0355,
+            -0.5606,
+            -0.0004,
+            -0.0597,
+            0.0261,
+            1.0018
+          ],
+          "eef": [
+            0.10067713720045379,
+            0.022042216896360683,
+            0.9575252317094898
+          ],
+          "grip": 0.004626024567064896
+        },
+        {
+          "n": 97,
+          "a": [
+            -0.4583,
+            -0.0337,
+            -0.4896,
+            -0.0101,
+            -0.0641,
+            0.029,
+            1.0006
+          ],
+          "eef": [
+            0.0976307257503976,
+            0.02206265756603063,
+            0.9528153717974868
+          ],
+          "grip": 0.004625295617090557
+        },
+        {
+          "n": 98,
+          "a": [
+            -0.4506,
+            -0.0198,
+            -0.3805,
+            -0.0185,
+            -0.0475,
+            0.0282,
+            0.9953
+          ],
+          "eef": [
+            0.09429026774885885,
+            0.02187848103637435,
+            0.9488765753058473
+          ],
+          "grip": 0.004782181764528552
+        },
+        {
+          "n": 99,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.09227191881513601,
+            0.02192839537650271,
+            0.9469479532802103
+          ],
+          "grip": 0.005668193278493192
+        },
+        {
+          "n": 100,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.09112839064994926,
+            0.02204787838026069,
+            0.9460886623719308
+          ],
+          "grip": 0.00854689276683713
+        },
+        {
+          "n": 101,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.09008476997912315,
+            0.022078359281561124,
+            0.9453728673448318
+          ],
+          "grip": 0.013566698387633566
+        },
+        {
+          "n": 102,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08913035022601062,
+            0.022058483284330327,
+            0.9447271235246394
+          ],
+          "grip": 0.019889117942381827
+        },
+        {
+          "n": 103,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08826140128617964,
+            0.022034573893429735,
+            0.9441388609676818
+          ],
+          "grip": 0.026948032958102098
+        },
+        {
+          "n": 104,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08747504843757752,
+            0.0220142632917005,
+            0.9436048292168397
+          ],
+          "grip": 0.03441852658624371
+        },
+        {
+          "n": 105,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08676794857686729,
+            0.0219975481567367,
+            0.9431226067748053
+          ],
+          "grip": 0.042120763447409296
+        },
+        {
+          "n": 106,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08613634031630249,
+            0.021984539582012755,
+            0.9426901539804264
+          ],
+          "grip": 0.049953536153063284
+        },
+        {
+          "n": 107,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08557596353446567,
+            0.021975088037806578,
+            0.9423051105384974
+          ],
+          "grip": 0.05785961917543518
+        },
+        {
+          "n": 108,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08508224862666423,
+            0.02196899375209084,
+            0.9419648286930513
+          ],
+          "grip": 0.06580687260247955
+        },
+        {
+          "n": 109,
+          "a": [
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08477541791304409,
+            0.021958297583522694,
+            0.9446176281524208
+          ],
+          "grip": 0.07114668350435219
+        },
+        {
+          "n": 110,
+          "a": [
+            0.0061,
+            0.0002,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08478613043166212,
+            0.02195077987718842,
+            0.9504666922318217
+          ],
+          "grip": 0.07416473036949078
+        },
+        {
+          "n": 111,
+          "a": [
+            0.0059,
+            0.0004,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08487229051036899,
+            0.02195195780134367,
+            0.9569652768744304
+          ],
+          "grip": 0.07585519546456562
+        },
+        {
+          "n": 112,
+          "a": [
+            0.0042,
+            0.0003,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.0849338678449166,
+            0.021955504718956312,
+            0.9635763191079405
+          ],
+          "grip": 0.07680091846660407
+        },
+        {
+          "n": 113,
+          "a": [
+            0.003,
+            0.0003,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08495701550450058,
+            0.021958918593150904,
+            0.9701969644991886
+          ],
+          "grip": 0.07732974138292423
+        },
+        {
+          "n": 114,
+          "a": [
+            0.0025,
+            0.0002,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08494629465696658,
+            0.02196164523747636,
+            0.9768063392492374
+          ],
+          "grip": 0.07762536668227292
+        },
+        {
+          "n": 115,
+          "a": [
+            0.0027,
+            0.0001,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.0849090201008204,
+            0.02196369923489447,
+            0.9833991342539974
+          ],
+          "grip": 0.07779060572157044
+        },
+        {
+          "n": 116,
+          "a": [
+            0.0035,
+            0.0001,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08485228750656953,
+            0.02196523697085888,
+            0.9899735993273246
+          ],
+          "grip": 0.07789145394313787
+        },
+        {
+          "n": 117,
+          "a": [
+            0.0046,
+            0.0001,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08478241169444252,
+            0.021966440517826747,
+            0.9965292885261738
+          ],
+          "grip": 0.07798194392380783
+        },
+        {
+          "n": 118,
+          "a": [
+            0.006,
+            0.0001,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08470481325166312,
+            0.021967476736086122,
+            1.0030665258605438
+          ],
+          "grip": 0.07806849873128252
+        },
+        {
+          "n": 119,
+          "a": [
+            0.0075,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08462400933960408,
+            0.021968491385456257,
+            1.009586183377958
+          ],
+          "grip": 0.07815134075704032
+        },
+        {
+          "n": 120,
+          "a": [
+            0.0092,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08454364442885047,
+            0.02196960426014705,
+            1.016089525795722
+          ],
+          "grip": 0.07823062969498656
+        },
+        {
+          "n": 121,
+          "a": [
+            0.0108,
+            -0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08446654563969734,
+            0.021970908136885826,
+            1.0225780804610065
+          ],
+          "grip": 0.0783065179454396
+        },
+        {
+          "n": 122,
+          "a": [
+            0.0123,
+            -0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08439479499291623,
+            0.021972469191564807,
+            1.029053525873216
+          ],
+          "grip": 0.07837915136668655
+        },
+        {
+          "n": 123,
+          "a": [
+            0.0137,
+            -0.0001,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08432981284505614,
+            0.021974328552742502,
+            1.035517597800003
+          ],
+          "grip": 0.07844866955941884
+        },
+        {
+          "n": 124,
+          "a": [
+            0.015,
+            -0.0001,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08427244753478567,
+            0.021976504684614845,
+            1.04197201249602
+          ],
+          "grip": 0.0785152061350092
+        },
+        {
+          "n": 125,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08414837372604436,
+            0.02197590876604288,
+            1.0455370164101185
+          ],
+          "grip": 0.07857888921949174
+        },
+        {
+          "n": 126,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08396846697664055,
+            0.02197121035703216,
+            1.0461466870458513
+          ],
+          "grip": 0.07863984132039313
+        },
+        {
+          "n": 127,
+          "a": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "eef": [
+            0.08380793707596905,
+            0.021966636687158293,
+            1.0461783460288716
+          ],
+          "grip": 0.07869817928574852
+        }
+      ],
+      "step": {
+        "skill": "pick_place",
+        "object_n": "akita_black_bowl_1",
+        "target_n": "plate_1",
+        "relation": "on",
+        "prompt": "put the black bowl on the plate"
+      }
+    }
+  ],
+  "final_verification": {
+    "ok": true,
+    "samples": 3,
+    "steps": [
+      {
+        "step": {
+          "skill": "pick_place",
+          "object_n": "akita_black_bowl_1",
+          "target_n": "plate_1",
+          "relation": "on",
+          "prompt": "put the black bowl on the plate"
+        },
+        "ok": true,
+        "verification": {
+          "skill": "pick_place",
+          "samples": 3,
+          "required_samples": 3,
+          "stable": true,
+          "per_sample_ok": [
+            true,
+            true,
+            true
+          ],
+          "last": {
+            "skill": "pick_place",
+            "native_goal": true,
+            "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:130:407",
+            "sim_action_count": 130,
+            "scene_epoch": 4,
+            "release_required": true,
+            "ok": true,
+            "ready": true,
+            "predicate": "relation+release_height",
+            "relation": {
+              "ok": true,
+              "predicate": "plate_support",
+              "xy_m": 0.0219,
+              "xy_limit_m": 0.03,
+              "object_bottom_z": 0.8964,
+              "support_z": 0.9078,
+              "target_pose": [
+                0.06895632145141355,
+                -0.004329231203915876,
+                0.9024929472989348
+              ],
+              "evidence_source": "asset_geometry"
+            },
+            "height": {
+              "ready": true,
+              "kind": "support_plane",
+              "object_bottom_z": 0.8964,
+              "surface_z": 0.9078,
+              "delta_m": -0.0115
+            },
+            "object_pose": [
+              0.08725339887192224,
+              -0.0164322855000136,
+              0.9083599426922115
+            ],
+            "drop_release": {
+              "trigger": false,
+              "reason": "not_in_place"
+            },
+            "evidence_source": "asset_geometry"
+          },
+          "evidence_source": "sim_state",
+          "release_required": true,
+          "release": {
+            "commanded": true,
+            "gripper_command": -1.0,
+            "command_sim_action_count": 98,
+            "command_observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:98:375",
+            "opening_before_m": 0.004782181764528552,
+            "relation_before": {
+              "ok": true,
+              "predicate": "plate_support",
+              "xy_m": 0.0261,
+              "xy_limit_m": 0.03,
+              "object_bottom_z": 0.9028,
+              "support_z": 0.9102,
+              "target_pose": [
+                0.06311315161902936,
+                -0.008776197449347805,
+                0.904820531613938
+              ],
+              "evidence_source": "asset_geometry"
+            },
+            "descent": {
+              "applied": false,
+              "reason": "no_drop_trigger"
+            },
+            "actions": 10,
+            "sim_action_count": 108,
+            "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:108:385",
+            "gripper_opening_m": 0.06580687260247955,
+            "retreat_s": 2.087,
+            "after_retreat": {
+              "sim_action_count": 124,
+              "observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:124:401"
+            }
+          },
+          "release_evidence": {
+            "status": "verified",
+            "release_opening_m": 0.06580687260247955,
+            "final_opening_m": 0.07885860513474381,
+            "release_sim_action_count": 108,
+            "final_sim_action_count": 130,
+            "release_observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:108:385",
+            "final_observation_id": "query-7ae42c307e074c86ab9797ad944799a7:4:130:407",
+            "min_opening_m": 0.05
+          },
+          "ok": true,
+          "reason_code": null
+        }
+      }
+    ]
+  },
+  "timing": {
+    "planner_s": 6.06,
+    "execution_s": 15.047,
+    "release_s": 2.088,
+    "verification_s": 0.482,
+    "inference_s_sum": 7.018,
+    "env_step_s_sum": 8.995,
+    "snapshot_s_sum": 1.165,
+    "chunk_gap_s_sum": 0.0,
+    "chunk_decision_wait_s_sum": 4.564,
+    "prefetch_inference_overlap_s_est": 6.327,
+    "recovery_s": 0.0,
+    "total_s_engine": 24.577,
+    "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+  },
+  "sim_action_count": 130,
+  "episode_sim_actions": 130,
+  "recovery_count": 0,
+  "recovery_log": [],
+  "human_interventions": 0,
+  "inference_mode": "async_chunk_prefetch",
+  "model": {
+    "backend": "pi05",
+    "name": "Pi0.5 LIBERO-130 SFT",
+    "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+    "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
+    "action_chunk": 5,
+    "action_dim": 7,
+    "control_frequency_hz": 20,
+    "openwam": {
+      "name": "OpenWAM-Alpha-Sim-LIBERO",
+      "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+      "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+      "checkpoint_file": "checkpoint_step_10690.safetensors",
+      "action_horizon": 10,
+      "denoise_steps": 10,
+      "integration": "not_on_execution_path",
+      "reason": "no verified LIBERO action weights on disk; video-only checkpoint is not control"
+    }
+  },
+  "agent_model": "Qwen3.5-9B",
+  "env": {
+    "suite": "libero_goal",
+    "seed": 0,
+    "task_id": 8,
+    "port": 14561,
+    "identity": {
+      "service_instance_id": "7ae42c307e074c86ab9797ad944799a7",
+      "scene_generation": 3,
+      "sim_action_count": 137,
+      "task_scope": "official_single",
+      "mode": "free",
+      "code": "episode-service-state-1"
+    },
+    "ready": true
+  },
+  "page": {
+    "ui": "page_ui (restored old Page, backend bridge)",
+    "human_confirmation": false
+  }
+}

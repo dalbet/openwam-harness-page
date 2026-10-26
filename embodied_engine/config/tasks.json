@@ -1,0 +1,116 @@
+{
+  "suite": "libero_goal",
+  "source": "installed LIBERO libero_goal BDDL + registry",
+  "tasks": [
+    {
+      "task_id": 0,
+      "instruction": "open the middle drawer of the cabinet",
+      "bddl": "open_the_middle_drawer_of_the_cabinet.bddl",
+      "goal_atoms": ["Open wooden_cabinet_1_middle_region"],
+      "kind": "open_drawer",
+      "objects": ["wooden_cabinet_1"],
+      "targets": ["wooden_cabinet_1_middle_region"],
+      "completion": "drawer_open",
+      "drawer_level": "middle"
+    },
+    {
+      "task_id": 1,
+      "instruction": "put the bowl on the stove",
+      "bddl": "put_the_bowl_on_the_stove.bddl",
+      "goal_atoms": ["On akita_black_bowl_1 flat_stove_1_cook_region"],
+      "kind": "pick_place",
+      "objects": ["akita_black_bowl_1", "flat_stove_1"],
+      "targets": ["flat_stove_1_cook_region"],
+      "completion": "object_on_target",
+      "object_phrase": "the black bowl"
+    },
+    {
+      "task_id": 2,
+      "instruction": "put the wine bottle on top of the cabinet",
+      "bddl": "put_the_wine_bottle_on_top_of_the_cabinet.bddl",
+      "goal_atoms": ["On wine_bottle_1 wooden_cabinet_1_top_side"],
+      "kind": "pick_place",
+      "objects": ["wine_bottle_1", "wooden_cabinet_1"],
+      "targets": ["wooden_cabinet_1_top_side"],
+      "completion": "object_on_target",
+      "object_phrase": "the wine bottle"
+    },
+    {
+      "task_id": 3,
+      "instruction": "open the top drawer and put the bowl inside",
+      "bddl": "open_the_top_drawer_and_put_the_bowl_inside.bddl",
+      "goal_atoms": ["In akita_black_bowl_1 wooden_cabinet_1_top_region"],
+      "kind": "composite",
+      "objects": ["akita_black_bowl_1", "wooden_cabinet_1"],
+      "targets": ["wooden_cabinet_1_top_region"],
+      "completion": "drawer_open_and_object_in",
+      "drawer_level": "top",
+      "object_phrase": "the black bowl"
+    },
+    {
+      "task_id": 4,
+      "instruction": "put the bowl on top of the cabinet",
+      "bddl": "put_the_bowl_on_top_of_the_cabinet.bddl",
+      "goal_atoms": ["On akita_black_bowl_1 wooden_cabinet_1_top_side"],
+      "kind": "pick_place",
+      "objects": ["akita_black_bowl_1", "wooden_cabinet_1"],
+      "targets": ["wooden_cabinet_1_top_side"],
+      "completion": "object_on_target",
+      "object_phrase": "the black bowl"
+    },
+    {
+      "task_id": 5,
+      "instruction": "push the plate to the front of the stove",
+      "bddl": "push_the_plate_to_the_front_of_the_stove.bddl",
+      "goal_atoms": ["On plate_1 main_table_stove_front_region"],
+      "kind": "push",
+      "objects": ["plate_1", "flat_stove_1"],
+      "targets": ["main_table_stove_front_region"],
+      "completion": "object_on_target",
+      "object_phrase": "the plate"
+    },
+    {
+      "task_id": 6,
+      "instruction": "put the cream cheese in the bowl",
+      "bddl": "put_the_cream_cheese_in_the_bowl.bddl",
+      "goal_atoms": ["On cream_cheese_1 akita_black_bowl_1"],
+      "kind": "pick_place",
+      "objects": ["cream_cheese_1", "akita_black_bowl_1"],
+      "targets": ["akita_black_bowl_1"],
+      "completion": "object_on_target",
+      "object_phrase": "the cream cheese"
+    },
+    {
+      "task_id": 7,
+      "instruction": "turn on the stove",
+      "bddl": "turn_on_the_stove.bddl",
+      "goal_atoms": ["Turnon flat_stove_1"],
+      "kind": "turn_on",
+      "objects": ["flat_stove_1"],
+      "targets": ["flat_stove_1"],
+      "completion": "stove_on"
+    },
+    {
+      "task_id": 8,
+      "instruction": "put the bowl on the plate",
+      "bddl": "put_the_bowl_on_the_plate.bddl",
+      "goal_atoms": ["On akita_black_bowl_1 plate_1"],
+      "kind": "pick_place",
+      "objects": ["akita_black_bowl_1", "plate_1"],
+      "targets": ["plate_1"],
+      "completion": "object_on_target",
+      "object_phrase": "the black bowl"
+    },
+    {
+      "task_id": 9,
+      "instruction": "put the wine bottle on the rack",
+      "bddl": "put_the_wine_bottle_on_the_rack.bddl",
+      "goal_atoms": ["On wine_bottle_1 wine_rack_1_top_region"],
+      "kind": "pick_place",
+      "objects": ["wine_bottle_1", "wine_rack_1"],
+      "targets": ["wine_rack_1_top_region"],
+      "completion": "object_on_target",
+      "object_phrase": "the wine bottle"
+    }
+  ]
+}

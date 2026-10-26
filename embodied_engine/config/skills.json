@@ -1,0 +1,45 @@
+{
+  "skills": [
+    {
+      "name": "pick_place",
+      "summary": "Grasp one movable object, carry it to a site or support object, release, and verify the placement and release.",
+      "params": ["object_n", "target_n", "relation", "prompt"],
+      "preconditions": [
+        "object is movable",
+        "target accepts relation on/in",
+        "if target is a closed drawer region, the drawer is open first"
+      ],
+      "completion": "native goal atom true, target relation true after release, release opening >= 0.05 m, observation newer than release",
+      "executor": "skills.pick_place"
+    },
+    {
+      "name": "open_drawer",
+      "summary": "Open one cabinet drawer level and verify the joint reaches the open range.",
+      "params": ["target_n", "relation"],
+      "preconditions": ["candidate is a cabinet drawer region", "drawer joint readable"],
+      "completion": "drawer joint qpos below -0.14 rad",
+      "executor": "skills.open_drawer"
+    },
+    {
+      "name": "push_object",
+      "summary": "Push one rigid object along the table to a target site. No grasp and no release verification.",
+      "params": ["object_n", "target_n", "relation", "prompt"],
+      "preconditions": ["object is movable", "target is a table region"],
+      "completion": "native goal atom true and object displacement > 0.03 m",
+      "executor": "skills.push_object"
+    },
+    {
+      "name": "turn_on",
+      "summary": "Turn on an articulated appliance by its control. No grasp and no release verification.",
+      "params": ["target_n", "relation", "prompt"],
+      "preconditions": ["appliance exposes a turn-on state"],
+      "completion": "native Turnon goal true",
+      "executor": "skills.turn_on"
+    }
+  ],
+  "binding": {
+    "candidates_from": "env.state_snapshot",
+    "evidence_source": "sim_state",
+    "vision_used_by_planner": false
+  }
+}

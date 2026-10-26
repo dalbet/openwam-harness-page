@@ -1,0 +1,125 @@
+{
+  "meta": {
+    "schema": "embodied_engine.suite.v1",
+    "started_at": "2026-10-26T11:15:51",
+    "engine": "http://127.0.0.1:14800",
+    "runs_per_task": 1,
+    "agent_model": "Qwen3.5-9B",
+    "action_model": "Pi0.5 LIBERO-130 SFT",
+    "inference_mode": "async_chunk_prefetch",
+    "env": {
+      "suite": "libero_goal",
+      "seed": 0,
+      "task_id": null,
+      "port": 14561,
+      "identity": {},
+      "ready": false
+    }
+  },
+  "rows": [
+    {
+      "task_id": 0,
+      "run": 1,
+      "episode_id": "ep-20261026-111608-b20f5a",
+      "phase": "succeeded",
+      "execution_status": "completed",
+      "native_task_success": true,
+      "user_goal_success": true,
+      "failure_code": null,
+      "reason": "all skills and final verification passed",
+      "duration_s": 27.57,
+      "episode_sim_actions": 159,
+      "recovery_count": 0,
+      "recovery_log": [],
+      "timing": {
+        "planner_s": 5.61,
+        "execution_s": 18.458,
+        "release_s": 1.004,
+        "verification_s": 0.461,
+        "inference_s_sum": 9.875,
+        "env_step_s_sum": 10.453,
+        "snapshot_s_sum": 1.475,
+        "chunk_gap_s_sum": 0.001,
+        "chunk_decision_wait_s_sum": 6.046,
+        "prefetch_inference_overlap_s_est": 9.514,
+        "recovery_s": 0.0,
+        "total_s_engine": 27.57,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-111608-b20f5a.json",
+      "seed": 0,
+      "scene_epoch": 2,
+      "inference_mode": "async_chunk_prefetch",
+      "wall_s": 28.062
+    },
+    {
+      "task_id": 3,
+      "run": 1,
+      "episode_id": "ep-20261026-111654-f5b273",
+      "phase": "failed",
+      "execution_status": "failed",
+      "native_task_success": false,
+      "user_goal_success": false,
+      "failure_code": "chunk_budget_exhausted",
+      "reason": "pick_place used 30 chunks without reaching its goal",
+      "duration_s": 88.448,
+      "episode_sim_actions": 521,
+      "recovery_count": 2,
+      "recovery_log": [
+        {
+          "step": {
+            "skill": "pick_place",
+            "object_n": "akita_black_bowl_1",
+            "target_n": "wooden_cabinet_1_top_region",
+            "relation": "in",
+            "prompt": "put the black bowl in the top drawer"
+          },
+          "failure_code": "chunk_budget_exhausted",
+          "chunks_used": 30,
+          "decision": "replan",
+          "policy": "qwen",
+          "reason": "The previous pick_place attempt failed due to chunk budget exhaustion, indicating a persistent execution or planning issue rather than a transient glitch. The drawer is already open, so the plan should be re-executed with the same parameters to attempt the placement again.",
+          "agent_s": 5.661
+        },
+        {
+          "step": {
+            "skill": "pick_place",
+            "object_n": "akita_black_bowl_1",
+            "target_n": "wooden_cabinet_1_top_region",
+            "relation": "in",
+            "prompt": "put the black bowl in the top drawer"
+          },
+          "failure_code": "chunk_budget_exhausted",
+          "chunks_used": 30,
+          "decision": "replan",
+          "policy": "qwen",
+          "reason": "The previous pick_place attempts failed due to chunk budget exhaustion, likely because the bowl is not being grasped or placed correctly into the open drawer. The drawer is already open. I will retry the pick_place action with the same parameters to attempt the placement again.",
+          "agent_s": 5.777
+        }
+      ],
+      "timing": {
+        "planner_s": 9.475,
+        "execution_s": 64.303,
+        "release_s": 1.049,
+        "verification_s": 0.224,
+        "inference_s_sum": 35.566,
+        "env_step_s_sum": 35.831,
+        "snapshot_s_sum": 5.013,
+        "chunk_gap_s_sum": 0.001,
+        "chunk_decision_wait_s_sum": 21.617,
+        "prefetch_inference_overlap_s_est": 34.178,
+        "recovery_s": 11.451,
+        "total_s_engine": 88.448,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-111654-f5b273.json",
+      "seed": 0,
+      "scene_epoch": 2,
+      "inference_mode": "async_chunk_prefetch",
+      "wall_s": 89.125
+    }
+  ],
+  "finished_at": "2026-10-26T11:18:23",
+  "success_count": 1,
+  "attempts": 2
+}

@@ -1,0 +1,141 @@
+{
+  "meta": {
+    "schema": "embodied_engine.suite.v1",
+    "started_at": "2026-10-26T11:18:44",
+    "engine": "http://127.0.0.1:14800",
+    "runs_per_task": 2,
+    "agent_model": "Qwen3.5-9B",
+    "action_model": "Pi0.5 LIBERO-130 SFT",
+    "inference_mode": "async_chunk_prefetch",
+    "env": {
+      "suite": "libero_goal",
+      "seed": 0,
+      "task_id": null,
+      "port": 14561,
+      "identity": {},
+      "ready": false
+    }
+  },
+  "rows": [
+    {
+      "task_id": 3,
+      "run": 1,
+      "episode_id": "ep-20261026-111901-7c0d00",
+      "phase": "failed",
+      "execution_status": "failed",
+      "native_task_success": false,
+      "user_goal_success": false,
+      "failure_code": "insufficient_stable_samples",
+      "reason": "pick_place finished but completion evidence failed",
+      "duration_s": 102.598,
+      "episode_sim_actions": 621,
+      "recovery_count": 2,
+      "recovery_log": [
+        {
+          "step": {
+            "skill": "pick_place",
+            "object_n": "akita_black_bowl_1",
+            "target_n": "wooden_cabinet_1_top_region",
+            "relation": "in",
+            "prompt": "put the black bowl in the top drawer"
+          },
+          "failure_code": "chunk_budget_exhausted",
+          "chunks_used": 40,
+          "decision": "replan",
+          "policy": "qwen",
+          "reason": "The previous pick_place attempt failed due to chunk budget exhaustion, indicating a persistent difficulty in placing the bowl into the open drawer. The drawer is already open. A replan is necessary to attempt the placement with a different strategy or parameters, as the goal is still reachable.",
+          "agent_s": 5.969
+        },
+        {
+          "step": {
+            "skill": "pick_place",
+            "object_n": "akita_black_bowl_1",
+            "target_n": "wooden_cabinet_1_top_region",
+            "relation": "in",
+            "prompt": "put the black bowl in the top drawer"
+          },
+          "failure_code": "chunk_budget_exhausted",
+          "chunks_used": 40,
+          "decision": "replan",
+          "policy": "qwen",
+          "reason": "The pick_place skill failed twice due to chunk budget exhaustion, indicating a persistent difficulty in placing the bowl into the top drawer. The current plan attempts to place the bowl directly into the drawer, but the failure suggests the robot cannot successfully navigate the placement or the drawer geometry is problematic. Since the drawer is already open, a replan is necessary to attempt a different approach or verify the state before retrying the same action, as a simple retry is unlikely to succeed given the repeated failure.",
+          "agent_s": 7.892
+        }
+      ],
+      "timing": {
+        "planner_s": 9.668,
+        "execution_s": 75.846,
+        "release_s": 3.123,
+        "verification_s": 0.459,
+        "inference_s_sum": 41.049,
+        "env_step_s_sum": 42.739,
+        "snapshot_s_sum": 6.04,
+        "chunk_gap_s_sum": 0.001,
+        "chunk_decision_wait_s_sum": 24.965,
+        "prefetch_inference_overlap_s_est": 39.319,
+        "recovery_s": 13.874,
+        "total_s_engine": 102.598,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-111901-7c0d00.json",
+      "seed": 0,
+      "scene_epoch": 2,
+      "inference_mode": "async_chunk_prefetch",
+      "wall_s": 102.783
+    },
+    {
+      "task_id": 3,
+      "run": 2,
+      "episode_id": "ep-20261026-112044-45acb3",
+      "phase": "failed",
+      "execution_status": "failed",
+      "native_task_success": true,
+      "user_goal_success": false,
+      "failure_code": "final_verification_failed",
+      "reason": "final cross-skill verification failed",
+      "duration_s": 84.687,
+      "episode_sim_actions": 552,
+      "recovery_count": 1,
+      "recovery_log": [
+        {
+          "step": {
+            "skill": "pick_place",
+            "object_n": "akita_black_bowl_1",
+            "target_n": "wooden_cabinet_1_top_region",
+            "relation": "in",
+            "prompt": "put the black bowl in the top drawer"
+          },
+          "failure_code": "chunk_budget_exhausted",
+          "chunks_used": 40,
+          "decision": "replan",
+          "policy": "qwen",
+          "reason": "The previous pick_place attempt failed due to chunk budget exhaustion, indicating a persistent execution or planning issue rather than a transient error. The drawer is already open, so the plan should be re-executed with the same parameters to attempt the placement again.",
+          "agent_s": 5.647
+        }
+      ],
+      "timing": {
+        "planner_s": 9.023,
+        "execution_s": 66.401,
+        "release_s": 3.144,
+        "verification_s": 0.725,
+        "inference_s_sum": 36.114,
+        "env_step_s_sum": 37.507,
+        "snapshot_s_sum": 5.303,
+        "chunk_gap_s_sum": 0.002,
+        "chunk_decision_wait_s_sum": 21.699,
+        "prefetch_inference_overlap_s_est": 35.057,
+        "recovery_s": 5.653,
+        "total_s_engine": 84.687,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-112044-45acb3.json",
+      "seed": 0,
+      "scene_epoch": 3,
+      "inference_mode": "async_chunk_prefetch",
+      "wall_s": 85.701
+    }
+  ],
+  "finished_at": "2026-10-26T11:22:10",
+  "success_count": 0,
+  "attempts": 2
+}
