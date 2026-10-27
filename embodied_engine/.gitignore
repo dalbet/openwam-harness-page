@@ -16,3 +16,8 @@ records/explore_summary.json
 
 # Restored page log (runtime).
 page_ui/logs/
+
+# Raw per-episode engine dumps from the A/B benchmark (megabytes each). The
+# report cites the slim summary, CSV, tables and failure evidence instead.
+records/ab/*_runs/
+.venv-d1/

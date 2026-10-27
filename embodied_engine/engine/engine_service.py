@@ -10,6 +10,7 @@ execution, release/retreat, and completion evidence are deterministic.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import os
@@ -47,6 +48,25 @@ def _now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
 
 
+def _scene_fingerprint(snapshot: dict[str, Any]) -> str:
+    """Stable hash of the initial object poses and EEF pose.
+
+    A/B runs on the same seed must start from the same scene; the episode
+    record keeps this so the claim is checkable instead of assumed.
+    """
+    sim = snapshot.get("sim") or {}
+    objects = {
+        name: [round(float(value), 5) for value in (pose or {}).get("pos") or []]
+        for name, pose in (sim.get("objects") or {}).items()
+        if isinstance(pose, dict)
+    }
+    payload = {
+        "objects": objects,
+        "eef": [round(float(value), 5) for value in (sim.get("eef_pos") or [])],
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
+
+
 def _post_json(url: str, body: dict[str, Any], timeout_s: float) -> dict[str, Any]:
     data = json.dumps(body, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
@@ -55,11 +75,11 @@ def _post_json(url: str, body: dict[str, Any], timeout_s: float) -> dict[str, An
         with opener.open(request, timeout=timeout_s) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace")[:1500]
+        detail = exc.read().decode("utf-8", "replace")
         try:
             return json.loads(detail)
         except json.JSONDecodeError:
-            return {"status": "error", "error": f"HTTP {exc.code}: {detail}"}
+            return {"status": "error", "error": f"HTTP {exc.code}: {detail[:1500]}"}
 
 
 def _get_json(url: str, timeout_s: float = 10.0) -> dict[str, Any]:
@@ -120,6 +140,7 @@ class EnvManager:
         self.port = int(cfg["services"]["env"]["port"])
         self.client: EnvClient | None = None
         self.task_id: int | None = None
+        self.seed = int(cfg["env"]["seed"])
         self.identity: dict[str, Any] = {}
         self.pid: int | None = None
         self.lock = threading.RLock()
@@ -169,9 +190,10 @@ class EnvManager:
             except OSError:
                 pass
 
-    def ensure(self, task_id: int) -> EnvClient:
+    def ensure(self, task_id: int, seed: int | None = None) -> EnvClient:
+        wanted = int(self.cfg["env"]["seed"] if seed is None else seed)
         with self.lock:
-            if self.client is not None and self.task_id == task_id:
+            if self.client is not None and self.task_id == task_id and self.seed == wanted:
                 try:
                     ident = self.client.identity()
                     if ident.get("service_instance_id"):
@@ -180,11 +202,11 @@ class EnvManager:
                 except Exception:
                     pass
             self.stop()
-            self._start(task_id)
+            self._start(task_id, wanted)
             assert self.client is not None
             return self.client
 
-    def _start(self, task_id: int) -> None:
+    def _start(self, task_id: int, seed: int) -> None:
         cfg = self.cfg["env"]
         listener = _port_listener(self.port)
         if listener is not None:
@@ -214,7 +236,7 @@ class EnvManager:
             "--port", str(self.port),
             "--suite", str(cfg["suite"]),
             "--task", str(task_id),
-            "--seed", str(cfg["seed"]),
+            "--seed", str(seed),
             "--max-episode-steps", str(cfg["max_episode_steps"]),
             "--cuda-device", str(cfg["cuda_device"]),
         ]
@@ -233,10 +255,13 @@ class EnvManager:
             try:
                 ident = client.identity()
                 meta = client.meta()
-                if meta.get("task") != task_id or meta.get("suite") != cfg["suite"]:
-                    raise RuntimeError(f"env meta mismatch: {meta} expected task={task_id} suite={cfg['suite']}")
+                if meta.get("task") != task_id or meta.get("suite") != cfg["suite"] or meta.get("seed") != seed:
+                    raise RuntimeError(
+                        f"env meta mismatch: {meta} expected task={task_id} suite={cfg['suite']} seed={seed}"
+                    )
                 self.client = client
                 self.task_id = task_id
+                self.seed = seed
                 self.identity = {**ident, "meta": meta, "pid": proc.pid, "load_s": round(time.time() - started, 1)}
                 return
             except Exception as exc:
@@ -251,7 +276,8 @@ class EnvManager:
     def view(self) -> dict[str, Any]:
         return {
             "suite": self.cfg["env"]["suite"],
-            "seed": self.cfg["env"]["seed"],
+            "seed": self.seed,
+            "configured_seed": self.cfg["env"]["seed"],
             "task_id": self.task_id,
             "port": self.port,
             "identity": self.identity,
@@ -275,6 +301,7 @@ class Engine:
         self.detail = "engine started; no scene loaded"
         self.task_id: int | None = None
         self.task: dict[str, Any] | None = None
+        self.seed = int(cfg["env"]["seed"])
         self.instruction = ""
         self.episode_id: str | None = None
         self.run_id: int | None = None
@@ -285,6 +312,11 @@ class Engine:
         self.last_result: dict[str, Any] = {}
         self.last_stop: dict[str, Any] = {}
         self.plan: dict[str, Any] | None = None
+        # Bumped on every lifecycle transition (load/reset/stop/new rollout). A
+        # planner response that was in flight across one of those transitions
+        # carries an older generation and must not be written into the new
+        # episode's state.
+        self.planner_generation = 0
         self.steps_done: list[dict[str, Any]] = []
         self.latest_frames: dict[str, Any] = {}
         self.frame_seq = 0
@@ -352,7 +384,11 @@ class Engine:
             "agent": {
                 "service": agent.get("service", "agent"),
                 "status": agent.get("status", "unreachable"),
+                "mode": agent.get("mode", config.agent_mode()),
+                "modes": list(config.AGENT_MODES),
                 "model": agent.get("model", self.cfg["agent"]["llm_model"]),
+                "llm_model": agent.get("llm_model", self.cfg["agent"]["llm_model"]),
+                "d1": agent.get("d1"),
                 "planner_vision": agent.get("planner_vision", False),
                 "llm": agent.get("llm"),
                 "jev": agent.get("jev", {"enabled": False}),
@@ -382,9 +418,11 @@ class Engine:
                 "phase": self.phase,
                 "detail": self.detail,
                 "task_id": self.task_id,
+                "seed": self.seed,
                 "instruction": self.instruction,
                 "episode_id": self.episode_id,
                 "run_id": self.run_id,
+                "planner_generation": self.planner_generation,
                 "scene_epoch": self.scene_epoch,
                 "sim_action_count": self.sim_action_count,
                 "frame_seq": self.frame_seq,
@@ -438,23 +476,29 @@ class Engine:
 
     # ---- scene / lifecycle ----
 
-    def load(self, task_id: int) -> dict[str, Any]:
+    def load(self, task_id: int, seed: int | None = None) -> dict[str, Any]:
         task = config.task_for(task_id)
+        wanted_seed = int(self.cfg["env"]["seed"] if seed is None else seed)
         with self.run_lock:
             if self.phase in {"planning", "running", "recovering", "stopping"}:
                 raise RuntimeError("cannot load while an episode is active")
-            self._set_phase("loading", f"starting LIBERO {self.cfg['env']['suite']} task {task_id}")
+            self._set_phase(
+                "loading",
+                f"starting LIBERO {self.cfg['env']['suite']} task {task_id} seed {wanted_seed}",
+            )
             try:
-                env = self.env.ensure(task_id)
+                env = self.env.ensure(task_id, wanted_seed)
                 obs = env.reset()
                 snap = env.state_snapshot()
-                self.inference.reset(f"load_task_{task_id}")
+                self.inference.reset(f"load_task_{task_id}_seed{wanted_seed}")
                 with self.lock:
                     self.task_id = task_id
                     self.task = task
+                    self.seed = wanted_seed
                     self.instruction = str(task["instruction"])
                     self.episode_id = None
                     self.run_id = None
+                    self.planner_generation += 1
                     self.scene_epoch = snap.get("scene_epoch")
                     self.failure_reason = ""
                     self.failure_code = ""
@@ -467,6 +511,7 @@ class Engine:
                 return {
                     "status": "ok",
                     "task_id": task_id,
+                    "seed": wanted_seed,
                     "instruction": self.instruction,
                     "env_id": f"libero_goal/{task['bddl']}",
                     "identity": self._health(),
@@ -486,13 +531,14 @@ class Engine:
         if self.task_id is None:
             return {"status": "ok", "phase": "ready", "detail": "no scene loaded"}
         with self.run_lock:
-            env = self.env.ensure(self.task_id)
+            env = self.env.ensure(self.task_id, self.seed)
             obs = env.reset()
             snap = env.state_snapshot()
             self.inference.reset("reset")
             with self.lock:
                 self.episode_id = None
                 self.run_id = None
+                self.planner_generation += 1
                 self.scene_epoch = snap.get("scene_epoch")
                 self.failure_reason = ""
                 self.failure_code = ""
@@ -509,6 +555,8 @@ class Engine:
             active = self.rollout_thread is not None and self.rollout_thread.is_alive()
             sim_at_request = self.sim_action_count
             if active:
+                # Any planner call still in flight belongs to a dead rollout.
+                self.planner_generation += 1
                 self.stop_event.set()
                 self._set_phase("stopping", f"stop requested: {reason}")
         # Cancelling the inference request also clears the model-side
@@ -539,19 +587,59 @@ class Engine:
             self.last_stop = budget
         return {"status": "ok", "active": alive, "phase": self.phase, "stop": budget}
 
+    IDLE_PHASES = {"starting", "ready", "succeeded", "failed", "stopped"}
 
-    def start_run(self, task_id: int, instruction: str | None) -> dict[str, Any]:
+    def set_agent_mode(self, mode: str) -> dict[str, Any]:
+        """Switch the Agent model only while no rollout owns the episode.
+
+        The mode is persisted in config/engine.json, which the Agent service
+        re-reads per request. A switch during planning/running/recovering or
+        while the rollout thread is alive is refused, so a plan is never
+        produced by one model and recorded as another.
+        """
+        if mode not in config.AGENT_MODES:
+            return {"status": "bad_request", "error": f"unknown agent mode {mode!r}", "mode": config.agent_mode()}
+        with self.lock:
+            phase = self.phase
+            active = self.rollout_thread is not None and self.rollout_thread.is_alive()
+            if active or phase not in self.IDLE_PHASES:
+                return {
+                    "status": "busy",
+                    "error": f"agent mode can only change while idle; phase={phase}",
+                    "phase": phase,
+                    "mode": config.agent_mode(),
+                }
+        if mode != "qwen":
+            d1_cfg = self.cfg["agent"]["d1"]
+            try:
+                health = _get_json(f"{d1_cfg['url']}/health", timeout_s=3)
+            except Exception as exc:
+                health = {"status": "unreachable", "error": f"{type(exc).__name__}: {exc}"}
+            if health.get("status") != "ok":
+                return {
+                    "status": "unavailable",
+                    "error": "d1 service is not ready; start it before selecting a d1 mode",
+                    "d1": health,
+                    "mode": config.agent_mode(),
+                }
+        config.set_agent_mode(mode)
+        with self.lock:
+            self.health_cache = {"at": 0.0, "value": {}}
+        return {"status": "ok", "mode": mode, "phase": phase}
+
+
+    def start_run(
+        self, task_id: int, instruction: str | None, seed: int | None = None
+    ) -> dict[str, Any]:
         task = config.task_for(task_id)
         with self.run_lock:
             if self.rollout_thread is not None and self.rollout_thread.is_alive():
                 raise RuntimeError("an episode is already running")
-        with self.lock:
-            if self.task_id != task_id or self.env.client is None:
-                load_needed = True
-            else:
-                load_needed = self.phase not in {"ready", "succeeded", "failed", "stopped"}
-        if load_needed and self.task_id != task_id:
-            self.load(task_id)
+            seed_changed = seed is not None and int(seed) != self.seed
+            needs_load = seed_changed or self.task_id != task_id or self.env.client is None
+        if needs_load:
+            # ``load`` takes the same lock; call it after releasing it here.
+            self.load(task_id, int(seed) if seed is not None else self.seed)
         with self.lock:
             self.stop_event = threading.Event()
             self.episode_id = f"ep-{time.strftime('%Y%m%d-%H%M%S', time.localtime())}-{uuid.uuid4().hex[:6]}"
@@ -565,12 +653,14 @@ class Engine:
             self.last_result = {}
             self.metrics["episodes_started"] += 1
             self.run_id = self._next_run_id(task_id)
+            self.planner_generation += 1
+            planner_generation = self.planner_generation
             episode_id = self.episode_id
             run_id = self.run_id
         self._set_phase("running", "preparing episode")
         thread = threading.Thread(
             target=self._run_episode,
-            args=(task, self.instruction, episode_id, run_id, self.stop_event),
+            args=(task, self.instruction, episode_id, run_id, self.stop_event, planner_generation),
             name=f"episode-{episode_id}",
             daemon=True,
         )
@@ -586,7 +676,7 @@ class Engine:
         wedged in "preparing". Respawning bounds that to one reload.
         """
         try:
-            env = self.env.ensure(task_id)
+            env = self.env.ensure(task_id, self.seed)
             obs = env.reset()
             return env, obs, env.state_snapshot()
         except Exception as first:  # noqa: BLE001 - retry once on a fresh process
@@ -596,8 +686,8 @@ class Engine:
                  "reason": f"{type(first).__name__}: {first}"}
             )
             self.env.stop()
-            self.env._start(task_id)
-            env = self.env.ensure(task_id)
+            self.env._start(task_id, self.seed)
+            env = self.env.ensure(task_id, self.seed)
             obs = env.reset()
             return env, obs, env.state_snapshot()
 
@@ -667,7 +757,15 @@ class Engine:
         result = runner.run()
         return result, runner.obs, runner.snapshot
 
-    def _run_episode(self, task: dict[str, Any], instruction: str, episode_id: str, run_id: int, stop_event: threading.Event) -> None:
+    def _run_episode(
+        self,
+        task: dict[str, Any],
+        instruction: str,
+        episode_id: str,
+        run_id: int,
+        stop_event: threading.Event,
+        planner_generation: int,
+    ) -> None:
         started = time.time()
         started_iso = _now_iso()
         recovery_log: list[dict[str, Any]] = []
@@ -691,6 +789,7 @@ class Engine:
                 }
             return
         baseline = snapshot
+        initial_scene = _scene_fingerprint(snapshot)
         token = self.inference.reset(f"episode:{episode_id}")
         with self.lock:
             self.scene_epoch = snapshot.get("scene_epoch")
@@ -704,6 +803,10 @@ class Engine:
             "inference_s_sum": 0.0,
             "env_step_s_sum": 0.0,
             "snapshot_s_sum": 0.0,
+            "observe_s_sum": 0.0,
+            "convert_s_sum": 0.0,
+            "frame_s_sum": 0.0,
+            "plan_to_first_action_s": 0.0,
             "chunk_gap_s_sum": 0.0,
             "chunk_decision_wait_s_sum": 0.0,
             "prefetch_inference_overlap_s_est": 0.0,
@@ -717,8 +820,10 @@ class Engine:
         failure: dict[str, Any] | None = None
         execution_status = "failed"
         native_ever = False
+        plan_completed_at: float | None = None
+        openwam_stats: dict[str, Any] | None = None
         try:
-            self._set_phase("planning", "Qwen3.5-9B structured plan")
+            self._set_phase("planning", f"{config.agent_mode()} structured plan")
             plan_started = time.perf_counter()
             plan_response = _post_json(
                 f"{self.agent_url}/plan",
@@ -735,13 +840,37 @@ class Engine:
             self.metrics["planner_calls"] += 1
             self.metrics["last_planner_s"] = round(timing["planner_s"], 3)
             with self.lock:
+                stale = planner_generation != self.planner_generation
+                if stale:
+                    # stop/reset/load happened while the Agent was planning, so
+                    # this answer belongs to an episode that no longer exists.
+                    self.metrics["stale_plans_discarded"] = int(self.metrics.get("stale_plans_discarded", 0)) + 1
+            if stale:
+                records.append_journal(
+                    {
+                        "t": time.time(),
+                        "stage": "planner_result_discarded",
+                        "episode_id": episode_id,
+                        "planner_generation": planner_generation,
+                        "current_generation": self.planner_generation,
+                        "planner_s": round(timing["planner_s"], 3),
+                        "agent_mode": plan_response.get("agent_mode"),
+                    }
+                )
+                raise Stopped("planner result from an expired generation")
+            with self.lock:
                 self.plan = {
                     "status": plan_response.get("status"),
                     "steps": plan_response.get("plan", {}).get("steps") if isinstance(plan_response.get("plan"), dict) else None,
                     "errors": plan_response.get("errors"),
                     "attempts": plan_response.get("attempts"),
                     "total_s": plan_response.get("total_s"),
-                    "source": "qwen3.5-9b",
+                    "source": plan_response.get("plan_source")
+                    or ((plan_response.get("plan") or {}).get("plan_source") if isinstance(plan_response.get("plan"), dict) else None)
+                    or "qwen3.5-9b",
+                    "agent_mode": plan_response.get("agent_mode"),
+                    "decision": plan_response.get("decision"),
+                    "fallback": plan_response.get("fallback"),
                     "planner_vision": False,
                 }
             if plan_response.get("status") != "ok":
@@ -751,6 +880,7 @@ class Engine:
                     {"response": plan_response},
                 )
             plan = plan_response["plan"]
+            plan_completed_at = time.perf_counter()
             steps = list(plan["steps"])
             # A plan is validated against the catalog the planner was given;
             # this is the second gate, because a wrong executor would run the
@@ -834,6 +964,23 @@ class Engine:
                     timing["inference_s_sum"] += record["timing"]["inference_s_sum"]
                     timing["env_step_s_sum"] += record["timing"]["env_step_s_sum"]
                     timing["snapshot_s_sum"] += record["timing"]["snapshot_s_sum"]
+                    timing["observe_s_sum"] += record["timing"].get("observe_s_sum", 0.0)
+                    timing["convert_s_sum"] += record["timing"].get("convert_s_sum", 0.0)
+                    timing["frame_s_sum"] += record["timing"].get("frame_s_sum", 0.0)
+                    if openwam_stats is None:
+                        wall = record.get("wall") or {}
+                        first_action_s = wall.get("first_action_s")
+                        if plan_completed_at is not None and isinstance(first_action_s, (int, float)):
+                            timing["plan_to_first_action_s"] = (
+                                skill_started - plan_completed_at + float(first_action_s)
+                            )
+                        openwam_stats = {
+                            "wall": wall,
+                            "chunk_stats": record.get("chunk_stats"),
+                            "prompt": record.get("prompt"),
+                            "sim_actions": record.get("sim_actions"),
+                            "chunks_used": record.get("chunks_used"),
+                        }
                     record["step"] = step
                     record["attempt"] = attempt_no
                     step_results.append(record)
@@ -1266,6 +1413,7 @@ class Engine:
             "episode_id": episode_id,
             "run_id": run_id,
             "scene_epoch": final_snapshot.get("scene_epoch"),
+            "initial_scene_fingerprint": initial_scene,
             "started_at": started_iso,
             "ended_at": _now_iso(),
             "duration_s": round(ended - started, 3),
@@ -1282,12 +1430,14 @@ class Engine:
                 "interpretation": (plan or {}).get("interpretation"),
                 "success_condition": (plan or {}).get("success_condition"),
                 "steps": (plan or {}).get("steps"),
-                "source": "qwen3.5-9b",
+                "source": (self.plan or {}).get("source") or "qwen3.5-9b",
+                "agent_mode": (self.plan or {}).get("agent_mode") or config.agent_mode(),
                 "planner_vision": False,
                 "latency_s": round(timing["planner_s"], 3),
                 "agent_response": self.plan,
             },
             "steps": step_results,
+            "openwam": openwam_stats,
             "final_verification": final_verification,
             "timing": {
                 **{key: round(value, 3) for key, value in timing.items()},
@@ -1337,6 +1487,7 @@ class Engine:
                 "failure_code": (failure or {}).get("reason_code"),
                 "duration_s": record["duration_s"],
                 "sim_action_count": record["sim_action_count"],
+                "initial_scene_fingerprint": record.get("initial_scene_fingerprint"),
                 "timing": record["timing"],
                 "record": str(path),
             }
@@ -1421,7 +1572,10 @@ async def tasks(request: web.Request) -> web.Response:
 async def load(request: web.Request) -> web.Response:
     body = await _json_body(request)
     try:
-        out = await asyncio.to_thread(_engine().load, int(body.get("task_id")))
+        seed = body.get("seed")
+        out = await asyncio.to_thread(
+            _engine().load, int(body.get("task_id")), None if seed is None else int(seed)
+        )
         return web.json_response(out)
     except Exception as exc:
         return web.json_response({"status": "error", "error": f"{type(exc).__name__}: {exc}"}, status=503)
@@ -1430,7 +1584,12 @@ async def load(request: web.Request) -> web.Response:
 async def run(request: web.Request) -> web.Response:
     body = await _json_body(request)
     try:
-        out = _engine().start_run(int(body.get("task_id")), body.get("instruction"))
+        seed = body.get("seed")
+        out = _engine().start_run(
+            int(body.get("task_id")),
+            body.get("instruction"),
+            None if seed is None else int(seed),
+        )
         return web.json_response(out)
     except KeyError as exc:
         return web.json_response({"status": "bad_request", "error": str(exc)}, status=400)
@@ -1474,6 +1633,20 @@ async def metrics(request: web.Request) -> web.Response:
     )
 
 
+async def agent_mode(request: web.Request) -> web.Response:
+    if request.method == "GET":
+        return web.json_response(
+            {"status": "ok", "mode": config.agent_mode(), "modes": list(config.AGENT_MODES)}
+        )
+    body = await _json_body(request)
+    try:
+        out = await asyncio.to_thread(_engine().set_agent_mode, str(body.get("mode") or ""))
+    except Exception as exc:
+        return web.json_response({"status": "error", "error": f"{type(exc).__name__}: {exc}"}, status=503)
+    status = {"ok": 200, "bad_request": 400, "busy": 409, "unavailable": 503}.get(out.get("status"), 400)
+    return web.json_response(out, status=status)
+
+
 async def _json_body(request: web.Request) -> dict[str, Any]:
     try:
         body = await request.json()
@@ -1488,6 +1661,8 @@ def make_app() -> web.Application:
     app.router.add_get("/metrics", metrics)
     app.router.add_get("/api/status", status)
     app.router.add_get("/api/tasks", tasks)
+    app.router.add_get("/api/agent_mode", agent_mode)
+    app.router.add_post("/api/agent_mode", agent_mode)
     app.router.add_post("/api/load", load)
     app.router.add_post("/api/run", run)
     app.router.add_post("/api/stop", stop)

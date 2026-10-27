@@ -1,0 +1,2113 @@
+{
+  "schema": "embodied_engine.offline_eval_result.v1",
+  "set": "config/offline_eval.json",
+  "set_frozen": true,
+  "started_at": "2026-10-27T03:49:08+0000",
+  "suite": "libero_goal",
+  "seed": 0,
+  "scene_load_s": {
+    "1": 3.266
+  },
+  "engines": [
+    "qwen_decision",
+    "qwen_full"
+  ],
+  "models": {
+    "qwen_full": {
+      "model": "Qwen3.5-9B",
+      "base_url": "http://127.0.0.1:8001/v1",
+      "temperature": 0.0,
+      "max_tokens": 900
+    },
+    "d1": {
+      "model": "LiquidAI/d1-3B",
+      "model_path": "/home/host/page-dmh/openwam_harness/checkpoints/LiquidAI-d1-3B",
+      "model_sha256": "50e03317847caf6df9a9aee27ed40f20554a86a21e60d1d47ba41a422b546c0c",
+      "url": "http://127.0.0.1:14710",
+      "output_tokens_per_decision": 0
+    },
+    "qwen_decision": {
+      "model": "Qwen3.5-9B",
+      "interface": "same staged choice/noul questions as d1, parsed into d1's answer schema"
+    }
+  },
+  "thresholds": {
+    "supported_min": 0.5,
+    "operation_min": 0.5,
+    "specified_min": 0.5,
+    "ambiguous_max": 0.5,
+    "relation_min": 0.5,
+    "source_min": 0.5,
+    "target_min": 0.5
+  },
+  "summary": {
+    "qwen_full": {
+      "positives": 4,
+      "negatives": 4,
+      "plan_ok_rate": 1.0,
+      "contract_pass_rate": 1.0,
+      "semantic_accuracy": 1.0,
+      "prompt_equals_official_rate": 0.0,
+      "prompt_equals_user_rate": 0.5,
+      "negative_rejections": 0,
+      "binding_accuracy": null,
+      "binding_note": "whole_task emits no object/site binding; binding accuracy is not applicable",
+      "latency_all": {
+        "n": 8,
+        "median_s": 6.6357,
+        "mean_s": 6.3871,
+        "p95_s": 9.8411,
+        "max_s": 9.8411
+      },
+      "latency_warm": {
+        "n": 7,
+        "median_s": 6.3466,
+        "mean_s": 6.3103,
+        "p95_s": 9.8411,
+        "max_s": 9.8411
+      },
+      "latency_first_in_task": {
+        "n": 1,
+        "median_s": 6.9248,
+        "mean_s": 6.9248,
+        "p95_s": 6.9248,
+        "max_s": 6.9248
+      },
+      "errors": 0
+    },
+    "d1": {
+      "positives": 0,
+      "negatives": 0,
+      "accepted": 0,
+      "rejected": 0,
+      "false_reject": 0,
+      "operation_accuracy": null,
+      "operation_accuracy_accepted": null,
+      "source_accuracy": 0.0,
+      "target_accuracy": null,
+      "relation_accuracy": null,
+      "open_target_accuracy": null,
+      "full_binding_accuracy": null,
+      "full_binding_accuracy_accepted": null,
+      "contract_pass_rate": null,
+      "contract_pass_rate_all": null,
+      "reject_accuracy": null,
+      "reject_any_rate": null,
+      "false_accept": 0,
+      "latency_all": {
+        "n": 0
+      },
+      "latency_warm": {
+        "n": 0
+      },
+      "latency_first_in_task": {
+        "n": 0
+      },
+      "errors": 0
+    },
+    "qwen_decision": {
+      "positives": 4,
+      "negatives": 4,
+      "accepted": 4,
+      "rejected": 0,
+      "false_reject": 0,
+      "operation_accuracy": 1.0,
+      "operation_accuracy_accepted": 1.0,
+      "source_accuracy": 1.0,
+      "target_accuracy": 1.0,
+      "relation_accuracy": 1.0,
+      "open_target_accuracy": null,
+      "full_binding_accuracy": 1.0,
+      "full_binding_accuracy_accepted": 1.0,
+      "contract_pass_rate": 1.0,
+      "contract_pass_rate_all": 1.0,
+      "reject_accuracy": 0.25,
+      "reject_any_rate": 0.75,
+      "false_accept": 1,
+      "latency_all": {
+        "n": 8,
+        "median_s": 9.2343,
+        "mean_s": 7.7682,
+        "p95_s": 9.4476,
+        "max_s": 9.4476
+      },
+      "latency_warm": {
+        "n": 7,
+        "median_s": 9.2241,
+        "mean_s": 7.5282,
+        "p95_s": 9.3905,
+        "max_s": 9.3905
+      },
+      "latency_first_in_task": {
+        "n": 1,
+        "median_s": 9.4476,
+        "mean_s": 9.4476,
+        "p95_s": 9.4476,
+        "max_s": 9.4476
+      },
+      "errors": 0
+    }
+  },
+  "per_task": {
+    "1": {
+      "cases": 8,
+      "positives": 4,
+      "qwen_full_semantic": 1.0,
+      "d1_full_binding": 0.0,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": 1.0
+    }
+  },
+  "cases": [
+    {
+      "id": "t01_official",
+      "kind_id": "t01_official",
+      "task_id": 1,
+      "kind": "positive",
+      "instruction": "put the bowl on the stove",
+      "expected": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on"
+      },
+      "expected_reject": null,
+      "phase": "first_in_task",
+      "results": {
+        "qwen_full": {
+          "engine": "qwen_full",
+          "status": "ok",
+          "repairs": 0,
+          "attempt_count": 1,
+          "total_s": 6.9248,
+          "prompt": "put the black bowl on the stove",
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "semantic": true,
+          "semantic_checks": {
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "prompt_equals_official": false,
+          "prompt_equals_user": false,
+          "tokens": {
+            "prompt": 1852,
+            "completion": 147
+          },
+          "vllm": {
+            "queue_s": 0.006,
+            "ttft_s": 0.2154,
+            "decode_s": 6.6556,
+            "server_e2e_s": 6.8707
+          },
+          "attempts": [
+            {
+              "kind": "initial",
+              "elapsed_s": 6.88,
+              "prompt_tokens": 1852,
+              "completion_tokens": 147
+            }
+          ],
+          "raw_plan": {
+            "interpretation": "Pick up the akita_black_bowl_1 and place it on the flat_stove_1_cook_region.",
+            "success_condition": "The native goal atom 'On akita_black_bowl_1 flat_stove_1_cook_region' is true after the release.",
+            "steps": [
+              {
+                "skill": "pick_place",
+                "object_n": "akita_black_bowl_1",
+                "target_n": "flat_stove_1_cook_region",
+                "relation": "on",
+                "prompt": "put the black bowl on the stove"
+              }
+            ],
+            "instruction": "put the bowl on the stove",
+            "task_id": 1,
+            "kind": "pick_place",
+            "plan_source": "qwen3.5-9b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          }
+        },
+        "qwen_decision": {
+          "engine": "qwen_decision",
+          "status": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "accepted": true,
+          "decision": {
+            "operation": "pick_place",
+            "operation_confidence": 1.0,
+            "source": "akita_black_bowl_1",
+            "source_confidence": 1.0,
+            "target": "flat_stove_1_cook_region",
+            "target_confidence": 1.0,
+            "relation": "on",
+            "relation_confidence": 1.0,
+            "open_target": null
+          },
+          "checks": {
+            "operation": true,
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "full_binding": true,
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "prompt": "put the bowl on the stove",
+          "stage1_s": 5.4982,
+          "stage2_s": 3.9492,
+          "total_s": 9.4476,
+          "tokens": {
+            "input_tokens": 2788,
+            "output_tokens": 0
+          },
+          "evidence": {
+            "stage1_s": 5.4982,
+            "stage2_s": 3.9492,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0
+            },
+            "stage2": {
+              "target": {
+                "type": "choice",
+                "choice": "flat_stove_1_cook_region",
+                "confidence": 1.0
+              },
+              "relation": {
+                "type": "choice",
+                "choice": "on",
+                "confidence": 1.0
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 1.0
+              }
+            }
+          },
+          "evidence_full": {
+            "candidates": {
+              "objects": [
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1"
+              ],
+              "targets": [
+                "flat_stove_1_cook_region",
+                "main_table_akita_black_bowl_region",
+                "main_table_cabinet_region",
+                "main_table_cream_cheese_region",
+                "main_table_plate_region",
+                "main_table_stove_front_region",
+                "main_table_stove_region",
+                "main_table_wine_bottle_region",
+                "main_table_wine_rack_region",
+                "table_top",
+                "wine_rack_1_top_region",
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region",
+                "wooden_cabinet_1_top_side",
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1",
+                "flat_stove_1"
+              ],
+              "drawers": [
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region"
+              ],
+              "appliances": [
+                "flat_stove_1"
+              ]
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0,
+              "usage": {
+                "input_tokens": 1341,
+                "output_tokens": 116
+              }
+            },
+            "stage1_s": 5.4982,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage2": {
+              "answers": {
+                "target": {
+                  "type": "choice",
+                  "choice": "flat_stove_1_cook_region",
+                  "confidence": 1.0
+                },
+                "relation": {
+                  "type": "choice",
+                  "choice": "on",
+                  "confidence": 1.0
+                },
+                "target_specified": {
+                  "type": "noul",
+                  "noul": 1.0
+                }
+              },
+              "usage": {
+                "input_tokens": 1447,
+                "output_tokens": 78
+              }
+            },
+            "stage2_s": 3.9492
+          },
+          "plan": {
+            "interpretation": "Execute the whole-task policy for the user's request; binding operation=pick_place, source=akita_black_bowl_1, target=flat_stove_1_cook_region, relation=on",
+            "success_condition": "The simulation reaches the requested relation between the selected source and target and the native LIBERO goal is measured true; no success is inferred from language.",
+            "steps": [
+              {
+                "skill": "whole_task",
+                "object_n": null,
+                "target_n": null,
+                "relation": "task",
+                "prompt": "put the bowl on the stove"
+              }
+            ],
+            "instruction": "put the bowl on the stove",
+            "task_id": 1,
+            "kind": null,
+            "plan_source": "d1-3b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          },
+          "qwen_calls": [
+            {
+              "elapsed_s": 5.4979,
+              "prompt_tokens": 1341,
+              "completion_tokens": 116,
+              "attempts": 1
+            },
+            {
+              "elapsed_s": 3.949,
+              "prompt_tokens": 1447,
+              "completion_tokens": 78,
+              "attempts": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "t01_p1",
+      "kind_id": "t01_p1",
+      "task_id": 1,
+      "kind": "positive",
+      "instruction": "place the black bowl on the stove",
+      "expected": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on"
+      },
+      "expected_reject": null,
+      "phase": "warm",
+      "results": {
+        "qwen_full": {
+          "engine": "qwen_full",
+          "status": "ok",
+          "repairs": 0,
+          "attempt_count": 1,
+          "total_s": 5.7946,
+          "prompt": "place the black bowl on the stove",
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "semantic": true,
+          "semantic_checks": {
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "prompt_equals_official": false,
+          "prompt_equals_user": true,
+          "tokens": {
+            "prompt": 1853,
+            "completion": 121
+          },
+          "vllm": {
+            "queue_s": 0.0019,
+            "ttft_s": 0.1883,
+            "decode_s": 5.56,
+            "server_e2e_s": 5.7484
+          },
+          "attempts": [
+            {
+              "kind": "initial",
+              "elapsed_s": 5.755,
+              "prompt_tokens": 1853,
+              "completion_tokens": 121
+            }
+          ],
+          "raw_plan": {
+            "interpretation": "Pick up the black bowl and place it on the stove cook region.",
+            "success_condition": "The black bowl is on the stove cook region after release.",
+            "steps": [
+              {
+                "skill": "pick_place",
+                "object_n": "akita_black_bowl_1",
+                "target_n": "flat_stove_1_cook_region",
+                "relation": "on",
+                "prompt": "place the black bowl on the stove"
+              }
+            ],
+            "instruction": "place the black bowl on the stove",
+            "task_id": 1,
+            "kind": "pick_place",
+            "plan_source": "qwen3.5-9b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          }
+        },
+        "qwen_decision": {
+          "engine": "qwen_decision",
+          "status": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "accepted": true,
+          "decision": {
+            "operation": "pick_place",
+            "operation_confidence": 1.0,
+            "source": "akita_black_bowl_1",
+            "source_confidence": 1.0,
+            "target": "flat_stove_1_cook_region",
+            "target_confidence": 1.0,
+            "relation": "on",
+            "relation_confidence": 1.0,
+            "open_target": null
+          },
+          "checks": {
+            "operation": true,
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "full_binding": true,
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "prompt": "place the black bowl on the stove",
+          "stage1_s": 5.5032,
+          "stage2_s": 3.7412,
+          "total_s": 9.2446,
+          "tokens": {
+            "input_tokens": 2790,
+            "output_tokens": 0
+          },
+          "evidence": {
+            "stage1_s": 5.5032,
+            "stage2_s": 3.7412,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0
+            },
+            "stage2": {
+              "target": {
+                "type": "choice",
+                "choice": "flat_stove_1_cook_region",
+                "confidence": 1.0
+              },
+              "relation": {
+                "type": "choice",
+                "choice": "on",
+                "confidence": 1.0
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 1.0
+              }
+            }
+          },
+          "evidence_full": {
+            "candidates": {
+              "objects": [
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1"
+              ],
+              "targets": [
+                "flat_stove_1_cook_region",
+                "main_table_akita_black_bowl_region",
+                "main_table_cabinet_region",
+                "main_table_cream_cheese_region",
+                "main_table_plate_region",
+                "main_table_stove_front_region",
+                "main_table_stove_region",
+                "main_table_wine_bottle_region",
+                "main_table_wine_rack_region",
+                "table_top",
+                "wine_rack_1_top_region",
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region",
+                "wooden_cabinet_1_top_side",
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1",
+                "flat_stove_1"
+              ],
+              "drawers": [
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region"
+              ],
+              "appliances": [
+                "flat_stove_1"
+              ]
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0,
+              "usage": {
+                "input_tokens": 1342,
+                "output_tokens": 116
+              }
+            },
+            "stage1_s": 5.5032,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage2": {
+              "answers": {
+                "target": {
+                  "type": "choice",
+                  "choice": "flat_stove_1_cook_region",
+                  "confidence": 1.0
+                },
+                "relation": {
+                  "type": "choice",
+                  "choice": "on",
+                  "confidence": 1.0
+                },
+                "target_specified": {
+                  "type": "noul",
+                  "noul": 1.0
+                }
+              },
+              "usage": {
+                "input_tokens": 1448,
+                "output_tokens": 78
+              }
+            },
+            "stage2_s": 3.7412
+          },
+          "plan": {
+            "interpretation": "Execute the whole-task policy for the user's request; binding operation=pick_place, source=akita_black_bowl_1, target=flat_stove_1_cook_region, relation=on",
+            "success_condition": "The simulation reaches the requested relation between the selected source and target and the native LIBERO goal is measured true; no success is inferred from language.",
+            "steps": [
+              {
+                "skill": "whole_task",
+                "object_n": null,
+                "target_n": null,
+                "relation": "task",
+                "prompt": "place the black bowl on the stove"
+              }
+            ],
+            "instruction": "place the black bowl on the stove",
+            "task_id": 1,
+            "kind": null,
+            "plan_source": "d1-3b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          },
+          "qwen_calls": [
+            {
+              "elapsed_s": 5.503,
+              "prompt_tokens": 1342,
+              "completion_tokens": 116,
+              "attempts": 1
+            },
+            {
+              "elapsed_s": 3.741,
+              "prompt_tokens": 1448,
+              "completion_tokens": 78,
+              "attempts": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "t01_p2",
+      "kind_id": "t01_p2",
+      "task_id": 1,
+      "kind": "positive",
+      "instruction": "put the akita black bowl onto the stove top",
+      "expected": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on"
+      },
+      "expected_reject": null,
+      "phase": "warm",
+      "results": {
+        "qwen_full": {
+          "engine": "qwen_full",
+          "status": "ok",
+          "repairs": 0,
+          "attempt_count": 1,
+          "total_s": 7.0579,
+          "prompt": "put the akita black bowl onto the stove top",
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "semantic": true,
+          "semantic_checks": {
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "prompt_equals_official": false,
+          "prompt_equals_user": true,
+          "tokens": {
+            "prompt": 1856,
+            "completion": 150
+          },
+          "vllm": {
+            "queue_s": 0.002,
+            "ttft_s": 0.1857,
+            "decode_s": 6.8269,
+            "server_e2e_s": 7.0127
+          },
+          "attempts": [
+            {
+              "kind": "initial",
+              "elapsed_s": 7.019,
+              "prompt_tokens": 1856,
+              "completion_tokens": 150
+            }
+          ],
+          "raw_plan": {
+            "interpretation": "Pick up the akita_black_bowl_1 and place it on the flat_stove_1_cook_region.",
+            "success_condition": "The native goal atom 'On akita_black_bowl_1 flat_stove_1_cook_region' is true after the release.",
+            "steps": [
+              {
+                "skill": "pick_place",
+                "object_n": "akita_black_bowl_1",
+                "target_n": "flat_stove_1_cook_region",
+                "relation": "on",
+                "prompt": "put the akita black bowl onto the stove top"
+              }
+            ],
+            "instruction": "put the akita black bowl onto the stove top",
+            "task_id": 1,
+            "kind": "pick_place",
+            "plan_source": "qwen3.5-9b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          }
+        },
+        "qwen_decision": {
+          "engine": "qwen_decision",
+          "status": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "accepted": true,
+          "decision": {
+            "operation": "pick_place",
+            "operation_confidence": 1.0,
+            "source": "akita_black_bowl_1",
+            "source_confidence": 1.0,
+            "target": "flat_stove_1_cook_region",
+            "target_confidence": 1.0,
+            "relation": "on",
+            "relation_confidence": 1.0,
+            "open_target": null
+          },
+          "checks": {
+            "operation": true,
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "full_binding": true,
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "prompt": "put the akita black bowl onto the stove top",
+          "stage1_s": 5.5302,
+          "stage2_s": 3.8222,
+          "total_s": 9.3525,
+          "tokens": {
+            "input_tokens": 2796,
+            "output_tokens": 0
+          },
+          "evidence": {
+            "stage1_s": 5.5302,
+            "stage2_s": 3.8222,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0
+            },
+            "stage2": {
+              "target": {
+                "type": "choice",
+                "choice": "flat_stove_1_cook_region",
+                "confidence": 1.0
+              },
+              "relation": {
+                "type": "choice",
+                "choice": "on",
+                "confidence": 1.0
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 1.0
+              }
+            }
+          },
+          "evidence_full": {
+            "candidates": {
+              "objects": [
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1"
+              ],
+              "targets": [
+                "flat_stove_1_cook_region",
+                "main_table_akita_black_bowl_region",
+                "main_table_cabinet_region",
+                "main_table_cream_cheese_region",
+                "main_table_plate_region",
+                "main_table_stove_front_region",
+                "main_table_stove_region",
+                "main_table_wine_bottle_region",
+                "main_table_wine_rack_region",
+                "table_top",
+                "wine_rack_1_top_region",
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region",
+                "wooden_cabinet_1_top_side",
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1",
+                "flat_stove_1"
+              ],
+              "drawers": [
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region"
+              ],
+              "appliances": [
+                "flat_stove_1"
+              ]
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0,
+              "usage": {
+                "input_tokens": 1345,
+                "output_tokens": 116
+              }
+            },
+            "stage1_s": 5.5302,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage2": {
+              "answers": {
+                "target": {
+                  "type": "choice",
+                  "choice": "flat_stove_1_cook_region",
+                  "confidence": 1.0
+                },
+                "relation": {
+                  "type": "choice",
+                  "choice": "on",
+                  "confidence": 1.0
+                },
+                "target_specified": {
+                  "type": "noul",
+                  "noul": 1.0
+                }
+              },
+              "usage": {
+                "input_tokens": 1451,
+                "output_tokens": 78
+              }
+            },
+            "stage2_s": 3.8222
+          },
+          "plan": {
+            "interpretation": "Execute the whole-task policy for the user's request; binding operation=pick_place, source=akita_black_bowl_1, target=flat_stove_1_cook_region, relation=on",
+            "success_condition": "The simulation reaches the requested relation between the selected source and target and the native LIBERO goal is measured true; no success is inferred from language.",
+            "steps": [
+              {
+                "skill": "whole_task",
+                "object_n": null,
+                "target_n": null,
+                "relation": "task",
+                "prompt": "put the akita black bowl onto the stove top"
+              }
+            ],
+            "instruction": "put the akita black bowl onto the stove top",
+            "task_id": 1,
+            "kind": null,
+            "plan_source": "d1-3b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          },
+          "qwen_calls": [
+            {
+              "elapsed_s": 5.5296,
+              "prompt_tokens": 1345,
+              "completion_tokens": 116,
+              "attempts": 1
+            },
+            {
+              "elapsed_s": 3.8219,
+              "prompt_tokens": 1451,
+              "completion_tokens": 78,
+              "attempts": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "t01_p3",
+      "kind_id": "t01_p3",
+      "task_id": 1,
+      "kind": "positive",
+      "instruction": "move the bowl onto the stove",
+      "expected": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on"
+      },
+      "expected_reject": null,
+      "phase": "warm",
+      "results": {
+        "qwen_full": {
+          "engine": "qwen_full",
+          "status": "ok",
+          "repairs": 0,
+          "attempt_count": 1,
+          "total_s": 6.9842,
+          "prompt": "put the black bowl on the stove",
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "semantic": true,
+          "semantic_checks": {
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "prompt_equals_official": false,
+          "prompt_equals_user": false,
+          "tokens": {
+            "prompt": 1852,
+            "completion": 147
+          },
+          "vllm": {
+            "queue_s": 0.0,
+            "ttft_s": 0.184,
+            "decode_s": 6.7549,
+            "server_e2e_s": 6.9387
+          },
+          "attempts": [
+            {
+              "kind": "initial",
+              "elapsed_s": 6.945,
+              "prompt_tokens": 1852,
+              "completion_tokens": 147
+            }
+          ],
+          "raw_plan": {
+            "interpretation": "Pick up the akita_black_bowl_1 and place it on the flat_stove_1_cook_region.",
+            "success_condition": "The native goal atom 'On akita_black_bowl_1 flat_stove_1_cook_region' is true after the release.",
+            "steps": [
+              {
+                "skill": "pick_place",
+                "object_n": "akita_black_bowl_1",
+                "target_n": "flat_stove_1_cook_region",
+                "relation": "on",
+                "prompt": "put the black bowl on the stove"
+              }
+            ],
+            "instruction": "move the bowl onto the stove",
+            "task_id": 1,
+            "kind": "pick_place",
+            "plan_source": "qwen3.5-9b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          }
+        },
+        "qwen_decision": {
+          "engine": "qwen_decision",
+          "status": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "accepted": true,
+          "decision": {
+            "operation": "pick_place",
+            "operation_confidence": 1.0,
+            "source": "akita_black_bowl_1",
+            "source_confidence": 1.0,
+            "target": "flat_stove_1_cook_region",
+            "target_confidence": 1.0,
+            "relation": "on",
+            "relation_confidence": 1.0,
+            "open_target": null
+          },
+          "checks": {
+            "operation": true,
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "full_binding": true,
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "prompt": "move the bowl onto the stove",
+          "stage1_s": 5.4887,
+          "stage2_s": 3.7352,
+          "total_s": 9.2241,
+          "tokens": {
+            "input_tokens": 2788,
+            "output_tokens": 0
+          },
+          "evidence": {
+            "stage1_s": 5.4887,
+            "stage2_s": 3.7352,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0
+            },
+            "stage2": {
+              "target": {
+                "type": "choice",
+                "choice": "flat_stove_1_cook_region",
+                "confidence": 1.0
+              },
+              "relation": {
+                "type": "choice",
+                "choice": "on",
+                "confidence": 1.0
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 1.0
+              }
+            }
+          },
+          "evidence_full": {
+            "candidates": {
+              "objects": [
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1"
+              ],
+              "targets": [
+                "flat_stove_1_cook_region",
+                "main_table_akita_black_bowl_region",
+                "main_table_cabinet_region",
+                "main_table_cream_cheese_region",
+                "main_table_plate_region",
+                "main_table_stove_front_region",
+                "main_table_stove_region",
+                "main_table_wine_bottle_region",
+                "main_table_wine_rack_region",
+                "table_top",
+                "wine_rack_1_top_region",
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region",
+                "wooden_cabinet_1_top_side",
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1",
+                "flat_stove_1"
+              ],
+              "drawers": [
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region"
+              ],
+              "appliances": [
+                "flat_stove_1"
+              ]
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0,
+              "usage": {
+                "input_tokens": 1341,
+                "output_tokens": 116
+              }
+            },
+            "stage1_s": 5.4887,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage2": {
+              "answers": {
+                "target": {
+                  "type": "choice",
+                  "choice": "flat_stove_1_cook_region",
+                  "confidence": 1.0
+                },
+                "relation": {
+                  "type": "choice",
+                  "choice": "on",
+                  "confidence": 1.0
+                },
+                "target_specified": {
+                  "type": "noul",
+                  "noul": 1.0
+                }
+              },
+              "usage": {
+                "input_tokens": 1447,
+                "output_tokens": 78
+              }
+            },
+            "stage2_s": 3.7352
+          },
+          "plan": {
+            "interpretation": "Execute the whole-task policy for the user's request; binding operation=pick_place, source=akita_black_bowl_1, target=flat_stove_1_cook_region, relation=on",
+            "success_condition": "The simulation reaches the requested relation between the selected source and target and the native LIBERO goal is measured true; no success is inferred from language.",
+            "steps": [
+              {
+                "skill": "whole_task",
+                "object_n": null,
+                "target_n": null,
+                "relation": "task",
+                "prompt": "move the bowl onto the stove"
+              }
+            ],
+            "instruction": "move the bowl onto the stove",
+            "task_id": 1,
+            "kind": null,
+            "plan_source": "d1-3b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          },
+          "qwen_calls": [
+            {
+              "elapsed_s": 5.4885,
+              "prompt_tokens": 1341,
+              "completion_tokens": 116,
+              "attempts": 1
+            },
+            {
+              "elapsed_s": 3.735,
+              "prompt_tokens": 1447,
+              "completion_tokens": 78,
+              "attempts": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n_missing_pronoun",
+      "kind_id": "n_missing_pronoun",
+      "task_id": 1,
+      "kind": "negative",
+      "instruction": "put it on the stove",
+      "expected": null,
+      "expected_reject": "missing_information",
+      "phase": "warm",
+      "results": {
+        "qwen_full": {
+          "engine": "qwen_full",
+          "status": "ok",
+          "repairs": 0,
+          "attempt_count": 1,
+          "total_s": 6.3466,
+          "prompt": "put the black bowl on the stove",
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "semantic": null,
+          "semantic_checks": {},
+          "prompt_equals_official": false,
+          "prompt_equals_user": false,
+          "tokens": {
+            "prompt": 1851,
+            "completion": 135
+          },
+          "vllm": {
+            "queue_s": 0.0,
+            "ttft_s": 0.1821,
+            "decode_s": 6.1194,
+            "server_e2e_s": 6.3012
+          },
+          "attempts": [
+            {
+              "kind": "initial",
+              "elapsed_s": 6.307,
+              "prompt_tokens": 1851,
+              "completion_tokens": 135
+            }
+          ],
+          "raw_plan": {
+            "interpretation": "Pick up the black bowl and place it on the stove.",
+            "success_condition": "The native goal atom 'On akita_black_bowl_1 flat_stove_1_cook_region' is true after the release.",
+            "steps": [
+              {
+                "skill": "pick_place",
+                "object_n": "akita_black_bowl_1",
+                "target_n": "flat_stove_1_cook_region",
+                "relation": "on",
+                "prompt": "put the black bowl on the stove"
+              }
+            ],
+            "instruction": "put it on the stove",
+            "task_id": 1,
+            "kind": "pick_place",
+            "plan_source": "qwen3.5-9b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          }
+        },
+        "qwen_decision": {
+          "engine": "qwen_decision",
+          "status": "missing_information",
+          "reason_code": "source_not_specified",
+          "reason": "source='none' specified P(yes)=0.000",
+          "accepted": false,
+          "decision": {
+            "operation": null,
+            "operation_confidence": null,
+            "source": null,
+            "source_confidence": null,
+            "target": null,
+            "target_confidence": null,
+            "relation": null,
+            "relation_confidence": null,
+            "open_target": null
+          },
+          "checks": {},
+          "full_binding": null,
+          "contract_ok": false,
+          "contract_error_count": 0,
+          "prompt": null,
+          "stage1_s": 4.9412,
+          "stage2_s": null,
+          "total_s": 4.9412,
+          "tokens": {},
+          "evidence": {
+            "stage1_s": 4.9412,
+            "stage2_s": null,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "none",
+              "source_confidence": 1.0,
+              "source_specified": 0.0,
+              "ambiguous": 0.0
+            },
+            "stage2": null
+          },
+          "evidence_full": {
+            "candidates": {
+              "objects": [
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1"
+              ],
+              "targets": [
+                "flat_stove_1_cook_region",
+                "main_table_akita_black_bowl_region",
+                "main_table_cabinet_region",
+                "main_table_cream_cheese_region",
+                "main_table_plate_region",
+                "main_table_stove_front_region",
+                "main_table_stove_region",
+                "main_table_wine_bottle_region",
+                "main_table_wine_rack_region",
+                "table_top",
+                "wine_rack_1_top_region",
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region",
+                "wooden_cabinet_1_top_side",
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1",
+                "flat_stove_1"
+              ],
+              "drawers": [
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region"
+              ],
+              "appliances": [
+                "flat_stove_1"
+              ]
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "none",
+              "source_confidence": 1.0,
+              "source_specified": 0.0,
+              "ambiguous": 0.0,
+              "usage": {
+                "input_tokens": 1340,
+                "output_tokens": 110
+              }
+            },
+            "stage1_s": 4.9412,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            }
+          },
+          "plan": null,
+          "qwen_calls": [
+            {
+              "elapsed_s": 4.9409,
+              "prompt_tokens": 1340,
+              "completion_tokens": 110,
+              "attempts": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n_missing_target",
+      "kind_id": "n_missing_target",
+      "task_id": 1,
+      "kind": "negative",
+      "instruction": "put the bowl over there",
+      "expected": null,
+      "expected_reject": "missing_information",
+      "phase": "warm",
+      "results": {
+        "qwen_full": {
+          "engine": "qwen_full",
+          "status": "ok",
+          "repairs": 0,
+          "attempt_count": 1,
+          "total_s": 4.6376,
+          "prompt": "put the black bowl on the stove",
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "semantic": null,
+          "semantic_checks": {},
+          "prompt_equals_official": false,
+          "prompt_equals_user": false,
+          "tokens": {
+            "prompt": 1851,
+            "completion": 147
+          },
+          "vllm": {
+            "queue_s": 0.0,
+            "ttft_s": 0.1793,
+            "decode_s": 4.4151,
+            "server_e2e_s": 4.5935
+          },
+          "attempts": [
+            {
+              "kind": "initial",
+              "elapsed_s": 4.6,
+              "prompt_tokens": 1851,
+              "completion_tokens": 147
+            }
+          ],
+          "raw_plan": {
+            "interpretation": "Pick up the akita_black_bowl_1 and place it on the flat_stove_1_cook_region.",
+            "success_condition": "The native goal atom 'On akita_black_bowl_1 flat_stove_1_cook_region' is true after the release.",
+            "steps": [
+              {
+                "skill": "pick_place",
+                "object_n": "akita_black_bowl_1",
+                "target_n": "flat_stove_1_cook_region",
+                "relation": "on",
+                "prompt": "put the black bowl on the stove"
+              }
+            ],
+            "instruction": "put the bowl over there",
+            "task_id": 1,
+            "kind": "pick_place",
+            "plan_source": "qwen3.5-9b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          }
+        },
+        "qwen_decision": {
+          "engine": "qwen_decision",
+          "status": "rejected",
+          "reason_code": "user_goal_relation_not_preserved",
+          "reason": "relation 'on' is not expressed in the request",
+          "accepted": false,
+          "decision": {
+            "operation": null,
+            "operation_confidence": null,
+            "source": null,
+            "source_confidence": null,
+            "target": null,
+            "target_confidence": null,
+            "relation": null,
+            "relation_confidence": null,
+            "open_target": null
+          },
+          "checks": {},
+          "full_binding": null,
+          "contract_ok": false,
+          "contract_error_count": 0,
+          "prompt": null,
+          "stage1_s": 5.5012,
+          "stage2_s": 3.8893,
+          "total_s": 9.3905,
+          "tokens": {},
+          "evidence": {
+            "stage1_s": 5.5012,
+            "stage2_s": 3.8893,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0
+            },
+            "stage2": {
+              "target": {
+                "type": "choice",
+                "choice": "main_table_akita_black_bowl_region",
+                "confidence": 0.95
+              },
+              "relation": {
+                "type": "choice",
+                "choice": "on",
+                "confidence": 0.95
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 0.95
+              }
+            }
+          },
+          "evidence_full": {
+            "candidates": {
+              "objects": [
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1"
+              ],
+              "targets": [
+                "flat_stove_1_cook_region",
+                "main_table_akita_black_bowl_region",
+                "main_table_cabinet_region",
+                "main_table_cream_cheese_region",
+                "main_table_plate_region",
+                "main_table_stove_front_region",
+                "main_table_stove_region",
+                "main_table_wine_bottle_region",
+                "main_table_wine_rack_region",
+                "table_top",
+                "wine_rack_1_top_region",
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region",
+                "wooden_cabinet_1_top_side",
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1",
+                "flat_stove_1"
+              ],
+              "drawers": [
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region"
+              ],
+              "appliances": [
+                "flat_stove_1"
+              ]
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0,
+              "usage": {
+                "input_tokens": 1340,
+                "output_tokens": 116
+              }
+            },
+            "stage1_s": 5.5012,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage2": {
+              "answers": {
+                "target": {
+                  "type": "choice",
+                  "choice": "main_table_akita_black_bowl_region",
+                  "confidence": 0.95
+                },
+                "relation": {
+                  "type": "choice",
+                  "choice": "on",
+                  "confidence": 0.95
+                },
+                "target_specified": {
+                  "type": "noul",
+                  "noul": 0.95
+                }
+              },
+              "usage": {
+                "input_tokens": 1446,
+                "output_tokens": 81
+              }
+            },
+            "stage2_s": 3.8893
+          },
+          "plan": null,
+          "qwen_calls": [
+            {
+              "elapsed_s": 5.5009,
+              "prompt_tokens": 1340,
+              "completion_tokens": 116,
+              "attempts": 1
+            },
+            {
+              "elapsed_s": 3.889,
+              "prompt_tokens": 1446,
+              "completion_tokens": 81,
+              "attempts": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n_not_in_scene",
+      "kind_id": "n_not_in_scene",
+      "task_id": 1,
+      "kind": "negative",
+      "instruction": "put the apple on the stove",
+      "expected": null,
+      "expected_reject": "rejected",
+      "phase": "warm",
+      "results": {
+        "qwen_full": {
+          "engine": "qwen_full",
+          "status": "ok",
+          "repairs": 1,
+          "attempt_count": 2,
+          "total_s": 9.8411,
+          "prompt": "put the black bowl on the stove",
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "semantic": null,
+          "semantic_checks": {},
+          "prompt_equals_official": false,
+          "prompt_equals_user": false,
+          "tokens": {
+            "prompt": 3893,
+            "completion": 205
+          },
+          "vllm": {
+            "queue_s": 0.0,
+            "ttft_s": 0.2027,
+            "decode_s": 4.8271,
+            "server_e2e_s": 5.0288
+          },
+          "attempts": [
+            {
+              "kind": "initial",
+              "elapsed_s": 4.727,
+              "prompt_tokens": 1852,
+              "completion_tokens": 98
+            },
+            {
+              "kind": "format_repair",
+              "elapsed_s": 5.035,
+              "prompt_tokens": 2041,
+              "completion_tokens": 107
+            }
+          ],
+          "raw_plan": {
+            "interpretation": "Pick up the black bowl and place it on the stove",
+            "success_condition": "The black bowl is placed on the flat_stove_1_cook_region with the gripper released and the native goal atom true.",
+            "steps": [
+              {
+                "skill": "pick_place",
+                "object_n": "akita_black_bowl_1",
+                "target_n": "flat_stove_1_cook_region",
+                "relation": "on",
+                "prompt": "put the black bowl on the stove"
+              }
+            ],
+            "instruction": "put the apple on the stove",
+            "task_id": 1,
+            "kind": "pick_place",
+            "plan_source": "qwen3.5-9b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          }
+        },
+        "qwen_decision": {
+          "engine": "qwen_decision",
+          "status": "missing_information",
+          "reason_code": "source_not_specified",
+          "reason": "source='none' specified P(yes)=0.000",
+          "accepted": false,
+          "decision": {
+            "operation": null,
+            "operation_confidence": null,
+            "source": null,
+            "source_confidence": null,
+            "target": null,
+            "target_confidence": null,
+            "relation": null,
+            "relation_confidence": null,
+            "open_target": null
+          },
+          "checks": {},
+          "full_binding": null,
+          "contract_ok": false,
+          "contract_error_count": 0,
+          "prompt": null,
+          "stage1_s": 4.4179,
+          "stage2_s": null,
+          "total_s": 4.4179,
+          "tokens": {},
+          "evidence": {
+            "stage1_s": 4.4179,
+            "stage2_s": null,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "none",
+              "source_confidence": 1.0,
+              "source_specified": 0.0,
+              "ambiguous": 0.0
+            },
+            "stage2": null
+          },
+          "evidence_full": {
+            "candidates": {
+              "objects": [
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1"
+              ],
+              "targets": [
+                "flat_stove_1_cook_region",
+                "main_table_akita_black_bowl_region",
+                "main_table_cabinet_region",
+                "main_table_cream_cheese_region",
+                "main_table_plate_region",
+                "main_table_stove_front_region",
+                "main_table_stove_region",
+                "main_table_wine_bottle_region",
+                "main_table_wine_rack_region",
+                "table_top",
+                "wine_rack_1_top_region",
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region",
+                "wooden_cabinet_1_top_side",
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1",
+                "flat_stove_1"
+              ],
+              "drawers": [
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region"
+              ],
+              "appliances": [
+                "flat_stove_1"
+              ]
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "none",
+              "source_confidence": 1.0,
+              "source_specified": 0.0,
+              "ambiguous": 0.0,
+              "usage": {
+                "input_tokens": 1341,
+                "output_tokens": 110
+              }
+            },
+            "stage1_s": 4.4179,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            }
+          },
+          "plan": null,
+          "qwen_calls": [
+            {
+              "elapsed_s": 4.4177,
+              "prompt_tokens": 1341,
+              "completion_tokens": 110,
+              "attempts": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n_ambiguous_table",
+      "kind_id": "n_ambiguous_table",
+      "task_id": 1,
+      "kind": "negative",
+      "instruction": "put the bowl on the table",
+      "expected": null,
+      "expected_reject": "needs_clarification",
+      "phase": "warm",
+      "results": {
+        "qwen_full": {
+          "engine": "qwen_full",
+          "status": "ok",
+          "repairs": 0,
+          "attempt_count": 1,
+          "total_s": 3.5098,
+          "prompt": "put the bowl on the table",
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "semantic": null,
+          "semantic_checks": {},
+          "prompt_equals_official": false,
+          "prompt_equals_user": true,
+          "tokens": {
+            "prompt": 1852,
+            "completion": 110
+          },
+          "vllm": {
+            "queue_s": 0.0,
+            "ttft_s": 0.1766,
+            "decode_s": 3.2883,
+            "server_e2e_s": 3.4639
+          },
+          "attempts": [
+            {
+              "kind": "initial",
+              "elapsed_s": 3.471,
+              "prompt_tokens": 1852,
+              "completion_tokens": 110
+            }
+          ],
+          "raw_plan": {
+            "interpretation": "Pick up the akita_black_bowl_1 and place it on the main_table_stove_region",
+            "success_condition": "native goal atom true, target relation true after release, release opening >= 0.05 m, observation newer than release",
+            "steps": [
+              {
+                "skill": "pick_place",
+                "object_n": "akita_black_bowl_1",
+                "target_n": "main_table_stove_region",
+                "relation": "on",
+                "prompt": "put the bowl on the table"
+              }
+            ],
+            "instruction": "put the bowl on the table",
+            "task_id": 1,
+            "kind": "pick_place",
+            "plan_source": "qwen3.5-9b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          }
+        },
+        "qwen_decision": {
+          "engine": "qwen_decision",
+          "status": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "accepted": true,
+          "decision": {
+            "operation": "pick_place",
+            "operation_confidence": 1.0,
+            "source": "akita_black_bowl_1",
+            "source_confidence": 1.0,
+            "target": "table_top",
+            "target_confidence": 0.95,
+            "relation": "on",
+            "relation_confidence": 0.99,
+            "open_target": null
+          },
+          "checks": {},
+          "full_binding": null,
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "prompt": "put the bowl on the table",
+          "stage1_s": 3.6751,
+          "stage2_s": 2.4515,
+          "total_s": 6.1268,
+          "tokens": {
+            "input_tokens": 2788,
+            "output_tokens": 0
+          },
+          "evidence": {
+            "stage1_s": 3.6751,
+            "stage2_s": 2.4515,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0
+            },
+            "stage2": {
+              "target": {
+                "type": "choice",
+                "choice": "table_top",
+                "confidence": 0.95
+              },
+              "relation": {
+                "type": "choice",
+                "choice": "on",
+                "confidence": 0.99
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 0.95
+              }
+            }
+          },
+          "evidence_full": {
+            "candidates": {
+              "objects": [
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1"
+              ],
+              "targets": [
+                "flat_stove_1_cook_region",
+                "main_table_akita_black_bowl_region",
+                "main_table_cabinet_region",
+                "main_table_cream_cheese_region",
+                "main_table_plate_region",
+                "main_table_stove_front_region",
+                "main_table_stove_region",
+                "main_table_wine_bottle_region",
+                "main_table_wine_rack_region",
+                "table_top",
+                "wine_rack_1_top_region",
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region",
+                "wooden_cabinet_1_top_side",
+                "akita_black_bowl_1",
+                "cream_cheese_1",
+                "plate_1",
+                "wine_bottle_1",
+                "flat_stove_1"
+              ],
+              "drawers": [
+                "wooden_cabinet_1_bottom_region",
+                "wooden_cabinet_1_middle_region",
+                "wooden_cabinet_1_top_region"
+              ],
+              "appliances": [
+                "flat_stove_1"
+              ]
+            },
+            "stage1": {
+              "supported": 1.0,
+              "operation": "pick_place",
+              "operation_confidence": 1.0,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 1.0,
+              "source_specified": 1.0,
+              "ambiguous": 0.0,
+              "usage": {
+                "input_tokens": 1341,
+                "output_tokens": 116
+              }
+            },
+            "stage1_s": 3.6751,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage2": {
+              "answers": {
+                "target": {
+                  "type": "choice",
+                  "choice": "table_top",
+                  "confidence": 0.95
+                },
+                "relation": {
+                  "type": "choice",
+                  "choice": "on",
+                  "confidence": 0.99
+                },
+                "target_specified": {
+                  "type": "noul",
+                  "noul": 0.95
+                }
+              },
+              "usage": {
+                "input_tokens": 1447,
+                "output_tokens": 75
+              }
+            },
+            "stage2_s": 2.4515
+          },
+          "plan": {
+            "interpretation": "Execute the whole-task policy for the user's request; binding operation=pick_place, source=akita_black_bowl_1, target=table_top, relation=on",
+            "success_condition": "The simulation reaches the requested relation between the selected source and target and the native LIBERO goal is measured true; no success is inferred from language.",
+            "steps": [
+              {
+                "skill": "whole_task",
+                "object_n": null,
+                "target_n": null,
+                "relation": "task",
+                "prompt": "put the bowl on the table"
+              }
+            ],
+            "instruction": "put the bowl on the table",
+            "task_id": 1,
+            "kind": null,
+            "plan_source": "d1-3b",
+            "planner_vision": false,
+            "evidence_source": "scene_metadata+sim_state",
+            "snapshot_observation_id": "query-86ad94f59b1f4ef890dcfe9ef7d37301:2:0:4",
+            "scene_epoch": 2,
+            "sim_action_count": 0
+          },
+          "qwen_calls": [
+            {
+              "elapsed_s": 3.6749,
+              "prompt_tokens": 1341,
+              "completion_tokens": 116,
+              "attempts": 1
+            },
+            {
+              "elapsed_s": 2.4513,
+              "prompt_tokens": 1447,
+              "completion_tokens": 75,
+              "attempts": 1
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

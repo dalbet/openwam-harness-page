@@ -433,3 +433,112 @@ Inference: async_chunk_prefetch / pi05
 | P2 | 十任务只跑了 1 回合/任务 | 方差未知（Pi0.5 在同任务上曾出现 3/3 → 1/3 的波动），需要 ≥20 回合/任务 |
 | P2 | `execute_horizon` 与 `generate_horizon` 都是 32 | 未做"缩短执行 horizon 提升反应性"的对照实验 |
 | P3 | 编译未启用 | `--compile-enabled false`；开启后的延迟/稳定性未测 |
+
+## 12. 当前 Qwen + OpenWAM 速度测量（2026-10-27）
+
+固定条件：HEAD `21e262e`，配置 SHA256 `34c98a8b68eed4f2391b17e1b492ca3df28a57b999f99f898751c717c0f5cbe9`；
+Qwen3.5-9B 在 :8001；OpenWAM-Alpha-Sim-LIBERO（`checkpoint_step_10690.safetensors`，
+OpenWAM repo `4d7f642`，HF revision `110b07e`）在 :14520/GPU2；
+`generate_horizon=execute_horizon=32`、`denoise_steps=10`、sync；LIBERO-Goal task 1、seed 0；
+控制频率 20 Hz。机器可读结果：`records/acceptance/speed_qwen_openwam.json`、
+`records/acceptance/speed_openwam_cold.json`。
+
+### 12.1 Planner（同一请求重复 12 次）
+
+| 指标 | 冷启动首个请求 | 热请求中位数 | p95 | 最大 |
+| --- | --- | --- | --- | --- |
+| 端到端 wall | 5.843 s | 5.535 s | 5.904 s | 5.904 s |
+| vLLM server e2e | 5.793 s | 5.793 s | 5.841 s | 5.852 s |
+| TTFT | 0.197 s | 0.183 s | 0.194 s | 0.197 s |
+| decode | 5.596 s | 5.596 s | 5.658 s | 5.668 s |
+| queue | 0.004 s | 0.000 s | 0.000 s | 0.004 s |
+
+输入 1311 tokens、输出 123 tokens；12 次均为 1 次请求、0 次修复，解析/契约校验合计 <0.1 ms。
+**解码占 Planner 端到端约 96%**；排队、TTFT、校验都可以忽略。
+
+### 12.2 OpenWAM 请求（task 1 完整回合，84 次动作请求）
+
+| 请求类型 | 次数 | server 延迟 | client 推理 | engine 总耗时 |
+| --- | --- | --- | --- | --- |
+| `chunk_generation`（热） | 3 | 469.8 ms 中位 | 484.1 ms | 565.6 ms |
+| `cache_hit` | 81 | 15.3 ms 中位 | 30.5 ms | 113.6 ms |
+
+- 冷进程首个 chunk：server 2072 ms、engine 2184 ms（CUDA kernel 初次启动），之后同进程热生成约 470 ms。
+- 生成 96 个动作、实际消费 84 个；3 个 chunk id `[0,1,2]`，每个请求都记录
+  `chunk_generation`/`cache_hit`、`chunk_id`、生成数/消费数。
+- **缓存取动作的 client 30.5 ms 不是模型推理**；完整 chunk 推理按 470–485 ms 计
+  （摊到 32 步约 15 ms/步），不能把 30 ms 或 server 15 ms 当作整块推理。
+
+### 12.3 动作执行（task 1 成功回合，87 个 sim 动作）
+
+| 指标 | 观测 |
+| --- | --- |
+| 回合总时长 | 31.66 s（Planner 5.82 s + 执行 22.40 s + 校验 0.26 s） |
+| OpenWAM 控制动作 | 84 步；仿真推进 4.2 s |
+| wall 动作吞吐 | 3.75 动作/s（配置 20 Hz） |
+| 仿真实时因子 | 0.187（仿真 1 s 需 wall 5.35 s） |
+| 相邻动作间隔 | 中位 251 ms，p95 264 ms，最大 718 ms |
+| 执行阶段拆分 | inference 11.94 s、env step 5.80 s、observe 3.76 s、snapshot 0.81 s、convert 0.05 s |
+
+**瓶颈证据**：执行阶段 53% 是 inference 等待，但其中模型生成只有 3×0.57≈1.7 s；
+81 次 cache 取动作 81×0.114≈9.2 s。也就是说，主要成本在"每步 RPC/快照/观测/取缓存"的
+流水线开销，而不是 OpenWAM 前向本身。env step 5.8 s、observe 3.76 s 也大于模型生成。
+因此本轮没有依据用"更换推理引擎"解释或解决速度问题；先缩短每个动作的采样/传输/校验
+链路才有明确收益。
+
+## 13. d1-3B 离线规划对照（阈值冻结，2026-10-27）
+
+- **阈值样本**：`config/offline_calibration.json`（24 例：18 正、6 负），只用于选择阈值；
+- **正式样本**：`config/offline_eval.json`（48 例：40 正 = 10 官方 + 30 等价改写，8 负），
+  冻结后只报告，不据结果回调；
+- 阈值：supported/operation/specified/relation/source/target ≥0.5，
+  operation 动词兜底 ≥0.3，top-1 对 runner-up 的 margin ≥0.2（`margin_min`）；
+- 机器可读：`records/offline/calibration_d1_v4.json`、`records/offline/eval.json`。
+
+### 13.1 校准集（18 正 / 6 负）
+
+| 指标 | d1 |
+| --- | --- |
+| 正例接受 | 18/18 |
+| accepted 后完整绑定 | 1.0 |
+| 契约通过 | 1.0 |
+| 负例误接受 | 0 |
+| 拒绝（任意类别 / 类别完全一致） | 6/6 / 3/6 |
+| 延迟（24 例，中位 / p95 / max） | 0.133 / 0.144 / 0.145 s |
+
+### 13.2 正式集（48 例）
+
+| 指标 | Qwen 完整 Planner | d1 决策 Planner | Qwen（同一候选决策） |
+| --- | --- | --- | --- |
+| 操作准确率 | 不适用（整任务无绑定） | 0.900（accepted 1.0） | 1.000 |
+| source 准确率 | 不适用 | 0.875（accepted 1.0） | 1.000 |
+| target 准确率 | 不适用 | 0.900（accepted 1.0） | 1.000 |
+| relation 准确率 | 不适用 | 0.900（accepted 1.0） | 1.000 |
+| 抽屉 open_target | 不适用 | 0.500（accepted 1.0） | 1.000 |
+| 完整计划语义 | 0.800（修正 push 检查器后 0.900） | 0.900（accepted 1.0） | 1.000 |
+| 契约通过率 | 0.979（47/48） | 1.000（accepted 36/36） | 1.000 |
+| 负例拒绝（任意 / 类别一致） | 1/8 / 1/8 | 7/8 / 4/8 | 7/8 / 5/8 |
+| 负例误接受 | 7 | 1（`put the bowl on the table`） | 1（同一例） |
+| 延迟中位（n=48） | 6.237 s | **0.133 s** | 7.925 s |
+| 延迟 p95 / max | 8.866 / 9.889 s | 0.145 / 0.147 s | 8.943 / 10.727 s |
+| 首例 / 热请求中位 | 6.486 / 6.237 s | 0.136 / 0.133 s | 7.904 / 7.928 s |
+
+- **d1 的 4 个漏接受**：t03_official 与 t03_p2（`source_uncertain`，source 仍是
+  `akita_black_bowl_1`，但置信度/边距低于冻结阈值）、t08_official（`source_uncertain`，
+  source 置信度 0.492）、t06_p3（动词 `drop` 被判为 `other`）。所有 36 个 accepted
+  绑定都正确，说明失败模式是"过度弃权"，不是"绑定错误"。
+- **Qwen 完整 Planner 的真实语义失败**：task 3 的四种说法都被改写成
+  `open the top drawer of the cabinet`，**丢失了"把碗放进去"子目标**（4/4），
+  这是 0.8→0.9 修正后仍然存在的唯一语义失败；task 5 的 4 个假阴性来自
+  "push … to the front" 不含词面 `on` 的检查器缺陷，已单独重算并保留原始值
+  （`records/offline/eval_semantic_recheck.json`）。
+- **Qwen 完整 Planner 的负例行为**：8 个负例中只有 1 个因两次格式失败而拒绝，
+  其余 7 个照常生成计划；它没有稳定的歧义/缺参拒绝能力。
+- **两次比较的结论**：
+  1. **真实替换收益**：d1 把 Planner 延迟从 6.24 s 降到 0.133 s（约 47×），
+     但正式集上弃权 2/10 官方任务，不能作为默认 Agent 替换 Qwen；
+  2. **同一候选决策**：Qwen 40/40 全部绑定正确、拒绝 7/8；d1 accepted 36/40 且
+     同样全部正确、拒绝 7/8。模型差异主要在"是否弃权"和延迟（59.6×），
+     而不是输出格式导致的能力差；d1 的低置信门是双刃剑。
+- **处置**：保留 `agent.mode=qwen` 为默认；d1 以 `d1` 模式参与真实 A/B，
+  不通过放宽阈值或硬编码任务答案提升指标。目标绑定结论为 **PARTIAL**。

@@ -1,0 +1,67 @@
+{
+  "schema": "embodied_engine.offline_eval.v1",
+  "frozen": true,
+  "frozen_at": "2026-10-27",
+  "purpose": "Frozen offline planning comparison for the ten LIBERO-Goal tasks. Gold bindings are evaluation labels only: they are never passed to either planner.",
+  "gold_source": "official task registry + scene metadata, evaluation-only; BDDL is not read by the planners",
+  "cases": [
+    {"id": "t00_official", "task_id": 0, "kind": "positive", "instruction": "open the middle drawer of the cabinet", "expected": {"operation": "open_drawer", "source": null, "target": "wooden_cabinet_1_middle_region", "relation": "open"}},
+    {"id": "t00_p1", "task_id": 0, "kind": "positive", "instruction": "open the cabinet's middle drawer", "expected": {"operation": "open_drawer", "source": null, "target": "wooden_cabinet_1_middle_region", "relation": "open"}},
+    {"id": "t00_p2", "task_id": 0, "kind": "positive", "instruction": "pull open the middle drawer of the wooden cabinet", "expected": {"operation": "open_drawer", "source": null, "target": "wooden_cabinet_1_middle_region", "relation": "open"}},
+    {"id": "t00_p3", "task_id": 0, "kind": "positive", "instruction": "could you open the middle drawer", "expected": {"operation": "open_drawer", "source": null, "target": "wooden_cabinet_1_middle_region", "relation": "open"}},
+
+    {"id": "t01_official", "task_id": 1, "kind": "positive", "instruction": "put the bowl on the stove", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "flat_stove_1_cook_region", "relation": "on"}},
+    {"id": "t01_p1", "task_id": 1, "kind": "positive", "instruction": "place the black bowl on the stove", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "flat_stove_1_cook_region", "relation": "on"}},
+    {"id": "t01_p2", "task_id": 1, "kind": "positive", "instruction": "put the akita black bowl onto the stove top", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "flat_stove_1_cook_region", "relation": "on"}},
+    {"id": "t01_p3", "task_id": 1, "kind": "positive", "instruction": "move the bowl onto the stove", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "flat_stove_1_cook_region", "relation": "on"}},
+
+    {"id": "t02_official", "task_id": 2, "kind": "positive", "instruction": "put the wine bottle on top of the cabinet", "expected": {"operation": "pick_place", "source": "wine_bottle_1", "target": "wooden_cabinet_1_top_side", "relation": "on"}},
+    {"id": "t02_p1", "task_id": 2, "kind": "positive", "instruction": "place the wine bottle on top of the wooden cabinet", "expected": {"operation": "pick_place", "source": "wine_bottle_1", "target": "wooden_cabinet_1_top_side", "relation": "on"}},
+    {"id": "t02_p2", "task_id": 2, "kind": "positive", "instruction": "set the wine bottle on the cabinet top", "expected": {"operation": "pick_place", "source": "wine_bottle_1", "target": "wooden_cabinet_1_top_side", "relation": "on"}},
+    {"id": "t02_p3", "task_id": 2, "kind": "positive", "instruction": "put the wine bottle onto the top of the cabinet", "expected": {"operation": "pick_place", "source": "wine_bottle_1", "target": "wooden_cabinet_1_top_side", "relation": "on"}},
+
+    {"id": "t03_official", "task_id": 3, "kind": "positive", "instruction": "open the top drawer and put the bowl inside", "expected": {"operation": "composite", "source": "akita_black_bowl_1", "target": "wooden_cabinet_1_top_region", "relation": "in", "open_target": "wooden_cabinet_1_top_region"}},
+    {"id": "t03_p1", "task_id": 3, "kind": "positive", "instruction": "open the top drawer and place the bowl in it", "expected": {"operation": "composite", "source": "akita_black_bowl_1", "target": "wooden_cabinet_1_top_region", "relation": "in", "open_target": "wooden_cabinet_1_top_region"}},
+    {"id": "t03_p2", "task_id": 3, "kind": "positive", "instruction": "pull open the top drawer, then put the bowl inside", "expected": {"operation": "composite", "source": "akita_black_bowl_1", "target": "wooden_cabinet_1_top_region", "relation": "in", "open_target": "wooden_cabinet_1_top_region"}},
+    {"id": "t03_p3", "task_id": 3, "kind": "positive", "instruction": "open the cabinet's top drawer and put the black bowl in it", "expected": {"operation": "composite", "source": "akita_black_bowl_1", "target": "wooden_cabinet_1_top_region", "relation": "in", "open_target": "wooden_cabinet_1_top_region"}},
+
+    {"id": "t04_official", "task_id": 4, "kind": "positive", "instruction": "put the bowl on top of the cabinet", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "wooden_cabinet_1_top_side", "relation": "on"}},
+    {"id": "t04_p1", "task_id": 4, "kind": "positive", "instruction": "place the black bowl on top of the cabinet", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "wooden_cabinet_1_top_side", "relation": "on"}},
+    {"id": "t04_p2", "task_id": 4, "kind": "positive", "instruction": "set the bowl on the cabinet top", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "wooden_cabinet_1_top_side", "relation": "on"}},
+    {"id": "t04_p3", "task_id": 4, "kind": "positive", "instruction": "put the bowl onto the top surface of the wooden cabinet", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "wooden_cabinet_1_top_side", "relation": "on"}},
+
+    {"id": "t05_official", "task_id": 5, "kind": "positive", "instruction": "push the plate to the front of the stove", "expected": {"operation": "push_object", "source": "plate_1", "target": "main_table_stove_front_region", "relation": "on"}},
+    {"id": "t05_p1", "task_id": 5, "kind": "positive", "instruction": "push the plate toward the front of the stove", "expected": {"operation": "push_object", "source": "plate_1", "target": "main_table_stove_front_region", "relation": "on"}},
+    {"id": "t05_p2", "task_id": 5, "kind": "positive", "instruction": "slide the plate to the stove front", "expected": {"operation": "push_object", "source": "plate_1", "target": "main_table_stove_front_region", "relation": "on"}},
+    {"id": "t05_p3", "task_id": 5, "kind": "positive", "instruction": "push the plate to the front of the flat stove", "expected": {"operation": "push_object", "source": "plate_1", "target": "main_table_stove_front_region", "relation": "on"}},
+
+    {"id": "t06_official", "task_id": 6, "kind": "positive", "instruction": "put the cream cheese in the bowl", "expected": {"operation": "pick_place", "source": "cream_cheese_1", "target": "akita_black_bowl_1", "relation": "in"}},
+    {"id": "t06_p1", "task_id": 6, "kind": "positive", "instruction": "place the cream cheese inside the black bowl", "expected": {"operation": "pick_place", "source": "cream_cheese_1", "target": "akita_black_bowl_1", "relation": "in"}},
+    {"id": "t06_p2", "task_id": 6, "kind": "positive", "instruction": "put the cream cheese into the bowl", "expected": {"operation": "pick_place", "source": "cream_cheese_1", "target": "akita_black_bowl_1", "relation": "in"}},
+    {"id": "t06_p3", "task_id": 6, "kind": "positive", "instruction": "drop the cream cheese in the akita black bowl", "expected": {"operation": "pick_place", "source": "cream_cheese_1", "target": "akita_black_bowl_1", "relation": "in"}},
+
+    {"id": "t07_official", "task_id": 7, "kind": "positive", "instruction": "turn on the stove", "expected": {"operation": "turn_on", "source": null, "target": "flat_stove_1", "relation": "turn_on"}},
+    {"id": "t07_p1", "task_id": 7, "kind": "positive", "instruction": "switch on the stove", "expected": {"operation": "turn_on", "source": null, "target": "flat_stove_1", "relation": "turn_on"}},
+    {"id": "t07_p2", "task_id": 7, "kind": "positive", "instruction": "turn the stove on", "expected": {"operation": "turn_on", "source": null, "target": "flat_stove_1", "relation": "turn_on"}},
+    {"id": "t07_p3", "task_id": 7, "kind": "positive", "instruction": "activate the flat stove", "expected": {"operation": "turn_on", "source": null, "target": "flat_stove_1", "relation": "turn_on"}},
+
+    {"id": "t08_official", "task_id": 8, "kind": "positive", "instruction": "put the bowl on the plate", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "plate_1", "relation": "on"}},
+    {"id": "t08_p1", "task_id": 8, "kind": "positive", "instruction": "place the black bowl on the plate", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "plate_1", "relation": "on"}},
+    {"id": "t08_p2", "task_id": 8, "kind": "positive", "instruction": "set the bowl onto the plate", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "plate_1", "relation": "on"}},
+    {"id": "t08_p3", "task_id": 8, "kind": "positive", "instruction": "put the akita black bowl on top of the plate", "expected": {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "plate_1", "relation": "on"}},
+
+    {"id": "t09_official", "task_id": 9, "kind": "positive", "instruction": "put the wine bottle on the rack", "expected": {"operation": "pick_place", "source": "wine_bottle_1", "target": "wine_rack_1_top_region", "relation": "on"}},
+    {"id": "t09_p1", "task_id": 9, "kind": "positive", "instruction": "place the wine bottle on the rack", "expected": {"operation": "pick_place", "source": "wine_bottle_1", "target": "wine_rack_1_top_region", "relation": "on"}},
+    {"id": "t09_p2", "task_id": 9, "kind": "positive", "instruction": "set the wine bottle on the wine rack", "expected": {"operation": "pick_place", "source": "wine_bottle_1", "target": "wine_rack_1_top_region", "relation": "on"}},
+    {"id": "t09_p3", "task_id": 9, "kind": "positive", "instruction": "put the wine bottle onto the rack top", "expected": {"operation": "pick_place", "source": "wine_bottle_1", "target": "wine_rack_1_top_region", "relation": "on"}},
+
+    {"id": "n_unsupported_wipe", "task_id": 0, "kind": "negative", "instruction": "wipe the table with a cloth", "expected_reject": "unsupported"},
+    {"id": "n_unsupported_off", "task_id": 7, "kind": "negative", "instruction": "turn off the stove", "expected_reject": "unsupported"},
+    {"id": "n_missing_pronoun", "task_id": 1, "kind": "negative", "instruction": "put it on the stove", "expected_reject": "missing_information"},
+    {"id": "n_missing_target", "task_id": 1, "kind": "negative", "instruction": "put the bowl over there", "expected_reject": "missing_information"},
+    {"id": "n_not_in_scene", "task_id": 1, "kind": "negative", "instruction": "put the apple on the stove", "expected_reject": "rejected"},
+    {"id": "n_ambiguous_drawer", "task_id": 3, "kind": "negative", "instruction": "open the drawer", "expected_reject": "needs_clarification"},
+    {"id": "n_ambiguous_table", "task_id": 1, "kind": "negative", "instruction": "put the bowl on the table", "expected_reject": "needs_clarification"},
+    {"id": "n_missing_push_target", "task_id": 5, "kind": "negative", "instruction": "push the plate", "expected_reject": "missing_information"}
+  ]
+}

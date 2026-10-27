@@ -55,9 +55,15 @@
       <button id="stop" disabled>停止</button>
       <button id="reset" disabled>重置</button>
     </div>
+    <div class="ctrl">
+      <label for="agent-mode">Agent 模式</label>
+      <select id="agent-mode"></select>
+      <button id="switch-agent" disabled>切换</button>
+    </div>
   </header>
   <div id="identity">
     <span>Agent: <b id="id-agent">—</b></span>
+    <span>Mode: <b id="id-agent-mode">—</b></span>
     <span>Action: <b id="id-action">—</b></span>
     <span>World: <b id="id-world">—</b></span>
     <span>Inference: <b id="id-inference">—</b></span>

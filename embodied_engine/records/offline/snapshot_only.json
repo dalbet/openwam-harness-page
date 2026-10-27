@@ -1,0 +1,150 @@
+{
+  "schema": "embodied_engine.offline_eval_result.v1",
+  "set": "config/offline_eval.json",
+  "set_frozen": true,
+  "started_at": "2026-10-27T03:51:44+0000",
+  "suite": "libero_goal",
+  "seed": 0,
+  "scene_load_s": {
+    "0": 16.634,
+    "1": 17.158,
+    "2": 16.942,
+    "3": 16.904,
+    "4": 16.787,
+    "5": 16.888,
+    "6": 16.721,
+    "7": 16.861,
+    "8": 16.869,
+    "9": 16.974
+  },
+  "engines": [
+    "d1",
+    "qwen_decision",
+    "qwen_full"
+  ],
+  "models": {
+    "qwen_full": {
+      "model": "Qwen3.5-9B",
+      "base_url": "http://127.0.0.1:8001/v1",
+      "temperature": 0.0,
+      "max_tokens": 900
+    },
+    "d1": {
+      "model": "LiquidAI/d1-3B",
+      "model_path": "/home/host/page-dmh/openwam_harness/checkpoints/LiquidAI-d1-3B",
+      "model_sha256": "50e03317847caf6df9a9aee27ed40f20554a86a21e60d1d47ba41a422b546c0c",
+      "url": "http://127.0.0.1:14710",
+      "output_tokens_per_decision": 0
+    },
+    "qwen_decision": {
+      "model": "Qwen3.5-9B",
+      "interface": "same staged choice/noul questions as d1, parsed into d1's answer schema"
+    }
+  },
+  "thresholds": {
+    "supported_min": 0.5,
+    "operation_min": 0.5,
+    "specified_min": 0.5,
+    "ambiguous_max": 0.5,
+    "relation_min": 0.5,
+    "source_min": 0.5,
+    "target_min": 0.5
+  },
+  "summary": {
+    "qwen_full": {
+      "errors": 0,
+      "not_run": true
+    },
+    "d1": {
+      "errors": 0,
+      "not_run": true
+    },
+    "qwen_decision": {
+      "errors": 0,
+      "not_run": true
+    }
+  },
+  "per_task": {
+    "0": {
+      "cases": 0,
+      "positives": 0,
+      "qwen_full_semantic": null,
+      "d1_full_binding": null,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": null
+    },
+    "1": {
+      "cases": 0,
+      "positives": 0,
+      "qwen_full_semantic": null,
+      "d1_full_binding": null,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": null
+    },
+    "2": {
+      "cases": 0,
+      "positives": 0,
+      "qwen_full_semantic": null,
+      "d1_full_binding": null,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": null
+    },
+    "3": {
+      "cases": 0,
+      "positives": 0,
+      "qwen_full_semantic": null,
+      "d1_full_binding": null,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": null
+    },
+    "4": {
+      "cases": 0,
+      "positives": 0,
+      "qwen_full_semantic": null,
+      "d1_full_binding": null,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": null
+    },
+    "5": {
+      "cases": 0,
+      "positives": 0,
+      "qwen_full_semantic": null,
+      "d1_full_binding": null,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": null
+    },
+    "6": {
+      "cases": 0,
+      "positives": 0,
+      "qwen_full_semantic": null,
+      "d1_full_binding": null,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": null
+    },
+    "7": {
+      "cases": 0,
+      "positives": 0,
+      "qwen_full_semantic": null,
+      "d1_full_binding": null,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": null
+    },
+    "8": {
+      "cases": 0,
+      "positives": 0,
+      "qwen_full_semantic": null,
+      "d1_full_binding": null,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": null
+    },
+    "9": {
+      "cases": 0,
+      "positives": 0,
+      "qwen_full_semantic": null,
+      "d1_full_binding": null,
+      "d1_accepts": 0,
+      "qwen_decision_full_binding": null
+    }
+  },
+  "cases": []
+}

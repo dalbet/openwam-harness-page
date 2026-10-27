@@ -11,6 +11,7 @@
 | 14510 | Pi0.5 动作模型 RPC 服务（GPU1，常驻） | RPent `pi05_vla_server.py` |
 | 14600 | 推理引擎服务 | `inference/inference_service.py` |
 | 14700 | Agent 服务（规划/恢复） | `agent/agent_service.py` |
+| 14710 | d1-3B 决策服务（单次前向，独立模型常驻） | `agent/d1_service.py` |
 | 14800 | 引擎服务（回合、技能、完成判定、UI 数据源） | `engine/engine_service.py` |
 | 14900 | page_ui（双相机 WebSocket 页面） | `page_ui/server.py` |
 | 14561 | LIBERO 环境 RPC（引擎按需拉起，回合结束回收） | `adapters/libero_env_server.py` |
@@ -45,6 +46,31 @@
 - **Jev（TypeSafe System One）现状**：官方为云端 API（`https://api.typesafe.ai/v1/systemone`），
   需要 waitlist 账号与 `TYPESAFE_API_KEY`；本地无权重、无可用凭据。因此**没有接入 Jev**，
   也不能把 Qwen 的决策标成 Jev。Agent 层当前为"语言模型规划 + 结构化契约 + 有界恢复"。
+
+### 1.1 d1-3B 决策规划器（可选 Agent 模式）
+
+- **模型**：`LiquidAI/d1-3B`（3.12B，基座 `LiquidAI/LFM2.5-VL-3B`，LFM Open License v1.0），
+  本地权重位于 `openwam_harness/checkpoints/LiquidAI-d1-3B`，SHA256
+  `50e03317847caf6df9a9aee27ed40f20554a86a21e60d1d47ba41a422b546c0c`。
+  ModelScope 仓库只暴露 `Revision=master`，没有固定 commit id，因此**以本地权重哈希锁定身份**，
+  不把 `master` 当成可复现版本。独立环境 `.venv-d1`（由 `.venv-openwam` 硬链接克隆），
+  独立端口 `:14710`、GPU0 常驻（加载 8.34 s），不升级现有 vLLM/OpenWAM 环境。
+- **接口**：d1 服务（:14710）只暴露 `POST /system_one`，内部调用
+  `model.system_one(state, questions)`，一次前向返回带类型的答案（`noul` 概率、
+  `choice` 概率分布、`score`），**不生成输出 token**；没有 OpenAI 兼容 chat 端点，
+  因此不存在"用聊天生成冒充决策"的路径。
+- **规划方式**：d1 不写自由文本计划。`agent/d1_planner.py` 从当前快照生成合法候选
+  （操作、source、target、relation、抽屉层），按阶段提问；关系与 source/target 使用
+  联合/受约束候选，避免把互相矛盾的独立选择拼接。模型给出绑定后，由代码组装
+  `whole_task` 计划并走同一个 `common/plan_contract.py` 校验。
+- **候选隔离**：候选只来自现场物体/site/关节、技能目录与用户指令；不读取 BDDL goal，
+  不把官方任务文本作为查表答案。BDDL 只用于离线评测的独立期望值。
+- **三种 Agent 模式**：`qwen`（默认）、`d1`（只用 d1，不回落）、
+  `d1_with_qwen_fallback`（仅在 `error`/`unavailable` 时回落；语义拒绝不回落为 Qwen）。
+  引擎只在 idle 阶段接受切换，执行中返回 409；回合记录写入真实的
+  `agent_mode` 与 `plan_source`，不会把一个模型产出的计划记成另一个。
+- **阈值来源**：置信度/边距阈值只由独立校准集（`config/offline_calibration.json`，24 例）
+  选择；冻结后的正式集（`config/offline_eval.json`，48 例）只用于报告，不据其回调阈值。
 
 ## 2. 模型层
 
@@ -224,8 +250,12 @@
   （Agent/Wrist）、开始/停止/reset 控件；`server.py` 改为连接新引擎 14800 的 WebSocket，
   原 `get_scenes` / `load` / `start` / `restart` 文本协议与"JSON 头 + 两路 JPEG"二进制帧
   保持不变，`stop` / `reset` / 身份消息为新增。
-- 展示字段全部来自后端 `/api/status` 的 `identity`：Agent 模型、动作模型、世界模型状态、
-  推理后端与 async/sync 模式、阶段与失败原因。没有写死标签。
+- 展示字段全部来自后端 `/api/status` 的 `identity`：Agent 模型与模式、动作模型、
+  世界模型状态、推理后端与 async/sync 模式、阶段与失败原因。没有写死标签。
+- Agent 模式切换（`qwen` / `d1` / `d1_with_qwen_fallback`）通过现有 WebSocket 文本协议新增的
+  `agent_mode` 消息转发到引擎 `/api/agent_mode`；页面只显示身份消息里的真实模式，
+  引擎在 planning/running/recovering/stopping 阶段拒绝切换（HTTP 409），因此不会出现
+  "页面显示已切换、实际回合仍用旧模型"的情况。切换控件只在 idle 阶段可用。
 - 旧 `page_ui/README.md` 是 ManiSkill 时期的说明，仅作来源记录，不代表当前链路。
 
 ## 6. 启动与状态

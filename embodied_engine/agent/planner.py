@@ -103,6 +103,68 @@ def _post_json(url: str, payload: dict[str, Any], timeout_s: float) -> dict[str,
         raise RuntimeError(f"LLM HTTP {exc.code}: {detail}") from exc
 
 
+_LLM_METRIC_KEYS = (
+    "request_queue_time_seconds",
+    "time_to_first_token_seconds",
+    "request_decode_time_seconds",
+    "request_inference_time_seconds",
+    "e2e_request_latency_seconds",
+)
+
+
+def _metrics_url(base_url: str) -> str:
+    root = base_url.rstrip("/")
+    if root.endswith("/v1"):
+        root = root[:-3]
+    return f"{root}/metrics"
+
+
+def _metrics_snapshot(base_url: str) -> dict[str, tuple[float, float]]:
+    """Read the five request histograms vLLM exposes as (sum, count).
+
+    The Agent service serializes plan requests and nothing else targets this
+    vLLM, so a before/after delta attributes queue/TTFT/decode to one request.
+    If another client shares the port, the delta count reveals it.
+    """
+    try:
+        request = urllib.request.Request(_metrics_url(base_url))
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(request, timeout=5) as response:
+            text = response.read().decode("utf-8", "replace")
+    except Exception:
+        return {}
+    wanted = {f"vllm:{name}_{kind}": (name, kind) for name in _LLM_METRIC_KEYS for kind in ("sum", "count")}
+    out: dict[str, tuple[float, float]] = {name: (0.0, 0.0) for name in _LLM_METRIC_KEYS}
+    for line in text.splitlines():
+        if not line.startswith("vllm:"):
+            continue
+        head, _, value = line.partition(" ")
+        name = head.split("{", 1)[0]
+        if name in wanted:
+            metric, kind = wanted[name]
+            try:
+                parsed = float(value)
+            except ValueError:
+                continue
+            total, count = out[metric]
+            out[metric] = (parsed, count) if kind == "sum" else (total, parsed)
+    return out
+
+
+def _metrics_delta(
+    before: dict[str, tuple[float, float]], after: dict[str, tuple[float, float]]
+) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for name, (sum_after, count_after) in after.items():
+        sum_before, count_before = before.get(name, (0.0, 0.0))
+        count = count_after - count_before
+        total = sum_after - sum_before
+        out[name] = round(total, 4) if count else None
+        if name == "e2e_request_latency_seconds":
+            out["requests_observed"] = int(count)
+    return out
+
+
 def chat(messages: list[dict[str, Any]], *, max_tokens: int | None = None) -> tuple[str, dict[str, Any]]:
     opts = client_options()
     payload = {
@@ -113,19 +175,28 @@ def chat(messages: list[dict[str, Any]], *, max_tokens: int | None = None) -> tu
         "response_format": {"type": "json_object"},
         "chat_template_kwargs": opts["chat_template_kwargs"],
     }
+    before = _metrics_snapshot(opts["base_url"])
     started = time.perf_counter()
     response = _post_json(f"{opts['base_url']}/chat/completions", payload, opts["timeout_s"])
     elapsed = time.perf_counter() - started
+    after = _metrics_snapshot(opts["base_url"])
     choices = response.get("choices") or []
     content = ""
     if choices:
         content = (choices[0].get("message") or {}).get("content") or ""
     usage = response.get("usage") or {}
+    metrics = _metrics_delta(before, after) if before and after else {}
     return content, {
         "elapsed_s": round(elapsed, 3),
         "prompt_tokens": usage.get("prompt_tokens"),
         "completion_tokens": usage.get("completion_tokens"),
         "model": response.get("model"),
+        "vllm_queue_s": metrics.get("request_queue_time_seconds"),
+        "ttft_s": metrics.get("time_to_first_token_seconds"),
+        "decode_s": metrics.get("request_decode_time_seconds"),
+        "inference_s": metrics.get("request_inference_time_seconds"),
+        "server_e2e_s": metrics.get("e2e_request_latency_seconds"),
+        "requests_observed": metrics.get("requests_observed"),
     }
 
 
@@ -202,17 +273,17 @@ def scene_summary(task: dict[str, Any], snapshot: dict[str, Any], skills: dict[s
     }
 
 
-def request_plan(
+def plan_messages(
     *,
     instruction: str,
     task: dict[str, Any],
     snapshot: dict[str, Any],
     skills: dict[str, Any],
     attempts: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+) -> list[dict[str, Any]]:
     summary = scene_summary(task, snapshot, skills)
     system_prompt = WHOLE_TASK_SYSTEM_PROMPT if whole_task_catalog(skills) else SYSTEM_PROMPT
-    messages = [
+    return [
         {"role": "system", "content": system_prompt},
         {
             "role": "user",
@@ -227,19 +298,62 @@ def request_plan(
             ),
         },
     ]
+
+
+def _parse_and_validate(
+    content: str,
+    *,
+    instruction: str,
+    task: dict[str, Any],
+    snapshot: dict[str, Any],
+    skills: dict[str, Any],
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]], float, float]:
+    parse_started = time.perf_counter()
+    plan, parse_error = parse_json_object(content)
+    parse_s = time.perf_counter() - parse_started
+    if plan is None:
+        return None, [
+            {"field": "response", "code": "invalid_json", "value": parse_error, "expected": "one JSON plan object"}
+        ], parse_s, 0.0
+    validate_started = time.perf_counter()
+    plan, errors = validate_plan(plan, instruction=instruction, task=task, snapshot=snapshot, skills=skills)
+    return plan, errors, parse_s, time.perf_counter() - validate_started
+
+
+def request_plan(
+    *,
+    instruction: str,
+    task: dict[str, Any],
+    snapshot: dict[str, Any],
+    skills: dict[str, Any],
+    attempts: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    started = time.perf_counter()
+    messages = plan_messages(
+        instruction=instruction, task=task, snapshot=snapshot, skills=skills, attempts=attempts
+    )
     records: list[dict[str, Any]] = []
     content, timing = chat(messages)
-    records.append({"attempt": 1, "kind": "initial", "timing": timing, "raw_chars": len(content)})
-    plan, parse_error = parse_json_object(content)
-    errors: list[dict[str, Any]] = []
-    if plan is None:
-        errors = [{"field": "response", "code": "invalid_json", "value": parse_error, "expected": "one JSON plan object"}]
-    else:
-        plan, errors = validate_plan(
-            plan, instruction=instruction, task=task, snapshot=snapshot, skills=skills
-        )
+    plan, errors, parse_s, validate_s = _parse_and_validate(
+        content, instruction=instruction, task=task, snapshot=snapshot, skills=skills
+    )
+    records.append(
+        {
+            "attempt": 1,
+            "kind": "initial",
+            "timing": {**timing, "parse_s": round(parse_s, 4), "validate_s": round(validate_s, 4)},
+            "raw_chars": len(content),
+        }
+    )
     if plan is not None and not errors:
-        return {"status": "ok", "plan": plan, "attempts": records, "errors": [], "repairs": 0}
+        return {
+            "status": "ok",
+            "plan": plan,
+            "attempts": records,
+            "errors": [],
+            "repairs": 0,
+            "total_s": round(time.perf_counter() - started, 4),
+        }
     records[0]["errors"] = errors
     repair_messages = [
         *messages,
@@ -256,18 +370,36 @@ def request_plan(
         },
     ]
     content2, timing2 = chat(repair_messages)
-    records.append({"attempt": 2, "kind": "format_repair", "timing": timing2, "raw_chars": len(content2)})
-    plan2, parse_error2 = parse_json_object(content2)
-    if plan2 is None:
-        errors2 = [{"field": "response", "code": "invalid_json", "value": parse_error2, "expected": "one JSON plan object"}]
-    else:
-        plan2, errors2 = validate_plan(
-            plan2, instruction=instruction, task=task, snapshot=snapshot, skills=skills
-        )
+    plan2, errors2, parse_s2, validate_s2 = _parse_and_validate(
+        content2, instruction=instruction, task=task, snapshot=snapshot, skills=skills
+    )
+    records.append(
+        {
+            "attempt": 2,
+            "kind": "format_repair",
+            "timing": {**timing2, "parse_s": round(parse_s2, 4), "validate_s": round(validate_s2, 4)},
+            "raw_chars": len(content2),
+        }
+    )
+    total_s = round(time.perf_counter() - started, 4)
     if plan2 is not None and not errors2:
-        return {"status": "ok", "plan": plan2, "attempts": records, "errors": [], "repairs": 1}
+        return {
+            "status": "ok",
+            "plan": plan2,
+            "attempts": records,
+            "errors": [],
+            "repairs": 1,
+            "total_s": total_s,
+        }
     records[-1]["errors"] = errors2
-    return {"status": "planning_failed", "plan": None, "attempts": records, "errors": errors2, "repairs": 1}
+    return {
+        "status": "planning_failed",
+        "plan": None,
+        "attempts": records,
+        "errors": errors2,
+        "repairs": 1,
+        "total_s": total_s,
+    }
 
 
 def request_recovery(

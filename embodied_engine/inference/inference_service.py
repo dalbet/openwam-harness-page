@@ -53,7 +53,12 @@ def _build_backend():
         from models.openwam_backend import OpenWAMBackend
 
         row = action["openwam"]
-        return name, OpenWAMBackend(str(row["server_url"]), timeout_s=float(row.get("timeout_s") or 300))
+        return name, OpenWAMBackend(
+            str(row["server_url"]),
+            timeout_s=float(row.get("timeout_s") or 300),
+            generate_horizon=int(row.get("generate_horizon") or 0) or None,
+            execute_horizon=int(row.get("execute_horizon") or 0) or None,
+        )
     raise RuntimeError(f"unknown action_model.backend={name!r}; expected 'pi05' or 'openwam'")
 
 
@@ -79,6 +84,8 @@ class InferenceEngine:
             "model_errors": 0,
             "inference_s_total": 0.0,
             "inference_s_last": None,
+            "chunk_generations": 0,
+            "cache_hits": 0,
             "last_request": None,
         }
         self._new_token("startup")
@@ -201,6 +208,11 @@ class InferenceEngine:
             "actions_shape": out["actions_shape"],
             "inference_s": out["inference_s"],
             "server_latency_ms": out.get("server_latency_ms"),
+            "encode_s": out.get("encode_s"),
+            "send_s": out.get("send_s"),
+            "recv_s": out.get("recv_s"),
+            "server_step": out.get("server_step"),
+            "chunk": out.get("chunk"),
             "action_space": out.get("action_space"),
             "action_raw": out.get("action_raw"),
             "queued_s": round(queued_s, 4),
@@ -210,6 +222,11 @@ class InferenceEngine:
     def _record_success(self, request: dict[str, Any], out: dict[str, Any], queued_s: float, total_s: float) -> None:
         self.metrics["inference_s_total"] += float(out["inference_s"])
         self.metrics["inference_s_last"] = float(out["inference_s"])
+        chunk = out.get("chunk") or {}
+        if chunk.get("chunk_generation"):
+            self.metrics["chunk_generations"] = int(self.metrics.get("chunk_generations") or 0) + 1
+        elif chunk.get("cache_hit"):
+            self.metrics["cache_hits"] = int(self.metrics.get("cache_hits") or 0) + 1
         self.metrics["last_request"] = {
             "episode_id": request.get("episode_id"),
             "scene_epoch": request.get("scene_epoch"),
@@ -220,6 +237,7 @@ class InferenceEngine:
             "prompt": request.get("prompt"),
             "queued_s": round(queued_s, 4),
             "total_s": round(total_s, 4),
+            "chunk": chunk,
         }
 
     def _loop(self) -> None:
@@ -261,6 +279,11 @@ class InferenceEngine:
                     "actions_shape": out["actions_shape"],
                     "inference_s": out["inference_s"],
                     "server_latency_ms": out.get("server_latency_ms"),
+                    "encode_s": out.get("encode_s"),
+                    "send_s": out.get("send_s"),
+                    "recv_s": out.get("recv_s"),
+                    "server_step": out.get("server_step"),
+                    "chunk": out.get("chunk"),
                     "action_space": out.get("action_space"),
                     "action_raw": out.get("action_raw"),
                     "queued_s": round(queued_s, 4),

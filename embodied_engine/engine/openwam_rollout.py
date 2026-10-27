@@ -137,6 +137,10 @@ class WholeTaskRunner:
         self.env_step_s = 0.0
         self.snapshot_s = 0.0
         self.observe_s = 0.0
+        self.convert_s = 0.0
+        self.frame_s = 0.0
+        self.first_action_s: float | None = None
+        self.action_intervals: list[float] = []
         self.action_trace: list[dict[str, Any]] = []
         self.observations: list[dict[str, Any]] = []
         self.inference_rows: list[dict[str, Any]] = []
@@ -237,8 +241,104 @@ class WholeTaskRunner:
         return {
             "actions": actions,
             "inference_s": out.get("inference_s"),
+            "inference_total_s": out.get("total_s"),
+            "queued_s": out.get("queued_s"),
+            "encode_s": out.get("encode_s"),
+            "send_s": out.get("send_s"),
+            "recv_s": out.get("recv_s"),
             "server_latency_ms": out.get("server_latency_ms"),
+            "server_step": out.get("server_step"),
+            "chunk": out.get("chunk"),
             "action_raw": out.get("action_raw"),
+        }
+
+    # ---- timing summaries ----
+
+    @staticmethod
+    def _summary(values: list[Any]) -> dict[str, Any] | None:
+        vals = sorted(float(v) for v in values if isinstance(v, (int, float)))
+        if not vals:
+            return None
+
+        def at(p: float) -> float:
+            return round(vals[min(len(vals) - 1, int(round(p * (len(vals) - 1))))], 4)
+
+        return {
+            "n": len(vals),
+            "mean": round(sum(vals) / len(vals), 4),
+            "min": round(vals[0], 4),
+            "median": at(0.5),
+            "p95": at(0.95),
+            "max": round(vals[-1], 4),
+        }
+
+    def _chunk_stats(self) -> dict[str, Any]:
+        """Separate real chunk generations from cached dequeues.
+
+        The server's buffer means only 1 in ``execute_horizon`` requests runs the
+        model; the rest are ~tens of ms of preprocessing + dequeue. Reporting a
+        single average would mislabel the cached path as model latency.
+        """
+        rows = self.inference_rows
+        generated = [r for r in rows if r.get("chunk_generation") is True]
+        cached = [r for r in rows if r.get("cache_hit") is True]
+        first = generated[0] if generated else None
+        return {
+            "requests": len(rows),
+            "chunk_generations": len(generated),
+            "cache_hits": len(cached),
+            "chunk_ids": sorted({int(r["chunk_id"]) for r in rows if r.get("chunk_id") is not None}),
+            "generated_actions_total": sum(int(r.get("generated_actions") or 0) for r in rows),
+            "consumed_actions_total": sum(int(r.get("consumed_actions") or 0) for r in rows),
+            "first_generation": None
+            if first is None
+            else {
+                "server_latency_ms": first.get("server_latency_ms"),
+                "client_inference_s": first.get("inference_s"),
+                "engine_total_s": first.get("inference_total_s"),
+                "encode_s": first.get("encode_s"),
+            },
+            "generation": {
+                "server_latency_ms": self._summary([r.get("server_latency_ms") for r in generated]),
+                "client_inference_s": self._summary([r.get("inference_s") for r in generated]),
+                "engine_total_s": self._summary([r.get("inference_total_s") for r in generated]),
+            },
+            "cache": {
+                "server_latency_ms": self._summary([r.get("server_latency_ms") for r in cached]),
+                "client_inference_s": self._summary([r.get("inference_s") for r in cached]),
+                "engine_total_s": self._summary([r.get("inference_total_s") for r in cached]),
+            },
+        }
+
+    def _wall_timing(self, total: float) -> dict[str, Any]:
+        rows = self.inference_rows
+
+        def phase(key: str) -> float:
+            return sum(float(r[key]) for r in rows if isinstance(r.get(key), (int, float)))
+
+        sim_seconds = self.sim_actions * 0.05
+        measured = sum(
+            phase(key)
+            for key in ("observe_s", "infer_wall_s", "convert_s", "env_step_s", "snapshot_s", "frame_s")
+        )
+        return {
+            "total_s": round(total, 4),
+            "sim_actions": self.sim_actions,
+            "sim_time_s": round(sim_seconds, 3),
+            "control_hz_wall": round(self.sim_actions / total, 2) if total > 0 else None,
+            "sim_real_time_factor": round(sim_seconds / total, 3) if total > 0 else None,
+            "first_action_s": None if self.first_action_s is None else round(self.first_action_s, 4),
+            "per_action_total_s": self._summary([r.get("action_total_s") for r in rows]),
+            "action_interval_s": self._summary(self.action_intervals),
+            "phases_sum_s": {
+                "observe": round(phase("observe_s"), 4),
+                "inference_wall": round(phase("infer_wall_s"), 4),
+                "convert": round(phase("convert_s"), 4),
+                "env_step": round(phase("env_step_s"), 4),
+                "snapshot": round(phase("snapshot_s"), 4),
+                "frame": round(phase("frame_s"), 4),
+            },
+            "unattributed_s": round(max(0.0, total - measured), 4),
         }
 
     # ---- main loop ----
@@ -247,25 +347,36 @@ class WholeTaskRunner:
         started = time.perf_counter()
         self._snapshot()
         deadline = started + max(self.timeout_s, 60.0) * 20  # hard wall-clock guard
+        previous_loop_start: float | None = None
         with GpuSampler(self.gpu_index) as sampler:
             while True:
+                loop_start = time.perf_counter()
                 self._check_stop()
                 if self.sim_actions >= self.max_steps:
                     break
-                if time.perf_counter() > deadline:
+                if loop_start > deadline:
                     raise RuntimeError(f"OpenWAM rollout exceeded its wall-clock guard after {self.sim_actions} actions")
                 if self._last_state.get("native_goal"):
                     break
 
                 model_obs = self._observe_model_input()
+                observe_done = time.perf_counter()
                 row = self._infer(model_obs)
+                infer_done = time.perf_counter()
+
                 raw_action = row["actions"][0]
+                convert_started = time.perf_counter()
                 action7 = native_eef10_to_libero7d(raw_action)
+                convert_s = time.perf_counter() - convert_started
+                self.convert_s += convert_s
 
                 self._check_stop()
                 step_started = time.perf_counter()
+                if self.first_action_s is None:
+                    self.first_action_s = step_started - started
                 obs, reward, term, trunc, info = self.env.step(action7)
-                self.env_step_s += time.perf_counter() - step_started
+                env_step_s = time.perf_counter() - step_started
+                self.env_step_s += env_step_s
                 self.sim_actions += 1
                 if self.stop_event.is_set():
                     # The action was already handed to the simulator when the
@@ -275,21 +386,54 @@ class WholeTaskRunner:
                         {"sim_actions": self.sim_actions, "note": "stop raised during env.step"},
                     )
                     raise Stopped("stop requested during env.step")
+                snapshot_started = time.perf_counter()
                 snap = self._snapshot()
+                snapshot_done = time.perf_counter()
+                frame_started = time.perf_counter()
                 if self.frame_sink is not None:
                     self.frame_sink(obs, snap)
+                frame_s = time.perf_counter() - frame_started
+                self.frame_s += frame_s
+                loop_end = time.perf_counter()
+
+                interval_s = None if previous_loop_start is None else loop_start - previous_loop_start
+                if interval_s is not None:
+                    self.action_intervals.append(interval_s)
+                previous_loop_start = loop_start
+                chunk = row.get("chunk") or {}
 
                 self.inference_rows.append(
                     {
                         "n": self.sim_actions,
                         "inference_s": row["inference_s"],
+                        "inference_total_s": row.get("inference_total_s"),
+                        "queued_s": row.get("queued_s"),
+                        "encode_s": row.get("encode_s"),
+                        "send_s": row.get("send_s"),
+                        "recv_s": row.get("recv_s"),
                         "server_latency_ms": row.get("server_latency_ms"),
+                        "server_step": row.get("server_step"),
+                        "chunk_generation": chunk.get("chunk_generation"),
+                        "cache_hit": chunk.get("cache_hit"),
+                        "chunk_id": chunk.get("chunk_id"),
+                        "buffer_index": chunk.get("buffer_index"),
+                        "generated_actions": chunk.get("generated_actions"),
+                        "consumed_actions": chunk.get("consumed_actions"),
                         "action_raw": row.get("action_raw"),
                         "action7": [round(float(v), 4) for v in action7],
                         "native_goal": bool(snap.get("native_goal")),
                         "reward": float(reward),
                         "terminated": bool(term),
                         "truncated": bool(trunc),
+                        "observe_s": round(observe_done - loop_start, 4),
+                        "infer_wall_s": round(infer_done - observe_done, 4),
+                        "convert_s": round(convert_s, 4),
+                        "env_step_s": round(env_step_s, 4),
+                        "snapshot_s": round(snapshot_done - snapshot_started, 4),
+                        "frame_s": round(frame_s, 4),
+                        "action_total_s": round(loop_end - loop_start, 4),
+                        "interval_s": None if interval_s is None else round(interval_s, 4),
+                        "action_offset_s": round(step_started - started, 4),
                     }
                 )
                 self.action_trace.append(
@@ -315,6 +459,8 @@ class WholeTaskRunner:
         state = self._last_state
         native = bool(self._last_state.get("native_goal"))
         ok = bool(native)
+        chunk_stats = self._chunk_stats()
+        wall = self._wall_timing(total)
         verification = {
             "ok": ok,
             "method": "native_libero_goal",
@@ -348,7 +494,7 @@ class WholeTaskRunner:
                 ),
             },
             "native_events": self.native_events,
-            "chunks_used": None,
+            "chunks_used": chunk_stats["chunk_generations"],
             "sim_actions": self.sim_actions,
             "max_steps": self.max_steps,
             "timing": {
@@ -357,10 +503,15 @@ class WholeTaskRunner:
                 "env_step_s_sum": round(self.env_step_s, 3),
                 "snapshot_s_sum": round(self.snapshot_s, 3),
                 "observe_s_sum": round(self.observe_s, 3),
+                "convert_s_sum": round(self.convert_s, 3),
+                "frame_s_sum": round(self.frame_s, 3),
                 "first_inference_s": first,
                 "warm_inference_median_s": warm_median,
+                "first_action_s": None if self.first_action_s is None else round(self.first_action_s, 3),
                 "peak_gpu_mib": self.peak_gpu_mib,
             },
+            "chunk_stats": chunk_stats,
+            "wall": wall,
             "inference_rows": self.inference_rows,
             "observations": self.observations,
             "action_trace": self.action_trace,

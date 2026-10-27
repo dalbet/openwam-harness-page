@@ -34,6 +34,7 @@ def validate_plan(
     snapshot: dict[str, Any],
     skills: dict[str, Any],
     prior_steps: list[dict[str, Any]] | None = None,
+    plan_source: str = "qwen3.5-9b",
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     errors: list[dict[str, Any]] = []
     if not isinstance(plan, dict):
@@ -176,7 +177,7 @@ def validate_plan(
         "instruction": instruction,
         "task_id": int(task["task_id"]),
         "kind": task.get("kind"),
-        "plan_source": "qwen3.5-9b",
+        "plan_source": plan_source,
         "planner_vision": False,
         "evidence_source": "scene_metadata+sim_state",
         "snapshot_observation_id": snapshot.get("observation_id"),

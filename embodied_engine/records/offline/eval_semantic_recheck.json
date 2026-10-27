@@ -1,0 +1,406 @@
+{
+  "rule": "push_object: relation is encoded by the target region; lexical 'on' is not required",
+  "qwen_full_semantic": 0.9,
+  "cases": [
+    {
+      "id": "t00_official",
+      "checks": {
+        "open": true,
+        "target": true,
+        "level": true
+      },
+      "semantic": true,
+      "prompt": "open the middle drawer of the cabinet"
+    },
+    {
+      "id": "t00_p1",
+      "checks": {
+        "open": true,
+        "target": true,
+        "level": true
+      },
+      "semantic": true,
+      "prompt": "open the middle drawer of the cabinet"
+    },
+    {
+      "id": "t00_p2",
+      "checks": {
+        "open": true,
+        "target": true,
+        "level": true
+      },
+      "semantic": true,
+      "prompt": "open the middle drawer of the cabinet"
+    },
+    {
+      "id": "t00_p3",
+      "checks": {
+        "open": true,
+        "target": true,
+        "level": true
+      },
+      "semantic": true,
+      "prompt": "open the middle drawer of the cabinet"
+    },
+    {
+      "id": "t01_official",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the black bowl on the stove"
+    },
+    {
+      "id": "t01_p1",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "place the black bowl on the stove"
+    },
+    {
+      "id": "t01_p2",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the akita black bowl onto the stove top"
+    },
+    {
+      "id": "t01_p3",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the black bowl on the stove"
+    },
+    {
+      "id": "t02_official",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the wine bottle on top of the cabinet"
+    },
+    {
+      "id": "t02_p1",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "place the wine bottle on top of the wooden cabinet"
+    },
+    {
+      "id": "t02_p2",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the wine bottle on the cabinet top"
+    },
+    {
+      "id": "t02_p3",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the wine bottle on top of the cabinet"
+    },
+    {
+      "id": "t03_official",
+      "checks": {
+        "source": false,
+        "target": true,
+        "relation": false,
+        "open": true,
+        "level": true
+      },
+      "semantic": false,
+      "prompt": "open the top drawer of the cabinet"
+    },
+    {
+      "id": "t03_p1",
+      "checks": {
+        "source": false,
+        "target": true,
+        "relation": false,
+        "open": true,
+        "level": true
+      },
+      "semantic": false,
+      "prompt": "open the top drawer of the cabinet"
+    },
+    {
+      "id": "t03_p2",
+      "checks": {
+        "source": false,
+        "target": true,
+        "relation": false,
+        "open": true,
+        "level": true
+      },
+      "semantic": false,
+      "prompt": "open the top drawer of the cabinet"
+    },
+    {
+      "id": "t03_p3",
+      "checks": {
+        "source": false,
+        "target": true,
+        "relation": false,
+        "open": true,
+        "level": true
+      },
+      "semantic": false,
+      "prompt": "open the top drawer of the cabinet"
+    },
+    {
+      "id": "t04_official",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the black bowl on top of the cabinet"
+    },
+    {
+      "id": "t04_p1",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "place the black bowl on top of the cabinet"
+    },
+    {
+      "id": "t04_p2",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the black bowl on the cabinet"
+    },
+    {
+      "id": "t04_p3",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the black bowl on the top surface of the wooden cabinet"
+    },
+    {
+      "id": "t05_official",
+      "checks": {
+        "source": true,
+        "target": true
+      },
+      "semantic": true,
+      "prompt": "push the plate to the front of the stove"
+    },
+    {
+      "id": "t05_p1",
+      "checks": {
+        "source": true,
+        "target": true
+      },
+      "semantic": true,
+      "prompt": "push the plate to the front of the stove"
+    },
+    {
+      "id": "t05_p2",
+      "checks": {
+        "source": true,
+        "target": true
+      },
+      "semantic": true,
+      "prompt": "push the plate to the front of the stove"
+    },
+    {
+      "id": "t05_p3",
+      "checks": {
+        "source": true,
+        "target": true
+      },
+      "semantic": true,
+      "prompt": "push the plate to the front of the stove"
+    },
+    {
+      "id": "t06_official",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the cream cheese in the bowl"
+    },
+    {
+      "id": "t06_p1",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "place the cream cheese inside the black bowl"
+    },
+    {
+      "id": "t06_p2",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the cream cheese into the bowl"
+    },
+    {
+      "id": "t06_p3",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the cream cheese in the akita black bowl"
+    },
+    {
+      "id": "t07_official",
+      "checks": {
+        "turn_on": true,
+        "target": true
+      },
+      "semantic": true,
+      "prompt": "turn on the stove"
+    },
+    {
+      "id": "t07_p1",
+      "checks": {
+        "turn_on": true,
+        "target": true
+      },
+      "semantic": true,
+      "prompt": "turn on the stove"
+    },
+    {
+      "id": "t07_p2",
+      "checks": {
+        "turn_on": true,
+        "target": true
+      },
+      "semantic": true,
+      "prompt": "turn on the stove"
+    },
+    {
+      "id": "t07_p3",
+      "checks": {
+        "turn_on": true,
+        "target": true
+      },
+      "semantic": true,
+      "prompt": "turn on the stove"
+    },
+    {
+      "id": "t08_official",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the black bowl on the plate"
+    },
+    {
+      "id": "t08_p1",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "place the black bowl on the plate"
+    },
+    {
+      "id": "t08_p2",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the black bowl on the plate"
+    },
+    {
+      "id": "t08_p3",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the akita black bowl on top of the plate"
+    },
+    {
+      "id": "t09_official",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the wine bottle on the rack"
+    },
+    {
+      "id": "t09_p1",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "place the wine bottle on the rack"
+    },
+    {
+      "id": "t09_p2",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the wine bottle on the wine rack"
+    },
+    {
+      "id": "t09_p3",
+      "checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "semantic": true,
+      "prompt": "put the wine bottle onto the rack top"
+    }
+  ]
+}

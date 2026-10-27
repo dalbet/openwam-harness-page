@@ -1,0 +1,862 @@
+{
+  "schema": "embodied_engine.offline_eval_result.v1",
+  "set": "config/offline_eval.json",
+  "set_frozen": true,
+  "started_at": "2026-10-27T03:48:23+0000",
+  "suite": "libero_goal",
+  "seed": 0,
+  "scene_load_s": {
+    "1": 17.645
+  },
+  "engines": [
+    "d1"
+  ],
+  "models": {
+    "qwen_full": {
+      "model": "Qwen3.5-9B",
+      "base_url": "http://127.0.0.1:8001/v1",
+      "temperature": 0.0,
+      "max_tokens": 900
+    },
+    "d1": {
+      "model": "LiquidAI/d1-3B",
+      "model_path": "/home/host/page-dmh/openwam_harness/checkpoints/LiquidAI-d1-3B",
+      "model_sha256": "50e03317847caf6df9a9aee27ed40f20554a86a21e60d1d47ba41a422b546c0c",
+      "url": "http://127.0.0.1:14710",
+      "output_tokens_per_decision": 0
+    },
+    "qwen_decision": {
+      "model": "Qwen3.5-9B",
+      "interface": "same staged choice/noul questions as d1, parsed into d1's answer schema"
+    }
+  },
+  "thresholds": {
+    "supported_min": 0.5,
+    "operation_min": 0.5,
+    "specified_min": 0.5,
+    "ambiguous_max": 0.5,
+    "relation_min": 0.5,
+    "source_min": 0.5,
+    "target_min": 0.5
+  },
+  "summary": {
+    "qwen_full": {
+      "positives": 0,
+      "negatives": 0,
+      "plan_ok_rate": null,
+      "contract_pass_rate": null,
+      "semantic_accuracy": null,
+      "prompt_equals_official_rate": null,
+      "prompt_equals_user_rate": null,
+      "negative_rejections": 0,
+      "binding_accuracy": null,
+      "binding_note": "whole_task emits no object/site binding; binding accuracy is not applicable",
+      "latency_all": {
+        "n": 0
+      },
+      "latency_warm": {
+        "n": 0
+      },
+      "latency_first_in_task": {
+        "n": 0
+      },
+      "errors": 0
+    },
+    "d1": {
+      "positives": 4,
+      "negatives": 4,
+      "accepted": 4,
+      "rejected": 0,
+      "false_reject": 0,
+      "operation_accuracy": 1.0,
+      "operation_accuracy_accepted": 1.0,
+      "source_accuracy": 1.0,
+      "target_accuracy": 1.0,
+      "relation_accuracy": 1.0,
+      "open_target_accuracy": null,
+      "full_binding_accuracy": 1.0,
+      "full_binding_accuracy_accepted": 1.0,
+      "contract_pass_rate": 1.0,
+      "contract_pass_rate_all": 1.0,
+      "reject_accuracy": 0.25,
+      "reject_any_rate": 1.0,
+      "false_accept": 0,
+      "latency_all": {
+        "n": 8,
+        "median_s": 0.0955,
+        "mean_s": 0.0987,
+        "p95_s": 0.1474,
+        "max_s": 0.1474
+      },
+      "latency_warm": {
+        "n": 7,
+        "median_s": 0.0683,
+        "mean_s": 0.0917,
+        "p95_s": 0.1358,
+        "max_s": 0.1358
+      },
+      "latency_first_in_task": {
+        "n": 1,
+        "median_s": 0.1474,
+        "mean_s": 0.1474,
+        "p95_s": 0.1474,
+        "max_s": 0.1474
+      },
+      "errors": 0
+    },
+    "qwen_decision": {
+      "positives": 0,
+      "negatives": 0,
+      "accepted": 0,
+      "rejected": 0,
+      "false_reject": 0,
+      "operation_accuracy": null,
+      "operation_accuracy_accepted": null,
+      "source_accuracy": 0.0,
+      "target_accuracy": null,
+      "relation_accuracy": null,
+      "open_target_accuracy": null,
+      "full_binding_accuracy": null,
+      "full_binding_accuracy_accepted": null,
+      "contract_pass_rate": null,
+      "contract_pass_rate_all": null,
+      "reject_accuracy": null,
+      "reject_any_rate": null,
+      "false_accept": 0,
+      "latency_all": {
+        "n": 0
+      },
+      "latency_warm": {
+        "n": 0
+      },
+      "latency_first_in_task": {
+        "n": 0
+      },
+      "errors": 0
+    }
+  },
+  "per_task": {
+    "1": {
+      "cases": 8,
+      "positives": 4,
+      "qwen_full_semantic": 0.0,
+      "d1_full_binding": 1.0,
+      "d1_accepts": 4,
+      "qwen_decision_full_binding": 0.0
+    }
+  },
+  "cases": [
+    {
+      "id": "t01_official",
+      "kind_id": "t01_official",
+      "task_id": 1,
+      "kind": "positive",
+      "instruction": "put the bowl on the stove",
+      "expected": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on"
+      },
+      "expected_reject": null,
+      "phase": "first_in_task",
+      "results": {
+        "d1": {
+          "engine": "d1",
+          "status": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "accepted": true,
+          "decision": {
+            "operation": "pick_place",
+            "operation_confidence": 0.7141247324751784,
+            "source": "akita_black_bowl_1",
+            "source_confidence": 0.8004485169660963,
+            "target": "flat_stove_1_cook_region",
+            "target_confidence": 0.675430075458607,
+            "relation": "on",
+            "relation_confidence": 0.9433475746920261,
+            "open_target": null
+          },
+          "checks": {
+            "operation": true,
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "full_binding": true,
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "prompt": "put the bowl on the stove",
+          "stage1_s": 0.0804,
+          "stage2_s": 0.0669,
+          "total_s": 0.1474,
+          "tokens": {
+            "input_tokens": 2602,
+            "output_tokens": 0
+          },
+          "evidence": {
+            "stage1_s": 0.0804,
+            "stage2_s": 0.0669,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 0.8807970779778823,
+              "operation": "pick_place",
+              "operation_confidence": 0.7141247324751784,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 0.8004485169660963,
+              "source_specified": 0.9399133498259924,
+              "ambiguous": 0.4073334000459302
+            },
+            "stage2": {
+              "target": {
+                "type": "choice",
+                "choice": "flat_stove_1_cook_region",
+                "confidence": 0.675430075458607,
+                "probabilities": {
+                  "flat_stove_1_cook_region": 0.675430075458607,
+                  "main_table_akita_black_bowl_region": 0.004844527109723631,
+                  "main_table_cabinet_region": 0.003127861789633037,
+                  "main_table_cream_cheese_region": 0.0018971440747560645,
+                  "main_table_plate_region": 0.003127861789633037,
+                  "main_table_stove_front_region": 0.014018103996126442,
+                  "main_table_stove_region": 0.04892799055984762,
+                  "main_table_wine_bottle_region": 0.0022883925704805432,
+                  "main_table_wine_rack_region": 0.0024359812111053353,
+                  "table_top": 0.0035443317483295116,
+                  "wine_rack_1_top_region": 0.0010809601098360439,
+                  "wooden_cabinet_1_bottom_region": 0.0011506760472317092,
+                  "wooden_cabinet_1_middle_region": 0.0012248882762876596,
+                  "wooden_cabinet_1_top_region": 0.0013879802554550528,
+                  "wooden_cabinet_1_top_side": 0.0009539439487478126,
+                  "cream_cheese_1": 0.0027603283410638645,
+                  "plate_1": 0.002593088501249646,
+                  "wine_bottle_1": 0.0015727876793561917,
+                  "flat_stove_1": 0.1102609287950561,
+                  "none": 0.11737214773747387
+                }
+              },
+              "relation": {
+                "type": "choice",
+                "choice": "on",
+                "confidence": 0.9433475746920261,
+                "probabilities": {
+                  "on": 0.9433475746920261,
+                  "in": 0.05665242530797383
+                }
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 0.9399133498259924
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "t01_p1",
+      "kind_id": "t01_p1",
+      "task_id": 1,
+      "kind": "positive",
+      "instruction": "place the black bowl on the stove",
+      "expected": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on"
+      },
+      "expected_reject": null,
+      "phase": "warm",
+      "results": {
+        "d1": {
+          "engine": "d1",
+          "status": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "accepted": true,
+          "decision": {
+            "operation": "pick_place",
+            "operation_confidence": 0.8232667828960808,
+            "source": "akita_black_bowl_1",
+            "source_confidence": 0.9013676941317085,
+            "target": "flat_stove_1_cook_region",
+            "target_confidence": 0.7713096829865494,
+            "relation": "on",
+            "relation_confidence": 0.96036116089903,
+            "open_target": null
+          },
+          "checks": {
+            "operation": true,
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "full_binding": true,
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "prompt": "place the black bowl on the stove",
+          "stage1_s": 0.0684,
+          "stage2_s": 0.0673,
+          "total_s": 0.1358,
+          "tokens": {
+            "input_tokens": 2604,
+            "output_tokens": 0
+          },
+          "evidence": {
+            "stage1_s": 0.0684,
+            "stage2_s": 0.0673,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 0.9324533088603709,
+              "operation": "pick_place",
+              "operation_confidence": 0.8232667828960808,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 0.9013676941317085,
+              "source_specified": 0.9465966702001757,
+              "ambiguous": 0.32082130082460697
+            },
+            "stage2": {
+              "target": {
+                "type": "choice",
+                "choice": "flat_stove_1_cook_region",
+                "confidence": 0.7713096829865494,
+                "probabilities": {
+                  "flat_stove_1_cook_region": 0.7713096829865494,
+                  "main_table_akita_black_bowl_region": 0.00430850060868519,
+                  "main_table_cabinet_region": 0.002781777069111269,
+                  "main_table_cream_cheese_region": 0.0014889779678338676,
+                  "main_table_plate_region": 0.0024549096471715485,
+                  "main_table_stove_front_region": 0.009121095860162265,
+                  "main_table_stove_region": 0.02639276598736737,
+                  "main_table_wine_bottle_region": 0.001796050265522591,
+                  "main_table_wine_rack_region": 0.0019118855555867484,
+                  "table_top": 0.0024549096471715485,
+                  "wine_rack_1_top_region": 0.0008483940724744904,
+                  "wooden_cabinet_1_bottom_region": 0.000903110789127852,
+                  "wooden_cabinet_1_middle_region": 0.0009613564308155338,
+                  "wooden_cabinet_1_top_region": 0.0010893595524244675,
+                  "wooden_cabinet_1_top_side": 0.0007487051411298685,
+                  "cream_cheese_1": 0.0012344060916633557,
+                  "plate_1": 0.0013987653532245986,
+                  "wine_bottle_1": 0.0009613564308155338,
+                  "flat_stove_1": 0.08653854805932291,
+                  "none": 0.08129544248383971
+                }
+              },
+              "relation": {
+                "type": "choice",
+                "choice": "on",
+                "confidence": 0.96036116089903,
+                "probabilities": {
+                  "on": 0.96036116089903,
+                  "in": 0.039638839100970026
+                }
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 0.9465966702001757
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "t01_p2",
+      "kind_id": "t01_p2",
+      "task_id": 1,
+      "kind": "positive",
+      "instruction": "put the akita black bowl onto the stove top",
+      "expected": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on"
+      },
+      "expected_reject": null,
+      "phase": "warm",
+      "results": {
+        "d1": {
+          "engine": "d1",
+          "status": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "accepted": true,
+          "decision": {
+            "operation": "pick_place",
+            "operation_confidence": 0.8073460952100234,
+            "source": "akita_black_bowl_1",
+            "source_confidence": 0.9067683184705514,
+            "target": "flat_stove_1_cook_region",
+            "target_confidence": 0.6873910183115972,
+            "relation": "on",
+            "relation_confidence": 0.9626731126558706,
+            "open_target": null
+          },
+          "checks": {
+            "operation": true,
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "full_binding": true,
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "prompt": "put the akita black bowl onto the stove top",
+          "stage1_s": 0.0692,
+          "stage2_s": 0.0565,
+          "total_s": 0.1258,
+          "tokens": {
+            "input_tokens": 2610,
+            "output_tokens": 0
+          },
+          "evidence": {
+            "stage1_s": 0.0692,
+            "stage2_s": 0.0565,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 0.9046505351008906,
+              "operation": "pick_place",
+              "operation_confidence": 0.8073460952100234,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 0.9067683184705514,
+              "source_specified": 0.9669140216112958,
+              "ambiguous": 0.2689414213699951
+            },
+            "stage2": {
+              "target": {
+                "type": "choice",
+                "choice": "flat_stove_1_cook_region",
+                "confidence": 0.6873910183115972,
+                "probabilities": {
+                  "flat_stove_1_cook_region": 0.6873910183115972,
+                  "main_table_akita_black_bowl_region": 0.005248295190007138,
+                  "main_table_cabinet_region": 0.002990388458383983,
+                  "main_table_cream_cheese_region": 0.0018137622844606822,
+                  "main_table_plate_region": 0.0033885540556867024,
+                  "main_table_stove_front_region": 0.015186445675620814,
+                  "main_table_stove_region": 0.03877994758271064,
+                  "main_table_wine_bottle_region": 0.0023289168730771374,
+                  "main_table_wine_rack_region": 0.0024791191066709205,
+                  "table_top": 0.005947097575794653,
+                  "wine_rack_1_top_region": 0.0010334505978304193,
+                  "wooden_cabinet_1_bottom_region": 0.0011001024349558308,
+                  "wooden_cabinet_1_middle_region": 0.0011001024349558308,
+                  "wooden_cabinet_1_top_region": 0.0013269768345053998,
+                  "wooden_cabinet_1_top_side": 0.0009708369913742919,
+                  "cream_cheese_1": 0.0019307399016025946,
+                  "plate_1": 0.002990388458383983,
+                  "wine_bottle_1": 0.0012465793723852486,
+                  "flat_stove_1": 0.13535531693605343,
+                  "none": 0.0873919609239432
+                }
+              },
+              "relation": {
+                "type": "choice",
+                "choice": "on",
+                "confidence": 0.9626731126558706,
+                "probabilities": {
+                  "on": 0.9626731126558706,
+                  "in": 0.037326887344129464
+                }
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 0.9324533088603709
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "t01_p3",
+      "kind_id": "t01_p3",
+      "task_id": 1,
+      "kind": "positive",
+      "instruction": "move the bowl onto the stove",
+      "expected": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on"
+      },
+      "expected_reject": null,
+      "phase": "warm",
+      "results": {
+        "d1": {
+          "engine": "d1",
+          "status": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "accepted": true,
+          "decision": {
+            "operation": "pick_place",
+            "operation_confidence": 0.7630477127449697,
+            "source": "akita_black_bowl_1",
+            "source_confidence": 0.8655238357671806,
+            "target": "flat_stove_1_cook_region",
+            "target_confidence": 0.7220640171175329,
+            "relation": "on",
+            "relation_confidence": 0.9241418199787566,
+            "open_target": null
+          },
+          "checks": {
+            "operation": true,
+            "source": true,
+            "target": true,
+            "relation": true
+          },
+          "full_binding": true,
+          "contract_ok": true,
+          "contract_error_count": 0,
+          "prompt": "move the bowl onto the stove",
+          "stage1_s": 0.0536,
+          "stage2_s": 0.069,
+          "total_s": 0.1227,
+          "tokens": {
+            "input_tokens": 2602,
+            "output_tokens": 0
+          },
+          "evidence": {
+            "stage1_s": 0.0536,
+            "stage2_s": 0.069,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 0.9149009549929797,
+              "operation": "pick_place",
+              "operation_confidence": 0.7630477127449697,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 0.8655238357671806,
+              "source_specified": 0.9525741268224334,
+              "ambiguous": 0.34864513533394575
+            },
+            "stage2": {
+              "target": {
+                "type": "choice",
+                "choice": "flat_stove_1_cook_region",
+                "confidence": 0.7220640171175329,
+                "probabilities": {
+                  "flat_stove_1_cook_region": 0.7220640171175329,
+                  "main_table_akita_black_bowl_region": 0.0042935495910682376,
+                  "main_table_cabinet_region": 0.0029509106018985624,
+                  "main_table_cream_cheese_region": 0.0017898177541225396,
+                  "main_table_plate_region": 0.0029509106018985624,
+                  "main_table_stove_front_region": 0.010299690037436133,
+                  "main_table_stove_region": 0.046160008268647364,
+                  "main_table_wine_bottle_region": 0.00215893231597333,
+                  "main_table_wine_rack_region": 0.00215893231597333,
+                  "table_top": 0.0033438197836798533,
+                  "wine_rack_1_top_region": 0.0010198074156974972,
+                  "wooden_cabinet_1_bottom_region": 0.0010855793431733278,
+                  "wooden_cabinet_1_middle_region": 0.0010855793431733278,
+                  "wooden_cabinet_1_top_region": 0.0012301225533981578,
+                  "wooden_cabinet_1_top_side": 0.000899976885585842,
+                  "cream_cheese_1": 0.0026041694659795257,
+                  "plate_1": 0.00215893231597333,
+                  "wine_bottle_1": 0.0014838110344038333,
+                  "flat_stove_1": 0.0862382488429384,
+                  "none": 0.10402318441144619
+                }
+              },
+              "relation": {
+                "type": "choice",
+                "choice": "on",
+                "confidence": 0.9241418199787566,
+                "probabilities": {
+                  "on": 0.9241418199787566,
+                  "in": 0.07585818002124356
+                }
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 0.9579122720843811
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "n_missing_pronoun",
+      "kind_id": "n_missing_pronoun",
+      "task_id": 1,
+      "kind": "negative",
+      "instruction": "put it on the stove",
+      "expected": null,
+      "expected_reject": "missing_information",
+      "phase": "warm",
+      "results": {
+        "d1": {
+          "engine": "d1",
+          "status": "unsupported",
+          "reason_code": "operation_not_supported",
+          "reason": "operation='other' confidence=0.592",
+          "accepted": false,
+          "decision": {
+            "operation": null,
+            "operation_confidence": null,
+            "source": null,
+            "source_confidence": null,
+            "target": null,
+            "target_confidence": null,
+            "relation": null,
+            "relation_confidence": null,
+            "open_target": null
+          },
+          "checks": {},
+          "full_binding": null,
+          "contract_ok": false,
+          "contract_error_count": 0,
+          "prompt": null,
+          "stage1_s": 0.0674,
+          "stage2_s": null,
+          "total_s": 0.0674,
+          "tokens": {},
+          "evidence": {
+            "stage1_s": 0.0674,
+            "stage2_s": null,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 0.5926665999540697,
+              "operation": "other",
+              "operation_confidence": 0.5915292044812901,
+              "source": "none",
+              "source_confidence": 0.7862832951342977,
+              "source_specified": 0.08509904500702024,
+              "ambiguous": 0.4378234991142019
+            },
+            "stage2": null
+          }
+        }
+      }
+    },
+    {
+      "id": "n_missing_target",
+      "kind_id": "n_missing_target",
+      "task_id": 1,
+      "kind": "negative",
+      "instruction": "put the bowl over there",
+      "expected": null,
+      "expected_reject": "missing_information",
+      "phase": "warm",
+      "results": {
+        "d1": {
+          "engine": "d1",
+          "status": "unsupported",
+          "reason_code": "operation_not_supported",
+          "reason": "operation='other' confidence=0.537",
+          "accepted": false,
+          "decision": {
+            "operation": null,
+            "operation_confidence": null,
+            "source": null,
+            "source_confidence": null,
+            "target": null,
+            "target_confidence": null,
+            "relation": null,
+            "relation_confidence": null,
+            "open_target": null
+          },
+          "checks": {},
+          "full_binding": null,
+          "contract_ok": false,
+          "contract_error_count": 0,
+          "prompt": null,
+          "stage1_s": 0.0658,
+          "stage2_s": null,
+          "total_s": 0.0658,
+          "tokens": {},
+          "evidence": {
+            "stage1_s": 0.0658,
+            "stage2_s": null,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 0.8175744761936437,
+              "operation": "other",
+              "operation_confidence": 0.5369434655235412,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 0.5519375253042398,
+              "source_specified": 0.9046505351008906,
+              "ambiguous": 0.5312093733737563
+            },
+            "stage2": null
+          }
+        }
+      }
+    },
+    {
+      "id": "n_not_in_scene",
+      "kind_id": "n_not_in_scene",
+      "task_id": 1,
+      "kind": "negative",
+      "instruction": "put the apple on the stove",
+      "expected": null,
+      "expected_reject": "rejected",
+      "phase": "warm",
+      "results": {
+        "d1": {
+          "engine": "d1",
+          "status": "unsupported",
+          "reason_code": "request_not_supported",
+          "reason": "d1 judged the request outside the supported operations",
+          "accepted": false,
+          "decision": {
+            "operation": null,
+            "operation_confidence": null,
+            "source": null,
+            "source_confidence": null,
+            "target": null,
+            "target_confidence": null,
+            "relation": null,
+            "relation_confidence": null,
+            "open_target": null
+          },
+          "checks": {},
+          "full_binding": null,
+          "contract_ok": false,
+          "contract_error_count": 0,
+          "prompt": null,
+          "stage1_s": 0.0683,
+          "stage2_s": null,
+          "total_s": 0.0683,
+          "tokens": {},
+          "evidence": {
+            "stage1_s": 0.0683,
+            "stage2_s": null,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 0.4378234991142019,
+              "operation": "other",
+              "operation_confidence": 0.7521707395713547,
+              "source": "none",
+              "source_confidence": 0.9221868602641454,
+              "source_specified": 0.20181322226037882,
+              "ambiguous": 0.46879062662624377
+            },
+            "stage2": null
+          }
+        }
+      }
+    },
+    {
+      "id": "n_ambiguous_table",
+      "kind_id": "n_ambiguous_table",
+      "task_id": 1,
+      "kind": "negative",
+      "instruction": "put the bowl on the table",
+      "expected": null,
+      "expected_reject": "needs_clarification",
+      "phase": "warm",
+      "results": {
+        "d1": {
+          "engine": "d1",
+          "status": "needs_clarification",
+          "reason_code": "ambiguous_reference",
+          "reason": "ambiguity P(yes)=0.500",
+          "accepted": false,
+          "decision": {
+            "operation": null,
+            "operation_confidence": null,
+            "source": null,
+            "source_confidence": null,
+            "target": null,
+            "target_confidence": null,
+            "relation": null,
+            "relation_confidence": null,
+            "open_target": null
+          },
+          "checks": {},
+          "full_binding": null,
+          "contract_ok": false,
+          "contract_error_count": 0,
+          "prompt": null,
+          "stage1_s": 0.0563,
+          "stage2_s": null,
+          "total_s": 0.0563,
+          "tokens": {},
+          "evidence": {
+            "stage1_s": 0.0563,
+            "stage2_s": null,
+            "thresholds": {
+              "supported_min": 0.5,
+              "operation_min": 0.5,
+              "specified_min": 0.5,
+              "ambiguous_max": 0.5,
+              "relation_min": 0.5,
+              "source_min": 0.5,
+              "target_min": 0.5
+            },
+            "stage1": {
+              "supported": 0.9046505351008906,
+              "operation": "pick_place",
+              "operation_confidence": 0.5496885590653361,
+              "source": "akita_black_bowl_1",
+              "source_confidence": 0.7767774496917249,
+              "source_specified": 0.9399133498259924,
+              "ambiguous": 0.5
+            },
+            "stage2": null
+          }
+        }
+      }
+    }
+  ]
+}

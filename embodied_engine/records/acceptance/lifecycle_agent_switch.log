@@ -1,0 +1,22 @@
+[0] agent mode switching while idle
+    switched qwen -> d1 and both services agree
+    switched back to qwen
+[1] load task 1
+[2] start
+    phase while running: running episode=ep-20261027-042939-fc3aa5
+    switch during execution refused (phase=running), mode stays qwen
+[3] stop
+    stop budget: {"reason": "lifecycle_check", "sim_at_request": 15, "sim_at_ack": 15, "in_flight_actions": 0, "thread_alive": false}
+[ok] stopped: stopped
+    stopped result: execution=stopped failure=user_stop
+    no action issued after stop (in-flight at most 1); sim frozen at 15
+    model-side buffer cleared on stop (backend_resets +1)
+[3b] agent mode switching while stopped
+    switched qwen -> d1 -> qwen while stopped
+[4] reset
+    clean phase=ready scene_epoch=5
+    scene epoch advanced 4 -> 5
+[5] run again after reset
+[ok] second episode terminal: succeeded
+    second episode=ep-20261027-042958-cbe97c phase=succeeded success=True
+lifecycle: PASS
