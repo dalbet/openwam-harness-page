@@ -120,6 +120,9 @@ class InferenceEngine:
         return token
 
     def cancel(self, reason: str) -> dict[str, Any]:
+        started = time.perf_counter()
+        self.metrics["cancel_requests"] = int(self.metrics.get("cancel_requests", 0)) + 1
+        self.metrics["in_flight_at_cancel"] = int(self.metrics.get("in_flight") or 0)
         dropped = 0
         with self.cond:
             dropped = len(self.queue)
@@ -141,7 +144,17 @@ class InferenceEngine:
                 self.metrics["last_backend_reset"] = out
             except Exception as exc:
                 self.metrics["backend_reset_error"] = f"{type(exc).__name__}: {exc}"
-        return {"status": "ok", "discarded": dropped}
+        # The backend reset shares the socket lock with predict(), so its
+        # completion is the cancel barrier: no generated chunk survives, and no
+        # predict is still writing to the wire when this returns.
+        self.metrics["cancel_barrier_s"] = round(time.perf_counter() - started, 4)
+        self.metrics["in_flight_after_cancel"] = int(self.metrics.get("in_flight") or 0)
+        return {
+            "status": "ok",
+            "discarded": dropped,
+            "barrier_s": self.metrics["cancel_barrier_s"],
+            "in_flight_after_cancel": self.metrics["in_flight_after_cancel"],
+        }
 
 
     def submit(self, request: dict[str, Any], obs: dict[str, Any]) -> dict[str, Any]:
@@ -195,11 +208,14 @@ class InferenceEngine:
         timer = time.perf_counter()
         with self.lock:
             queued_s = time.perf_counter() - timer
+            self.metrics["in_flight"] = 1
             try:
                 out = self.backend.predict(obs, str(request.get("prompt") or ""))
             except Exception as exc:
                 self.metrics["model_errors"] += 1
                 return {"status": "error", "error": f"{type(exc).__name__}: {exc}", "request": request}
+            finally:
+                self.metrics["in_flight"] = 0
         self._record_success(request, out, queued_s, time.perf_counter() - started)
         return {
             "status": "ok",

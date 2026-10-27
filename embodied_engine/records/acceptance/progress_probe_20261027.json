@@ -1,0 +1,245 @@
+{
+ "schema": "embodied_engine.progress_probe.v1",
+ "frozen": {
+  "window_actions": 120,
+  "object_motion_threshold_m": 0.005,
+  "eef_motion_threshold_m": 0.02
+ },
+ "enforced": false,
+ "rows": [
+  {
+   "label": "final2/round-1",
+   "task": 1,
+   "lang": "en",
+   "native": true,
+   "user": true,
+   "observations": 97,
+   "object_total_motion_m": 0.25426,
+   "first_object_motion_n": 47,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  },
+  {
+   "label": "final2/round-2",
+   "task": 1,
+   "lang": "zh",
+   "native": true,
+   "user": true,
+   "observations": 97,
+   "object_total_motion_m": 0.24834,
+   "first_object_motion_n": 47,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  },
+  {
+   "label": "final2/round-3",
+   "task": 1,
+   "lang": "en",
+   "native": true,
+   "user": true,
+   "observations": 97,
+   "object_total_motion_m": 0.24833,
+   "first_object_motion_n": 49,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  },
+  {
+   "label": "final2/round-4",
+   "task": 2,
+   "lang": "en",
+   "native": true,
+   "user": true,
+   "observations": 91,
+   "object_total_motion_m": 0.3571,
+   "first_object_motion_n": 40,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  },
+  {
+   "label": "final2/round-5",
+   "task": 2,
+   "lang": "zh",
+   "native": false,
+   "user": false,
+   "observations": 601,
+   "object_total_motion_m": 0.00844,
+   "first_object_motion_n": 10,
+   "never_touched": false,
+   "stall_windows": 4,
+   "stall_actions_after_contact": 480,
+   "first_window": {
+    "n_start": 120,
+    "n_end": 240,
+    "object_motion_m": 0.0,
+    "eef_motion_m": 0.11502,
+    "touched": true,
+    "gripper_open_min_m": 0.00204,
+    "gripper_open_max_m": 0.07949
+   }
+  },
+  {
+   "label": "final2/round-6",
+   "task": 2,
+   "lang": "en",
+   "native": true,
+   "user": true,
+   "observations": 94,
+   "object_total_motion_m": 0.37835,
+   "first_object_motion_n": 38,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  },
+  {
+   "label": "final2/round-7",
+   "task": 3,
+   "lang": "en",
+   "native": true,
+   "user": true,
+   "observations": 181,
+   "object_total_motion_m": 0.30421,
+   "first_object_motion_n": 119,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  },
+  {
+   "label": "final2/round-8",
+   "task": 3,
+   "lang": "zh",
+   "native": true,
+   "user": true,
+   "observations": 180,
+   "object_total_motion_m": 0.32354,
+   "first_object_motion_n": 119,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  },
+  {
+   "label": "final2/round-9",
+   "task": 3,
+   "lang": "en",
+   "native": true,
+   "user": true,
+   "observations": 186,
+   "object_total_motion_m": 0.31334,
+   "first_object_motion_n": 119,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  },
+  {
+   "label": "final2/round-10",
+   "task": 8,
+   "lang": "en",
+   "native": true,
+   "user": true,
+   "observations": 96,
+   "object_total_motion_m": 0.16654,
+   "first_object_motion_n": 54,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  },
+  {
+   "label": "final2/round-11",
+   "task": 8,
+   "lang": "zh",
+   "native": true,
+   "user": true,
+   "observations": 97,
+   "object_total_motion_m": 0.18387,
+   "first_object_motion_n": 54,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  },
+  {
+   "label": "final2/round-12",
+   "task": 8,
+   "lang": "en",
+   "native": true,
+   "user": true,
+   "observations": 96,
+   "object_total_motion_m": 0.17463,
+   "first_object_motion_n": 51,
+   "never_touched": false,
+   "stall_windows": 0,
+   "stall_actions_after_contact": 0,
+   "first_window": null
+  }
+ ],
+ "sensitivity": {
+  "60": {
+   "would_cut": 3,
+   "episodes": [
+    "final2/round-7",
+    "final2/round-8",
+    "final2/round-9"
+   ]
+  },
+  "90": {
+   "would_cut": 3,
+   "episodes": [
+    "final2/round-7",
+    "final2/round-8",
+    "final2/round-9"
+   ]
+  },
+  "100": {
+   "would_cut": 3,
+   "episodes": [
+    "final2/round-7",
+    "final2/round-8",
+    "final2/round-9"
+   ]
+  },
+  "110": {
+   "would_cut": 3,
+   "episodes": [
+    "final2/round-7",
+    "final2/round-8",
+    "final2/round-9"
+   ]
+  },
+  "115": {
+   "would_cut": 3,
+   "episodes": [
+    "final2/round-7",
+    "final2/round-8",
+    "final2/round-9"
+   ]
+  },
+  "119": {
+   "would_cut": 3,
+   "episodes": [
+    "final2/round-7",
+    "final2/round-8",
+    "final2/round-9"
+   ]
+  },
+  "120": {
+   "would_cut": 0,
+   "episodes": []
+  },
+  "150": {
+   "would_cut": 0,
+   "episodes": []
+  }
+ }
+}

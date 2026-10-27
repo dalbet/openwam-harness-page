@@ -82,6 +82,37 @@ def _record(path: str | None) -> dict[str, Any]:
         return {}
 
 
+def _mapping_ok(
+    *,
+    status: str | None,
+    chosen: str | None,
+    expected: str | None,
+    key: str | None,
+    official: str | None,
+    catalog_official: str | None,
+    step_prompt: str | None,
+    verification_prompt: str | None,
+) -> bool:
+    """Five-way agreement between the round, the route and the policy prompt.
+
+    A manifest may name the expected route by catalog key
+    (``put_bowl_on_stove``) or by the official instruction that key resolves to
+    (``put the bowl on the stove``). Both express the same expectation; calling
+    the phrase form a mismatch reports a routing error that never happened.
+    """
+    expected = str(expected or "")
+    expected_match = chosen == expected or (
+        _norm(expected) == _norm(official) and chosen == key
+    )
+    return bool(
+        status == "ok"
+        and expected_match
+        and _norm(catalog_official) == _norm(official)
+        and _norm(step_prompt) == _norm(official)
+        and _norm(verification_prompt) == _norm(official)
+    )
+
+
 def _round_row(round_spec: dict[str, Any], task: dict[str, Any], status: dict[str, Any], wall_s: float) -> dict[str, Any]:
     result = status.get("last_result") or {}
     record = _record(result.get("record"))
@@ -92,18 +123,25 @@ def _round_row(round_spec: dict[str, Any], task: dict[str, Any], status: dict[st
     official = task["official_instruction"]
     chosen = semantic.get("semantic_choice")
 
-    mapping_ok = (
-        semantic.get("decision_status") == "ok"
-        and chosen == round_spec["expected_choice"]
-        and _norm(semantic.get("official_instruction")) == _norm(official)
-        and _norm(step_prompt) == _norm(official)
-        and _norm(verification_prompt) == _norm(official)
+    mapping_ok = _mapping_ok(
+        status=semantic.get("decision_status"),
+        chosen=chosen,
+        expected=round_spec.get("expected_choice"),
+        key=task.get("key"),
+        official=official,
+        catalog_official=semantic.get("official_instruction"),
+        step_prompt=step_prompt,
+        verification_prompt=verification_prompt,
     )
 
     release = record.get("release_evidence") or {}
+    placement = record.get("placement") or {}
     requires_release = str(task.get("kind") or "") in RELEASE_REQUIRED_KINDS
     if requires_release:
-        release_state = release.get("state") or "unknown"
+        if placement:
+            release_state = "verified" if placement.get("placement_verified") else "unknown"
+        else:
+            release_state = release.get("state") or "unknown"
     else:
         release_state = "not_applicable"
 
@@ -111,7 +149,7 @@ def _round_row(round_spec: dict[str, Any], task: dict[str, Any], status: dict[st
     user_goal = bool(record.get("user_goal_success"))
     if not requires_release:
         evidence_state = "native_only" if native else "absent"
-    elif release_state == "observed":
+    elif release_state == "verified":
         evidence_state = "released" if native else "released_without_native_success"
     else:
         evidence_state = "held_or_unknown" if native else "absent"
@@ -144,6 +182,18 @@ def _round_row(round_spec: dict[str, Any], task: dict[str, Any], status: dict[st
         "release_observed": bool(release.get("observed")),
         "release_final_gripper_opening_m": release.get("final_gripper_opening_m"),
         "full_goal_evidence": evidence_state,
+        "release_executed": placement.get("release_executed"),
+        "release_verified": placement.get("release_verified"),
+        "placement_verified": placement.get("placement_verified"),
+        "placement_status": placement.get("execution_status"),
+        "evidence_source": placement.get("evidence_source"),
+        "policy_owned": placement.get("policy_owned"),
+        "retreat_status": placement.get("retreat_status"),
+        "policy_actions_after_goal": (placement.get("policy") or {}).get("actions_after_goal"),
+        "policy_stop_reason": (placement.get("policy") or {}).get("stop_reason"),
+        "finalizer_actions": placement.get("extra_actions"),
+        "finalizer_s": placement.get("extra_s"),
+        "placement_reason": placement.get("reason_code"),
         "duration_s": record.get("duration_s"),
         "episode_sim_actions": record.get("episode_sim_actions"),
         "recovery_count": record.get("recovery_count"),
@@ -162,7 +212,48 @@ def main() -> int:
     parser.add_argument("--tasks", default="", help="comma list of task ids, default all")
     parser.add_argument("--timeout", type=float, default=600.0)
     parser.add_argument("--out", default="records/acceptance/language_rounds_20261027.json")
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="force /api/load before every round, so repeated task ids start from the frozen init",
+    )
+    parser.add_argument(
+        "--rederive-mapping",
+        action="store_true",
+        help="recompute only the mapping_ok column of an existing --out file with the current rule; "
+        "execution columns are left untouched and the rows are marked rederived",
+    )
     args = parser.parse_args()
+
+    if args.rederive_mapping:
+        path = PROJECT / args.out
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        changed = 0
+        for row in payload.get("rows") or []:
+            before = row.get("mapping_ok")
+            after = _mapping_ok(
+                status=row.get("decision_status"),
+                chosen=row.get("semantic_choice"),
+                expected=row.get("expected_choice"),
+                key=row.get("task_key"),
+                official=row.get("task_official_instruction"),
+                catalog_official=row.get("catalog_official_instruction"),
+                step_prompt=row.get("plan_step_prompt"),
+                verification_prompt=row.get("policy_verification_prompt"),
+            )
+            if before != after:
+                changed += 1
+            row["mapping_ok"] = after
+            row["mapping_ok_source"] = "rederived_from_recorded_fields"
+        rows = payload.get("rows") or []
+        payload["summary"] = {
+            **(payload.get("summary") or {}),
+            "mapping_ok": sum(1 for row in rows if row.get("mapping_ok")),
+            "mapping_ok_rederived": changed,
+        }
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps({"out": str(path), "rows": len(rows), "changed": changed}, ensure_ascii=False))
+        return 0
 
     manifest = json.loads((PROJECT / args.rounds).read_text(encoding="utf-8"))
     rounds = list(manifest["rounds"])
@@ -214,6 +305,8 @@ def main() -> int:
         print(f"[round {spec['round']}] task {spec['task_id']} {spec['lang']}: {spec['instruction']}", flush=True)
         current = get(f"{args.engine}/api/status", timeout=20)
         same_scene = int(current.get("task_id") or -1) == int(spec["task_id"])
+        if args.fresh:
+            same_scene = False
         loaded = {"status": "ok", "reused": True} if same_scene else post(
             f"{args.engine}/api/load",
             {"task_id": int(spec["task_id"]), "seed": manifest.get("seed")},

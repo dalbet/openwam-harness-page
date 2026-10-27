@@ -39,6 +39,7 @@ from adapters.env_client import EnvClient  # noqa: E402
 from common import config, records, task_catalog  # noqa: E402
 from common import plan_contract
 from engine import completion  # noqa: E402
+from engine import finalize  # noqa: E402
 from engine.inference_client import InferenceClient  # noqa: E402
 from engine.openwam_rollout import WholeTaskRunner  # noqa: E402
 from engine.skills import SkillFailure, SkillRunner, Stopped  # noqa: E402
@@ -49,7 +50,10 @@ def _now_iso() -> str:
 
 
 def _release_evidence(
-    task: dict[str, Any], step_results: list[dict[str, Any]], snapshot: dict[str, Any]
+    task: dict[str, Any],
+    step_results: list[dict[str, Any]],
+    snapshot: dict[str, Any],
+    placement: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Report gripper release as measured evidence, never as inferred success.
 
@@ -57,6 +61,10 @@ def _release_evidence(
     open-top-drawer-and-place-bowl case). Opening a drawer or turning on a stove
     has no release phase, so those tasks are explicitly marked not applicable
     rather than failing a release check.
+
+    ``placement`` is the newer contract (``evidence_source``,
+    ``release_verified``, ``placement_verified``, ``retreat_status``); this
+    legacy block mirrors it so old readers and old records stay comparable.
     """
     kind = str(task.get("kind") or "")
     applicable = kind in {"pick_place", "composite"}
@@ -78,11 +86,19 @@ def _release_evidence(
                 "source": release.get("source"),
             }
         )
+    placement = placement or {}
     sim = snapshot.get("sim") or {}
     final_opening = sim.get("gripper_opening_m")
-    if isinstance(final_opening, (int, float)) and float(final_opening) > 0.05:
+    if placement:
+        observed = bool(placement.get("release_executed"))
+    elif isinstance(final_opening, (int, float)) and float(final_opening) > 0.05:
         observed = True
-    state = "observed" if observed else ("unknown" if applicable else "not_applicable")
+    if not applicable:
+        state = "not_applicable"
+    elif placement:
+        state = "verified" if placement.get("placement_verified") else "unknown"
+    else:
+        state = "observed" if observed else "unknown"
     return {
         "applicable": applicable,
         "state": state,
@@ -90,11 +106,56 @@ def _release_evidence(
         "final_gripper_opening_m": final_opening,
         "threshold_m": 0.05,
         "steps": rows,
+        "placement": {
+            key: placement.get(key)
+            for key in (
+                "release_executed",
+                "release_verified",
+                "placement_verified",
+                "retreat_status",
+                "evidence_source",
+                "policy_owned",
+                "reason_code",
+            )
+        }
+        if placement
+        else None,
         "note": (
-            "Measured finger separation in the whole-task trace; native goal success "
-            "does not by itself prove the object was released."
+            "finger separation and the object's position relative to the fingers, measured. "
+            "Native goal success alone does not prove the object was released; a closed "
+            "gripper alone does not prove it is still held."
         ),
     }
+
+
+def _state_fingerprint(snapshot: dict[str, Any]) -> str:
+    """Shaper hash of everything that can change what the policy sees first.
+
+    ``_scene_fingerprint`` covers object positions and the EEF position, which
+    is what "same scene" used to mean. The policy also consumes the wrist image
+    and an EEF rotation, both of which follow the arm joint angles - two runs
+    can agree on the object positions and still see different pixels. This hash
+    adds the joint configuration so a "same initial state" claim can be checked
+    against the state the model actually received.
+    """
+    sim = snapshot.get("sim") or {}
+    objects = {
+        name: [round(float(value), 5) for value in (pose or {}).get("pos") or []]
+        for name, pose in (sim.get("objects") or {}).items()
+        if isinstance(pose, dict)
+    }
+    joints = {
+        str(name): round(float(value), 6)
+        for name, value in (snapshot.get("joints") or {}).items()
+        if isinstance(value, (int, float))
+    }
+    payload = {
+        "objects": objects,
+        "eef": [round(float(value), 5) for value in (sim.get("eef_pos") or [])],
+        "joints": joints,
+        "gripper": round(float(sim.get("gripper_opening_m") or 0.0), 6),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
 
 def _scene_fingerprint(snapshot: dict[str, Any]) -> str:
@@ -147,6 +208,63 @@ def _recovery_failure(failure: dict[str, Any]) -> dict[str, Any]:
         "reason_code": failure.get("reason_code"),
         "message": failure.get("message"),
         "evidence": evidence,
+    }
+
+
+def _step_digest(record: dict[str, Any]) -> dict[str, Any]:
+    """Compact per-attempt summary that outlives the attempt it describes.
+
+    A retried attempt is dropped from ``steps`` (the record keeps only the
+    attempt that decided the episode), which used to make the earlier attempts
+    unauditable: no action count, no object pose, no gripper state. The digest
+    keeps exactly the fields needed to answer "what did that attempt actually
+    do" without copying hundreds of observation rows.
+    """
+    observations = record.get("observations") or []
+
+    def _pose(row: dict[str, Any], key: str) -> list[float] | None:
+        value = (row or {}).get(key)
+        if not isinstance(value, (list, tuple)) or len(value) < 3:
+            return None
+        try:
+            return [round(float(v), 5) for v in value[:3]]
+        except (TypeError, ValueError):
+            return None
+
+    opens = [
+        float(row["gripper_opening_m"])
+        for row in observations
+        if isinstance(row, dict) and isinstance(row.get("gripper_opening_m"), (int, float))
+    ]
+    native_hits = [
+        index for index, row in enumerate(observations)
+        if isinstance(row, dict) and row.get("native_goal")
+    ]
+    first = observations[0] if observations else {}
+    last = observations[-1] if observations else {}
+    failure = record.get("failure") or {}
+    grasp = failure.get("grasp") if isinstance(failure.get("grasp"), dict) else {}
+    return {
+        "attempt": record.get("attempt"),
+        "skill": (record.get("step") or {}).get("skill"),
+        "ok": record.get("ok"),
+        "sim_actions": record.get("sim_actions"),
+        "chunks_used": record.get("chunks_used"),
+        "failure_code": failure.get("reason_code"),
+        "failure_message": failure.get("message"),
+        "held_at_failure": grasp.get("held"),
+        "native_goal_hits": len(native_hits),
+        "native_goal_first_index": native_hits[0] if native_hits else None,
+        "gripper_open_first_m": opens[0] if opens else None,
+        "gripper_open_last_m": opens[-1] if opens else None,
+        "gripper_open_max_m": max(opens) if opens else None,
+        "gripper_open_min_m": min(opens) if opens else None,
+        "object_first": _pose(first, "object_pose"),
+        "object_last": _pose(last, "object_pose"),
+        "eef_first": _pose(first, "eef_pos"),
+        "eef_last": _pose(last, "eef_pos"),
+        "sim_action_count_first": (first or {}).get("sim_action_count"),
+        "sim_action_count_last": (last or {}).get("sim_action_count"),
     }
 
 
@@ -610,7 +728,7 @@ class Engine:
         # Cancelling the inference request also clears the model-side
         # receding-horizon buffer, so no generated action can be replayed into
         # the next episode.
-        self.inference.cancel(reason)
+        cancel = self.inference.cancel(reason)
         thread = self.rollout_thread
         if thread is not None and thread.is_alive():
             thread.join(timeout=float(self.cfg["timing"]["stop_join_s"]))
@@ -618,6 +736,10 @@ class Engine:
         sim_at_ack = sim_at_request
         if not alive:
             sim_at_ack = self._settled_sim_count(sim_at_request)
+        try:
+            inference_metrics = self.inference.metrics()
+        except Exception:  # noqa: BLE001 - the stop budget must still be reported
+            inference_metrics = {}
         budget = {
             "reason": reason,
             "sim_at_request": int(sim_at_request),
@@ -627,29 +749,37 @@ class Engine:
             # so this is 0 or 1 and is reported instead of hidden.
             "in_flight_actions": max(0, int(sim_at_ack) - int(sim_at_request)),
             "thread_alive": alive,
+            # A stale count is not enough on its own: the action request has to
+            # have finished too, and the cancel barrier has to have completed.
+            "settle_agreements": 3,
+            "cancel_barrier_s": (cancel or {}).get("barrier_s"),
+            "in_flight_after_cancel": (cancel or {}).get("in_flight_after_cancel"),
+            "inference_idle": int(inference_metrics.get("in_flight") or 0) == 0,
+            "chunk_buffer_cleared": bool((cancel or {}).get("status") == "ok"),
         }
         with self.lock:
             self.sim_action_count = int(sim_at_ack)
             self.last_stop = budget
         return {"status": "ok", "active": alive, "phase": self.phase, "stop": budget}
 
-    def _settled_sim_count(self, fallback: int) -> int:
+    def _settled_sim_count(self, fallback: int, *, agreements: int = 3, idle_s: float = 0.15) -> int:
         """Simulator action count after any in-flight step has finished.
 
         The rollout thread may have handed one ``env.step`` to the env server
         when the stop flag rose; joining the thread returns as soon as the
         caller sees the flag, which can be *while* that step is still running
         in the env process. A single snapshot taken at that moment under-reports
-        the count by one, so the stop budget claimed ``in_flight_actions=0``
-        and the next status poll already showed one more action. Poll until two
-        consecutive snapshots agree, and keep the maximum seen.
+        the count by one. Two equal reads are not enough either (a slow step can
+        still land between them), so this requires ``agreements`` consecutive
+        identical reads spaced by ``idle_s`` and keeps the maximum seen.
         """
         best = int(fallback)
         client = self.env.client
         if client is None:
             return best
         previous = None
-        deadline = time.time() + 2.0
+        stable = 0
+        deadline = time.time() + 3.0
         while time.time() < deadline:
             try:
                 current = int(client.state_snapshot().get("sim_action_count") or fallback)
@@ -657,9 +787,13 @@ class Engine:
                 break
             best = max(best, current)
             if previous is not None and current == previous:
-                break
+                stable += 1
+            else:
+                stable = 0
             previous = current
-            time.sleep(0.05)
+            if stable >= max(1, agreements - 1):
+                break
+            time.sleep(idle_s)
         return best
 
     def start_run(
@@ -755,8 +889,7 @@ class Engine:
             pass
         return str(self.cfg["action_model"].get("backend") or "pi05").lower()
 
-    def _run_whole_task(
-        self,
+    def _run_whole_task(        self,
         *,
         env: EnvClient,
         obs: dict[str, Any],
@@ -787,9 +920,126 @@ class Engine:
             timeout_s=float(openwam.get("timeout_s") or 300),
             gpu_index=openwam.get("gpu_index"),
             frame_sink=self._set_frames,
+            post_goal=dict(openwam.get("post_goal") or {}),
         )
         result = runner.run()
         return result, runner.obs, runner.snapshot
+
+    # ---- placement completion -------------------------------------------
+
+    @staticmethod
+    def _placement_step(task: dict[str, Any]) -> dict[str, Any] | None:
+        """Relation binding for a whole-task pick/place, from the catalog."""
+        objects = task.get("objects") or []
+        targets = task.get("targets") or []
+        if not objects or not targets:
+            return None
+        return {
+            "skill": "pick_place",
+            "object_n": objects[0],
+            "target_n": targets[0],
+            "relation": (task.get("semantics") or {}).get("relation") or "on",
+        }
+
+    def _finish_placement(
+        self,
+        *,
+        env: EnvClient,
+        task: dict[str, Any],
+        record: dict[str, Any],
+        obs: dict[str, Any],
+        snapshot: dict[str, Any],
+        token: str,
+        episode_id: str,
+        stop_event: threading.Event,
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], str]:
+        """Decide how a whole-task episode's placement ends.
+
+        The policy gets one bounded window to release on its own. If that ends
+        without a measured release, the execution layer finishes the placement
+        (open in place, bounded retreat, fresh samples) and every action it
+        issues is marked ``evidence_source="execution_finalizer"``.
+        """
+        kind = str(task.get("kind") or "")
+        required = kind in {"pick_place", "composite"}
+        openwam = self.cfg["action_model"]["openwam"]
+        post_cfg = dict(openwam.get("post_goal") or {})
+        fin_cfg = dict(post_cfg.get("finalizer") or {})
+        post = dict(record.get("post_goal") or {})
+        native = bool((record.get("verification") or {}).get("ok"))
+        block = finalize.policy_release_block(
+            required=required,
+            native_goal=native,
+            post_goal=post,
+            snapshot=snapshot,
+            object_name=(task.get("objects") or [None])[0],
+            open_min_m=float(post_cfg.get("release_open_m") or 0.05),
+        )
+        block["policy"] = {
+            "actions_after_goal": int(post.get("actions_used") or 0),
+            "stop_reason": post.get("stop_reason"),
+            "window_actions": int(post.get("window_actions") or 0),
+            "release": post.get("release") or {},
+            "release_verified": bool(block["release_verified"]),
+        }
+        if not required:
+            block["execution_status"] = "not_applicable"
+            block["reason_code"] = None
+            return block, obs, snapshot, token
+        if block["release_verified"]:
+            return block, obs, snapshot, token
+        relation_step = self._placement_step(task)
+        if not fin_cfg.get("enabled"):
+            block["reason_code"] = "release_not_verified"
+            return block, obs, snapshot, token
+        if relation_step is None:
+            block["reason_code"] = "no_relation_binding"
+            return block, obs, snapshot, token
+        finalizer = finalize.PlacementFinalizer(
+            env=env,
+            task=task,
+            relation_step=relation_step,
+            execution_cfg=self.cfg["execution"],
+            post_goal_cfg=post_cfg,
+            stop_event=stop_event,
+            episode_id=episode_id,
+            journal=lambda stage, row: records.append_journal(
+                {"t": time.time(), "stage": stage, "episode_id": episode_id, "row": row}
+            ),
+            frame_sink=self._set_frames,
+            reset_policy=lambda reason: self.inference.reset(reason),
+        )
+        result = finalizer.run(snapshot)
+        if isinstance(result.get("token"), str):
+            token = result["token"]
+        if getattr(finalizer, "_last_snapshot", None):
+            snapshot = finalizer._last_snapshot
+        if getattr(finalizer, "_last_obs", None) is not None:
+            obs = finalizer._last_obs
+        base = {
+            key: block.get(key)
+            for key in ("schema", "required", "native_goal", "release", "detach")
+        }
+        merged = dict(result)
+        merged["schema"] = finalize.SCHEMA
+        merged["required"] = True
+        merged["native_goal"] = bool(block["native_goal"])
+        merged["policy_release"] = block.get("release")
+        merged["policy"] = block.get("policy")
+        merged["policy_release_verified"] = bool(block["release_verified"])
+        merged["policy_owned"] = False
+        merged["release_executed"] = bool(
+            block.get("release_executed") or result.get("release_executed")
+        )
+        merged["evidence_source"] = (
+            "execution_finalizer" if result.get("release_executed") else "none"
+        )
+        if merged.get("execution_status") == "completed" and not bool(block["native_goal"]):
+            merged["execution_status"] = "unknown"
+        if base.get("detach") and not merged.get("policy_detach"):
+            merged["policy_detach"] = base.get("detach")
+        return merged, obs, snapshot, token
+
 
     def _run_episode(
         self,
@@ -824,6 +1074,7 @@ class Engine:
             return
         baseline = snapshot
         initial_scene = _scene_fingerprint(snapshot)
+        initial_state = _state_fingerprint(snapshot)
         token = self.inference.reset(f"episode:{episode_id}")
         with self.lock:
             self.scene_epoch = snapshot.get("scene_epoch")
@@ -847,6 +1098,7 @@ class Engine:
             "recovery_s": 0.0,
         }
         step_results: list[dict[str, Any]] = []
+        attempt_digests: list[dict[str, Any]] = []
         step_attempts: dict[tuple[Any, ...], int] = {}
         home_eef = (baseline.get("sim") or {}).get("eef_pos")
         plan = None
@@ -987,6 +1239,19 @@ class Engine:
                     # attempt got stuck; the runner brings the arm back to the
                     # episode's initial EEF pose first (bounded, see skills.py).
                     runner_step["attempt"] = attempt_no
+                    # The OpenWAM server keeps the rest of the last generated
+                    # chunk. Without this reset a retry would consume actions
+                    # planned from the *previous* attempt's observation.
+                    token = self.inference.reset(f"retry:{episode_id}:{attempt_no}")
+                    records.append_journal(
+                        {
+                            "t": time.time(),
+                            "stage": "policy_buffer_reset",
+                            "episode_id": episode_id,
+                            "attempt": attempt_no,
+                            "reason": "retry must not reuse a stale action chunk",
+                        }
+                    )
                 if step.get("skill") == "whole_task":
                     record, obs, snapshot = self._run_whole_task(
                         env=env,
@@ -1005,6 +1270,20 @@ class Engine:
                     timing["observe_s_sum"] += record["timing"].get("observe_s_sum", 0.0)
                     timing["convert_s_sum"] += record["timing"].get("convert_s_sum", 0.0)
                     timing["frame_s_sum"] += record["timing"].get("frame_s_sum", 0.0)
+                    placement_started = time.perf_counter()
+                    placement, obs, snapshot, token = self._finish_placement(
+                        env=env,
+                        task=task,
+                        record=record,
+                        obs=obs,
+                        snapshot=snapshot,
+                        token=token,
+                        episode_id=episode_id,
+                        stop_event=stop_event,
+                    )
+                    timing["release_s"] += time.perf_counter() - placement_started
+                    record["placement"] = placement
+                    self._set_frames(obs, snapshot)
                     if openwam_stats is None:
                         wall = record.get("wall") or {}
                         first_action_s = wall.get("first_action_s")
@@ -1079,7 +1358,7 @@ class Engine:
                             raise SkillFailure("recovery_invalid", "Agent recovery decision was invalid", {"recovery": recovery})
                         if decision == "retry" and retries < max_recoveries:
                             retries += 1
-                            step_results.pop()
+                            attempt_digests.append(_step_digest(step_results.pop()))
                             continue
                         raise SkillFailure(
                             failure["reason_code"],
@@ -1214,7 +1493,7 @@ class Engine:
                     decision = recovery.get("decision")
                     if decision == "retry":
                         retries += 1
-                        step_results.pop()
+                        attempt_digests.append(_step_digest(step_results.pop()))
                         self._set_phase("running", f"retry {step['skill']} ({retries}/{max_recoveries})")
                         continue
                     if decision == "replan":
@@ -1227,10 +1506,10 @@ class Engine:
                                  "reason": "does not preserve the initial goal step", "steps": new_steps}
                             )
                             retries += 1
-                            step_results.pop()
+                            attempt_digests.append(_step_digest(step_results.pop()))
                             continue
                         replans += 1
-                        step_results.pop()
+                        attempt_digests.append(_step_digest(step_results.pop()))
                         steps = steps[:index] + list(new_steps)
                         self._set_phase("running", f"replanned {len(new_steps)} step(s)")
                         continue
@@ -1297,7 +1576,7 @@ class Engine:
                             raise SkillFailure("recovery_invalid", "Agent recovery decision was invalid", {"recovery": recovery})
                         if recovery.get("decision") == "retry":
                             retries += 1
-                            step_results.pop()
+                            attempt_digests.append(_step_digest(step_results.pop()))
                             continue
                         if recovery.get("decision") == "replan" and recovery.get("steps"):
                             new_steps = list(recovery["steps"])
@@ -1307,10 +1586,10 @@ class Engine:
                                      "reason": "does not preserve the initial goal step", "steps": new_steps}
                                 )
                                 retries += 1
-                                step_results.pop()
+                                attempt_digests.append(_step_digest(step_results.pop()))
                                 continue
                             replans += 1
-                            step_results.pop()
+                            attempt_digests.append(_step_digest(step_results.pop()))
                             steps = steps[:index] + new_steps
                             continue
                         raise SkillFailure("recovery_abort", str(recovery.get("reason") or "Agent aborted"), {"recovery": recovery})
@@ -1339,30 +1618,83 @@ class Engine:
                     release = result.get("release")
                     if step.get("skill") == "whole_task":
                         # Whole-task policies own the whole trajectory: the
-                        # only user-goal check is the native LIBERO goal, and
-                        # it must hold on every fresh sample. Release is
-                        # measured and reported, never required or invented.
+                        # official LIBERO goal is the relation check, but a
+                        # pick/place is only *complete* once a release was
+                        # measured and the relation survived fresh samples.
                         flags = [bool(s.get("native_goal")) for s in samples]
-                        ok = all(flags)
-                        openings = [
-                            (s.get("sim") or {}).get("gripper_opening_m") for s in samples
-                        ]
-                        measured = [float(v) for v in openings if isinstance(v, (int, float))]
+                        native_ok = all(flags)
+                        ids = [s.get("observation_id") for s in samples]
+                        counts = [s.get("sim_action_count") for s in samples]
+                        fresh = bool(
+                            None not in ids
+                            and len(set(ids)) == len(ids)
+                            and all(isinstance(c, int) for c in counts)
+                            and all(counts[i] < counts[i + 1] for i in range(len(counts) - 1))
+                        )
+                        placement = dict(result.get("placement") or {})
+                        required = bool(placement.get("required"))
+                        release = placement.get("release") or {}
+                        release_count = release.get("sim_action_count")
+                        if isinstance(release_count, list):
+                            release_count = release_count[-1] if release_count else None
+                        after_release = bool(
+                            isinstance(release_count, int)
+                            and all(isinstance(c, int) and c > release_count for c in counts)
+                        )
+                        if placement.get("evidence_source") == "execution_finalizer":
+                            base_ok = bool(placement.get("placement_verified"))
+                        else:
+                            base_ok = bool(placement.get("release_verified"))
+                        placement_ok = bool(native_ok and fresh and after_release and base_ok)
+                        if not required:
+                            placement["placement_verified"] = bool(native_ok)
+                            placement["execution_status"] = "not_applicable"
+                        else:
+                            placement["placement_verified"] = placement_ok
+                            if placement_ok:
+                                placement["execution_status"] = "completed"
+                                placement["reason_code"] = None
+                            elif not native_ok:
+                                placement["execution_status"] = "failed"
+                                placement["reason_code"] = "native_goal_not_reached"
+                            else:
+                                placement["execution_status"] = "unknown"
+                                placement["reason_code"] = (
+                                    placement.get("reason_code") or "release_not_verified"
+                                )
+                        placement["post_release_samples"] = {
+                            "observation_ids": ids,
+                            "sim_action_counts": counts,
+                            "fresh": fresh,
+                            "after_release": after_release,
+                            "release_sim_action_count": release_count,
+                        }
+                        result["placement"] = placement
                         check = {
-                            "ok": ok,
+                            "ok": native_ok,
                             "method": "native_libero_goal",
                             "samples": flags,
-                            "reason_code": None if ok else "native_goal_not_reached",
-                            "gripper_opening_m": [round(v, 4) for v in measured],
-                            "release_observed": bool(
-                                result.get("release", {}).get("events")
-                            ) or any(v > 0.05 for v in measured),
-                            "release_source": "measured_gripper_separation",
+                            "reason_code": None if native_ok else "native_goal_not_reached",
+                            "gripper_opening_m": [
+                                round(float(v), 4)
+                                for v in ((s.get("sim") or {}).get("gripper_opening_m") for s in samples)
+                                if isinstance(v, (int, float))
+                            ],
+                            "placement_verified": bool(placement.get("placement_verified")),
+                            "release_verified": bool(placement.get("release_verified")),
+                            "release_executed": bool(placement.get("release_executed")),
+                            "retreat_status": placement.get("retreat_status"),
+                            "evidence_source": placement.get("evidence_source"),
+                            "policy_owned": placement.get("policy_owned"),
+                            "placement_status": placement.get("execution_status"),
+                            "placement_reason": placement.get("reason_code"),
                             "note": (
-                                "official LIBERO goal atoms; the policy's own gripper "
-                                "commands are measured, not replaced by executor receipts"
+                                "official LIBERO goal atoms on fresh samples; the placement verdict "
+                                "is the measured release + post-release relation, not the goal alone"
                             ),
                         }
+                        if required and not placement_ok:
+                            check["reason_code"] = placement.get("reason_code") or "release_not_verified"
                     elif step.get("skill") == "pick_place":
                         check = completion.verification(samples, step, task, baseline, release=release)
                     else:
@@ -1460,7 +1792,37 @@ class Engine:
             failure = None
         final_snapshot = snapshot if isinstance(snapshot, dict) else {}
         native_final = bool(final_snapshot.get("native_goal"))
-        release_evidence = _release_evidence(task, step_results, final_snapshot)
+        placement: dict[str, Any] = {}
+        for row in reversed(step_results):
+            if isinstance(row, dict) and isinstance(row.get("placement"), dict):
+                placement = row["placement"]
+                break
+        release_required = str(task.get("kind") or "") in {"pick_place", "composite"}
+        if release_required and placement:
+            placement_ok = bool(placement.get("placement_verified"))
+            user_goal = bool(execution_status == "completed" and placement_ok)
+            if user_goal:
+                user_status = "met"
+            elif placement.get("execution_status") == "failed" and not native_final:
+                user_status = "not_met"
+            else:
+                user_status = "unknown"
+        else:
+            user_goal = execution_status == "completed"
+            user_status = "met" if user_goal else "not_met"
+        if not placement:
+            placement = {
+                "required": release_required,
+                "attempted": False,
+                "release_executed": False,
+                "release_verified": False,
+                "placement_verified": False,
+                "retreat_status": "skipped",
+                "execution_status": "not_attempted",
+                "evidence_source": "none",
+                "reason_code": "no_whole_task_step" if release_required else None,
+            }
+        release_evidence = _release_evidence(task, step_results, final_snapshot, placement)
         record = {
             "schema": "embodied_engine.run.v1",
             "task_id": task["task_id"],
@@ -1471,6 +1833,7 @@ class Engine:
             "run_id": run_id,
             "scene_epoch": final_snapshot.get("scene_epoch"),
             "initial_scene_fingerprint": initial_scene,
+            "initial_state_fingerprint": initial_state,
             "started_at": started_iso,
             "ended_at": _now_iso(),
             "duration_s": round(ended - started, 3),
@@ -1478,8 +1841,9 @@ class Engine:
             "execution_status": execution_status,
             "native_task_success": bool(native_ever or native_final),
             "native_goal_final": native_final,
-            "user_goal_success": execution_status == "completed",
-            "user_goal_status": "met" if execution_status == "completed" else "not_met",
+            "user_goal_success": bool(user_goal),
+            "user_goal_status": user_status,
+            "placement": placement,
             "failure_code": (failure or {}).get("reason_code"),
             "failure_reason": (failure or {}).get("message"),
             "failure_evidence": (failure or {}).get("evidence"),
@@ -1511,6 +1875,7 @@ class Engine:
             ),
             "recovery_count": len([a for a in attempts]),
             "recovery_log": recovery_log,
+            "attempt_digests": attempt_digests,
             "human_interventions": 0,
             "inference_mode": (self._health().get("inference") or {}).get("mode") or self.cfg["inference"]["mode"],
             "action_backend": self._action_backend(),
@@ -1539,14 +1904,40 @@ class Engine:
             self.last_result = {
                 "episode_id": episode_id,
                 "task_id": task["task_id"],
-                "success": execution_status == "completed",
+                "success": bool(user_goal),
                 "execution_status": execution_status,
                 "native_task_success": record["native_task_success"],
-                "reason": (failure or {}).get("message") or "all skills and final verification passed",
+                "user_goal_status": user_status,
+                "placement": {
+                    key: placement.get(key)
+                    for key in (
+                        "required",
+                        "release_executed",
+                        "release_verified",
+                        "placement_verified",
+                        "retreat_status",
+                        "execution_status",
+                        "evidence_source",
+                        "policy_owned",
+                        "extra_actions",
+                        "extra_s",
+                    )
+                },
+                "reason": (failure or {}).get("message")
+                or (
+                    "all skills and final verification passed"
+                    if user_goal
+                    else (
+                        "native goal reached; placement evidence insufficient"
+                        if native_final
+                        else "all skills and final verification passed"
+                    )
+                ),
                 "failure_code": (failure or {}).get("reason_code"),
                 "duration_s": record["duration_s"],
                 "sim_action_count": record["sim_action_count"],
                 "initial_scene_fingerprint": record.get("initial_scene_fingerprint"),
+                "initial_state_fingerprint": record.get("initial_state_fingerprint"),
                 "timing": record["timing"],
                 "record": str(path),
             }

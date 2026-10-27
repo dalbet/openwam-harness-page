@@ -1,0 +1,93 @@
+{
+ "schema": "embodied_engine.language_rounds.v1",
+ "version": "2026-10-27.placement-regression",
+ "frozen": true,
+ "seed": 0,
+ "note": "Placement-finalization regression: tasks 1/2/3/8 x 3 rounds, frozen init seed 0, force a fresh /api/load before every round. Language order per task is en, zh, en. Nothing is retried, skipped or re-scored. expected_choice is the catalog key (config/tasks.json key), the same convention as language_rounds_20261027.json.",
+ "rounds": [
+  {
+   "round": 1,
+   "task_id": 1,
+   "lang": "en",
+   "instruction": "put the bowl on the stove",
+   "expected_choice": "put_bowl_on_stove"
+  },
+  {
+   "round": 2,
+   "task_id": 1,
+   "lang": "zh",
+   "instruction": "把碗放到炉灶上",
+   "expected_choice": "put_bowl_on_stove"
+  },
+  {
+   "round": 3,
+   "task_id": 1,
+   "lang": "en",
+   "instruction": "place the bowl onto the stove",
+   "expected_choice": "put_bowl_on_stove"
+  },
+  {
+   "round": 4,
+   "task_id": 2,
+   "lang": "en",
+   "instruction": "put the wine bottle on top of the cabinet",
+   "expected_choice": "put_wine_bottle_on_cabinet_top"
+  },
+  {
+   "round": 5,
+   "task_id": 2,
+   "lang": "zh",
+   "instruction": "把酒瓶放到柜子顶上",
+   "expected_choice": "put_wine_bottle_on_cabinet_top"
+  },
+  {
+   "round": 6,
+   "task_id": 2,
+   "lang": "en",
+   "instruction": "place the wine bottle on the cabinet top",
+   "expected_choice": "put_wine_bottle_on_cabinet_top"
+  },
+  {
+   "round": 7,
+   "task_id": 3,
+   "lang": "en",
+   "instruction": "open the top drawer and put the bowl inside",
+   "expected_choice": "open_top_drawer_put_bowl_inside"
+  },
+  {
+   "round": 8,
+   "task_id": 3,
+   "lang": "zh",
+   "instruction": "打开上层抽屉，把碗放进去",
+   "expected_choice": "open_top_drawer_put_bowl_inside"
+  },
+  {
+   "round": 9,
+   "task_id": 3,
+   "lang": "en",
+   "instruction": "pull open the top drawer and place the bowl in it",
+   "expected_choice": "open_top_drawer_put_bowl_inside"
+  },
+  {
+   "round": 10,
+   "task_id": 8,
+   "lang": "en",
+   "instruction": "put the bowl on the plate",
+   "expected_choice": "put_bowl_on_plate"
+  },
+  {
+   "round": 11,
+   "task_id": 8,
+   "lang": "zh",
+   "instruction": "把碗放到盘子上",
+   "expected_choice": "put_bowl_on_plate"
+  },
+  {
+   "round": 12,
+   "task_id": 8,
+   "lang": "en",
+   "instruction": "place the bowl onto the plate",
+   "expected_choice": "put_bowl_on_plate"
+  }
+ ]
+}

@@ -307,6 +307,10 @@ python3 scripts/eval_offline.py --set config/semantic_eval_20261027c.json \
     --out records/offline/semantic_eval_20261027c.json --legacy --legacy-limit 20
 python3 scripts/run_language_rounds.py --rounds config/language_rounds_20261027.json
 python3 scripts/test_lifecycle.py   # stop/reset/planner_generation 回归（不需要重新加载模型）
+python3 scripts/progress_probe.py   # 离线：把已记录回合折成"手在动、物体不动"的窗口，不 step
+python3 scripts/render_determinism_probe.py --env http://127.0.0.1:14561   # 同 seed 重渲染，需先 load 一次
+python3 scripts/composite_matrix.py       # 从已安装 BDDL 重新解析十任务资产，输出组合矩阵
+python3 scripts/inference_determinism_probe.py   # 同一观测两次请求，检查动作是否逐位相同
 python3 -m unittest discover -s tests -p "test_*.py" -v   # 语义路由、任务目录、计划契约、完成判定、OpenWAM 契约
 ```
 
@@ -348,6 +352,8 @@ OpenWAM 启动记录写在 `records/openwam_server.json`（pid、commit、checkp
 | 十任务 ×3 初始化 A/B（60 回合，历史） | 见 `docs/acceptance_report.md` §14 | d1 已下线，仅作历史对照 |
 | 同义指令映射（离线） | DONE | 回归集 101 例 + 新冻结集 100 例，映射 100%，中位 0.68 s，见验收报告 §17 |
 | 20 回合语言闭环（真实执行） | DONE（映射 20/20，原生 19/20） | 10 任务 × 1 英文改写 + 1 中文表达，指令运行前冻结；释放证据单列，见 §18 |
+| 放置收尾（释放 + 退离 + 验证） | DONE（最终 12 回合：11 原生，9 策略 + 2 执行层） | 见验收报告 §19；`policy_owned` 逐回合标注，不与"自主成功率"混算 |
+| 同场景两步组合 | **设计入口，未执行** | 可行性矩阵见验收报告 §21；不实现调度、不改路由输出 |
 
 验收与记录：
 
@@ -357,3 +363,83 @@ OpenWAM 启动记录写在 `records/openwam_server.json`（pid、commit、checkp
   步骤 `skill=whole_task`，`final_verification.method=native_libero_goal`。
 - 每轮验收的记录会归档到 `records/acceptance/<suite>_runs/`；`records/runs` 保留最新
   `MAX_RUNS=200` 份回合。
+
+## 8. 放置收尾：谁结束回合，谁负责松手
+
+LIBERO 的 `terminated=True`、服务端的 `can_continue`、策略 chunk 的剩余动作，是三个
+互相独立的事实。把它们混为一谈，就会出现"原生目标成立但手指还夹着物体"被记成完成，
+或者反过来把"策略本来会松手"的回合强行截断。
+
+实际链路（`engine/engine_service.py` + `engine/openwam_rollout.py`）：
+
+| 事实 | 来源 | 本栈的处理 |
+| --- | --- | --- |
+| 原生目标成立 | LIBERO `terminated` | 记录**事件** `native_goal`、当时的动作计数与夹持证据；不改写原始 `terminated` |
+| 能否继续 step | 适配层 `mode="free"` 返回的 `can_continue`，配合 `EpisodeFlags.absorb` 清 `terminated` | 允许继续时进入收尾；`truncated`/真终止/`stop` 一律优先，不进收尾 |
+| 策略是否还要松手 | 当前 chunk 内 `native_goal` 之后的动作 | Tier 1：只消费**本 chunk 剩余动作**，不重规划 |
+
+收尾分两层，且来源必须分开记账：
+
+- **Tier 1 策略收尾（`evidence_source="policy_chunk"`，`policy_owned=true`）**
+  `openwam_rollout.py` 不再在首个 `native_goal=True` 处 `break`，而是把当前 32 步
+  receding-horizon chunk 里剩余的动作走完。若其中出现夹爪命令张开、实测开度 ≥0.05 m
+  连续 2 帧、且物体已在手指跨度之外，判为释放成功（`release_verified`），
+  随后用**新的**仿真样本验证目标关系（`placement_verified`）。这些动作是 OpenWAM 自己
+  产生的，可以计入策略完成。
+- **Tier 2 执行层收尾（`evidence_source="execution_finalizer"`，`policy_owned=false`）**
+  chunk 耗尽仍未释放时，`engine/finalize.py::PlacementFinalizer` 先**清空策略缓冲**
+  （旧动作基于过旧观测，不能和收尾动作混发），再在**原姿态原地**张开夹爪，
+  沿 `+z` 做有界退离探针，用 3 个**新仿真样本**（`sim_action_count` 递增 / `observation_id`
+  变化）验证"物体已脱离手指且目标关系保持"。这些动作不是 OpenWAM 生成的，
+  报告里单列为执行层辅助。
+
+共同约束（写在 `engine/completion.py` 与 `finalize.py` 里，非调用点约定）：
+
+1. 只在**可靠的放置候选状态**允许张开夹爪。候选判定用已有的关系谓词与几何
+   （`engine/grasp_geometry.py`：手指间距、物体到指垫线的间隙、手指跨度包含关系）。
+   `native_goal=true` 本身**不是**释放许可：task 3 第 7 回合就是因为 `in_box` 不成立
+   被拒（`placement_reason="not_at_release_candidate"`）。
+2. 开度只是状态量。开度 <0.05 m 不能单独证明"仍夹着物体"（物体可能已被放下而手指恰好闭合），
+   开度 ≥0.05 m 也不能单独证明"已稳定放下"；两者都要配合物体位置、手指跨度与关系谓词。
+3. 稳定性样本必须跨真实仿真状态。连续查询同一快照不算样本，`finalize.py` 因此按
+   `sim_action_count` 去重，而不是数调用次数。
+4. 退离单独记账（`retreat_status`）。退离失败不抹掉已经证实的目标完成，也不把
+   `placement_verified` 反写成 false。
+5. `stop` / `reset` / 超时 / 真终止优先于一切收尾：收尾循环每一步先查回合取消标识，
+   取消后不再下发动作，且迟到的收尾结果不写入新回合。
+
+回合记录因此新增这些字段（同一份记录里并列，不互相推导）：
+
+`native_goal`、`release_executed`、`release_verified`、`placement_verified`、
+`release_state`（`observed` / `unknown` / `not_applicable`）、`evidence_source`
+（`policy_chunk` / `execution_finalizer` / `none`）、`policy_owned`、
+`retreat_status`、`execution_status`、`policy_actions_after_goal`、`policy_stop_reason`、
+`finalizer_actions`、`finalizer_s`、`placement_reason`。
+
+`completion.verification()` 的出口是四态：完整放置成立才 `success`；原生成立但证据不足是
+`unknown`（附 `placement_reason`），不是 `success`；关系丢失是 `failure`；
+不需要释放的技能（开抽屉/推/开炉灶）走各自的关节或位移条件。
+
+## 9. 同场景两步组合（下一阶段入口，未执行）
+
+十个 LIBERO-Goal BDDL 声明的是**同一套资产**（`main_table`、`wooden_cabinet_1`、
+`flat_stove_1`、`wine_rack_1` + 四个物体）与语义相同的 `:init` 区域，区别只在
+`:goal` 与各自采样的 `pruned_init`。所以"两个目标是否同场景存在"对任意一对都成立，
+真正的问题在别处：第二目标的前置条件是否被第一步破坏、第一步终态能否作为第二步起点、
+以及组合的用户目标由谁验证。
+
+入口固定为下面四条，不引入 reset、不重载场景、不改 BDDL：
+
+1. **episode 的 BDDL 用第二步任务的**，这样第二步的原生目标仍是基准谓词，`terminated`
+   只对第二步有效；第一步的成功由引擎自己的谓词（`drawer_open` / `stove_on` /
+   `object_on_target`）判定，**不看** `terminated`。
+2. 第一步跑完必须走完 §8 的收尾（释放 + 退离 + 新观测），并把策略缓冲清空，
+   第二步才允许请求策略；否则第二步会拿到基于第一步旧观测的动作。
+3. 组合用户目标 = 两个原子分别记录（`step_1_verified`、`step_2_native`），
+   再合成为 `combo_verified`；不允许用第二步的 `terminated` 冒充整体完成。
+4. 单一 `pruned_init` 只能属于一个任务，因此第二步从"非自己官方初始状态"起步，
+   这是组合的固有分布偏移，必须作为结果的一部分报告，不能悄悄换成"看起来更好"的 init。
+
+可行性矩阵与两个候选（`0→8`、`1→7`）见 `docs/acceptance_report.md` §21，
+生成脚本 `scripts/composite_matrix.py`（资产事实每跑一次重新解析 BDDL，
+判断列是人工标注并附理由）。本轮**没有**执行任何组合回合，也没有扩展路由输出。

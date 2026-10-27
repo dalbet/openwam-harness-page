@@ -1,0 +1,36 @@
+[round 1] task 1 en: put the bowl on the stove
+  mapping=True choice=put_bowl_on_stove native=True evidence=released release=verified 29.795s fail=None
+[round 2] task 1 zh: 把碗放到炉灶上
+  mapping=True choice=put_bowl_on_stove native=True evidence=released release=verified 29.699s fail=None
+[round 3] task 1 en: place the bowl onto the stove
+  mapping=True choice=put_bowl_on_stove native=True evidence=released release=verified 31.492s fail=None
+[round 4] task 2 en: put the wine bottle on top of the cabinet
+  mapping=True choice=put_wine_bottle_on_cabinet_top native=True evidence=released release=verified 28.413s fail=None
+[round 5] task 2 zh: 把酒瓶放到柜子顶上
+  mapping=True choice=put_wine_bottle_on_cabinet_top native=False evidence=absent release=unknown 524.88s fail=native_goal_not_reached
+[round 6] task 2 en: place the wine bottle on the cabinet top
+  mapping=True choice=put_wine_bottle_on_cabinet_top native=True evidence=released release=verified 28.559s fail=None
+[round 7] task 3 en: open the top drawer and put the bowl inside
+  mapping=True choice=open_top_drawer_put_bowl_inside native=True evidence=released release=verified 48.625s fail=None
+[round 8] task 3 zh: 打开上层抽屉，把碗放进去
+  mapping=True choice=open_top_drawer_put_bowl_inside native=True evidence=released release=verified 51.099s fail=None
+[round 9] task 3 en: pull open the top drawer and place the bowl in it
+  mapping=True choice=open_top_drawer_put_bowl_inside native=True evidence=released release=verified 52.217s fail=None
+[round 10] task 8 en: put the bowl on the plate
+  mapping=True choice=put_bowl_on_plate native=True evidence=released release=verified 29.353s fail=None
+[round 11] task 8 zh: 把碗放到盘子上
+  mapping=True choice=put_bowl_on_plate native=True evidence=released release=verified 31.099s fail=None
+[round 12] task 8 en: place the bowl onto the plate
+  mapping=True choice=put_bowl_on_plate native=True evidence=released release=verified 29.428s fail=None
+{
+  "out": "/home/host/page-dmh/embodied_engine/records/acceptance/placement_rounds_final2_20261027.json",
+  "summary": {
+    "rounds": 12,
+    "mapping_ok": 12,
+    "native_success": 11,
+    "released": 11,
+    "held_or_unknown": 0,
+    "not_applicable_native_ok": 0,
+    "absent": 1
+  }
+}

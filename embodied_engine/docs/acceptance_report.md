@@ -1141,3 +1141,292 @@ A 集的 5 条误判在 B′/C 上不再出现，B 集的 4 条误判在 B′/C 
 6. **中文表达由我撰写**，没有母语者盲评，"自然说法"的覆盖度未知；
    这 10 句通过，不能推出任意中文都能通过。
 7. **不含人机确认。** 全部回合 `human_interventions=0`，页面只展示，不介入。
+
+## 19. 放置收尾：未松手的真实原因、修复与职责划分（2026-10-27）
+
+### 19.1 未松手的代码位置（已读代码，不是推断）
+
+三个事实此前被压成一个：LIBERO 的 `terminated`、服务端的 `can_continue`、策略 chunk 里
+还剩什么动作。
+
+| 事实 | 修复前 | 修复后 |
+| --- | --- | --- |
+| 首次 `native_goal=true` | `engine/openwam_rollout.py` 主循环直接 `break` | 进入 `_goal_decision()`，先看能否继续、关系是否成立 |
+| 剩余 chunk（32 步 receding horizon） | 整块丢弃，**包括其中张开夹爪的命令** | Tier 1 在**本 chunk 内**继续执行，不重规划 |
+| 服务端能否继续 | `mode="free"` 返回 `can_continue=true`，适配层清 `terminated` | 同上，收尾受同一回合取消标识约束 |
+| chunk 耗尽仍没松手 | 无处理，回合记为完成 | Tier 2 `PlacementFinalizer`：清缓冲 → 原地张开 → `+z` 退离 → 3 个新样本验证 |
+
+因此 §18.3 里"原生成立、夹爪仍闭合"的 11 个回合，**不是策略不会松手，而是回合在
+策略松手之前被包装层结束掉了**：释放动作在 chunk 尾部，而首个 `native_goal=true`
+出现在 chunk 中段。证据是修复后同样的任务在同一 chunk 内的第 5～15 个后目标动作里
+测到开度 0.0658→0.0742 m 的张开。
+
+修复后的判定不只看开度：
+
+- `release_verified`：命令张开 + 实测开度 ≥0.05 m **连续 2 帧** + 物体已在手指跨度之外；
+- `placement_verified`：释放之后、`sim_action_count` 更大的 3 个新样本上关系仍成立
+  （finalizer 路径另外要求退离探针证明"物体不随手臂上升"）；
+- 开度闭合本身**不**被当作"仍夹持"（`finalize.policy_release_block` 的注释与
+  `test_closed_gripper_after_measured_release_is_not_held` 固定了这一点）。
+
+### 19.2 三层职责与来源标记
+
+| 层 | 谁来释放 | 标记 | 本轮回合数 |
+| --- | --- | --- | --- |
+| Tier 1 策略后目标窗口 | OpenWAM 自己的 chunk 动作 | `evidence_source="policy_chunk"`, `policy_owned=true` | 9 |
+| Tier 2 执行层收尾 | `PlacementFinalizer`（21 个动作：12 张开 + 6 退离 + 3 采样） | `evidence_source="execution_finalizer"`, `policy_owned=false` | 2 |
+| 不释放 | 原生目标未成立 | `evidence_source="none"`, `reason_code="not_at_release_candidate"` | 1 |
+
+执行层收尾不是 OpenWAM 生成的，报告里不并入"自主成功率"：
+**11 个原生成立的放置回合 = 9 个策略完成 + 2 个执行层辅助**。
+
+### 19.3 三次同清单回归（同一冻结清单，代码版本不同）
+
+清单 `config/placement_rounds_20261027.json`（`frozen=true`，seed 0，任务 1/2/3/8 × 3 回合，
+语言顺序 en/zh/en，每回合强制 `/api/load`）。三次运行**都不是选择性重跑**，原因写在表里：
+
+| 运行 | 时间 | 代码状态 | 映射 | 原生 | 释放+放置验证 | 说明 |
+| --- | --- | --- | --- | --- | --- | --- |
+| A | 12:37–12:46 | 收尾逻辑已就位；`engine_service.py` 在 A 结束后 12:47 又改过（补尝试摘要） | 12/12 | 12/12 | **11/12**（10 策略 + 1 执行层） | task 3 第 1 回合被正确拦下（`not_at_release_candidate`，碗不在抽屉内） |
+| B | 13:04–13:14 | A 的同一逻辑 + 尝试摘要 | 12/12 | 12/12 | **12/12**（9 策略 + 3 执行层） | 为"同一最终代码版本"重跑；task 3 第 1 回合这次成立 |
+| C | 13:17–13:32 | B + `final_verification` 补 `policy_owned`/`placement_reason` 两个只读字段 | 12/12 | **11/12** | **11/12**（9 策略 + 2 执行层） | 本轮验收数据集；task 2 中文回合失败 |
+
+重跑的原因只有两个：**代码版本一致**和**补两个只读上报字段**，没有为了通过而重跑，
+也没有调整任何阈值。三次结果并列保留，方差本身就是结论的一部分（同一冻结清单，
+原生 12/12 → 12/12 → 11/12）。
+
+### 19.4 最终回归逐回合（运行 C，验收数据集）
+
+记录：`records/acceptance/placement_rounds_final2_20261027.json`，
+原始回合只归档报告引用的 3 份（回合 3、5、11），见 `records/acceptance/placement_rounds_final2_runs/`。
+
+| # | task | 语言 | 初始化指纹 | 首次 native goal（动作） | 后目标策略动作 | 释放来源 | 释放动作数 | 末次开度 (m) | 退离 | 动作 | 耗时 (s) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 1 | en | `fcedc336` | 83 | 13 | `policy_chunk` | 13 | 0.0759 | skipped | 99 | 29.8 |
+| 2 | 1 | zh | `fcedc336` | 84 | 12 | `policy_chunk` | 12 | 0.0759 | skipped | 99 | 29.7 |
+| 3 | 1 | en | `fcedc336` | 84 | 12 | `execution_finalizer` | 21 (+12) | 0.0789 | completed | 120 | 31.5 |
+| 4 | 2 | en | `fc50366c` | 78 | 12 | `policy_chunk` | 12 | 0.0742 | skipped | 93 | 28.4 |
+| 5 | 2 | zh | `fc50366c` | — | 0 | `none` | 0 | 0.0499 | skipped | 1800 | **524.9** |
+| 6 | 2 | en | `fc50366c` | 83 | 10 | `policy_chunk` | 10 | 0.0742 | skipped | 96 | 28.6 |
+| 7 | 3 | en | `e4ebe088` | 170 | 10 | `policy_chunk` | 10 | 0.0759 | skipped | 183 | 48.6 |
+| 8 | 3 | zh | `e4ebe088` | 174 | 5 | `policy_chunk` | 5 | 0.0742 | skipped | 182 | 51.1 |
+| 9 | 3 | en | `e4ebe088` | 173 | 12 | `policy_chunk` | 12 | 0.0759 | skipped | 188 | 52.2 |
+| 10 | 8 | en | `4060518b` | 81 | 14 | `policy_chunk` | 14 | 0.0742 | skipped | 98 | 29.4 |
+| 11 | 8 | zh | `4060518b` | 84 | 12 | `execution_finalizer` | 21 (+12) | 0.0788 | completed | 120 | 31.1 |
+| 12 | 8 | en | `4060518b` | 81 | 14 | `policy_chunk` | 14 | 0.0742 | skipped | 98 | 29.4 |
+
+"释放动作数"列：`policy_chunk` 行是后目标窗口实际执行的动作数；`execution_finalizer`
+行写成"21 (+12)"，意思是 finalizer 共 21 个动作，其中 12 个是张开夹爪，另有 6 个退离
+和 3 个采样。`skipped` 不是失败：策略自己的 chunk 在松开后仍在移动手臂，
+把退离单独再造一遍没有意义，记录里如实写"未执行"。
+
+同一任务三回合的初始化指纹一致（`fcedc336` / `fc50366c` / `e4ebe088` / `4060518b`），
+说明每回合确实从预冻结的 seed 0 起步。
+
+### 19.5 收尾的额外代价
+
+| 项 | 数值 |
+| --- | --- |
+| 策略后目标窗口 | 5–15 个动作，≈1.4–4.1 s（墙钟 0.25–0.27 s/动作） |
+| 执行层 finalizer | 21 个动作，1.615 / 1.678 s，含 3 个新样本 |
+| 回合耗时对比（§18 基线 → C） | 任务 1：26.6/25.4 → 29.8/29.7/31.5；任务 2 成功回合：25.8 → 28.4/28.6；任务 8：24.7/25.1 → 29.4/31.1/29.4；任务 3：51.0/51.5 → 48.6/51.1/52.2 |
+| 12 回合总墙钟 | 运行 C 17.0 min（13:17:24–13:34:23，含每回合强制重载与一次 524.9 s 失败回合） |
+
+任务 3 的后目标窗口只有 5–12 个动作，任务 1/8 有 12–14 个：抽屉任务的目标位姿在
+更早的观测里就已成立，策略剩余动作少。这说明窗口长度由策略自己决定，不是固定预算。
+
+### 19.6 停止与 reset（真实生命周期）
+
+`scripts/test_lifecycle.py` 在最终代码上**通过**：
+
+```
+stop budget: {"reason": "lifecycle_check", "sim_at_request": 31, "sim_at_ack": 31,
+              "in_flight_actions": 0, "thread_alive": false, "settle_agreements": 3,
+              "cancel_barrier_s": 0.0007, "in_flight_after_cancel": 0,
+              "inference_idle": true, "chunk_buffer_cleared": true}
+no action issued after stop (in-flight at most 1); sim frozen at 31
+model-side buffer cleared on stop (backend_resets +1)
+reset: clean phase=ready scene_epoch 2 -> 3
+second episode after reset: succeeded
+lifecycle: PASS
+```
+
+判定不再只是"连续两次读到相同动作计数"：还要求
+
+1. `cancel_barrier_s` 有值（取消屏障完成），
+2. `in_flight_after_cancel=0`（取消后没有在途动作），
+3. `inference_idle=true` 与 `chunk_buffer_cleared=true`（模型侧缓冲已清），
+4. ack 之后 `sim_action_count` 不再变化（31 → 31），
+5. reset 后 `scene_epoch` 递增，新回合能成功。
+
+本轮另有一次中断运行时的真实 stop（1800 动作回合进行到 32 步时）：
+`sim_at_request=32, sim_at_ack=32, in_flight_actions=0, settle_agreements=3`，
+没有出现 ack 之后继续计步。
+
+收尾期间被 stop 的情况**只在单元测试里验证**（`test_finalizer_stop_issues_no_further_action`：
+第 3 个动作后置位取消，`execution_status="stopped"`，实际只发出 3 个动作），
+真实回合里没有构造"恰好在 finalizer 中断"的时序；这是本节明确的证据缺口。
+
+## 20. task 2 长时间失败：阶段分解与仍未确定的部分
+
+### 20.1 两次真实失败的完整时间线
+
+| | 失败 1（§18 回合 5） | 失败 2（本轮运行 C 回合 5） |
+| --- | --- | --- |
+| 时间 | 2026-10-27 11:02 | 2026-10-27 13:20 |
+| 指令 | put the wine bottle on top of the cabinet | 把酒瓶放到柜子顶上（同任务中文） |
+| 初始化指纹 | `fc50366cc74015d5` | `fc50366cc74015d5`（相同） |
+| 动作 | 1800（3 × 600） | 1800（3 × 600） |
+| 耗时 | 519.9 s | 524.9 s |
+| 恢复 | `retry / retry / abort`，11.4 s | `retry / retry / abort`，10.7 s |
+| 物体总位移 | 0.000 m（601 帧，从未碰到） | 0.0084 m（第 3 次尝试；前两次见下） |
+| 保留的尝试记录 | 仅第 3 次（旧记录覆盖） | 第 1/2 次摘要 + 第 3 次完整记录 |
+
+运行 C 的失败回合因为本轮新增的 `attempt_digests` 而第一次留下了三次尝试的对照：
+
+| 尝试 | 动作 | chunk | 物体位移 | EEF 起点 → 终点 | 夹爪最小/最大开度 (m) | native 命中 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 600 | 19 | **2.89 cm**（z 0.89886 → 0.92159） | `[-0.211,-0.014,1.161]` → `[-0.071,-0.090,1.186]` | 0.0010 / 0.0798 | 0 |
+| 2 | 600 | 19 | 0.08 cm | `[-0.071,-0.090,1.186]` → `[-0.263,-0.070,0.963]` | 0.0010 / 0.0797 | 0 |
+| 3 | 600 | 19 | 0.84 cm | `[-0.263,-0.070,0.963]` → `[-0.042,-0.169,1.085]` | 0.0010 / 0.0499 | 0 |
+
+关键事实：**第 2 次尝试的起点逐位等于第 1 次的终点，第 3 次的起点逐位等于第 2 次的终点**。
+`engine/engine_service.py` 在重试时只做 `inference.reset("retry:…")` 清策略缓冲，
+**不 reset 环境、不做归位**（`rehome` 只存在于 `engine/skills.py` 的子技能路径，
+`whole_task` 不走它）。所以恢复是"从失败位姿继续"，而且位姿一次比一次远离物体
+（EEF 从 x=-0.07 退到 x=-0.263）。
+
+### 20.2 519.9 / 524.9 s 分阶段
+
+| 阶段 | 失败 1 | 失败 2 | 结论 |
+| --- | --- | --- | --- |
+| 抓取 | 600 动作，物体 0 位移 | 600 动作，物体被抬起 2.89 cm（z +2.27 cm）但没送到柜顶 | 两次都不是"没接近"，而是抓/抬之后没完成放置 |
+| 搬运 | 无（物体未离桌） | 抬到 0.9216 m 后停住，EEF 抬到 1.186 m | 未到达 `wooden_cabinet_1_top_side` |
+| 定位放置 | 0 | 0 | 三次尝试 0 次 native 命中 |
+| 目标判定 | 未触发 | 未触发 | 失败码 `native_goal_not_reached` |
+| 恢复 | 3 次 Qwen 调用，10.7 s，retry/retry/abort | 同左 | 恢复只换了策略缓冲，没换状态 |
+| 合计 | 1800 动作 / 519.9 s | 1800 动作 / 524.9 s | 单次尝试约 157–175 s |
+
+耗时构成（失败 2）：执行 510.4 s = inference 82.4 + `env_step` 132.9 + observe 92.0 +
+snapshot 17.3 + convert 1.3（这几项在时间上重叠，不能相加当墙钟），恢复 10.7 s，
+规划 0.8 s，验证 0 s。
+
+### 20.3 "同初始化、同 prompt、结果不同"的归因
+
+先排除模型采样：`scripts/inference_determinism_probe.py` 对同一观测、同一 prompt、
+缓冲清空后连续请求，两次 10 维动作 `max_abs_diff = 0.0`（`records/acceptance/inference_determinism.json`，
+客户端不传 seed，服务端默认 42）。**模型对相同输入是确定的。**
+
+再看输入是否相同。`scripts/render_determinism_probe.py`（本轮新增，任务 1，seed 0，3 次 reset）：
+
+| 量 | 结果 |
+| --- | --- |
+| 同一状态连续渲染两次 | **0 像素差**（`max_abs_diff=0`） |
+| 3 次 reset 的 EEF / 17 个关节 / 4 个物体 xyz / 夹爪开度 | **完全一致** |
+| 3 次 reset 的 7 个物体 site 四元数 | **完全一致**（最大夹角 0.0°） |
+| 3 次 reset 的图像两两对比 | 19.8% / 20.6% / 20.9% 像素不同，`max_abs_diff` 172–198，>16 灰阶的 2985–4811 像素 |
+| 差异分布 | 集中在机械臂与物体所在区域，右侧空背景 8×8 分块全为 0 |
+
+结论：**同一初始化、同一 seed，几何完全一致，但策略看到的图像不一样**（渲染在同一 reset
+内可复现，跨 reset 不可复现）。所以"同初始化结果不同"首先是**输入不可复现**，不能归因于
+模型采样；把这件事写成"模型随机"会掩盖真正该修的地方（观测/渲染）。
+
+仍然没确定的是差异的物理来源：快照没有物体四元数（`sim.objects[*]` 只有 `pos`），
+只能借 `site_geometry.quat_wxyz` 证明物体姿态一致；剩余的 20% 像素差异出在光照/阴影/
+纹理或渲染上下文，本轮没有定位到具体机制。
+
+### 20.4 可解释的"无进展"指标（新增，只报告不强制）
+
+`engine/progress.py`：按固定窗口比较"手动了多少 / 物体动了多少"。
+
+- 窗口 120 动作，物体位移阈值 5 mm，EEF 位移阈值 2 cm（冻结在代码里的默认值）；
+- `never_touched`：整段物体位移始终 <5 mm；
+- `stall_windows`：手在动、物体不动的窗口，带 `touched` 标记（接触前 = 接近/开抽屉，接触后 = 抓空）。
+
+离线回放（`scripts/progress_probe.py` → `records/acceptance/progress_probe_20261027.json`）：
+
+| 回合 | 物体总位移 | 首次物体运动 | 无进展窗口 | 接触后无进展动作 |
+| --- | --- | --- | --- | --- |
+| 运行 C 全部成功回合（11） | 0.167–0.378 m | 第 38–119 个动作 | 0 | 0 |
+| 运行 C 回合 5（失败） | 0.0084 m | 第 10 个动作 | 4（共 480 动作） | 480 |
+| 失败 1 第 3 次尝试 | **0.000 m** | 无（`never_touched`） | 5（共 600 动作） | 0（从未接触） |
+
+**为什么只报告不强制**：任务 3 的成功回合里，物体第一次移动出现在第 **119** 个动作
+（native goal 在第 170–174 个动作）。阈值敏感性直接算了：
+
+| 无进展窗口 | 会被提前终止的成功回合 |
+| --- | --- |
+| 60 / 90 / 100 / 110 / 115 / 119 | **3/3**（任务 3 全部三个成功回合） |
+| 120 | 0 |
+
+也就是说，窗口从 119 改成 120，结论就从"杀掉三个成功回合"变成"一个都不杀"。这种
+1 个动作的边界不是可用的判据，所以本轮**没有**把它接进执行路径，也没有为通过去调阈值。
+真要用它做主早停，需要按任务类型分别标定，并且要报"本来能晚点成功却被终止"的代价。
+
+## 21. 同场景两步组合：可行性检查与下一阶段入口（未执行）
+
+### 21.1 资产事实（从已安装 BDDL 重新解析）
+
+`scripts/composite_matrix.py` 每次运行都重新解析 10 个 BDDL。事实：
+
+| 项 | 值 |
+| --- | --- |
+| 声明的 fixtures | `main_table`、`wooden_cabinet_1`、`flat_stove_1`、`wine_rack_1`（10/10 相同） |
+| 声明的 objects | `akita_black_bowl_1`、`cream_cheese_1`、`wine_bottle_1`、`plate_1`（10/10 相同） |
+| 语义 `:init` 区域 | 10/10 相同 |
+| `pruned_init` 文件 | **10 个互不相同**（sha256 全不同） |
+| 差异 | 只有 `:goal` 和采样出的初始关节状态 |
+
+所以"两个目标是否同场景存在"对任意一对都成立；真正的约束是**一个 episode 只能用一个
+`pruned_init`**，第二步必然从"不是自己官方初始状态"起步。
+
+### 21.2 组合小表（判断列是人工标注，附理由）
+
+| 对 | 判断 | 理由 | 第一步如何验证 | 风险 |
+| --- | --- | --- | --- | --- |
+| `0 → 8` 开中抽屉 → 碗放盘子 | **候选 1** | 第一步不动第二步要用的物体；两步目标无交集 | `drawer_open`（qpos < -0.14） | 暂未发现 |
+| `1 → 7` 碗放灶台 → 开灶 | **候选 2** | `cook_region` 在按钮铰链 +x 方向 0.15 m，碗放灶眼不一定挡旋钮；唯一一对描述同一件"做饭"动作 | `object_on_target`（On bowl cook_region） | 碗可能挡在旋钮前方的接近路径上，需一次真实试探 |
+| `7 → 1` 开灶 → 碗放灶台 | 允许但语义倒置 | 资产同上，场景没有热模型，物理上不冲突 | `stove_on` | 已开的炉灶在训练分布之外 |
+| `6 → 8` 奶酪入碗 → 碗放盘 | 耦合 | 第二步要搬的正是第一步目标关系所依赖的碗 | `object_on_target` | 搬运中奶酪可能滑出，第一步目标会被悄悄破坏 |
+| `8 → 4` 碗放盘 → 碗放柜顶 | 同物体二次搬运 | 两步只动碗，是同一技能的重复，不是两个技能的组合 | `object_on_target` | 仍需要释放/退离/新观测，收尾已具备 |
+| `3 → 8` 抽屉内取碗 → 碗放盘 | 拒绝 | 第一步把碗放进抽屉，第二步要从抽屉深处抓取 | `object_in_region` | 正是 task 3 已暴露的失败模式（运行 A 回合 7） |
+| `0 → 3` 开中抽屉 → 官方复合 | 拒绝 | task 3 本身就是官方"开抽屉+放入"复合，不能当作新增能力 | `drawer_open` | 会把已有能力重复计算 |
+
+选出的后续候选：**`0 → 8`（第一个做）**、**`1 → 7`（第二个做，需先做旋钮可达性试探）**。
+`1 → 7` 是唯一一对"两个目标合起来才构成一件有意义的家务"的组合，但它的可行性依赖
+"碗在灶眼上时旋钮仍可达"，这一点还没有测量过。
+
+### 21.3 下一阶段的执行入口（固定四条，不实现调度）
+
+1. episode 的 BDDL 用**第二步**任务的，第二步的原生目标继续由 LIBERO 判定；
+   第一步用引擎自己的谓词（`drawer_open` / `stove_on` / `object_on_target`）判定，
+   **不看** `terminated`。
+2. 第一步之后必须走完 §19 的收尾：释放验证 → 退离 → 新观测 → 清策略缓冲，第二步才允许
+   请求策略，避免用第一步的旧观测生成第二步动作。
+3. 组合目标分开记账（`step_1_verified`、`step_2_native`、`combo_verified`），
+   不允许用第二步的 `terminated` 冒充整体完成。
+4. 只用一个 `pruned_init`，并把"第二步从非官方初始状态起步"写进结果，不换 init 重试。
+
+不做的部分：不 reset、不重载场景、不改 BDDL、不扩展路由输出、不实现通用组合调度。
+旧 `openwam_harness/sequential` 里的 `task_scope="combo"` 是另一套执行栈的开关，
+`task_catalog.single_task_block` 仍会拒绝多步计划，本轮没有把它接到本引擎上。
+
+## 22. 产物与提交
+
+| 产物 | 路径 |
+| --- | --- |
+| 收尾实现 | `engine/finalize.py`、`engine/grasp_geometry.py`、`engine/openwam_rollout.py`（后目标窗口）、`engine/engine_service.py`（编排） |
+| 无进展指标 | `engine/progress.py`、`scripts/progress_probe.py` → `records/acceptance/progress_probe_20261027.json` |
+| 确定性测量 | `scripts/inference_determinism_probe.py` → `records/acceptance/inference_determinism.json`；`scripts/render_determinism_probe.py` → `records/acceptance/render_determinism.json` |
+| 组合矩阵 | `scripts/composite_matrix.py` → `records/acceptance/composite_matrix_20261027.json` |
+| 三次回归清单 | `records/acceptance/placement_rounds_20261027.json`（A）、`…_final_…json`（B）、`…_final2_…json`（C） |
+| 最终回归原始回合 | `records/acceptance/placement_rounds_final2_runs/`（只保留报告引用的 3 份：回合 3、11 执行层收尾，回合 5 失败；其余 9 份只留清单里的摘要行，≈2.1 MB） |
+| 单测 | `tests/test_placement_finalize.py`（完成/释放/finalizer/窗口 16 条）、`tests/test_progress.py`（6 条）、`tests/test_attempt_digest.py`；`pytest tests` 共 **69 passed** |
+
+证据缺口（如实列出）：
+
+1. 运行 A/B 的原始回合记录在运行 C 前被 `records/runs` 的轮转清掉了，只剩冻结清单里的
+   逐回合摘要字段（`records_rotated=true` 已写在清单里）；观测、采样与动作轨迹不可追回。
+2. 收尾期间被 stop 只有单测覆盖，没有真实回合的时序样本。
+3. `1 → 7` 组合的旋钮可达性没有测量。
+4. task 2 失败的渲染差异来源（光照/阴影/纹理/渲染上下文）未定位。

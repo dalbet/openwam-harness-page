@@ -33,7 +33,7 @@ from typing import Any, Callable
 import numpy as np
 
 from adapters.openwam_contract import build_openwam_obs, native_eef10_to_libero7d
-from engine import completion
+from engine import completion, grasp_geometry
 from engine.inference_client import InferenceClient, request_row
 from engine.skills import Stopped
 
@@ -114,6 +114,7 @@ class WholeTaskRunner:
         timeout_s: float = 300.0,
         gpu_index: int | None = None,
         frame_sink: Callable[[dict[str, Any], dict[str, Any]], None] | None = None,
+        post_goal: dict[str, Any] | None = None,
     ):
         self.env = env
         self.inference = inference
@@ -150,6 +151,44 @@ class WholeTaskRunner:
         self._last_opening: float | None = None
         self.peak_gpu_mib: int | None = None
 
+        # ---- post-native-goal release window -------------------------------
+        # LIBERO's native goal is a predicate about object placement; it can
+        # hold while the fingers are still closed on the object. Breaking the
+        # loop at that instant cuts the policy off in the middle of its own
+        # release. ``window_actions`` lets the already-generated chunk finish,
+        # bounded, and records what the gripper actually did.
+        cfg = dict(post_goal or {})
+        self.post_goal_cfg = cfg
+        self.window_actions = max(0, int(cfg.get("window_actions") or 0))
+        self.release_open_m = float(cfg.get("release_open_m") or 0.05)
+        self.release_confirm_samples = max(1, int(cfg.get("release_confirm_samples") or 2))
+        self.detach_probe_m = float(cfg.get("detach_probe_m") or 0.03)
+        self.object_motion_tol_m = float(cfg.get("object_motion_tol_m") or 0.005)
+        self.object_name = (task.get("objects") or [None])[0]
+        objects = task.get("objects") or []
+        targets = task.get("targets") or []
+        self.relation_step = (
+            {
+                "skill": "pick_place",
+                "object_n": objects[0],
+                "target_n": targets[0],
+                "relation": (task.get("semantics") or {}).get("relation") or "on",
+            }
+            if objects and targets
+            else None
+        )
+        self.window_relation_lost = False
+        self.window_started_at: int | None = None
+        self.window_used = 0
+        self.window_rows: list[dict[str, Any]] = []
+        self.window_open_streak = 0
+        self.window_open_max: float | None = None
+        self.window_release: dict[str, Any] = {"verified": False, "samples": 0}
+        self.window_goal_facts: dict[str, Any] | None = None
+        self.stop_reason: str | None = None
+        self.buffer_remaining: int | None = None
+        self._first_action_after_goal = True
+
     # ---- helpers ----
 
     def _check_stop(self) -> None:
@@ -168,7 +207,127 @@ class WholeTaskRunner:
         self.snapshot = snap
         state = self._record_observation(snap)
         self._last_state = state
+        self._last_window_facts = self._window_observe(snap)
         return snap
+
+    # ---- post-goal window ------------------------------------------------
+
+    def _window_facts(self, snap: dict[str, Any]) -> dict[str, Any]:
+        frame = grasp_geometry.finger_frame(snap, self.object_name)
+        opening = grasp_geometry.opening_m(snap)
+        separation = frame.get("separation_m")
+        gap = frame.get("object_gap_m")
+        outside = (
+            isinstance(gap, (int, float))
+            and isinstance(separation, (int, float))
+            and float(gap) >= float(separation) / 2.0 + 0.01
+        )
+        open_now = isinstance(opening, (int, float)) and float(opening) >= self.release_open_m
+        relation_ok = None
+        if self.relation_step is not None:
+            try:
+                relation_ok = bool(
+                    completion.goal_state(snap, self.relation_step, self.task).get("ok")
+                )
+            except Exception:  # noqa: BLE001 - geometry must not break the rollout
+                relation_ok = None
+        return {
+            "sim_action_count": snap.get("sim_action_count"),
+            "observation_id": snap.get("observation_id"),
+            "native_goal": bool(snap.get("native_goal")),
+            "gripper_opening_m": opening,
+            "separation_m": separation,
+            "object_gap_m": gap,
+            "object_along_m": frame.get("object_along_m"),
+            "object_eef_m": grasp_geometry.eef_object_m(snap, self.object_name),
+            "object_pos": grasp_geometry.object_pos(snap, self.object_name),
+            "eef_pos": grasp_geometry.eef_pos(snap),
+            "outside_finger_span": bool(outside),
+            "open_now": bool(open_now),
+            "relation_ok": relation_ok,
+        }
+
+    def _window_observe(self, snap: dict[str, Any]) -> dict[str, Any] | None:
+        if self.window_started_at is None:
+            return None
+        facts = self._window_facts(snap)
+        if facts["open_now"]:
+            self.window_open_streak += 1
+            self.window_open_max = max(self.window_open_max or 0.0, float(facts["gripper_opening_m"]))
+        else:
+            self.window_open_streak = 0
+        facts["open_streak"] = self.window_open_streak
+        if facts.get("relation_ok") is False:
+            self.window_relation_lost = True
+        if (
+            not self.window_release.get("verified")
+            and self.window_open_streak >= self.release_confirm_samples
+        ):
+            self.window_release = {
+                "verified": True,
+                "samples": self.window_open_streak,
+                "opening_m": facts["gripper_opening_m"],
+                "opening_max_m": self.window_open_max,
+                "separation_m": facts["separation_m"],
+                "object_gap_m": facts["object_gap_m"],
+                "object_eef_m": facts["object_eef_m"],
+                "sim_action_count": facts["sim_action_count"],
+                "observation_id": facts["observation_id"],
+                "evidence_source": "policy_chunk",
+            }
+        return facts
+
+    def _goal_decision(self) -> str:
+        """What to do once the native goal holds: keep the policy running or stop.
+
+        The window is bounded by config *and* by the already-generated chunk:
+        no new plan is requested here, so every window action comes from the
+        chunk the policy produced from a pre-goal observation.
+        """
+        if self.window_started_at is None:
+            if self.window_actions <= 0:
+                self.stop_reason = "native_goal"
+                return "break"
+            if self.sim_actions == 0:
+                self.stop_reason = "native_goal_before_actions"
+                return "break"
+            facts = self._window_facts(self.snapshot)
+            if facts.get("relation_ok") is False:
+                # Our own relation check disagrees with the native goal; do not
+                # spend policy actions here. The finalizer re-checks the
+                # candidate before it releases anything.
+                self.stop_reason = "relation_unconfirmed"
+                return "break"
+            self.window_started_at = self.sim_actions
+            self.window_goal_facts = facts
+            self.window_open_streak = 1 if facts.get("open_now") else 0
+            self.window_open_max = facts.get("gripper_opening_m") if facts.get("open_now") else None
+            self.journal(
+                "openwam_post_goal_window",
+                {
+                    "sim_actions": self.sim_actions,
+                    "window_actions": self.window_actions,
+                    "gripper_opening_m": facts.get("gripper_opening_m"),
+                    "object_eef_m": facts.get("object_eef_m"),
+                    "buffer_remaining": self.buffer_remaining,
+                },
+            )
+            return "continue"
+        if self.window_release.get("verified"):
+            self.stop_reason = "policy_release"
+            return "break"
+        if self.window_relation_lost:
+            # The policy kept moving and broke the placement relation before
+            # releasing it: stop the window instead of letting it drift away.
+            self.stop_reason = "relation_lost_in_window"
+            return "break"
+        if self.window_used >= self.window_actions:
+            self.stop_reason = "window_exhausted"
+            return "break"
+        if self.buffer_remaining is not None and self.buffer_remaining <= 0:
+            self.stop_reason = "chunk_exhausted"
+            return "break"
+        return "continue"
 
     def _record_observation(self, snap: dict[str, Any]) -> dict[str, Any]:
         sim = snap.get("sim") or {}
@@ -356,7 +515,7 @@ class WholeTaskRunner:
                     break
                 if loop_start > deadline:
                     raise RuntimeError(f"OpenWAM rollout exceeded its wall-clock guard after {self.sim_actions} actions")
-                if self._last_state.get("native_goal"):
+                if self._last_state.get("native_goal") and self._goal_decision() == "break":
                     break
 
                 model_obs = self._observe_model_input()
@@ -378,6 +537,9 @@ class WholeTaskRunner:
                 env_step_s = time.perf_counter() - step_started
                 self.env_step_s += env_step_s
                 self.sim_actions += 1
+                in_window = self.window_started_at is not None
+                if in_window:
+                    self.window_used += 1
                 if self.stop_event.is_set():
                     # The action was already handed to the simulator when the
                     # stop flag rose; nothing new is issued from here on.
@@ -401,6 +563,35 @@ class WholeTaskRunner:
                     self.action_intervals.append(interval_s)
                 previous_loop_start = loop_start
                 chunk = row.get("chunk") or {}
+                horizon = chunk.get("execute_horizon")
+                buffer_index = chunk.get("buffer_index")
+                if isinstance(horizon, int) and isinstance(buffer_index, int):
+                    self.buffer_remaining = max(0, int(horizon) - 1 - int(buffer_index))
+                else:
+                    self.buffer_remaining = None
+                if in_window:
+                    facts = self._last_window_facts or {}
+                    self.window_rows.append(
+                        {
+                            "n": self.sim_actions,
+                            "window_n": self.window_used,
+                            "grip_cmd7": round(float(action7[6]), 4),
+                            "grip_cmd10": round(float(raw_action[9]), 4),
+                            "gripper_opening_m": facts.get("gripper_opening_m"),
+                            "separation_m": facts.get("separation_m"),
+                            "object_gap_m": facts.get("object_gap_m"),
+                            "object_eef_m": facts.get("object_eef_m"),
+                            "object_pos": facts.get("object_pos"),
+                            "native_goal": facts.get("native_goal"),
+                            "outside_finger_span": facts.get("outside_finger_span"),
+                            "relation_ok": facts.get("relation_ok"),
+                            "open_streak": facts.get("open_streak"),
+                            "cache_hit": chunk.get("cache_hit"),
+                            "buffer_index": buffer_index,
+                            "terminated": bool(term),
+                            "truncated": bool(trunc),
+                        }
+                    )
 
                 self.inference_rows.append(
                     {
@@ -447,6 +638,7 @@ class WholeTaskRunner:
                 )
                 self.obs = obs
                 if trunc:
+                    self.stop_reason = self.stop_reason or "truncated"
                     self.journal("openwam_truncated", {"sim_action_count": snap.get("sim_action_count")})
                     break
             self.peak_gpu_mib = sampler.peak_mib
@@ -459,6 +651,8 @@ class WholeTaskRunner:
         state = self._last_state
         native = bool(self._last_state.get("native_goal"))
         ok = bool(native)
+        if self.stop_reason is None:
+            self.stop_reason = "native_goal" if ok else ("budget" if self.sim_actions >= self.max_steps else "unknown")
         chunk_stats = self._chunk_stats()
         wall = self._wall_timing(total)
         verification = {
@@ -484,6 +678,17 @@ class WholeTaskRunner:
                 "events": self.release_events,
                 "count": len(self.release_events),
                 "source": "measured_gripper_separation",
+                "threshold_m": self.release_open_m,
+                "max_opening_m": max(
+                    [float(r["gripper_opening_m"]) for r in self.observations if isinstance(r.get("gripper_opening_m"), (int, float))],
+                    default=None,
+                ),
+                "threshold_crossed": any(
+                    float(r["gripper_opening_m"]) >= self.release_open_m
+                    for r in self.observations
+                    if isinstance(r.get("gripper_opening_m"), (int, float))
+                ),
+                "policy_window": self.window_release,
                 "note": "policy-authored release measured from finger separation; not a Pi0.5 executor receipt",
             },
             "grasp": {
@@ -494,6 +699,22 @@ class WholeTaskRunner:
                 ),
             },
             "native_events": self.native_events,
+            "stop_reason": self.stop_reason,
+            "post_goal": {
+                "window_actions": self.window_actions,
+                "actions_used": self.window_used,
+                "stop_reason": self.stop_reason,
+                "first_goal": self.window_goal_facts,
+                "release": self.window_release,
+                "rows": self.window_rows,
+                "buffer_remaining_at_stop": self.buffer_remaining,
+                "release_open_m": self.release_open_m,
+                "release_confirm_samples": self.release_confirm_samples,
+                "note": (
+                    "actions the policy ran after the first native goal, taken only from the "
+                    "chunk it had already generated; no new plan was requested"
+                ),
+            },
             "chunks_used": chunk_stats["chunk_generations"],
             "sim_actions": self.sim_actions,
             "max_steps": self.max_steps,

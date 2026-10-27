@@ -1,0 +1,16 @@
+{
+  "schema": "embodied_engine.language_rounds.v1",
+  "version": "2026-10-27.placement-diag",
+  "frozen": true,
+  "seed": 0,
+  "note": "Diagnostic manifest: task 1 only, frozen init seed 0. Used to measure what the OpenWAM policy does after its first native goal before any completion rule is changed.",
+  "rounds": [
+    {
+      "round": 1,
+      "task_id": 1,
+      "lang": "en",
+      "instruction": "put the bowl on the stove",
+      "expected_choice": "put the bowl on the stove"
+    }
+  ]
+}

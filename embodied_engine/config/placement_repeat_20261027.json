@@ -1,0 +1,11 @@
+{
+ "schema": "embodied_engine.language_rounds.v1",
+ "version": "2026-10-27.repeatability-probe",
+ "frozen": true,
+ "seed": 0,
+ "note": "Repeatability probe, frozen before running: the same task 2 English round twice, fresh /api/load before each, no other change. It exists to answer one question - do two rounds with the same init and the same official prompt produce the same first action chunk - and is not a success-rate sample. Both rounds are reported, whichever way they turn out.",
+ "rounds": [
+  {"round": 1, "task_id": 2, "lang": "en", "instruction": "put the wine bottle on top of the cabinet", "expected_choice": "put_wine_bottle_on_cabinet_top"},
+  {"round": 2, "task_id": 2, "lang": "en", "instruction": "put the wine bottle on top of the cabinet", "expected_choice": "put_wine_bottle_on_cabinet_top"}
+ ]
+}
