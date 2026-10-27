@@ -1,0 +1,1787 @@
+{
+  "meta": {
+    "schema": "embodied_engine.ab.v1",
+    "started_at": "2026-10-27T05:52:20",
+    "engine": "http://127.0.0.1:14800",
+    "tasks": [
+      1,
+      3,
+      5
+    ],
+    "seeds": [
+      0
+    ],
+    "modes": [
+      "qwen",
+      "d1"
+    ],
+    "agent": {
+      "service": "agent",
+      "status": "ok",
+      "mode": "qwen",
+      "modes": [
+        "qwen",
+        "d1",
+        "d1_with_qwen_fallback"
+      ],
+      "model": "Qwen3.5-9B",
+      "llm_model": "Qwen3.5-9B",
+      "d1": {
+        "model": "LiquidAI/d1-3B",
+        "base_model": "LiquidAI/LFM2.5-VL-3B",
+        "license": "lfm1.0",
+        "source": "ModelScope",
+        "url": "http://127.0.0.1:14710",
+        "reachable": true,
+        "health": {
+          "service": "d1",
+          "status": "ok",
+          "model": "LiquidAI/d1-3B",
+          "base_model": "LiquidAI/LFM2.5-VL-3B",
+          "license": "lfm1.0",
+          "source": "ModelScope",
+          "model_path": "/home/host/page-dmh/openwam_harness/checkpoints/LiquidAI-d1-3B",
+          "model_sha256": "50e03317847caf6df9a9aee27ed40f20554a86a21e60d1d47ba41a422b546c0c",
+          "device": "NVIDIA GeForce RTX 5090",
+          "cuda_visible_devices": "0",
+          "dtype": "bfloat16",
+          "load_s": 8.339,
+          "uptime_s": 9904.3,
+          "stats": {
+            "calls": 334,
+            "errors": 0,
+            "mean_s": 0.07332,
+            "last_s": 0.06452,
+            "max_s": 3.09951,
+            "last_input_tokens": 1214
+          },
+          "output_tokens_per_decision": 0
+        }
+      },
+      "planner_vision": false,
+      "llm": {
+        "reachable": true,
+        "models": [
+          "Qwen3.5-9B"
+        ]
+      },
+      "jev": {
+        "enabled": false,
+        "official_endpoint": "https://api.typesafe.ai/v1/systemone",
+        "reason": "TypeSafe System One is a waitlisted cloud API; no local weights or credentials are present"
+      }
+    },
+    "action_model": {
+      "backend": "openwam",
+      "name": "OpenWAM-Alpha-Sim-LIBERO",
+      "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+      "revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+      "action_chunk": 32,
+      "action_dim": 10,
+      "action_space": "native_eef10",
+      "execute_horizon": 32,
+      "denoise_steps": 10,
+      "inference_mode": "sync_step",
+      "control_frequency_hz": 20,
+      "counterpart": {
+        "backend": "pi05",
+        "name": "Pi0.5 LIBERO-130 SFT",
+        "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+        "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
+        "action_chunk": 5,
+        "action_dim": 7,
+        "control_frequency_hz": 20,
+        "server_url": "http://127.0.0.1:14510"
+      },
+      "server": {
+        "reachable": true,
+        "url": "ws://127.0.0.1:14520",
+        "contract": {
+          "type": "pong",
+          "representation": "eef"
+        },
+        "ping_s": 0.0013,
+        "stats": {
+          "requests": 528,
+          "errors": 0,
+          "resets": 91,
+          "reconnects": 1,
+          "chunk_generations": 21,
+          "cache_hits": 507,
+          "first_inference_s": 0.5023,
+          "last_client_s": 0.0304,
+          "last_server_ms": 15.22,
+          "action_dim": 10,
+          "last_error": "reset: ConnectionClosedError: no close frame received or sent"
+        }
+      },
+      "openwam": {
+        "name": "OpenWAM-Alpha-Sim-LIBERO",
+        "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO/checkpoint_step_10690.safetensors",
+        "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+        "checkpoint_file": "checkpoint_step_10690.safetensors",
+        "repo": "/home/host/page-dmh/openwam_harness/OpenWAM",
+        "repo_commit": "4d7f642b841913ea3c176010b692b1de3d5ef180",
+        "python": "/home/host/page-dmh/embodied_engine/.venv-openwam/bin/python",
+        "server_url": "ws://127.0.0.1:14520",
+        "server_port": 14520,
+        "gpu_index": 2,
+        "generate_horizon": 32,
+        "execute_horizon": 32,
+        "action_dim": 10,
+        "action_space": "native_eef10",
+        "denoise_steps": 10,
+        "max_steps": 600,
+        "timeout_s": 300,
+        "bytes_on_disk": 24813767464,
+        "action_horizon": 32,
+        "integration": "on_execution_path",
+        "reason": "active backend: resident OpenWAM policy server, real action inference over WebSocket",
+        "server": {
+          "reachable": true,
+          "url": "ws://127.0.0.1:14520",
+          "contract": {
+            "type": "pong",
+            "representation": "eef"
+          },
+          "ping_s": 0.0013,
+          "stats": {
+            "requests": 528,
+            "errors": 0,
+            "resets": 91,
+            "reconnects": 1,
+            "chunk_generations": 21,
+            "cache_hits": 507,
+            "first_inference_s": 0.5023,
+            "last_client_s": 0.0304,
+            "last_server_ms": 15.22,
+            "action_dim": 10,
+            "last_error": "reset: ConnectionClosedError: no close frame received or sent"
+          }
+        }
+      }
+    },
+    "inference": {
+      "service": "inference",
+      "status": "ok",
+      "mode": "sync_step",
+      "backend": "openwam",
+      "identity": {
+        "backend": "openwam",
+        "name": "OpenWAM-Alpha-Sim-LIBERO",
+        "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+        "checkpoint_file": "checkpoint_step_10690.safetensors",
+        "revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+        "action_dim": 10,
+        "action_space": "native_eef10",
+        "action_horizon": 32,
+        "execute_horizon": 32,
+        "denoise_steps": 10,
+        "inference_mode": "sync_step",
+        "server": {
+          "reachable": true,
+          "url": "ws://127.0.0.1:14520",
+          "contract": {
+            "type": "pong",
+            "representation": "eef"
+          },
+          "ping_s": 0.0013,
+          "stats": {
+            "requests": 528,
+            "errors": 0,
+            "resets": 91,
+            "reconnects": 1,
+            "chunk_generations": 21,
+            "cache_hits": 507,
+            "first_inference_s": 0.5023,
+            "last_client_s": 0.0304,
+            "last_server_ms": 15.22,
+            "action_dim": 10,
+            "last_error": "reset: ConnectionClosedError: no close frame received or sent"
+          }
+        },
+        "inference_s_last": 0.0304,
+        "inference_calls": 0,
+        "counterpart": {
+          "backend": "pi05",
+          "name": "Pi0.5 LIBERO-130 SFT",
+          "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+          "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
+          "action_chunk": 5,
+          "action_dim": 7,
+          "control_frequency_hz": 20,
+          "server_url": "http://127.0.0.1:14510"
+        },
+        "openwam": {
+          "name": "OpenWAM-Alpha-Sim-LIBERO",
+          "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO/checkpoint_step_10690.safetensors",
+          "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+          "bytes_on_disk": 24813767464,
+          "action_horizon": 32,
+          "execute_horizon": 32,
+          "denoise_steps": 10,
+          "integration": "on_execution_path",
+          "reason": "active backend: resident OpenWAM policy server, real action inference over WebSocket",
+          "server": {
+            "reachable": true,
+            "url": "ws://127.0.0.1:14520",
+            "contract": {
+              "type": "pong",
+              "representation": "eef"
+            },
+            "ping_s": 0.0013,
+            "stats": {
+              "requests": 528,
+              "errors": 0,
+              "resets": 91,
+              "reconnects": 1,
+              "chunk_generations": 21,
+              "cache_hits": 507,
+              "first_inference_s": 0.5023,
+              "last_client_s": 0.0304,
+              "last_server_ms": 15.22,
+              "action_dim": 10,
+              "last_error": "reset: ConnectionClosedError: no close frame received or sent"
+            }
+          }
+        }
+      },
+      "metrics": {
+        "infer_calls": 0,
+        "prefetch_calls": 0,
+        "prefetch_queued": 0,
+        "prefetch_replaced": 0,
+        "prefetch_completed": 0,
+        "prefetch_discarded": 0,
+        "model_errors": 0,
+        "inference_s_total": 27.10219999999998,
+        "inference_s_last": 0.0304,
+        "chunk_generations": 21,
+        "cache_hits": 507,
+        "last_request": {
+          "episode_id": "ep-20261027-054843-e0c795",
+          "scene_epoch": 3,
+          "observation_id": "query-d2ebb06be4704483b47e95ad89732e15:3:78:170",
+          "sim_action_count": 78,
+          "skill": "whole_task",
+          "step_id": 78,
+          "prompt": "put the bowl on the stove",
+          "queued_s": 0.0,
+          "total_s": 0.1128,
+          "chunk": {
+            "chunk_generation": false,
+            "cache_hit": true,
+            "chunk_id": 2,
+            "buffer_index": 14,
+            "generated_actions": 0,
+            "consumed_actions": 1,
+            "execute_horizon": 32
+          }
+        },
+        "backend_resets": 92,
+        "last_backend_reset": {
+          "status": "ok"
+        },
+        "backend_resets_on_cancel": 3,
+        "pending_prefetch": 0,
+        "ready_results": 0,
+        "mode": "sync_step",
+        "backend": "openwam"
+      }
+    },
+    "frozen": {
+      "agent/d1_planner.py": "3e29251e46f478c3b40d7ab2ff55729f787fa6bdcca329c14c5be1831d82bf44",
+      "agent/agent_service.py": "ddc1f1a8107c26e4bfec8323d46f7ef180f0563671987ebcd8088fece70477aa",
+      "engine/engine_service.py": "76cb5bb4451d9a4e89930e283bc2016c6d7ced2fe88291ee7bc949eb85fc13ab",
+      "engine/openwam_rollout.py": "cdd35cf175807278d89deaf85cd5c96823e39dd1a958f9a9dc23abda163307b5",
+      "common/plan_contract.py": "f9586cacd3c81281014ed4d2164e79af2e52d38021a0b066a04db4e4f8940b9c",
+      "config/engine.json": "ddf00e523531682e938def3734eb5bf82b3ce08f8a604079b9ee35f46812fd72",
+      "config/offline_eval.json": "51adf51d94ace5d18cec7248c61e53f62bfd041371aef1a854d4e53a1836a258"
+    },
+    "precheck": true
+  },
+  "rows": [
+    {
+      "task_id": 1,
+      "seed": 0,
+      "init_index": 0,
+      "order": 1,
+      "mode": "d1",
+      "agent_mode": "d1",
+      "agent_model": "LiquidAI/d1-3B",
+      "plan_source": "d1-3b",
+      "instruction": "put the bowl on the stove",
+      "openwam_prompt": "put the bowl on the stove",
+      "openwam_prompt_actual": "put the bowl on the stove",
+      "prompt_matches_user": true,
+      "expected": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on"
+      },
+      "binding_checks": {
+        "operation": true,
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "plan_semantic": true,
+      "decision": {
+        "status": "accepted",
+        "reason_code": null,
+        "reason": null,
+        "operation": "pick_place",
+        "operation_confidence": 0.7141247324751784,
+        "operation_margin": 0.5095245710645397,
+        "operation_source": "d1",
+        "source": "akita_black_bowl_1",
+        "source_confidence": 0.8004485169660963,
+        "source_margin": 0.6218443111848782,
+        "target": "flat_stove_1_cook_region",
+        "target_confidence": 0.8181429415014178,
+        "target_margin": 0.7319113098864056,
+        "relation": "on",
+        "relation_confidence": 1.0,
+        "relation_margin": 1.0,
+        "relation_source": "instruction",
+        "open_target": null,
+        "open_confidence": 0.0,
+        "open_margin": 0.0,
+        "object_margin": 0.0,
+        "prompt": "put the bowl on the stove",
+        "prompt_source": "user_instruction",
+        "plan_source": "d1-3b",
+        "evidence": {
+          "candidates": {
+            "objects": [
+              "akita_black_bowl_1",
+              "cream_cheese_1",
+              "plate_1",
+              "wine_bottle_1"
+            ],
+            "targets": [
+              "flat_stove_1_cook_region",
+              "main_table_akita_black_bowl_region",
+              "main_table_cabinet_region",
+              "main_table_cream_cheese_region",
+              "main_table_plate_region",
+              "main_table_stove_front_region",
+              "main_table_stove_region",
+              "main_table_wine_bottle_region",
+              "main_table_wine_rack_region",
+              "table_top",
+              "wine_rack_1_top_region",
+              "wooden_cabinet_1_bottom_region",
+              "wooden_cabinet_1_middle_region",
+              "wooden_cabinet_1_top_region",
+              "wooden_cabinet_1_top_side",
+              "akita_black_bowl_1",
+              "cream_cheese_1",
+              "plate_1",
+              "wine_bottle_1",
+              "flat_stove_1"
+            ],
+            "drawers": [
+              "wooden_cabinet_1_bottom_region",
+              "wooden_cabinet_1_middle_region",
+              "wooden_cabinet_1_top_region"
+            ],
+            "appliances": [
+              "flat_stove_1"
+            ]
+          },
+          "stage1": {
+            "supported": 0.8807970779778823,
+            "operation": "pick_place",
+            "operation_confidence": 0.7141247324751784,
+            "operation_margin": 0.5095245710645397,
+            "source": "akita_black_bowl_1",
+            "source_confidence": 0.8004485169660963,
+            "source_margin": 0.6218443111848782,
+            "source_specified": 0.9399133498259924,
+            "ambiguous": 0.4073334000459302,
+            "answers": {
+              "supported": {
+                "type": "noul",
+                "noul": 0.8807970779778823
+              },
+              "operation": {
+                "type": "choice",
+                "choice": "pick_place",
+                "confidence": 0.7141247324751784,
+                "probabilities": {
+                  "pick_place": 0.7141247324751784,
+                  "open_drawer": 0.00481173459815384,
+                  "push_object": 0.058618927682517113,
+                  "turn_on": 0.0070010325297351975,
+                  "composite": 0.010843411303777048,
+                  "other": 0.20460016141063858
+                }
+              },
+              "source": {
+                "type": "choice",
+                "choice": "akita_black_bowl_1",
+                "confidence": 0.8004485169660963,
+                "probabilities": {
+                  "akita_black_bowl_1": 0.8004485169660963,
+                  "cream_cheese_1": 0.010076159789314565,
+                  "plate_1": 0.006925236594580601,
+                  "wine_bottle_1": 0.003945880868790093,
+                  "none": 0.17860420578121822
+                }
+              },
+              "source_specified": {
+                "type": "noul",
+                "noul": 0.9399133498259924
+              },
+              "ambiguous": {
+                "type": "noul",
+                "noul": 0.4073334000459302
+              }
+            },
+            "usage": {
+              "input_tokens": 1304,
+              "output_tokens": 0
+            },
+            "operation_source": "d1"
+          },
+          "stage1_s": 0.0762,
+          "thresholds": {
+            "supported_min": 0.5,
+            "operation_min": 0.5,
+            "operation_verb_min": 0.3,
+            "specified_min": 0.5,
+            "relation_min": 0.5,
+            "source_min": 0.5,
+            "target_min": 0.5,
+            "margin_min": 0.2
+          },
+          "stage2": {
+            "answers": {
+              "target": {
+                "type": "choice",
+                "choice": "flat_stove_1_cook_region",
+                "confidence": 0.8181429415014178,
+                "probabilities": {
+                  "flat_stove_1_cook_region": 0.8181429415014178,
+                  "main_table_akita_black_bowl_region": 0.004864855758830864,
+                  "main_table_cabinet_region": 0.0027719112561751472,
+                  "main_table_cream_cheese_region": 0.0024462030978139424,
+                  "main_table_plate_region": 0.0031409869519733917,
+                  "main_table_stove_front_region": 0.01498481067590674,
+                  "main_table_stove_region": 0.05230212841155011,
+                  "main_table_wine_bottle_region": 0.0021587666569136466,
+                  "main_table_wine_rack_region": 0.0020279735970708565,
+                  "table_top": 0.0029506841728104876,
+                  "wine_rack_1_top_region": 0.0008999078286156442,
+                  "wooden_cabinet_1_top_side": 0.0011555045246187633,
+                  "cream_cheese_1": 0.002603969643010644,
+                  "plate_1": 0.0022979951443812085,
+                  "wine_bottle_1": 0.0010197291638985439,
+                  "none": 0.08623163161501217
+                }
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 0.9399133498259924
+              }
+            },
+            "usage": {
+              "input_tokens": 1214,
+              "output_tokens": 0
+            },
+            "relation_hint": "on"
+          },
+          "stage2_s": 0.0674
+        },
+        "stage1_s": 0.0762,
+        "stage2_s": 0.0674,
+        "total_s": 0.1437,
+        "usage": {
+          "input_tokens": 2518,
+          "output_tokens": 0
+        }
+      },
+      "decision_status": "accepted",
+      "decision_reason": null,
+      "phase": "succeeded",
+      "execution_status": "completed",
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": true,
+      "failure_code": null,
+      "reason": "all skills and final verification passed",
+      "duration_s": 25.723,
+      "wall_s": 26.422,
+      "episode_sim_actions": 86,
+      "timing": {
+        "planner_s": 0.155,
+        "execution_s": 22.444,
+        "release_s": 0.0,
+        "verification_s": 0.246,
+        "inference_s_sum": 3.896,
+        "env_step_s_sum": 6.095,
+        "snapshot_s_sum": 0.745,
+        "observe_s_sum": 3.663,
+        "convert_s_sum": 0.052,
+        "frame_s_sum": 0.002,
+        "plan_to_first_action_s": 0.638,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "total_s_engine": 25.723,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "openwam": {
+        "wall": {
+          "total_s": 22.4425,
+          "sim_actions": 83,
+          "sim_time_s": 4.15,
+          "control_hz_wall": 3.7,
+          "sim_real_time_factor": 0.185,
+          "first_action_s": 0.6339,
+          "per_action_total_s": {
+            "n": 83,
+            "mean": 0.2701,
+            "min": 0.2188,
+            "median": 0.252,
+            "p95": 0.3185,
+            "max": 0.7732
+          },
+          "action_interval_s": {
+            "n": 82,
+            "mean": 0.2704,
+            "min": 0.2193,
+            "median": 0.2516,
+            "p95": 0.3186,
+            "max": 0.7733
+          },
+          "phases_sum_s": {
+            "observe": 3.6849,
+            "inference_wall": 11.8391,
+            "convert": 0.0503,
+            "env_step": 6.0951,
+            "snapshot": 0.7425,
+            "frame": 0.0001
+          },
+          "unattributed_s": 0.0305
+        },
+        "chunk_stats": {
+          "requests": 83,
+          "chunk_generations": 3,
+          "cache_hits": 80,
+          "chunk_ids": [
+            0,
+            1,
+            2
+          ],
+          "generated_actions_total": 96,
+          "consumed_actions_total": 83,
+          "first_generation": {
+            "server_latency_ms": 467.76,
+            "client_inference_s": 0.482,
+            "engine_total_s": 0.5639,
+            "encode_s": 0.0816
+          },
+          "generation": {
+            "server_latency_ms": {
+              "n": 3,
+              "mean": 466.47,
+              "min": 463.2,
+              "median": 467.76,
+              "p95": 468.45,
+              "max": 468.45
+            },
+            "client_inference_s": {
+              "n": 3,
+              "mean": 0.4813,
+              "min": 0.4782,
+              "median": 0.482,
+              "p95": 0.4836,
+              "max": 0.4836
+            },
+            "engine_total_s": {
+              "n": 3,
+              "mean": 0.5623,
+              "min": 0.5597,
+              "median": 0.5633,
+              "p95": 0.5639,
+              "max": 0.5639
+            }
+          },
+          "cache": {
+            "server_latency_ms": {
+              "n": 80,
+              "mean": 15.3936,
+              "min": 15.01,
+              "median": 15.37,
+              "p95": 15.84,
+              "max": 16.01
+            },
+            "client_inference_s": {
+              "n": 80,
+              "mean": 0.0306,
+              "min": 0.0271,
+              "median": 0.0306,
+              "p95": 0.0316,
+              "max": 0.0319
+            },
+            "engine_total_s": {
+              "n": 80,
+              "mean": 0.1133,
+              "min": 0.1025,
+              "median": 0.1135,
+              "p95": 0.1159,
+              "max": 0.1164
+            }
+          }
+        },
+        "prompt": "put the bowl on the stove",
+        "sim_actions": 83,
+        "chunks_used": 3
+      },
+      "chunk_generations": 3,
+      "cache_hits": 80,
+      "chunk_ids": [
+        0,
+        1,
+        2
+      ],
+      "buffer_clear_ok": true,
+      "scene_epoch": 5,
+      "initial_scene_fingerprint": "fcedc336442f823a",
+      "episode_id": "ep-20261027-055223-f9cfc7",
+      "inference_mode": "sync_step",
+      "action_backend": "openwam",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-055223-f9cfc7.json",
+      "archived_record": "records/ab/precheck_runs/ep-20261027-055223-f9cfc7.json"
+    },
+    {
+      "task_id": 1,
+      "seed": 0,
+      "init_index": 0,
+      "order": 2,
+      "mode": "qwen",
+      "agent_mode": "qwen",
+      "agent_model": "Qwen3.5-9B",
+      "plan_source": "qwen3.5-9b",
+      "instruction": "put the bowl on the stove",
+      "openwam_prompt": "put the bowl on the stove",
+      "openwam_prompt_actual": "put the bowl on the stove",
+      "prompt_matches_user": true,
+      "expected": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on"
+      },
+      "binding_checks": {
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "plan_semantic": true,
+      "decision": null,
+      "decision_status": "ok",
+      "decision_reason": null,
+      "phase": "succeeded",
+      "execution_status": "completed",
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": true,
+      "failure_code": null,
+      "reason": "all skills and final verification passed",
+      "duration_s": 30.497,
+      "wall_s": 31.437,
+      "episode_sim_actions": 84,
+      "timing": {
+        "planner_s": 5.804,
+        "execution_s": 21.262,
+        "release_s": 0.0,
+        "verification_s": 0.229,
+        "inference_s_sum": 3.717,
+        "env_step_s_sum": 5.548,
+        "snapshot_s_sum": 0.694,
+        "observe_s_sum": 3.484,
+        "convert_s_sum": 0.049,
+        "frame_s_sum": 0.002,
+        "plan_to_first_action_s": 0.645,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "total_s_engine": 30.497,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "openwam": {
+        "wall": {
+          "total_s": 21.2608,
+          "sim_actions": 81,
+          "sim_time_s": 4.05,
+          "control_hz_wall": 3.81,
+          "sim_real_time_factor": 0.19,
+          "first_action_s": 0.6394,
+          "per_action_total_s": {
+            "n": 81,
+            "mean": 0.2622,
+            "min": 0.2137,
+            "median": 0.2456,
+            "p95": 0.2947,
+            "max": 0.7364
+          },
+          "action_interval_s": {
+            "n": 80,
+            "mean": 0.2625,
+            "min": 0.2138,
+            "median": 0.2457,
+            "p95": 0.2948,
+            "max": 0.7365
+          },
+          "phases_sum_s": {
+            "observe": 3.5089,
+            "inference_wall": 11.4416,
+            "convert": 0.0505,
+            "env_step": 5.5486,
+            "snapshot": 0.6888,
+            "frame": 0.0
+          },
+          "unattributed_s": 0.0224
+        },
+        "chunk_stats": {
+          "requests": 81,
+          "chunk_generations": 3,
+          "cache_hits": 78,
+          "chunk_ids": [
+            0,
+            1,
+            2
+          ],
+          "generated_actions_total": 96,
+          "consumed_actions_total": 81,
+          "first_generation": {
+            "server_latency_ms": 469.28,
+            "client_inference_s": 0.4838,
+            "engine_total_s": 0.567,
+            "encode_s": 0.0828
+          },
+          "generation": {
+            "server_latency_ms": {
+              "n": 3,
+              "mean": 437.45,
+              "min": 420.04,
+              "median": 423.03,
+              "p95": 469.28,
+              "max": 469.28
+            },
+            "client_inference_s": {
+              "n": 3,
+              "mean": 0.4522,
+              "min": 0.4348,
+              "median": 0.4381,
+              "p95": 0.4838,
+              "max": 0.4838
+            },
+            "engine_total_s": {
+              "n": 3,
+              "mean": 0.5343,
+              "min": 0.516,
+              "median": 0.52,
+              "p95": 0.567,
+              "max": 0.567
+            }
+          },
+          "cache": {
+            "server_latency_ms": {
+              "n": 78,
+              "mean": 15.3508,
+              "min": 14.93,
+              "median": 15.26,
+              "p95": 15.97,
+              "max": 16.55
+            },
+            "client_inference_s": {
+              "n": 78,
+              "mean": 0.0303,
+              "min": 0.0279,
+              "median": 0.0301,
+              "p95": 0.0312,
+              "max": 0.0321
+            },
+            "engine_total_s": {
+              "n": 78,
+              "mean": 0.1127,
+              "min": 0.082,
+              "median": 0.1126,
+              "p95": 0.1155,
+              "max": 0.1166
+            }
+          }
+        },
+        "prompt": "put the bowl on the stove",
+        "sim_actions": 81,
+        "chunks_used": 3
+      },
+      "chunk_generations": 3,
+      "cache_hits": 78,
+      "chunk_ids": [
+        0,
+        1,
+        2
+      ],
+      "buffer_clear_ok": true,
+      "scene_epoch": 6,
+      "initial_scene_fingerprint": "fcedc336442f823a",
+      "episode_id": "ep-20261027-055250-53f4ba",
+      "inference_mode": "sync_step",
+      "action_backend": "openwam",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-055250-53f4ba.json",
+      "archived_record": "records/ab/precheck_runs/ep-20261027-055250-53f4ba.json"
+    },
+    {
+      "task_id": 3,
+      "seed": 0,
+      "init_index": 0,
+      "order": 1,
+      "mode": "d1",
+      "agent_mode": "d1",
+      "agent_model": "LiquidAI/d1-3B",
+      "plan_source": "qwen3.5-9b",
+      "instruction": "open the top drawer and put the bowl inside",
+      "openwam_prompt": null,
+      "openwam_prompt_actual": null,
+      "prompt_matches_user": false,
+      "expected": {
+        "operation": "composite",
+        "source": "akita_black_bowl_1",
+        "target": "wooden_cabinet_1_top_region",
+        "relation": "in",
+        "open_target": "wooden_cabinet_1_top_region"
+      },
+      "binding_checks": {},
+      "plan_semantic": false,
+      "decision": {},
+      "decision_status": "error",
+      "decision_reason": null,
+      "phase": "failed",
+      "execution_status": "failed",
+      "native_task_success": false,
+      "native_goal_final": false,
+      "user_goal_success": false,
+      "failure_code": "plan_invalid",
+      "reason": "Agent plan was not valid",
+      "duration_s": 2.809,
+      "wall_s": 3.212,
+      "episode_sim_actions": 0,
+      "timing": {
+        "planner_s": 0.087,
+        "execution_s": 0.0,
+        "release_s": 0.0,
+        "verification_s": 0.0,
+        "inference_s_sum": 0.0,
+        "env_step_s_sum": 0.0,
+        "snapshot_s_sum": 0.0,
+        "observe_s_sum": 0.0,
+        "convert_s_sum": 0.0,
+        "frame_s_sum": 0.0,
+        "plan_to_first_action_s": 0.0,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "total_s_engine": 2.809,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "openwam": {},
+      "chunk_generations": null,
+      "cache_hits": null,
+      "chunk_ids": null,
+      "buffer_clear_ok": null,
+      "scene_epoch": 2,
+      "initial_scene_fingerprint": "e4ebe0883831b1ad",
+      "episode_id": "ep-20261027-055336-e00cf5",
+      "inference_mode": "sync_step",
+      "action_backend": "openwam",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-055336-e00cf5.json",
+      "archived_record": "records/ab/precheck_runs/ep-20261027-055336-e00cf5.json"
+    },
+    {
+      "task_id": 3,
+      "seed": 0,
+      "init_index": 0,
+      "order": 2,
+      "mode": "qwen",
+      "agent_mode": "qwen",
+      "agent_model": "Qwen3.5-9B",
+      "plan_source": "qwen3.5-9b",
+      "instruction": "open the top drawer and put the bowl inside",
+      "openwam_prompt": "open the top drawer and put the bowl inside",
+      "openwam_prompt_actual": "open the top drawer and put the bowl inside",
+      "prompt_matches_user": true,
+      "expected": {
+        "operation": "composite",
+        "source": "akita_black_bowl_1",
+        "target": "wooden_cabinet_1_top_region",
+        "relation": "in",
+        "open_target": "wooden_cabinet_1_top_region"
+      },
+      "binding_checks": {
+        "source": true,
+        "target": true,
+        "relation": true,
+        "open": true,
+        "level": true
+      },
+      "plan_semantic": true,
+      "decision": null,
+      "decision_status": "ok",
+      "decision_reason": null,
+      "phase": "succeeded",
+      "execution_status": "completed",
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": true,
+      "failure_code": null,
+      "reason": "all skills and final verification passed",
+      "duration_s": 54.574,
+      "wall_s": 55.542,
+      "episode_sim_actions": 176,
+      "timing": {
+        "planner_s": 5.976,
+        "execution_s": 45.703,
+        "release_s": 0.0,
+        "verification_s": 0.236,
+        "inference_s_sum": 7.829,
+        "env_step_s_sum": 12.339,
+        "snapshot_s_sum": 1.569,
+        "observe_s_sum": 7.575,
+        "convert_s_sum": 0.115,
+        "frame_s_sum": 0.004,
+        "plan_to_first_action_s": 0.678,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "total_s_engine": 54.574,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "openwam": {
+        "wall": {
+          "total_s": 45.6995,
+          "sim_actions": 173,
+          "sim_time_s": 8.65,
+          "control_hz_wall": 3.79,
+          "sim_real_time_factor": 0.189,
+          "first_action_s": 0.672,
+          "per_action_total_s": {
+            "n": 173,
+            "mean": 0.264,
+            "min": 0.2188,
+            "median": 0.2469,
+            "p95": 0.2768,
+            "max": 0.7339
+          },
+          "action_interval_s": {
+            "n": 172,
+            "mean": 0.2642,
+            "min": 0.2188,
+            "median": 0.247,
+            "p95": 0.2769,
+            "max": 0.7339
+          },
+          "phases_sum_s": {
+            "observe": 7.6346,
+            "inference_wall": 23.9973,
+            "convert": 0.112,
+            "env_step": 12.339,
+            "snapshot": 1.5733,
+            "frame": 0.0001
+          },
+          "unattributed_s": 0.0432
+        },
+        "chunk_stats": {
+          "requests": 173,
+          "chunk_generations": 6,
+          "cache_hits": 167,
+          "chunk_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "generated_actions_total": 192,
+          "consumed_actions_total": 173,
+          "first_generation": {
+            "server_latency_ms": 501.85,
+            "client_inference_s": 0.5162,
+            "engine_total_s": 0.6001,
+            "encode_s": 0.0836
+          },
+          "generation": {
+            "server_latency_ms": {
+              "n": 6,
+              "mean": 471.4317,
+              "min": 462.07,
+              "median": 464.01,
+              "p95": 501.85,
+              "max": 501.85
+            },
+            "client_inference_s": {
+              "n": 6,
+              "mean": 0.4858,
+              "min": 0.4765,
+              "median": 0.4774,
+              "p95": 0.5162,
+              "max": 0.5162
+            },
+            "engine_total_s": {
+              "n": 6,
+              "mean": 0.5669,
+              "min": 0.5575,
+              "median": 0.5584,
+              "p95": 0.6001,
+              "max": 0.6001
+            }
+          },
+          "cache": {
+            "server_latency_ms": {
+              "n": 167,
+              "mean": 15.0017,
+              "min": 14.48,
+              "median": 14.94,
+              "p95": 15.79,
+              "max": 17.63
+            },
+            "client_inference_s": {
+              "n": 167,
+              "mean": 0.0294,
+              "min": 0.0278,
+              "median": 0.0293,
+              "p95": 0.031,
+              "max": 0.0323
+            },
+            "engine_total_s": {
+              "n": 167,
+              "mean": 0.1099,
+              "min": 0.1059,
+              "median": 0.1099,
+              "p95": 0.1127,
+              "max": 0.1163
+            }
+          }
+        },
+        "prompt": "open the top drawer and put the bowl inside",
+        "sim_actions": 173,
+        "chunks_used": 6
+      },
+      "chunk_generations": 6,
+      "cache_hits": 167,
+      "chunk_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "buffer_clear_ok": true,
+      "scene_epoch": 3,
+      "initial_scene_fingerprint": "e4ebe0883831b1ad",
+      "episode_id": "ep-20261027-055339-7d64a0",
+      "inference_mode": "sync_step",
+      "action_backend": "openwam",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-055339-7d64a0.json",
+      "archived_record": "records/ab/precheck_runs/ep-20261027-055339-7d64a0.json"
+    },
+    {
+      "task_id": 5,
+      "seed": 0,
+      "init_index": 0,
+      "order": 1,
+      "mode": "d1",
+      "agent_mode": "d1",
+      "agent_model": "LiquidAI/d1-3B",
+      "plan_source": "d1-3b",
+      "instruction": "push the plate to the front of the stove",
+      "openwam_prompt": "push the plate to the front of the stove",
+      "openwam_prompt_actual": "push the plate to the front of the stove",
+      "prompt_matches_user": true,
+      "expected": {
+        "operation": "push_object",
+        "source": "plate_1",
+        "target": "main_table_stove_front_region",
+        "relation": "on"
+      },
+      "binding_checks": {
+        "operation": true,
+        "source": true,
+        "target": true,
+        "relation": true
+      },
+      "plan_semantic": true,
+      "decision": {
+        "status": "accepted",
+        "reason_code": null,
+        "reason": null,
+        "operation": "push_object",
+        "operation_confidence": 0.7342514690899267,
+        "operation_margin": 0.6066576958218874,
+        "operation_source": "d1",
+        "source": "plate_1",
+        "source_confidence": 0.9261381524594141,
+        "source_margin": 0.8669321211907521,
+        "target": "main_table_stove_front_region",
+        "target_confidence": 0.8670357598021706,
+        "target_margin": 0.7340715196043414,
+        "relation": "on",
+        "relation_confidence": 1.0,
+        "relation_margin": 1.0,
+        "relation_source": "instruction",
+        "open_target": null,
+        "open_confidence": 0.0,
+        "open_margin": 0.0,
+        "object_margin": 0.0,
+        "prompt": "push the plate to the front of the stove",
+        "prompt_source": "user_instruction",
+        "plan_source": "d1-3b",
+        "evidence": {
+          "candidates": {
+            "objects": [
+              "akita_black_bowl_1",
+              "cream_cheese_1",
+              "plate_1",
+              "wine_bottle_1"
+            ],
+            "targets": [
+              "flat_stove_1_cook_region",
+              "main_table_akita_black_bowl_region",
+              "main_table_cabinet_region",
+              "main_table_cream_cheese_region",
+              "main_table_plate_region",
+              "main_table_stove_front_region",
+              "main_table_stove_region",
+              "main_table_wine_bottle_region",
+              "main_table_wine_rack_region",
+              "table_top",
+              "wine_rack_1_top_region",
+              "wooden_cabinet_1_bottom_region",
+              "wooden_cabinet_1_middle_region",
+              "wooden_cabinet_1_top_region",
+              "wooden_cabinet_1_top_side",
+              "akita_black_bowl_1",
+              "cream_cheese_1",
+              "plate_1",
+              "wine_bottle_1",
+              "flat_stove_1"
+            ],
+            "drawers": [
+              "wooden_cabinet_1_bottom_region",
+              "wooden_cabinet_1_middle_region",
+              "wooden_cabinet_1_top_region"
+            ],
+            "appliances": [
+              "flat_stove_1"
+            ]
+          },
+          "stage1": {
+            "supported": 0.9770226300899744,
+            "operation": "push_object",
+            "operation_confidence": 0.7342514690899267,
+            "operation_margin": 0.6066576958218874,
+            "source": "plate_1",
+            "source_confidence": 0.9261381524594141,
+            "source_margin": 0.8669321211907521,
+            "source_specified": 0.9399133498259924,
+            "ambiguous": 0.4073334000459302,
+            "answers": {
+              "supported": {
+                "type": "noul",
+                "noul": 0.9770226300899744
+              },
+              "operation": {
+                "type": "choice",
+                "choice": "push_object",
+                "confidence": 0.7342514690899267,
+                "probabilities": {
+                  "pick_place": 0.1275937732680392,
+                  "open_drawer": 0.004366018829517655,
+                  "push_object": 0.7342514690899267,
+                  "turn_on": 0.003000717932526994,
+                  "composite": 0.0031942476119504403,
+                  "other": 0.1275937732680392
+                }
+              },
+              "source": {
+                "type": "choice",
+                "choice": "plate_1",
+                "confidence": 0.9261381524594141,
+                "probabilities": {
+                  "akita_black_bowl_1": 0.0055070187566451665,
+                  "cream_cheese_1": 0.00485992699521463,
+                  "plate_1": 0.9261381524594141,
+                  "wine_bottle_1": 0.00428887052006417,
+                  "none": 0.059206031268662
+                }
+              },
+              "source_specified": {
+                "type": "noul",
+                "noul": 0.9399133498259924
+              },
+              "ambiguous": {
+                "type": "noul",
+                "noul": 0.4073334000459302
+              }
+            },
+            "usage": {
+              "input_tokens": 1307,
+              "output_tokens": 0
+            },
+            "operation_source": "d1"
+          },
+          "stage1_s": 0.0802,
+          "thresholds": {
+            "supported_min": 0.5,
+            "operation_min": 0.5,
+            "operation_verb_min": 0.3,
+            "specified_min": 0.5,
+            "relation_min": 0.5,
+            "source_min": 0.5,
+            "target_min": 0.5,
+            "margin_min": 0.2
+          },
+          "stage2": {
+            "answers": {
+              "target": {
+                "type": "choice",
+                "choice": "main_table_stove_front_region",
+                "confidence": 0.8670357598021706,
+                "probabilities": {
+                  "main_table_stove_front_region": 0.8670357598021706,
+                  "none": 0.13296424019782924
+                }
+              },
+              "target_specified": {
+                "type": "noul",
+                "noul": 0.8933094060543487
+              }
+            },
+            "usage": {
+              "input_tokens": 1049,
+              "output_tokens": 0
+            },
+            "relation_hint": "on"
+          },
+          "stage2_s": 0.0645
+        },
+        "stage1_s": 0.0802,
+        "stage2_s": 0.0645,
+        "total_s": 0.1452,
+        "usage": {
+          "input_tokens": 2356,
+          "output_tokens": 0
+        }
+      },
+      "decision_status": "accepted",
+      "decision_reason": null,
+      "phase": "succeeded",
+      "execution_status": "completed",
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": true,
+      "failure_code": null,
+      "reason": "all skills and final verification passed",
+      "duration_s": 42.342,
+      "wall_s": 43.574,
+      "episode_sim_actions": 147,
+      "timing": {
+        "planner_s": 0.154,
+        "execution_s": 38.579,
+        "release_s": 0.0,
+        "verification_s": 0.242,
+        "inference_s_sum": 6.535,
+        "env_step_s_sum": 10.34,
+        "snapshot_s_sum": 1.34,
+        "observe_s_sum": 6.403,
+        "convert_s_sum": 0.091,
+        "frame_s_sum": 0.004,
+        "plan_to_first_action_s": 0.674,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "total_s_engine": 42.342,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "openwam": {
+        "wall": {
+          "total_s": 38.5766,
+          "sim_actions": 144,
+          "sim_time_s": 7.2,
+          "control_hz_wall": 3.73,
+          "sim_real_time_factor": 0.187,
+          "first_action_s": 0.6695,
+          "per_action_total_s": {
+            "n": 144,
+            "mean": 0.2672,
+            "min": 0.2279,
+            "median": 0.2515,
+            "p95": 0.2804,
+            "max": 0.7381
+          },
+          "action_interval_s": {
+            "n": 143,
+            "mean": 0.2674,
+            "min": 0.2279,
+            "median": 0.2515,
+            "p95": 0.2804,
+            "max": 0.7383
+          },
+          "phases_sum_s": {
+            "observe": 6.4504,
+            "inference_wall": 20.2428,
+            "convert": 0.0893,
+            "env_step": 10.34,
+            "snapshot": 1.3445,
+            "frame": 0.0001
+          },
+          "unattributed_s": 0.1095
+        },
+        "chunk_stats": {
+          "requests": 144,
+          "chunk_generations": 5,
+          "cache_hits": 139,
+          "chunk_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "generated_actions_total": 160,
+          "consumed_actions_total": 144,
+          "first_generation": {
+            "server_latency_ms": 500.93,
+            "client_inference_s": 0.5152,
+            "engine_total_s": 0.5979,
+            "encode_s": 0.0824
+          },
+          "generation": {
+            "server_latency_ms": {
+              "n": 5,
+              "mean": 470.526,
+              "min": 460.17,
+              "median": 463.79,
+              "p95": 500.93,
+              "max": 500.93
+            },
+            "client_inference_s": {
+              "n": 5,
+              "mean": 0.4849,
+              "min": 0.4744,
+              "median": 0.4783,
+              "p95": 0.5152,
+              "max": 0.5152
+            },
+            "engine_total_s": {
+              "n": 5,
+              "mean": 0.5672,
+              "min": 0.5584,
+              "median": 0.5602,
+              "p95": 0.5979,
+              "max": 0.5979
+            }
+          },
+          "cache": {
+            "server_latency_ms": {
+              "n": 139,
+              "mean": 15.0324,
+              "min": 14.68,
+              "median": 14.97,
+              "p95": 15.48,
+              "max": 16.38
+            },
+            "client_inference_s": {
+              "n": 139,
+              "mean": 0.0296,
+              "min": 0.0285,
+              "median": 0.0295,
+              "p95": 0.0304,
+              "max": 0.0315
+            },
+            "engine_total_s": {
+              "n": 139,
+              "mean": 0.1113,
+              "min": 0.1073,
+              "median": 0.1116,
+              "p95": 0.1142,
+              "max": 0.1161
+            }
+          }
+        },
+        "prompt": "push the plate to the front of the stove",
+        "sim_actions": 144,
+        "chunks_used": 5
+      },
+      "chunk_generations": 5,
+      "cache_hits": 139,
+      "chunk_ids": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "buffer_clear_ok": true,
+      "scene_epoch": 2,
+      "initial_scene_fingerprint": "452e1fa757a22e8b",
+      "episode_id": "ep-20261027-055452-60de24",
+      "inference_mode": "sync_step",
+      "action_backend": "openwam",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-055452-60de24.json",
+      "archived_record": "records/ab/precheck_runs/ep-20261027-055452-60de24.json"
+    },
+    {
+      "task_id": 5,
+      "seed": 0,
+      "init_index": 0,
+      "order": 2,
+      "mode": "qwen",
+      "agent_mode": "qwen",
+      "agent_model": "Qwen3.5-9B",
+      "plan_source": "qwen3.5-9b",
+      "instruction": "push the plate to the front of the stove",
+      "openwam_prompt": "push the plate to the front of the stove",
+      "openwam_prompt_actual": "push the plate to the front of the stove",
+      "prompt_matches_user": true,
+      "expected": {
+        "operation": "push_object",
+        "source": "plate_1",
+        "target": "main_table_stove_front_region",
+        "relation": "on"
+      },
+      "binding_checks": {
+        "source": true,
+        "target": true,
+        "relation": false
+      },
+      "plan_semantic": false,
+      "decision": null,
+      "decision_status": "ok",
+      "decision_reason": null,
+      "phase": "succeeded",
+      "execution_status": "completed",
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": true,
+      "failure_code": null,
+      "reason": "all skills and final verification passed",
+      "duration_s": 47.975,
+      "wall_s": 49.165,
+      "episode_sim_actions": 151,
+      "timing": {
+        "planner_s": 4.83,
+        "execution_s": 39.53,
+        "release_s": 0.0,
+        "verification_s": 0.251,
+        "inference_s_sum": 6.585,
+        "env_step_s_sum": 10.74,
+        "snapshot_s_sum": 1.428,
+        "observe_s_sum": 6.553,
+        "convert_s_sum": 0.093,
+        "frame_s_sum": 0.004,
+        "plan_to_first_action_s": 0.646,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "total_s_engine": 47.975,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "openwam": {
+        "wall": {
+          "total_s": 39.5269,
+          "sim_actions": 148,
+          "sim_time_s": 7.4,
+          "control_hz_wall": 3.74,
+          "sim_real_time_factor": 0.187,
+          "first_action_s": 0.6397,
+          "per_action_total_s": {
+            "n": 148,
+            "mean": 0.2669,
+            "min": 0.2348,
+            "median": 0.2511,
+            "p95": 0.283,
+            "max": 0.7067
+          },
+          "action_interval_s": {
+            "n": 147,
+            "mean": 0.2671,
+            "min": 0.2349,
+            "median": 0.2512,
+            "p95": 0.2831,
+            "max": 0.7068
+          },
+          "phases_sum_s": {
+            "observe": 6.6056,
+            "inference_wall": 20.6207,
+            "convert": 0.0916,
+            "env_step": 10.7392,
+            "snapshot": 1.4319,
+            "frame": 0.0002
+          },
+          "unattributed_s": 0.0377
+        },
+        "chunk_stats": {
+          "requests": 148,
+          "chunk_generations": 5,
+          "cache_hits": 143,
+          "chunk_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "generated_actions_total": 160,
+          "consumed_actions_total": 148,
+          "first_generation": {
+            "server_latency_ms": 467.61,
+            "client_inference_s": 0.4819,
+            "engine_total_s": 0.5638,
+            "encode_s": 0.0816
+          },
+          "generation": {
+            "server_latency_ms": {
+              "n": 5,
+              "mean": 462.54,
+              "min": 459.71,
+              "median": 461.35,
+              "p95": 467.61,
+              "max": 467.61
+            },
+            "client_inference_s": {
+              "n": 5,
+              "mean": 0.4769,
+              "min": 0.4738,
+              "median": 0.4758,
+              "p95": 0.4819,
+              "max": 0.4819
+            },
+            "engine_total_s": {
+              "n": 5,
+              "mean": 0.5597,
+              "min": 0.5563,
+              "median": 0.5585,
+              "p95": 0.5638,
+              "max": 0.5638
+            }
+          },
+          "cache": {
+            "server_latency_ms": {
+              "n": 143,
+              "mean": 14.9796,
+              "min": 5.85,
+              "median": 14.96,
+              "p95": 15.55,
+              "max": 17.21
+            },
+            "client_inference_s": {
+              "n": 143,
+              "mean": 0.0294,
+              "min": 0.018,
+              "median": 0.0295,
+              "p95": 0.0302,
+              "max": 0.0326
+            },
+            "engine_total_s": {
+              "n": 143,
+              "mean": 0.1108,
+              "min": 0.1001,
+              "median": 0.1108,
+              "p95": 0.114,
+              "max": 0.1155
+            }
+          }
+        },
+        "prompt": "push the plate to the front of the stove",
+        "sim_actions": 148,
+        "chunks_used": 5
+      },
+      "chunk_generations": 5,
+      "cache_hits": 143,
+      "chunk_ids": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "buffer_clear_ok": true,
+      "scene_epoch": 3,
+      "initial_scene_fingerprint": "452e1fa757a22e8b",
+      "episode_id": "ep-20261027-055536-a71284",
+      "inference_mode": "sync_step",
+      "action_backend": "openwam",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-055536-a71284.json",
+      "archived_record": "records/ab/precheck_runs/ep-20261027-055536-a71284.json"
+    }
+  ],
+  "finished_at": "2026-10-27T05:56:25",
+  "summary": {
+    "overall": {
+      "d1": {
+        "attempts": 3,
+        "completed": 2,
+        "native_success": 2,
+        "native_final_success": 2,
+        "user_goal_success": 2,
+        "plan_semantic": 2,
+        "decision_accepted": 2,
+        "failures": 1,
+        "buffer_clear_ok": 2,
+        "plan_latency_median_s": 0.154,
+        "duration_median_all_s": 25.723,
+        "duration_median_success_s": 34.032,
+        "plan_to_first_action_median_s": 0.638,
+        "execution_median_s": 22.444,
+        "verification_median_s": 0.242,
+        "sim_actions_median": 86.0,
+        "success_rate": 0.6667,
+        "plan_semantic_rate": 0.6667
+      },
+      "qwen": {
+        "attempts": 3,
+        "completed": 3,
+        "native_success": 3,
+        "native_final_success": 3,
+        "user_goal_success": 3,
+        "plan_semantic": 2,
+        "decision_accepted": 0,
+        "failures": 0,
+        "buffer_clear_ok": 3,
+        "plan_latency_median_s": 5.804,
+        "duration_median_all_s": 47.975,
+        "duration_median_success_s": 47.975,
+        "plan_to_first_action_median_s": 0.646,
+        "execution_median_s": 39.53,
+        "verification_median_s": 0.236,
+        "sim_actions_median": 151.0,
+        "success_rate": 1.0,
+        "plan_semantic_rate": 0.6667
+      }
+    },
+    "per_task": {
+      "1": {
+        "d1": {
+          "attempts": 1,
+          "user_goal_success": 1,
+          "native_success": 1,
+          "plan_semantic": 1,
+          "duration_median_all_s": 25.723,
+          "duration_median_success_s": 25.723
+        },
+        "qwen": {
+          "attempts": 1,
+          "user_goal_success": 1,
+          "native_success": 1,
+          "plan_semantic": 1,
+          "duration_median_all_s": 30.497,
+          "duration_median_success_s": 30.497
+        }
+      },
+      "3": {
+        "d1": {
+          "attempts": 1,
+          "user_goal_success": 0,
+          "native_success": 0,
+          "plan_semantic": 0,
+          "duration_median_all_s": 2.809,
+          "duration_median_success_s": null
+        },
+        "qwen": {
+          "attempts": 1,
+          "user_goal_success": 1,
+          "native_success": 1,
+          "plan_semantic": 1,
+          "duration_median_all_s": 54.574,
+          "duration_median_success_s": 54.574
+        }
+      },
+      "5": {
+        "d1": {
+          "attempts": 1,
+          "user_goal_success": 1,
+          "native_success": 1,
+          "plan_semantic": 1,
+          "duration_median_all_s": 42.342,
+          "duration_median_success_s": 42.342
+        },
+        "qwen": {
+          "attempts": 1,
+          "user_goal_success": 1,
+          "native_success": 1,
+          "plan_semantic": 0,
+          "duration_median_all_s": 47.975,
+          "duration_median_success_s": 47.975
+        }
+      }
+    },
+    "per_task_seed": {
+      "1/0": {
+        "d1": {
+          "user_goal_success": true,
+          "native_task_success": true,
+          "plan_semantic": true,
+          "duration_s": 25.723,
+          "initial_scene_fingerprint": "fcedc336442f823a"
+        },
+        "qwen": {
+          "user_goal_success": true,
+          "native_task_success": true,
+          "plan_semantic": true,
+          "duration_s": 30.497,
+          "initial_scene_fingerprint": "fcedc336442f823a"
+        },
+        "same_init": true
+      },
+      "3/0": {
+        "d1": {
+          "user_goal_success": false,
+          "native_task_success": false,
+          "plan_semantic": false,
+          "duration_s": 2.809,
+          "initial_scene_fingerprint": "e4ebe0883831b1ad"
+        },
+        "qwen": {
+          "user_goal_success": true,
+          "native_task_success": true,
+          "plan_semantic": true,
+          "duration_s": 54.574,
+          "initial_scene_fingerprint": "e4ebe0883831b1ad"
+        },
+        "same_init": true
+      },
+      "5/0": {
+        "d1": {
+          "user_goal_success": true,
+          "native_task_success": true,
+          "plan_semantic": true,
+          "duration_s": 42.342,
+          "initial_scene_fingerprint": "452e1fa757a22e8b"
+        },
+        "qwen": {
+          "user_goal_success": true,
+          "native_task_success": true,
+          "plan_semantic": false,
+          "duration_s": 47.975,
+          "initial_scene_fingerprint": "452e1fa757a22e8b"
+        },
+        "same_init": true
+      }
+    }
+  },
+  "archived_records": 6
+}

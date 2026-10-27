@@ -257,6 +257,11 @@
   引擎在 planning/running/recovering/stopping 阶段拒绝切换（HTTP 409），因此不会出现
   "页面显示已切换、实际回合仍用旧模型"的情况。切换控件只在 idle 阶段可用。
 - 旧 `page_ui/README.md` 是 ManiSkill 时期的说明，仅作来源记录，不代表当前链路。
+- 回合隔离：引擎维护 `planner_generation`，`load` / `reset` / 执行中的 `stop` / 新回合都会
+  递增；规划请求跨过任何一个生命周期转换后，其返回值代次已过期，被丢弃并记
+  `planner_result_discarded`（`records/run_journal.jsonl`），不会写入新回合的 `plan`
+  或触发任何动作。`/api/status` 暴露 `planner_generation` 与
+  `metrics.stale_plans_discarded` 便于验证。
 
 ## 6. 启动与状态
 
@@ -269,6 +274,11 @@ cd /home/host/page-dmh/embodied_engine
 ./scripts/stop_all.sh               # 只停本项目记录的 PID（不含 14520）
 ./scripts/openwam_server.sh stop    # 停 OpenWAM 服务
 python3 scripts/run_suite.py --tasks all --runs 3 --timeout 900
+./scripts/d1_server.sh start         # d1-3B 决策服务 14710（GPU0）；status|stop|restart
+python3 scripts/eval_offline.py      # 冻结离线集（config/offline_eval.json）
+python3 scripts/run_ab.py --tasks all --seeds 0,1,2 --modes qwen,d1 \
+  --out records/ab/ab_frozen.json    # 60 回合交错 A/B
+python3 scripts/summarize_ab.py records/ab/ab_frozen.json --markdown
 ```
 
 OpenWAM 启动记录写在 `records/openwam_server.json`（pid、commit、checkpoint、
@@ -293,7 +303,8 @@ OpenWAM 启动记录写在 `records/openwam_server.json`（pid、commit、checkp
 
 | 层 | 状态 | 说明 |
 | --- | --- | --- |
-| Agent | DONE（Qwen3.5-9B） | Jev 无凭据/无本地权重，未接入，未冒充；技能目录随 `action_model.backend` 收缩 |
+| Agent | DONE（Qwen3.5-9B 默认） | Jev 无凭据/无本地权重，未接入，未冒充；技能目录随 `action_model.backend` 收缩 |
+| Agent（d1-3B 可选） | **PARTIAL** | `d1` 决策模式可用，A/B 成功率低于 Qwen，保持 Qwen 为默认；结论见验收报告 §14 |
 | 动作模型（`pi05`） | DONE | 常驻、真实推理、真实执行（基线保留） |
 | 动作模型（`openwam`） | **DONE，执行链** | 常驻 14520，真实 10 维动作；LIBERO-Goal 实测见验收报告 |
 | 推理引擎 | DONE | 双后端选择、Pi0.5 异步块预取、OpenWAM 同步单步、token/epoch/age 校验、取消与缓冲清理 |
@@ -301,6 +312,7 @@ OpenWAM 启动记录写在 `records/openwam_server.json`（pid、commit、checkp
 | page_ui | DONE（协议 + 浏览器） | 身份消息显示真实后端与 OpenWAM 状态 |
 | 十任务（Pi0.5 历史验收） | **PARTIAL（26/30）** | seed 0、每项 3 回合；失败项与断点见 `docs/acceptance_report.md` |
 | 十任务（OpenWAM 单轮） | 见 `docs/acceptance_report.md` | 每任务 1 回合，不重试 |
+| 十任务 ×3 初始化 A/B（60 回合） | 见 `docs/acceptance_report.md` §14 | Qwen vs d1 同 OpenWAM、同初始化、交错顺序 |
 
 验收与记录：
 

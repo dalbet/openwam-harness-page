@@ -1,0 +1,39 @@
+{
+  "task_id": 8,
+  "seed": 2,
+  "mode": "d1",
+  "instruction": "put the bowl on the plate",
+  "openwam_prompt": null,
+  "plan_source": "d1-3b",
+  "decision": null,
+  "decision_status": "needs_clarification",
+  "decision_reason": "source_uncertain",
+  "decision_evidence": {
+    "errors": [
+      {
+        "field": "plan",
+        "code": "source_uncertain",
+        "value": "source='akita_black_bowl_1' confidence=0.492"
+      }
+    ]
+  },
+  "binding_checks": {},
+  "plan_semantic": false,
+  "execution_status": "failed",
+  "failure_code": "plan_invalid",
+  "reason": "Agent plan was not valid",
+  "native_task_success": false,
+  "native_goal_final": false,
+  "user_goal_success": false,
+  "duration_s": 3.366,
+  "planner_s": 0.101,
+  "plan_to_first_action_s": 0.0,
+  "execution_s": 0.0,
+  "verification_s": 0.0,
+  "episode_sim_actions": 0,
+  "chunk_generations": null,
+  "cache_hits": null,
+  "initial_scene_fingerprint": "8f32f9b01a77141d",
+  "episode_id": "ep-20261027-075243-b8f9cc",
+  "timed_out": false
+}

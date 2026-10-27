@@ -542,3 +542,158 @@ OpenWAM repo `4d7f642`，HF revision `110b07e`）在 :14520/GPU2；
      而不是输出格式导致的能力差；d1 的低置信门是双刃剑。
 - **处置**：保留 `agent.mode=qwen` 为默认；d1 以 `d1` 模式参与真实 A/B，
   不通过放宽阈值或硬编码任务答案提升指标。目标绑定结论为 **PARTIAL**。
+## 14. Qwen vs d1-3B 真实执行对照（60 回合，2026-10-27）
+
+### 14.1 冻结条件与协议
+
+| 项 | 值 |
+| --- | --- |
+| 源码 | 运行前冻结：`agent/d1_planner.py` `3e29251e`、`agent/agent_service.py` `ddc1f1a8`、`engine/engine_service.py` `a822b244`、`engine/openwam_rollout.py` `cdd35cf1`、`common/plan_contract.py` `f9586cac`、`config/engine.json` `ddf00e52`、`config/offline_eval.json` `51adf51d` |
+| Agent A | Qwen3.5-9B，vLLM :8001（GPU3，`--gpu-memory-utilization 0.72 --max-model-len 16384`），`temperature=0`、`max_tokens=900`、`planner_vision=false` |
+| Agent B | `LiquidAI/d1-3B`，本地权重 SHA256 `50e03317847caf6…6c0c`，bf16，:14710（GPU0），`system_one` 单次前向、0 输出 token，无 Qwen 兜底（严格 `d1` 模式） |
+| 动作模型 | OpenWAM-Alpha-Sim-LIBERO，`checkpoint_step_10690.safetensors`，HF revision `110b07e`，repo `4d7f642`，:14520（GPU2），`generate_horizon=execute_horizon=32`、`denoise_steps=10`、sync 单步 |
+| 环境 | LIBERO-Goal 10 任务（task 0–9），控制频率 20 Hz，动作预算 600 sim step，回合超时 900 s |
+| 初始化 | 每任务 seed 0/1/2 三组固定初始化，两方案共用同一清单 |
+| 顺序 | 每 (task, seed) 交替 A/B 顺序：`qwen,d1` 与 `d1,qwen` 各 15 组，减少时间/资源漂移 |
+| 同起点校验 | 同一 (task, seed) 两回合的初始化场景指纹 **30/30 完全一致** |
+| 记录 | `records/ab/ab_frozen.json`（完整）、`records/ab/ab_frozen_slim.json`、`records/ab/ab_frozen_episodes.csv`、`records/ab/ab_frozen_tables.md`、失败证据 `records/ab/failure_evidence/` |
+| 未做的事 | 不重跑、不挑回合、不放宽验收、不为 d1 追加任务专属答案；失败/拒绝/超时全部保留 |
+
+补充说明：A/B 跑完后才加入 `planner_generation`（旧规划结果丢弃）改动，
+当前 `engine/engine_service.py` 为 `45143682`。该改动只影响"规划返回值是否允许落库"，
+不改变规划内容、动作块与执行路径；改后已单独验证（§14.6）。
+
+### 14.2 总表（30 回合/方案）
+
+| 指标 | Qwen | d1-3B |
+| --- | --- | --- |
+| 尝试回合 | 30 | 30 |
+| 计划语义正确 | **30/30 (100%)** | 24/30 (80.0%) |
+| 原生目标成立 | **29/30 (96.7%)** | 23/30 (76.7%) |
+| 用户目标满足 | **29/30 (96.7%)** | 23/30 (76.7%) |
+| 完整执行完成 | **29/30 (96.7%)** | 23/30 (76.7%) |
+| 回合终止码 | `native_goal_not_reached` ×1 | `plan_invalid`（拒绝）×6、`native_goal_not_reached` ×1 |
+| 整回合中位（全部尝试） | 33.67 s | 26.47 s |
+| 整回合中位（仅成功） | 33.24 s | 28.31 s |
+| 整回合 p95（全部尝试） | 95.35 s | 90.15 s |
+| 仿真动作中位 | 96.0 | 89.5 |
+
+快速失败不计为加速：d1 的 6 个 `plan_invalid` 回合各约 3.2 s 结束（0 动作），
+但同一任务上 Qwen 是完整成功；d1 成功回合（28.31 s）比 Qwen 成功回合（33.24 s）
+快 4.9 s，差异几乎全部来自 Planner。
+
+### 14.3 逐任务（成功率 / 成功耗时）
+
+| task | 指令 | Qwen 用户目标 | d1 用户目标 | Qwen 成功中位 | d1 成功中位 |
+| --- | --- | --- | --- | --- | --- |
+| 0 | open the middle drawer of the cabinet | 3/3 | 3/3 | 41.47 s | 37.82 s |
+| 1 | put the bowl on the stove | 3/3 | 3/3 | 30.23 s | 25.77 s |
+| 2 | put the wine bottle on top of the cabinet | 2/3 | 2/3 | 31.76 s | 26.47 s |
+| 3 | open the top drawer and put the bowl inside | **3/3** | **0/3（拒绝）** | 54.80 s | — |
+| 4 | open the bottom drawer and put the bowl inside | 3/3 | 3/3 | 31.67 s | 26.04 s |
+| 5 | push the plate to the front of the stove | 3/3 | 3/3 | 46.30 s | 41.45 s |
+| 6 | put the cream cheese in the basket | 3/3 | 3/3 | 34.10 s | 28.31 s |
+| 7 | turn on the stove | 3/3 | 3/3 | 27.58 s | 23.49 s |
+| 8 | put the bowl on the plate | **3/3** | **0/3（拒绝）** | 29.69 s | — |
+| 9 | put the wine bottle in the wine rack | 3/3 | 3/3 | 45.11 s | 41.97 s |
+
+同一任务三组初始化的成功率完全一致，说明差异来自 Agent 决策，而非初始化难度抽签。
+
+### 14.4 失败证据（全部保留）
+
+- **d1 task 3（3/3 全拒绝）**：`source_uncertain`，`source='akita_black_bowl_1' margin=0.178`
+  （冻结阈值 margin ≥0.2）。计划被拒绝，0 动作，3.13 s 结束。
+  证据：`records/ab/failure_evidence/task3_seed{0,1,2}_d1.json`。
+- **d1 task 8（3/3 全拒绝）**：`source_uncertain`，`source='akita_black_bowl_1' confidence=0.492`
+  （阈值 ≥0.5）。差 0.008 触发弃权，0 动作，3.21 s 结束。
+  证据：`records/ab/failure_evidence/task8_seed{0,1,2}_d1.json`。
+- **d1 task 2 seed 0**：语义正确（wine_bottle → cabinet top side，source 0.915 / target 0.952），
+  但执行 1200 sim step（两个 600 步预算，恢复一次）仍未达成原生目标。
+  与 Qwen 在 task 2 seed 1 的失败同类：这是 OpenWAM 长程放置能力问题，不是决策问题。
+- **Qwen task 2 seed 1**：600 步预算用尽，`native_goal_not_reached`（无错误计划，纯执行失败）。
+- 两次独立 60 回合运行（`records/ab/ab_full.json` 与 `ab_frozen.json`，同一冻结代码）：
+  Qwen 两次都是 29/30；d1 两次为 24/30 与 23/30，差异只在 task 2 的执行成败。
+  失败模式稳定复现（task 3/8 恒定拒绝）。`records/ab/failure_evidence/` 对应冻结版
+  （`ab_frozen.json`）；第一轮的完整逐请求记录仍在 `ab_full.json`，
+  其中的 Qwen task 9 seed 1 超时证据保留为 `failure_evidence/run1_task9_seed1_qwen.json`。
+
+### 14.5 速度分解（同一 OpenWAM、同一场景、交错顺序）
+
+| 阶段 | Qwen（30 回合） | d1（24 个有执行回合） |
+| --- | --- | --- |
+| Planner 中位 / p95 | 5.451 s / 6.123 s | **0.158 s / 0.160 s** |
+| 规划完成 → 首个动作 | 0.645 s | 0.639 s |
+| OpenWAM 完整 chunk 生成（server 延迟中位） | 465.1 ms（区间 419.9–476.0 ms） | 465.9 ms（区间 460.9–488.0 ms） |
+| 缓存取动作（client 推理中位） | 29.8 ms | 29.9 ms |
+| 每回合 chunk 生成 / 缓存命中 | 3.0 / 90.0 | 3.5 / 91.5 |
+| 执行阶段墙钟中位 | 24.68 s | 25.38 s |
+| 动作墙钟控制 Hz | 3.760 | 3.765 |
+| 仿真实时因子（sim 时间 / wall 时间） | 0.188 | 0.188 |
+| 执行阶段分段（中位）：observe / inference / env_step / snapshot / convert | 4.11 / 13.00 / 6.68 / 0.88 / 0.06 s | 4.18 / 13.41 / 6.79 / 0.89 / 0.07 s |
+| 校验中位 | 0.252 s | 0.246 s |
+
+同一观测、同一指令、同一模型服务下的 Planner 定点复测
+（`records/acceptance/speed_planner_qwen.json`、`speed_planner_d1.json`，各 12 次
+同一 task 1 请求，交替切换 Agent 模式，切换后恢复 `qwen`）：
+
+| 指标 | Qwen | d1 |
+| --- | --- | --- |
+| 端到端中位（n=12） | 5.916 s | **0.141 s** |
+| 首个请求 / 热请求中位 | 5.956 s / 5.904 s | 0.154 s / 0.140 s |
+| 输入 / 输出 token | 1312 / 126 | 无可比 token 数（单次前向，0 输出 token） |
+| TTFT / decode | 0.183 s / 5.668 s | 不适用（无生成阶段） |
+
+结论：Planner 端到端约 **42×**（定点复测）到 **35×**（60 回合中位）加速，
+与离线 48 例的 47× 同量级；`plan_to_first_action` 不变（0.64 s，来自 OpenWAM
+首个完整 chunk 生成），因此**回合级收益上限就是 Planner 的 5.3 s**。
+
+### 14.6 生命周期与切换验证（本轮新增）
+
+- 执行中切换 Agent：`POST /api/agent_mode` 返回 **409**，`{"status":"busy",
+  "error":"agent mode can only change while idle; phase=running"}`，模式保持 `qwen`。
+- 规划中途 stop：`planner_generation` 5 → 6，规划 6.204 s 后返回的 Qwen 计划被丢弃，
+  `records/run_journal.jsonl` 记 `planner_result_discarded`（`planner_generation=5`,
+  `current_generation=6`），`/api/status` 的 `plan` 保持 `null`，
+  `metrics.stale_plans_discarded=2`，回合终态 `stopped` / `user_stop`，无任何动作发出。
+- 新回合隔离：停止后切换到 `d1`，task 1 新回合以 `plan_source=d1-3b`、
+  `agent_mode=d1` 规划并成功（原生目标成立），未复用上一回合任何计划。
+- OpenWAM 缓冲：`stop` 会 `cancel` 推理请求，`:14600/metrics` 的
+  `backend_resets_on_cancel` 递增（本轮 5），`pending_prefetch=0`。
+- `scripts/test_lifecycle.py` 全量回归 **PASS**（切换、stop 预算、缓冲清理、
+  reset 场景 epoch 推进、reset 后二次回合成功）。
+- 证据：`records/acceptance/lifecycle_planner_generation.json`、
+  `records/acceptance/lifecycle_agent_switch.log`。
+
+### 14.7 结论与处置
+
+1. **d1 是否值得替换 Qwen：不值得，本轮结论 PARTIAL。**
+   d1 把规划延迟从 5.45 s 降到 0.158 s（约 35×），计划和契约 100% 合法、
+   accepted 后绑定 100% 正确、零幻觉执行；但用户目标成功率 76.7% vs 96.7%，
+   在 task 3（开抽屉并放碗）和 task 8（碗放到盘子上）稳定弃权，
+   真实执行中直接损失 6/30 回合。task 3 恰好是"多子目标不能拆分丢失"的任务，
+   d1 的失败不是拆错，而是"不敢选"，仍不能作为默认 Agent。
+2. **混合兜底的真实收益与成本。** 已实现的 `d1_with_qwen_fallback` 只在
+   `error`/`unavailable` 时回落，语义拒绝不回落——本轮 d1 的 6 次失败全部是
+   `needs_clarification`（语义拒绝），因此**该兜底对本轮失败零收益**。
+   若把 `rejection` 也纳入兜底：这 6 个回合会各多付一次 Qwen 规划（约 5.5 s），
+   成功率最多回到 Qwen 水平，而每回合都要先付 d1 的 0.16 s 与一次 409 风险；
+   收益等于"用 d1 做前置过滤器"，但 d1 的过滤在本轮是假阴性（碗明明在场景里）。
+   因此不建议在当前阈值下启用混合模式。
+3. **当前主要瓶颈不是 Agent，也不是 OpenWAM 前向。**
+   成功回合里 Planner 占 Qwen 5.45 s、d1 0.16 s；执行阶段 24–25 s 中
+   inference 等待 13 s、env_step 6.7 s、observe 4.1 s，而真正的 chunk 生成只有
+   3–3.5 次 × 0.47 s ≈ 1.6 s；缓存取动作 ~90 次 × 0.03 s（client）≈ 2.7 s，
+   单步 RPC + 观测 + 快照的流水线才是主要成本（墙钟 3.76 Hz vs 配置 20 Hz，
+   实时因子 0.188）。
+4. **是否值得下一轮更换推理引擎：不以此为依据。**
+   换推理引擎最多改善那 1.6 s 的生成时间；即使生成变 0，回合也只快 ~5%，
+   而每步 0.26 s 的流水线开销不变。下一轮应先做动作循环的批量化/异步化
+   （观测与快照合并、每步 RPC 合并、缓存取动作本地化），再谈引擎替换。
+   本轮按要求**未改** OpenWAM 精度、采样步数、动作块或异步策略。
+5. **默认模式保持 `qwen`**，d1 作为可选 `d1` 模式保留，不通过放宽阈值
+   （如 source 0.492→0.49）或硬编码 task 3/8 答案来"修好"指标；如需继续，
+   应在独立校准集上重选阈值，再重新冻结正式集。
+
+产物清单（本轮）：`records/ab/ab_frozen*.json|csv|md`、`records/ab/failure_evidence/*.json`、
+`records/acceptance/speed_{qwen_openwam,openwam_cold,planner_qwen,planner_d1}.json`、
+`records/acceptance/lifecycle_planner_generation.json`、`records/offline/{eval,calibration_d1_v4,eval_semantic_recheck}.json`。

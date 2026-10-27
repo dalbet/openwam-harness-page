@@ -21,3 +21,6 @@ page_ui/logs/
 # report cites the slim summary, CSV, tables and failure evidence instead.
 records/ab/*_runs/
 .venv-d1/
+
+# Offline evaluation stdout (runtime).
+records/offline/*.log
