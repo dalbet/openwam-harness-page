@@ -10,8 +10,7 @@
 | 8001 | Planner LLM（Qwen3.5-9B，vLLM OpenAI 兼容，GPU3） | `models/../scripts/start_all.sh` 启动的 vLLM |
 | 14510 | Pi0.5 动作模型 RPC 服务（GPU1，常驻） | RPent `pi05_vla_server.py` |
 | 14600 | 推理引擎服务 | `inference/inference_service.py` |
-| 14700 | Agent 服务（规划/恢复） | `agent/agent_service.py` |
-| 14710 | d1-3B 决策服务（单次前向，独立模型常驻） | `agent/d1_service.py` |
+| 14700 | Agent 服务（语义路由、计划组装、有界恢复） | `agent/agent_service.py` |
 | 14800 | 引擎服务（回合、技能、完成判定、UI 数据源） | `engine/engine_service.py` |
 | 14900 | page_ui（双相机 WebSocket 页面） | `page_ui/server.py` |
 | 14561 | LIBERO 环境 RPC（引擎按需拉起，回合结束回收） | `adapters/libero_env_server.py` |
@@ -23,8 +22,9 @@
 - **实际模型**：`Qwen3.5-9B`，通过 vLLM `0.24.0` 部署在 `127.0.0.1:8001`（GPU3，`--enforce-eager`）。
   同权重的共享实例 `:8000` 受其他负载影响，同一 prompt 实测 9.2 s；专用实例 1.1 s，
   因此 `config/engine.json` 指向 `:8001`。
-- **职责**：把自然语言指令转成结构化计划（技能 + 对象绑定 + 目标 + relation），
-  以及失败后的 `retry / replan / abort` 决策。
+- **职责**：把用户的原始自然语言指令路由到十任务目录中的**一个**能力键（新任务语义路由，
+  见 §1.1），再由代码取官方标准指令组装 `whole_task` 计划；另外负责失败后的
+  `retry / replan / abort` 决策。
 - **契约**：`common/plan_contract.py` 对模型输出做结构校验，不解析自然语言列表：
   - 技能来自 `skills` 目录，并按 `action_model.backend` 收缩：`pi05` 只给
     `pick_place`、`push_object`、`open_drawer`、`turn_on`；`openwam` 只给 `whole_task`
@@ -39,38 +39,56 @@
   - 重规划时 `prior_steps` 提供已完成步骤，允许"先开抽屉、再放碗"的合法组合；
   - `preserves_goal()` 要求重规划保留初始计划的最终目标步骤，否则按有界 retry 处理，
     防止模型把"放进抽屉"漂移成"放到桌上"。
-- **输入**：用户指令、场景快照（物体位姿、site 几何、关节、夹爪开度）、技能目录、
+- **输入**：用户原始指令、场景快照（物体位姿、site 几何、关节、夹爪开度）、技能目录、
   已完成步骤与失败原因、可选决策集合、`episode`/`scene_epoch`/`observation_id`。
-- **输出**：`{"interpretation", "success_condition", "steps": [...], "source": "qwen3.5-9b", "latency_s"}`；
-  恢复输出 `{"status", "decision", "steps", "reason", "policy"}`。
+  语义路由的 prompt 只含十任务能力目录与用户原句，**不含** `task_id`、当前官方指令、
+  场景快照或 BDDL goal。
+- **输出**：`{"choice": "<catalog key>"}`、`{"choice":"clarify"}` 或 `{"choice":"unsupported"}`；
+  代码校验后组装 `{"interpretation", "success_condition", "steps": [whole_task], "source":
+  "qwen3.5-9b-semantic-router", "latency_s"}`；恢复输出
+  `{"status", "decision", "steps", "reason", "policy"}`。
 - **Jev（TypeSafe System One）现状**：官方为云端 API（`https://api.typesafe.ai/v1/systemone`），
   需要 waitlist 账号与 `TYPESAFE_API_KEY`；本地无权重、无可用凭据。因此**没有接入 Jev**，
-  也不能把 Qwen 的决策标成 Jev。Agent 层当前为"语言模型规划 + 结构化契约 + 有界恢复"。
+  也不能把 Qwen 的决策标成 Jev。Agent 层当前为"语言模型语义路由 + 代码组装 + 结构化契约 + 有界恢复"。
 
-### 1.1 d1-3B 决策规划器（可选 Agent 模式）
+### 1.1 Qwen 语义路由（当前唯一 Agent 模式）
 
-- **模型**：`LiquidAI/d1-3B`（3.12B，基座 `LiquidAI/LFM2.5-VL-3B`，LFM Open License v1.0），
-  本地权重位于 `openwam_harness/checkpoints/LiquidAI-d1-3B`，SHA256
-  `50e03317847caf6df9a9aee27ed40f20554a86a21e60d1d47ba41a422b546c0c`。
-  ModelScope 仓库只暴露 `Revision=master`，没有固定 commit id，因此**以本地权重哈希锁定身份**，
-  不把 `master` 当成可复现版本。独立环境 `.venv-d1`（由 `.venv-openwam` 硬链接克隆），
-  独立端口 `:14710`、GPU0 常驻（加载 8.34 s），不升级现有 vLLM/OpenWAM 环境。
-- **接口**：d1 服务（:14710）只暴露 `POST /system_one`，内部调用
-  `model.system_one(state, questions)`，一次前向返回带类型的答案（`noul` 概率、
-  `choice` 概率分布、`score`），**不生成输出 token**；没有 OpenAI 兼容 chat 端点，
-  因此不存在"用聊天生成冒充决策"的路径。
-- **规划方式**：d1 不写自由文本计划。`agent/d1_planner.py` 从当前快照生成合法候选
-  （操作、source、target、relation、抽屉层），按阶段提问；关系与 source/target 使用
-  联合/受约束候选，避免把互相矛盾的独立选择拼接。模型给出绑定后，由代码组装
-  `whole_task` 计划并走同一个 `common/plan_contract.py` 校验。
-- **候选隔离**：候选只来自现场物体/site/关节、技能目录与用户指令；不读取 BDDL goal，
-  不把官方任务文本作为查表答案。BDDL 只用于离线评测的独立期望值。
-- **三种 Agent 模式**：`qwen`（默认）、`d1`（只用 d1，不回落）、
-  `d1_with_qwen_fallback`（仅在 `error`/`unavailable` 时回落；语义拒绝不回落为 Qwen）。
-  引擎只在 idle 阶段接受切换，执行中返回 409；回合记录写入真实的
-  `agent_mode` 与 `plan_source`，不会把一个模型产出的计划记成另一个。
-- **阈值来源**：置信度/边距阈值只由独立校准集（`config/offline_calibration.json`，24 例）
-  选择；冻结后的正式集（`config/offline_eval.json`，48 例）只用于报告，不据其回调阈值。
+链路固定为：**用户原始指令 → Qwen 选择目录键 → 代码校验 → 代码取官方标准指令 → whole_task → OpenWAM**。
+
+- **唯一任务表**：`config/tasks.json`（schema `embodied_engine.task_catalog.v2`，版本 `2026-10-27.1`）
+  是项目中唯一的十任务目录，UI、Agent、引擎、测试都通过 `common/task_catalog.py` 读取。
+  每项记录：`task_id`、`key`、官方 `official_instruction`（本 fork 的 `Task.language` 由文件名生成）、
+  BDDL `:language`、BDDL 与 init 文件 SHA256、原生 goal 原子、完整语义绑定
+  （operation / source / target / relation / subgoals）以及给模型看的 `capability` 描述。
+- **候选隔离**：发给模型的是十项能力的语义描述（`capability_rows()`），不含 `task_id` 与官方句子；
+  路由 prompt 里也没有当前加载任务、BDDL goal 或场景快照。被选中的键由代码回查目录，
+  因此模型不能"看着答案选答案"。
+- **紧凑输出**：`max_tokens=24`、`temperature=0`，只返回一个 JSON 对象。
+  上限与修复次数由 `config/engine.json` 的 `agent.semantic_router` 读取
+  （`router_options()`，写入 health 与响应遥测），不在三处各写常量。
+  解析失败（非 JSON、缺字段、键不在目录）才允许一次修复，修复仍失败则 `planning_failed`。
+- **目录一致性由测试守住**：`tests/test_task_catalog.py` 从安装的 LIBERO 包重新推导
+  任务顺序、文件名指令、BDDL/init SHA256 与 goal 原子，和 `tasks.json` 逐项比对；
+  改错一个字、或升级 LIBERO 包，都会直接测试失败。
+- **非思考模式**：使用该 vLLM 实例正式支持的 `chat_template_kwargs={"enable_thinking": false}`
+  （见 `agent/planner.py::chat`），不是只在提示词里写"不要思考"。
+- **校验与场景检查**（全部在代码里，不在模型里）：
+  1. `parse_choice()` 只接受目录键、`clarify`、`unsupported`；
+  2. `task_catalog.scene_support()` 用实时快照检查所选任务的 source/target 实体是否存在
+     （`sim.objects` 与 `named_poses` 的 site/body，fixture 用 site 前缀匹配）；
+  3. 选中任务与已加载场景不一致时返回 `task_mismatch`（HTTP 409），提示切换任务，
+     **不会偷偷加载另一个场景**；
+  4. 一致时取目录中的官方指令组装唯一 `whole_task` 步骤，再走 `plan_contract`。
+- **可追溯字段**：状态与回合记录里的 `understanding` 保存用户原文
+  （`raw_instruction`）、模型语义选择（`semantic_choice` / `decision_status` / `reason`）、
+  目录键与 `task_id`、官方标准指令、模型与模式、目录版本与 SHA256、路由耗时、
+  场景支持结果、`needs_scene_switch`。回合记录同时写入
+  `plan.steps[0].prompt` 与策略侧 `verification.prompt`，因此"用户原文 → 语义 → 标准指令 →
+  OpenWAM 实际输入"是同一条可核对链。
+- **不做的事**：不把 `clarify` 当低置信度回退、不要求模型自报概率、不用关键词/同义词表代替模型、
+  不因为语义相近就替换对象或目标（例如不会把"把碗放柜顶"换成"放盘子"）。
+- **历史**：`d1-3B` 决策模式已按用户授权下线并从活动代码删除（服务、规划器、启动脚本、
+  UI 选项、health 探测），只保留 Git 历史与 `records/ab/` 里的精简对照证据。
 
 ## 2. 模型层
 
@@ -241,7 +259,15 @@
 - 停止的动作预算：`stop()` 记录 `sim_at_request` / `sim_at_ack` / `in_flight_actions`。
   已经交给仿真的那一步无法撤回，所以契约是"**停止后不再下发新动作**"，
   在途动作只会是 0 或 1，并写进 `/api/stop` 响应与 `status.last_stop`。
-  `scripts/test_lifecycle.py` 断言该值 ≤1 且确认 3 s 后 `sim_action_count` 不再增长。
+  `sim_at_ack` 由 `_settled_sim_count()` 通过 `env.client` 连续取快照、直到两次读数一致
+  （上限 2 s、取最大值）后写入，不能只取一次：rollout 线程 join 返回时，最后一步可能仍在
+  env 进程里执行，单次快照会少算一步，让"停止后无新动作"这条证据失真。
+  `scripts/test_lifecycle.py` 断言 `in_flight_actions ≤1`，且 3 s 后 `sim_action_count`
+  与 ack 值相等（连续两次运行通过）。
+- 停止回合的记录：`except Stopped` 分支在落盘前重新取一次快照，因此
+  `sim_action_count` / `episode_sim_actions` 反映**停止前真实执行过的动作数**
+  （此前用的是 prepare 阶段快照，恒为 0）。取不到时写 `stop_snapshot_failed` 日志，
+  不静默吞异常。
 
 ## 5. page_ui
 
@@ -250,12 +276,15 @@
   （Agent/Wrist）、开始/停止/reset 控件；`server.py` 改为连接新引擎 14800 的 WebSocket，
   原 `get_scenes` / `load` / `start` / `restart` 文本协议与"JSON 头 + 两路 JPEG"二进制帧
   保持不变，`stop` / `reset` / 身份消息为新增。
-- 展示字段全部来自后端 `/api/status` 的 `identity`：Agent 模型与模式、动作模型、
-  世界模型状态、推理后端与 async/sync 模式、阶段与失败原因。没有写死标签。
-- Agent 模式切换（`qwen` / `d1` / `d1_with_qwen_fallback`）通过现有 WebSocket 文本协议新增的
-  `agent_mode` 消息转发到引擎 `/api/agent_mode`；页面只显示身份消息里的真实模式，
-  引擎在 planning/running/recovering/stopping 阶段拒绝切换（HTTP 409），因此不会出现
-  "页面显示已切换、实际回合仍用旧模型"的情况。切换控件只在 idle 阶段可用。
+- 展示字段全部来自后端 `/api/status` 的 `identity`：Agent 模型与模式、语义路由的
+  非思考模式/最大 token/目录版本、动作模型、世界模型状态、推理后端与 async/sync 模式、
+  阶段与失败原因。没有写死标签。
+- 语义链路展示：用户原始输入（`raw_instruction`）、模型语义选择与目录键
+  （`semantic_choice` → `task_id key`）、理解后的官方标准任务（`official_instruction`）、
+  需要切换任务时的目标任务（`needs_scene_switch`），以及阶段与失败原因。
+  没有 `--` 之外的占位值：未识别时对应字段为空并在页面上标红。
+- 本层已没有 Agent 模型切换控件（只有 Qwen 一个语言模型），旧的
+  `qwen` / `d1` / `d1_with_qwen_fallback` 消息通道随 d1 下线一起删除。
 - 旧 `page_ui/README.md` 是 ManiSkill 时期的说明，仅作来源记录，不代表当前链路。
 - 回合隔离：引擎维护 `planner_generation`，`load` / `reset` / 执行中的 `stop` / 新回合都会
   递增；规划请求跨过任何一个生命周期转换后，其返回值代次已过期，被丢弃并记
@@ -274,12 +303,15 @@ cd /home/host/page-dmh/embodied_engine
 ./scripts/stop_all.sh               # 只停本项目记录的 PID（不含 14520）
 ./scripts/openwam_server.sh stop    # 停 OpenWAM 服务
 python3 scripts/run_suite.py --tasks all --runs 3 --timeout 900
-./scripts/d1_server.sh start         # d1-3B 决策服务 14710（GPU0）；status|stop|restart
-python3 scripts/eval_offline.py      # 冻结离线集（config/offline_eval.json）
-python3 scripts/run_ab.py --tasks all --seeds 0,1,2 --modes qwen,d1 \
-  --out records/ab/ab_frozen.json    # 60 回合交错 A/B
-python3 scripts/summarize_ab.py records/ab/ab_frozen.json --markdown
+python3 scripts/eval_offline.py --set config/semantic_eval_20261027c.json \
+    --out records/offline/semantic_eval_20261027c.json --legacy --legacy-limit 20
+python3 scripts/run_language_rounds.py --rounds config/language_rounds_20261027.json
+python3 scripts/test_lifecycle.py   # stop/reset/planner_generation 回归（不需要重新加载模型）
+python3 -m unittest discover -s tests -p "test_*.py" -v   # 语义路由、任务目录、计划契约、完成判定、OpenWAM 契约
 ```
+
+`scripts/d1_server.sh`、`agent/d1_service.py`、`agent/d1_planner.py`、`scripts/run_ab.py`
+已按下线要求删除，`records/ab/` 中的精简 A/B 证据与 Git 历史仍保留。
 
 OpenWAM 启动记录写在 `records/openwam_server.json`（pid、commit、checkpoint、
 `generate_horizon`、`execute_horizon`、`denoise_steps`、GPU），因此"实际执行 horizon"
@@ -303,16 +335,19 @@ OpenWAM 启动记录写在 `records/openwam_server.json`（pid、commit、checkp
 
 | 层 | 状态 | 说明 |
 | --- | --- | --- |
-| Agent | DONE（Qwen3.5-9B 默认） | Jev 无凭据/无本地权重，未接入，未冒充；技能目录随 `action_model.backend` 收缩 |
-| Agent（d1-3B 可选） | **PARTIAL** | `d1` 决策模式可用，A/B 成功率低于 Qwen，保持 Qwen 为默认；结论见验收报告 §14 |
+| Agent | DONE（Qwen3.5-9B，语义路由） | Jev 无凭据/无本地权重，未接入，未冒充；十任务语义路由 + 代码组装 + 有界恢复 |
+| Agent（d1-3B） | **已下线并删除** | 用户授权后停止服务、删除权重与专用 venv、移除代码/UI/health 依赖；证据见验收报告 §15 |
 | 动作模型（`pi05`） | DONE | 常驻、真实推理、真实执行（基线保留） |
 | 动作模型（`openwam`） | **DONE，执行链** | 常驻 14520，真实 10 维动作；LIBERO-Goal 实测见验收报告 |
 | 推理引擎 | DONE | 双后端选择、Pi0.5 异步块预取、OpenWAM 同步单步、token/epoch/age 校验、取消与缓冲清理 |
 | LIBERO 适配 | DONE | 快照、关节、site、RPC、生命周期；OpenWAM 契约逐函数对拍 |
-| page_ui | DONE（协议 + 浏览器） | 身份消息显示真实后端与 OpenWAM 状态 |
+| 任务目录 | DONE | `config/tasks.json` 为唯一任务表，含官方指令、BDDL/init 指纹与语义绑定 |
+| page_ui | DONE（协议 + 浏览器） | 身份消息显示 Qwen＋OpenWAM；显示原文/语义/标准任务/阶段/失败原因 |
 | 十任务（Pi0.5 历史验收） | **PARTIAL（26/30）** | seed 0、每项 3 回合；失败项与断点见 `docs/acceptance_report.md` |
 | 十任务（OpenWAM 单轮） | 见 `docs/acceptance_report.md` | 每任务 1 回合，不重试 |
-| 十任务 ×3 初始化 A/B（60 回合） | 见 `docs/acceptance_report.md` §14 | Qwen vs d1 同 OpenWAM、同初始化、交错顺序 |
+| 十任务 ×3 初始化 A/B（60 回合，历史） | 见 `docs/acceptance_report.md` §14 | d1 已下线，仅作历史对照 |
+| 同义指令映射（离线） | DONE | 回归集 101 例 + 新冻结集 100 例，映射 100%，中位 0.68 s，见验收报告 §17 |
+| 20 回合语言闭环（真实执行） | DONE（映射 20/20，原生 19/20） | 10 任务 × 1 英文改写 + 1 中文表达，指令运行前冻结；释放证据单列，见 §18 |
 
 验收与记录：
 

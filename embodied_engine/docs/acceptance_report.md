@@ -2,6 +2,8 @@
 
 > 阶段说明：§1–§10 是 **Pi0.5 基线**的 30 回合验收；§11 是本阶段新增的 **OpenWAM 模型层接入**验收
 > （独立代码状态、独立数据）。两节的数字不可混用。
+> §12–§14 是速度测量、d1 对照与 60 回合 A/B 的历史记录；§15 起记录 2026-10-27 的
+> **d1 下线、十任务目录统一、Qwen 语义路由、20 回合语言闭环**，其中 d1 已不再运行。
 
 本文件只记录已经跑出来的数字和失败原因。所有结果来自 `records/acceptance/final_3x_rehome.json`
 及其引用的 30 份回合记录（归档在 `records/acceptance/final_3x_rehome_runs/`），可用
@@ -382,6 +384,12 @@ Inference: async_chunk_prefetch / pi05
 因此本阶段的 `user_goal_success` 以官方 goal 为准；若额外要求"释放证据"，
 只能算 **3/10**。报告不把闭合夹爪写成一次释放，也不补 Pi0.5 式的 release 收据。
 
+> **口径补丁（2026-10-27）**：上表 7 个"夹爪闭合到达 goal"的回合，按当前规则应记为
+> **释放证据 unknown（未验证）**，而不是"已放下并释放"；`native_task_success=True` 保留，
+> 历史结果不改写。引擎现已把这条口径写进每条记录：`release_evidence.state` 取
+> `observed / unknown / not_applicable`，`applicable` 只对 `pick_place` 与 `composite`
+> 为真，开抽屉、开炉灶、推盘子不会被要求释放。详见 §19。
+
 ### 11.5 生命周期与隔离
 
 `scripts/test_lifecycle.py`（stop 在第 11 个动作后发起）：
@@ -540,8 +548,9 @@ OpenWAM repo `4d7f642`，HF revision `110b07e`）在 :14520/GPU2；
   2. **同一候选决策**：Qwen 40/40 全部绑定正确、拒绝 7/8；d1 accepted 36/40 且
      同样全部正确、拒绝 7/8。模型差异主要在"是否弃权"和延迟（59.6×），
      而不是输出格式导致的能力差；d1 的低置信门是双刃剑。
-- **处置**：保留 `agent.mode=qwen` 为默认；d1 以 `d1` 模式参与真实 A/B，
+- **处置**：保留 `agent.mode=qwen` 为默认；d1 随后以 `d1` 模式参与真实 A/B，
   不通过放宽阈值或硬编码任务答案提升指标。目标绑定结论为 **PARTIAL**。
+  60 回合 A/B 判定 d1 不划算后，d1 已在 §15 整体下线，当前代码不再含 d1 模式。
 ## 14. Qwen vs d1-3B 真实执行对照（60 回合，2026-10-27）
 
 ### 14.1 冻结条件与协议
@@ -590,14 +599,21 @@ OpenWAM repo `4d7f642`，HF revision `110b07e`）在 :14520/GPU2；
 | 1 | put the bowl on the stove | 3/3 | 3/3 | 30.23 s | 25.77 s |
 | 2 | put the wine bottle on top of the cabinet | 2/3 | 2/3 | 31.76 s | 26.47 s |
 | 3 | open the top drawer and put the bowl inside | **3/3** | **0/3（拒绝）** | 54.80 s | — |
-| 4 | open the bottom drawer and put the bowl inside | 3/3 | 3/3 | 31.67 s | 26.04 s |
+| 4 | put the bowl on top of the cabinet | 3/3 | 3/3 | 31.67 s | 26.04 s |
 | 5 | push the plate to the front of the stove | 3/3 | 3/3 | 46.30 s | 41.45 s |
-| 6 | put the cream cheese in the basket | 3/3 | 3/3 | 34.10 s | 28.31 s |
+| 6 | put the cream cheese in the bowl | 3/3 | 3/3 | 34.10 s | 28.31 s |
 | 7 | turn on the stove | 3/3 | 3/3 | 27.58 s | 23.49 s |
 | 8 | put the bowl on the plate | **3/3** | **0/3（拒绝）** | 29.69 s | — |
 | 9 | put the wine bottle in the wine rack | 3/3 | 3/3 | 45.11 s | 41.97 s |
 
 同一任务三组初始化的成功率完全一致，说明差异来自 Agent 决策，而非初始化难度抽签。
+
+> **表内指令的更正（2026-10-27）**：本表早先手写的 task 4 与 task 6 指令有误，写成了
+> "open the bottom drawer and put the bowl inside" 与 "put the cream cheese in the basket"。
+> 真实执行记录 `records/ab/ab_frozen.json` 中这两项是 `put the bowl on top of the cabinet`
+> 与 `put the cream cheese in the bowl`，与 `config/tasks.json` 的官方指令一致；
+> 只是本表格文字写错，回合数据本身没有错。task 9 同理写作 `put the wine bottle on the rack`。
+> 现在十任务只由 `config/tasks.json` 维护，见 §16。
 
 ### 14.4 失败证据（全部保留）
 
@@ -690,10 +706,438 @@ OpenWAM repo `4d7f642`，HF revision `110b07e`）在 :14520/GPU2；
    而每步 0.26 s 的流水线开销不变。下一轮应先做动作循环的批量化/异步化
    （观测与快照合并、每步 RPC 合并、缓存取动作本地化），再谈引擎替换。
    本轮按要求**未改** OpenWAM 精度、采样步数、动作块或异步策略。
-5. **默认模式保持 `qwen`**，d1 作为可选 `d1` 模式保留，不通过放宽阈值
-   （如 source 0.492→0.49）或硬编码 task 3/8 答案来"修好"指标；如需继续，
-   应在独立校准集上重选阈值，再重新冻结正式集。
+5. **默认模式保持 `qwen`**；本轮结论只是「d1 不划算」，因此 d1 随后按用户要求在
+   §15 整体下线（服务、权重、venv、代码、UI 选项全部删除），而不是放宽阈值
+   （如 source 0.492→0.49）或硬编码 task 3/8 答案来"修好"指标。
+   若将来还要做前置过滤，应在独立校准集上重选阈值，重建一条独立服务。
 
 产物清单（本轮）：`records/ab/ab_frozen*.json|csv|md`、`records/ab/failure_evidence/*.json`、
 `records/acceptance/speed_{qwen_openwam,openwam_cold,planner_qwen,planner_d1}.json`、
 `records/acceptance/lifecycle_planner_generation.json`、`records/offline/{eval,calibration_d1_v4,eval_semantic_recheck}.json`。
+
+---
+
+## 15. d1-3B 下线与资源回收（2026-10-27）
+
+d1 作为 §12–§14 的第二条决策链路已完成对照任务：在 60 回合交错 A/B 中它用 0.158 s
+的决策把成功率从 29/30 降到 23–24/30，收益为负（§14.2）。本阶段按用户要求**彻底移除**，
+生产栈回到 Qwen3.5-9B + OpenWAM 两条模型。
+
+### 15.1 停止服务
+
+| 项 | 停止前 | 停止后 |
+| --- | --- | --- |
+| 进程 | PID 1410342，`2026-10-27 03:07:15 +08:00` 启动 | 进程不存在 |
+| 命令 | `.venv-d1/bin/python agent/d1_service.py` | 脚本与入口文件已删除 |
+| 监听 | `127.0.0.1:14710` | 端口无监听 |
+| 显存 | GPU0 6800 MiB | GPU0 4 MiB（仅驱动上下文） |
+
+停止方式为 `bash scripts/d1_server.sh stop`（脚本等待进程退出后核对端口与显存），
+不是 `kill -9`。停机发生在删除之前，确保没有进程持有被删文件的句柄。
+
+### 15.2 删除范围
+
+| 路径 | 内容 | 释放 |
+| --- | --- | --- |
+| `openwam_harness/checkpoints/LiquidAI-d1-3B` | 16 个权重文件 | 6,265,092,138 B（5974.9 MiB） |
+| `embodied_engine/.venv-d1` | 34,561 个普通文件 | 仅 430 个独占 inode，6,280,626 B（5.99 MiB） |
+| `records/d1_server.pid`、`records/d1_server.json` | 运行记录 | 8 B + 493 B |
+| `agent/d1_service.py`、`agent/d1_planner.py`、`scripts/d1_server.sh`、`scripts/run_ab.py`、`tests/test_d1_planner.py` | 代码 | 由 git 历史保留 |
+| `config/offline_calibration.json`、`records/offline/calibration_d1_v4.json` | d1 阈值校准集 | 已删除（阈值脚本只服务 d1） |
+
+`.venv-d1` 的 `du` 显示 7296 MiB，但其中 34,131 个 inode 与 `.venv-openwam`
+**硬链接共享**；`du` 会把共享块在两个 venv 各算一次。删除时只移除目录项，
+共享块不释放，`.venv-openwam` 的 34,131 个文件仍在原位。这正是删除前逐 inode
+核对、并在删除后复核的原因：**不能用 `du` 估算释放量，也不能用 `du` 验证完整性。**
+
+### 15.3 实测释放量与完整性
+
+| 指标 | 数值 |
+| --- | --- |
+| 预期释放（独占文件之和） | 6,271,372,764 B |
+| 实测释放（`df` 空闲空间差，跨删除前后） | 6,287,941,632 B = **5.856 GiB** |
+| 与预期差额 | +16.6 MB（目录项、块对齐、日志轮转） |
+| `.venv-openwam` 删除后普通文件数 | 34,131（删除前同值） |
+| 端口 14710 | 无监听 |
+| d1 源文件 | 不存在 |
+| GPU0 占用 | 4 MiB |
+
+`.venv-d1/bin/python`、`bin/python3`、`bin/python3.10`、`lib64` 都是符号链接
+（分别指向 `/usr/bin/python3.10` 与本目录 `lib`），`rm -rf` 不跟随符号链接，
+因此系统 Python 与 `lib` 内容都不受影响。审计记录：
+`records/acceptance/d1_cleanup_manifest.json`（含逐路径 inode 统计与删除后复核）。
+
+保留的 d1 痕迹只有三类，均为**证据**而非可运行资源：
+`records/ab/ab_frozen.json`（60 回合对照数据）、`records/ab/failure_evidence/`（拒绝回合的逐请求证据）、
+`records/logs/d1_server.log`，以及 `experiment/d1-3b-20261027` 分支上的历史代码。
+
+### 15.4 清理后的可运行性复核
+
+删除后按顺序复核，任一失败即回滚：
+
+1. Qwen `:8001/v1/models` 可枚举 → 通过；
+2. Agent `:14700/health` 返回 `mode=semantic_router`，无 d1 字段 → 通过；
+3. `scripts/test_lifecycle.py` 全链路（health → 场景加载 → 指令 → 执行 → 复位）→ 通过，见 §18.6；
+4. 十任务完整回合（§18 的 20 回合）→ 通过，见 §18。
+
+`config/engine.json`、`common/config.py`、`scripts/bench_speed.py` 中所有 d1 分支、
+阈值加载、健康检查与测速入口同步移除；`page_ui` 删除了「Agent 模式」下拉框与「切换」按钮
+（那正是 d1 的唯一入口），指令框改为自由文本（中英文皆可），并新增一行理解面板：
+`原文 / 理解 / 标准任务 / 需要切换`，把「用户说了什么 → 路由到哪个键 → 最终送给策略的标准指令」
+暴露在页面上，而不是只显示成功与否。`scripts/test_lifecycle.py` 新增断言：
+health 响应中不得再出现 `d1` 字样，防止代码与文档再次漂移。
+
+---
+
+## 16. 十任务唯一目录（`config/tasks.json` v2）
+
+### 16.1 为什么需要统一
+
+此前的十任务信息散落在三处，各自可手改：`config/tasks.json`（给模型看的指令）、
+LIBERO 安装包（`task_map` + BDDL + init）、以及文档里的手抄表格。
+§14.3 的 task 4 / task 6 两行文字写错（写成 "open the bottom drawer..." 与
+"put the cream cheese in the basket"）就是手抄层漂移的实例——**回合数据没错，
+只是文档文字错**。本阶段把「哪个任务叫什么、目标是什么、指令原文是什么」
+收敛到单一文件，其余位置只读取，不再手写。
+
+### 16.2 权威来源与指纹
+
+| 项 | 值 |
+| --- | --- |
+| 套件 | `libero_goal`（10 个任务） |
+| 代码来源 | `https://github.com/RLinf/LIBERO.git` |
+| commit | `a8323074d93a09e32bd898630a70531b1f51bc77`（`rpent` 构建） |
+| 包路径 | `openwam_harness/envs/rpent/lib/python3.10/site-packages/libero/libero` |
+| 任务顺序文件 | `benchmark/libero_suite_task_map.py` |
+| 任务表指纹 | `tasks_info_sha256 = 547286ce…b479382` |
+| 目录版本 / 指纹 | `2026-10-27.1` / `7eb62a5d…43ffecf`（`common/task_catalog.py` 计算） |
+
+**官方指令不是 BDDL 的 `:language`。** LIBERO 的 `Task.language` 由
+`libero/benchmark/__init__.py::grab_language_from_filename` 从文件名生成，
+与环境里的 BDDL 文字并不一致，而评测对齐的是前者：
+
+| task | 官方指令（评测口径） | BDDL `:language` | 差异 |
+| --- | --- | --- | --- |
+| 0 | open the middle drawer of the cabinet | Open the middle layer of the drawer | layer → drawer |
+| 2 | put the wine bottle on top of the cabinet | Put the wine bottle on the top of the drawer | drawer ≠ cabinet |
+| 3 | open the top drawer and put the bowl inside | Open the top layer of the drawer and put the bowl inside | layer → drawer |
+| 4 | put the bowl on top of the cabinet | Put the bowl on the top of the drawer | drawer ≠ cabinet |
+| 6 | put the cream cheese in the bowl | Put the cream cheese on the bowl | in → on |
+
+若直接采信 BDDL 文案，task 4 会变成「放在抽屉顶上」（实际目标是
+`wooden_cabinet_1_top_side`），task 6 会变成「放在碗上」。BDDL 在本项目里
+只用于两件事：抽取 `goal_atoms` 供原生目标判定、以及审计哈希。
+
+### 16.3 十任务表
+
+| id | key | 官方指令 | 类型 | source → target | 原生目标原子 |
+| --- | --- | --- | --- | --- | --- |
+| 0 | `open_middle_drawer` | open the middle drawer of the cabinet | open_drawer | — → `wooden_cabinet_1_middle_region` | `Open wooden_cabinet_1_middle_region` |
+| 1 | `put_bowl_on_stove` | put the bowl on the stove | pick_place | `akita_black_bowl_1` → `flat_stove_1_cook_region` | `On akita_black_bowl_1 flat_stove_1_cook_region` |
+| 2 | `put_wine_bottle_on_cabinet_top` | put the wine bottle on top of the cabinet | pick_place | `wine_bottle_1` → `wooden_cabinet_1_top_side` | `On wine_bottle_1 wooden_cabinet_1_top_side` |
+| 3 | `open_top_drawer_put_bowl_inside` | open the top drawer and put the bowl inside | composite | `akita_black_bowl_1` → `wooden_cabinet_1_top_region` | `In akita_black_bowl_1 wooden_cabinet_1_top_region` |
+| 4 | `put_bowl_on_cabinet_top` | put the bowl on top of the cabinet | pick_place | `akita_black_bowl_1` → `wooden_cabinet_1_top_side` | `On akita_black_bowl_1 wooden_cabinet_1_top_side` |
+| 5 | `push_plate_front_of_stove` | push the plate to the front of the stove | push | `plate_1` → `main_table_stove_front_region` | `On plate_1 main_table_stove_front_region` |
+| 6 | `put_cream_cheese_in_bowl` | put the cream cheese in the bowl | pick_place | `cream_cheese_1` → `akita_black_bowl_1` | `On cream_cheese_1 akita_black_bowl_1` |
+| 7 | `turn_on_stove` | turn on the stove | turn_on | — → `flat_stove_1` | `Turnon flat_stove_1` |
+| 8 | `put_bowl_on_plate` | put the bowl on the plate | pick_place | `akita_black_bowl_1` → `plate_1` | `On akita_black_bowl_1 plate_1` |
+| 9 | `put_wine_bottle_on_rack` | put the wine bottle on the rack | pick_place | `wine_bottle_1` → `wine_rack_1_top_region` | `On wine_bottle_1 wine_rack_1_top_region` |
+
+注意 task 6：指令说 `in the bowl`，而这个构建的原生目标判定是 `On`。
+**指令口径与判定口径本来就可以不同**，两者都以冻结文件为准，不互相改写；
+§18 的「原生目标成立」指上表的谓词成立，不代表指令里的介词被逐字实现。
+
+task 3 是唯一的复合任务，`semantics.subgoals` 记录「开上抽屉」与「放碗」两个子目标；
+路由层不允许把它拆成两个单独能力（见 §17 提示词规则 3）。
+
+### 16.4 单一来源与消费方
+
+`common/task_catalog.py` 是唯一读取入口，对外提供
+`task_by_id / task_by_key / task_for / capability_rows / scene_support / fingerprint`。
+消费方全部改为调用它，不再自带副本：
+
+| 消费方 | 用途 |
+| --- | --- |
+| `agent/semantic_router.py` | 候选键与能力描述（`capability_rows`）、场景实体校验、装配官方指令 |
+| `engine/engine_service.py`、`/api/tasks` | 页面场景/任务下拉与健康信息 |
+| `page_ui` | 「标准任务」显示路由后实际送给策略的指令 |
+| `scripts/eval_offline.py`、`scripts/run_language_rounds.py` | 测试集校验、逐回合对照 |
+| `tests/test_task_catalog.py` | 断言 key 唯一、10 条齐全、指纹与 LIBERO 安装一致、官方指令与文件名推导一致 |
+
+因此「文档写一套、代码跑另一套」不再可能：指令文字只有 `tasks.json` 一处可改，
+改了就改变指纹，测试与离线评测都会立刻发现。
+
+---
+
+## 17. Qwen 语义路由（替代整段规划）
+
+### 17.1 旧链路的两个问题
+
+旧实现让 Qwen 直接产出完整计划 JSON（`interpretation`、`success_condition`、`steps[]`），
+再由代码校验后交给 OpenWAM。三套评测集上实测（`records/offline/semantic_eval_20261027*.json`）：
+
+| 指标 | 旧链路（整段规划） |
+| --- | --- |
+| 请求中位耗时 | 4.93～5.92 s（三套集合） |
+| p95 / 最大 | 6.53～6.77 s / **7.16 s** |
+| prompt / completion token 中位 | 1305 / 118 |
+| 首 token | 0.179 s |
+| 指令与官方不一致 | 1/80（`t00_en1`） |
+
+耗时几乎全在 decode（4.71 s / 4.93 s）：模型要把一百多个 token 的说明文字写完，
+其中没有一个字节会进入策略输入。更严重的是第二点：`t00_en1`（"pull open the middle
+drawer of the wooden cabinet"）被旧链路原样传给 OpenWAM，而不是目录里的官方指令
+"open the middle drawer of the cabinet"——**改写指令等于改变策略输入分布**，
+成功率无从保证，而且这种错误只会在回合跑完后才暴露。
+
+### 17.2 新契约：只选键，其余交给代码
+
+```
+用户原文 ──► Qwen（非思考，≤24 token）──► {"choice":"<key>"} | {"choice":"clarify"} | {"choice":"unsupported"}
+                                                    │
+                     代码：目录查表 → 场景实体校验 → 已加载任务比对 → 装配官方指令 → plan_contract 校验
+                                                    │
+                                             {"skill":"whole_task","prompt":"<官方指令>"}
+```
+
+- **模型只看得到**：固定规则 + 十行能力描述（由 `tasks.json` 的 `capability` 生成）+ 用户原文。
+  提示词里**没有** task_id、官方指令、BDDL 目标或场景快照（`snapshot_in_prompt=false` 写入遥测），
+  所以不存在「答案泄漏」或「拿当前场景倒推任务」。
+- **模型输出**：一个 12 选 1 的键（10 个任务 + `clarify` + `unsupported`），
+  `max_tokens=24`，`temperature=0`，`response_format=json_object`，
+  `chat_template_kwargs.enable_thinking=false`（非思考模式，避免先输出思维链）。
+- **决策路径上没有任何关键词表或同义词词典**：同义句、中英文、语序变化全靠模型，
+  代码只做确定性校验。这是本阶段刻意守住的红线——否则「中文能跑」只是查表跑通。
+- **格式容错**：只允许 1 次修复回合（`max_repairs=1`），修复提示要求只返回修正后的 JSON。
+  四套集合共 406 个请求，实际修复次数 **0**。
+- 上限与模式来自 `config/engine.json` 的 `agent.semantic_router`（`max_tokens` / `max_repairs` / `model_mode`），
+  `router_options()` 读取后写入 health 与响应遥测，避免常量与配置两处漂移。
+- 返回给页面的 `understanding` 块包含：原文、选择键、标准指令、是否需切换场景、
+  场景缺失实体、修复次数、`assembly_s`。
+
+### 17.3 判定顺序（提示词的三条规则）
+
+模型必须先判 `clarify`、再选键、最后才判 `unsupported`：
+
+1. **`clarify`**：用户的话留下未填的槽位，且能力表能决定该槽位——未解析的代词/指示词
+   （"put it on the stove"、"把它放到炉灶上"）、完全没有目标（"move the bowl"）、
+   只给了容器没给层（"put the bowl inside the cabinet"）。
+2. **选键**：对象、目标位置、关系、层数、以及复合任务的每个子目标都吻合，才可选；
+   礼貌用语、语序、普通同义词不改变目标。
+3. **`unsupported`**：请求足够具体、可判定，但没有任何能力吻合——不存在的物体、
+   不存在的关系（"beside" / "near" / "behind" / "under"）、目录未收录的层数、
+   复合任务的一半、或把两个能力拼在一起。
+
+提示词里显式写明：**用户已经说出的关系或层数属于请求内容，不是缺失信息**，
+"put the bowl next to the stove" 必须是 `unsupported` 而不是 `clarify`。
+这条边界在两轮评测中分别错过两个方向，见 §17.5。
+
+### 17.4 四套评测集结果（含一次回归重跑）
+
+A / B / C 三套输入互不重叠（B′ 与 B 同一批输入，只作回归重跑），且与更早的回归集去重（生成脚本带重复项断言）：
+
+| 集合 | 用途 | 规模 | 正例选择正确 | 负例判定正确 | 场景不匹配 | 修复 | wall 中位 / p95 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| A `semantic_eval_20261027` | 开发集（写提示词时可见） | 104（80 正 / 22 负 / 2 错场景） | 80/80 | 17/22 | 2/2 | 0 | 0.624 / 0.822 s |
+| B `…20261027b` | 首次未见 | 101（80 / 19 / 2） | 80/80 | 15/19 | 2/2 | 0 | 0.673 / 0.803 s |
+| B′ `…20261027b_regression` | 改提示词后回归（与 B 同一批输入，不算独立样本） | 101 | 80/80 | 19/19 | 2/2 | 0 | 0.684 / 0.823 s |
+| C `…20261027c` | **第二次未见，零重叠** | 100（80 / 18 / 2） | **80/80** | **18/18** | **2/2** | **0** | **0.681 / 0.823 s** |
+
+正例 80 条 = 10 任务 ×（官方指令 + 英文改述 + 中文表达），覆盖：
+"grab the black bowl and set it down on the plate"、"把酒瓶放到架子上面" 等。
+负例分三类：目录外物体（apple / basket）、目录外关系（beside / behind / under）、
+复合任务拆半（只开上抽屉）、缺槽位（"put it on the stove"、"打开柜子抽屉"）。
+
+C 集的 `prompt_equals_official` 为 80/80：所有 `ok` 决定的 `whole_task` 输入
+**逐字等于** `tasks.json` 官方指令，没有一条是用户原话或模型改写。
+
+延迟拆解（C 集，100 请求）：
+
+| 阶段 | 中位 | p95 |
+| --- | --- | --- |
+| 首 token（TTFT） | 0.179 s | 0.185 s |
+| decode（≤24 token） | 0.457 s | 0.590 s |
+| 解析 + 校验 + 装配 | 0.0002 s | — |
+| 端到端墙钟 | **0.681 s** | **0.823 s** |
+| 旧链路端到端（同 20 条样本） | 5.92 s | 6.77 s |
+
+即端到端 **8.7×**，而 TTFT 与旧链路几乎相同（0.179 s vs 0.179 s）——
+加速全部来自少写一百多个 token，而不是换了推理引擎。
+
+### 17.5 两轮修正（真实错误，不做修饰）
+
+- **A 集 8 条正例被拒**：全部是 task 7（stove）。模型选择键 80/80 全对，
+  错在场景实体校验——炉灶本体只以 `flat_stove_1_cook_region`、
+  `flat_stove_1_main` 等 site/前缀形式出现在快照里，旧校验只查对象表，
+  于是判定 `required_entity_absent`。修正 `task_catalog.scene_support`：
+  目标与对象都按「对象表 + site 表 + 前缀匹配」查找，并加回归测试
+  `test_stove_is_found_through_its_cook_region_site`。
+- **A 集 5 条负例判成 `clarify`**（"open the bottom drawer"、"put the apple in the basket"）。
+  原因：提示词只说了「缺信息就 clarify」，没说「说出来了但目录没有」是 unsupported。
+- **B 集 4 条负例反向出错**：补了上面的规则后矫枉过正，
+  "put it on the stove"、"把碗放进柜子"（缺层）被判成 `unsupported`。
+  最终提示词明确两条规则的先后：**未解析代词/指示词、缺层数的容器 → claridfy 优先**；
+  **已说出的关系/层数 → 属于请求内容 → unsupported**。
+- **B′ 与 C 均为 100%**，两套集合都是在提示词冻结之后才跑的；C 集与 B/B′ 零重叠。
+
+这三轮改动只调提示词的判定顺序，没有加任何关键词或任务特判；
+A 集的 5 条误判在 B′/C 上不再出现，B 集的 4 条误判在 B′/C 上也不再出现。
+
+### 17.6 局限（必须与上面的数字一起读）
+
+1. **测试集是自建的，没有人工标注金标。** C 集 100 条由我按任务目录生成并逐条核对，
+   能证明「在这套分布上稳定」，不能证明「覆盖了真实用户的说法分布」。
+2. **规模小。** 每任务 8 条正例；80/80 的 95% 置信下界约 96%，
+   而不是「100% 正确」。
+3. **负例边界是产品决策，不是客观真理。** 「缺层数的容器」判 `clarify`、
+   「说的关系不存在」判 `unsupported`，这是本项目的取舍；换个团队可能反过来。
+   规则已写进提示词与本文，避免以后把取舍当成 bug 反复改。
+4. **没有测冷启动。** 以上延迟均在 vLLM 已加载、KV 缓存热的条件下测得；
+   冷启动（进程首次加载、首次 CUDA graph 捕获）不在本轮数据内。
+5. **没有并发测试。** 全部为单请求串行，多用户同时说话时的排队延迟未知。
+6. **修复路径没有被真实触发。** 0/406 次修复意味着 `max_repairs` 的线上行为只有
+   单元测试覆盖（用假模型注入坏 JSON），真实模型没有走到过。
+7. **中文只测了 20 条/集。** 口音式表达、方言、同音错字（如「炉灶/炉罩」）未覆盖；
+   模型对中文的鲁棒性仍是假设，不是结论。
+
+---
+
+## 18. 20 回合语言闭环（真实执行，2026-10-27）
+
+### 18.1 协议
+
+| 项 | 值 |
+| --- | --- |
+| 清单 | `config/language_rounds_20261027.json`，**首轮执行前冻结**（`frozen=true`） |
+| 规模 | 20 回合 = 10 任务 ×（1 条英文改述 + 1 条中文表达） |
+| 种子 | 0（每次 `env.reset()` 回到同一初始状态） |
+| 栈 | Qwen3.5-9B 语义路由（`:14700`）+ OpenWAM-Alpha-Sim-LIBERO（`:14520`），`sync_step` |
+| 目录 | `2026-10-27.1`，SHA256 `7eb62a5d…43ffecf` |
+| 输入 | 只把**用户原话**发给 `/api/run`；官方指令由 Agent 回查目录后组装，测试脚本不传官方句子 |
+| 无关变量 | 回合不重跑、不跳号；`max_recoveries=2` 是生产配置，失败回合同样保留 |
+| 结果 | `records/acceptance/language_rounds_20261027.json`，日志 `records/acceptance/language_rounds_run.log` |
+
+`mapping_ok` 的判定是五重与相等（不只看选了哪个键）：
+`decision_status=ok`、`semantic_choice=expected_choice`、
+`catalog_official_instruction`、`plan.steps[0].prompt`、`steps[0].verification.prompt`
+后三者都**逐字等于** `tasks.json` 官方指令。
+
+### 18.2 总表
+
+| 维度 | 结果 |
+| --- | --- |
+| 语言映射正确 | **20/20**（英文 10/10，中文 10/10） |
+| 官方指令逐字一致 | **20/20**（`plan_step_prompt` 与 `policy_verification_prompt` 均一致） |
+| 原生目标成立 | **19/20**（英文 9/10，中文 10/10） |
+| 释放证据 `observed` | **2/20**（task 6 英/中各一次，开度 0.0717 m） |
+| 释放 `not_applicable` | 6（task 0 / 5 / 7 各两次，开抽屉、推、开炉灶无释放阶段） |
+| 原生成立但夹爪仍闭合 | **11**（开度 0.0134～0.0418 m） |
+| 失败 | 1（task 2 英文，`native_goal_not_reached`，1800 动作，519.9 s） |
+| 路由器耗时 | 中位 **0.710 s**，p95 0.817 s（英文 0.712 / 中文 0.707） |
+| 成功回合耗时 | 中位 **29.2 s**，p95 51.5 s；仿真动作中位 99.5 |
+| 总墙钟 | 22.6 min（10:59:50 → 11:22:27），20 回合耗时之和 19.7 min |
+
+### 18.3 逐回合
+
+| # | task | 语言 | 用户原话 | 选择 | 原生 | 夹爪开度 (m) | 动作 | 耗时 (s) | 证据 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 | en | please pull open the middle drawer of the cabinet | `open_middle_drawer` | ✅ | 0.0771 | 116 | 33.6 | 无释放阶段 |
+| 2 | 0 | zh | 请把柜子中间的抽屉拉开 | `open_middle_drawer` | ✅ | 0.0797 | 135 | 38.8 | 无释放阶段 |
+| 3 | 1 | en | place the bowl on the stove | `put_bowl_on_stove` | ✅ | 0.0139 | 85 | 26.6 | 仍夹持 |
+| 4 | 1 | zh | 把碗放到炉灶上面 | `put_bowl_on_stove` | ✅ | 0.0136 | 82 | 25.4 | 仍夹持 |
+| 5 | 2 | en | get the wine bottle onto the cabinet top | `put_wine_bottle_on_cabinet_top` | ❌ | 0.0785 | 1800 | 519.9 | 松手但未达目标 |
+| 6 | 2 | zh | 请把红酒瓶摆到柜子上面 | `put_wine_bottle_on_cabinet_top` | ✅ | 0.0176 | 84 | 25.8 | 仍夹持 |
+| 7 | 3 | en | open the top drawer and place the bowl inside it | `open_top_drawer_put_bowl_inside` | ✅ | 0.0347 | 178 | 51.0 | 仍夹持 |
+| 8 | 3 | zh | 请先把顶层抽屉拉开，再把碗放进去 | `open_top_drawer_put_bowl_inside` | ✅ | 0.0134 | 182 | 51.5 | 仍夹持 |
+| 9 | 4 | en | put the bowl on the cabinet's top surface | `put_bowl_on_cabinet_top` | ✅ | 0.0190 | 86 | 26.5 | 仍夹持 |
+| 10 | 4 | zh | 把碗放到柜子顶部 | `put_bowl_on_cabinet_top` | ✅ | 0.0142 | 90 | 27.6 | 仍夹持 |
+| 11 | 5 | en | push the plate to the front of the stove | `push_plate_front_of_stove` | ✅ | 0.0755 | 192 | 54.0 | 无释放阶段 |
+| 12 | 5 | zh | 把盘子推到炉灶前方 | `push_plate_front_of_stove` | ✅ | 0.0756 | 147 | 42.5 | 无释放阶段 |
+| 13 | 6 | en | put the cream cheese inside the bowl | `put_cream_cheese_in_bowl` | ✅ | **0.0717** | 98 | 29.2 | **已释放** |
+| 14 | 6 | zh | 把奶油奶酪放到碗里 | `put_cream_cheese_in_bowl` | ✅ | **0.0717** | 101 | 30.3 | **已释放** |
+| 15 | 7 | en | switch on the stove | `turn_on_stove` | ✅ | 0.0292 | 84 | 25.5 | 无释放阶段 |
+| 16 | 7 | zh | 请把炉子打开 | `turn_on_stove` | ✅ | 0.0273 | 83 | 25.4 | 无释放阶段 |
+| 17 | 8 | en | set the bowl on the plate | `put_bowl_on_plate` | ✅ | 0.0151 | 79 | 24.7 | 仍夹持 |
+| 18 | 8 | zh | 请把黑碗搁到盘子上 | `put_bowl_on_plate` | ✅ | 0.0145 | 81 | 25.1 | 仍夹持 |
+| 19 | 9 | en | place the wine bottle up on the wine rack | `put_wine_bottle_on_rack` | ✅ | 0.0417 | 129 | 37.6 | 仍夹持 |
+| 20 | 9 | zh | 把酒瓶放到架子上 | `put_wine_bottle_on_rack` | ✅ | 0.0417 | 129 | 37.6 | 仍夹持 |
+
+### 18.4 三个维度必须分开读
+
+**（1）语言映射：20/20。**
+十任务各一句英文改述、一句中文表达，全部经由模型选键，**没有任何关键词表**；
+选出的键回查目录后，送给 OpenWAM 的 prompt 20/20 逐字等于官方指令。
+中文与英文的路由耗时中位差 0.005 s（0.707 / 0.712），没有"中文更慢"的迹象。
+这只能说明"在这 20 句冻结输入上映射正确"，样本量见 §18.7。
+
+**（2）原生目标：19/20，但这不是成功率。**
+唯一失败是 task 2 英文回合：3 次 600 步尝试（Qwen 恢复决策依次 `retry / retry / abort`，
+共 11.4 s），1800 步走完仍未达到 `On wine_bottle_1 wooden_cabinet_1_top_side`。
+关键证据是同任务的中文回合：
+
+| | 回合 5（失败） | 回合 6（成功） |
+| --- | --- | --- |
+| 初始场景指纹 | `fc50366cc74015d5` | `fc50366cc74015d5`（**完全相同**） |
+| 官方 prompt | put the wine bottle on top of the cabinet | 同左（逐字相同） |
+| 结果 | 1800 动作，519.9 s，未达目标 | 84 动作，25.8 s，达标 |
+
+**同一初始状态、同一官方指令、同一模型，结果相反**，说明 OpenWAM 的执行不是确定性的
+（task 0 的两回合官方 prompt 也相同，却分别是 116 与 135 个动作）。因此「19/20」
+是 20 个单样本的观测，不能当作成功率；本轮**没有**为了好看而重跑失败回合。
+
+**（3）释放证据：只有 task 6 真正松手。**
+达到原生目标的 13 个 pick_place / composite 回合里，11 个结束夹爪开度 0.0134～0.0418 m
+（阈值 0.05 m），即**物体被放到目标位姿时手指仍然闭合**；只有 task 6 两次都在 0.0717 m，
+是真正"放下并松手"。本轮失败的 task 2 英文回合反而是松手的（0.0785），说明
+"松手"与"达成目标"互不蕴含。
+
+这与 §11.4 的十任务单轮结果一致（task 1/3/4/8/9 当时就是 0.006～0.041），
+不是本轮新出现的退化。结论：**本部署的 OpenWAM 多数放置回合是"按到目标位置但没松手"**，
+原生目标成立只代表基准谓词成立，不代表一次完整的「放置并释放」。
+页面与记录里因此把释放单列，不用它去反向修饰成功率。
+
+### 18.5 耗时
+
+- 路由只占 0.71 s，回合耗时主要是动作循环：中位 29.2 s、p95 51.5 s；
+- 失败回合 519.9 s 由三次尝试构成，单次 600 步 = 156.5 s（3.83 Hz 墙钟，实时因子 0.192），
+  其中 inference 80.0 s、`env_step` 132.2 s、observe 91.2 s、snapshot 17.4 s —— 与 §13 的
+  瓶颈判断一致（不是模型前向，而是每步流水线）；
+- 20 回合总墙钟 22.6 min；失败回合 519.9 s 占 20 回合耗时之和（19.7 min）的 44%。
+
+### 18.6 生命周期与单元测试（本阶段收尾）
+
+`python3 -m unittest discover -s tests -p "test_*.py"`：**29 passed**
+（新增 `tests/test_task_catalog.py` 19 条，覆盖目录形状、LIBERO 一致性、指纹、场景实体校验）。
+
+`scripts/test_lifecycle.py` 第一次运行**失败**，失败项是
+`[fail] simulator advanced after stop ack: 30 -> 31`。追查后是两个真实缺陷：
+
+1. `Engine.stop()` 用 `self.env.state_snapshot()` 读计数，而 `self.env` 是 `EnvManager`、
+   没有该方法；`AttributeError` 被 `except` 静默吞掉，`sim_at_ack` 永远退回
+   `sim_at_request`，所以"停止后是否还有动作"这条证据其实一直没被测准。
+2. 停止回合的记录用 `prepare` 时的快照，`sim_action_count` 恒为 0 ——
+   日志里"12 s 的回合、0 个动作"是错的。
+
+修复：`_settled_sim_count()` 改为通过 `self.env.client` 连续取快照直到两次一致（上限 2 s，
+取最大值），`in_flight_actions` 由此准确；`except Stopped` 分支在生成记录前重新取一次快照，
+并在取不到时写 `stop_snapshot_failed` 日志而不是静默忽略。
+修复后同一脚本**连续两次 PASS**，停止回合记录显示 31 个动作（此前为 0），
+`in_flight_actions` 与实际一致。
+
+这是**停止路径的记账缺陷**，不改变任何回合的执行结果；§18.1–18.5 的 20 回合数据
+产生于该修复之前，未被改动，也未因此重跑。
+
+### 18.7 局限
+
+1. **每（任务，语言）只有 1 个样本。** 19/20 是观测值，不是成功率；task 2 的同初始状态
+   一败一成已经证明方差极大。
+2. **只用了 seed 0。** 初始物体位姿只有一套，"换初始化还能不能成"没有数据。
+3. **失败回合独占 44% 的运行时间。** 两次 `retry` 让单回合从 26 s 变成 520 s，
+   生产上是否值得两次重试，应该由"重试收益 / 时间成本"的独立实验决定，本轮未优化。
+4. **恢复决策仍走旧的全量规划路径**（Qwen `max_tokens=300`，每次 3.6～3.9 s），
+   不是语义路由；这部分延迟没有优化，也不在 0.71 s 的路由统计里。
+5. **释放阈值 0.05 m 是自定标准。** "仍夹持"只说明手指没张开，不代表物体没放稳；
+   反过来，张开也不等于放稳。两者需要各自的证据，本文没有把其中一个当作另一个。
+6. **中文表达由我撰写**，没有母语者盲评，"自然说法"的覆盖度未知；
+   这 10 句通过，不能推出任意中文都能通过。
+7. **不含人机确认。** 全部回合 `human_interventions=0`，页面只展示，不介入。

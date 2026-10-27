@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Page</title>
+<title>Page · Qwen + OpenWAM</title>
 <style>
   :root { --bg:#0f1115; --panel:#171a21; --ink:#e6e8eb; --dim:#8b93a1; --accent:#4f8cff; --good:#3ec47e; --bad:#e0563a; --warn:#e0b53a; }
   * { box-sizing:border-box; }
@@ -34,6 +34,10 @@
   #identity { display:flex; flex-wrap:wrap; gap:4px 16px; background:var(--panel); border:1px solid #2a2f3a; border-radius:8px; padding:6px 9px; font-size:11px; color:var(--dim); }
   #identity b { color:var(--ink); font-weight:500; }
   #identity .bad { color:var(--bad); }
+  #understanding { display:flex; flex-wrap:wrap; gap:4px 16px; background:var(--panel); border:1px solid #2a2f3a; border-radius:8px; padding:6px 9px; font-size:11px; color:var(--dim); }
+  #understanding b { color:var(--ink); font-weight:500; }
+  #understanding .bad { color:var(--bad); }
+  #understanding .good { color:var(--good); }
   .hint { color:var(--dim); font-size:11px; }
   @media (max-width:680px){ #views{grid-template-columns:1fr;} }
 </style>
@@ -41,7 +45,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Page</h1>
+    <h1>Page · Qwen + OpenWAM</h1>
     <div class="ctrl">
       <label for="scene">场景</label>
       <select id="scene"></select>
@@ -49,26 +53,27 @@
     </div>
     <div class="ctrl" style="flex:1;">
       <label for="task">任务</label>
-      <input id="task" type="text" placeholder="输入任务指令" disabled />
+      <input id="task" type="text" placeholder="用中文或英文描述任务" disabled />
       <button id="start" class="primary" disabled>开始</button>
       <button id="restart" disabled>重新开始</button>
       <button id="stop" disabled>停止</button>
       <button id="reset" disabled>重置</button>
     </div>
-    <div class="ctrl">
-      <label for="agent-mode">Agent 模式</label>
-      <select id="agent-mode"></select>
-      <button id="switch-agent" disabled>切换</button>
-    </div>
   </header>
   <div id="identity">
     <span>Agent: <b id="id-agent">—</b></span>
-    <span>Mode: <b id="id-agent-mode">—</b></span>
+    <span>Router: <b id="id-agent-mode">—</b></span>
     <span>Action: <b id="id-action">—</b></span>
     <span>World: <b id="id-world">—</b></span>
     <span>Inference: <b id="id-inference">—</b></span>
     <span>Phase: <b id="id-phase">—</b></span>
     <span id="id-failure-wrap" style="display:none;">Failure: <b id="id-failure" class="bad"></b></span>
+  </div>
+  <div id="understanding">
+    <span>原文: <b id="id-raw">—</b></span>
+    <span>理解: <b id="id-choice">—</b></span>
+    <span>标准任务: <b id="id-standard">—</b></span>
+    <span id="id-switch-wrap" style="display:none;">需要切换: <b id="id-switch" class="bad"></b></span>
   </div>
   <div id="views">
     <div class="view"><span class="tag">Agent</span><canvas id="agent"></canvas><span class="placeholder" id="ph-agent">未加载场景</span></div>

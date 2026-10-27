@@ -1,0 +1,32 @@
+{
+  "schema": "embodied_engine.language_rounds.v1",
+  "frozen": true,
+  "frozen_at": "2026-10-27",
+  "note": "Fixed before the first round was executed. One English paraphrase and one Chinese expression per task, ten tasks, twenty rounds. No round was dropped or repeated.",
+  "catalog_version": "2026-10-27.1",
+  "catalog_sha256": "7eb62a5ddbf3a48fcf20885522cf182761bcd554549841703a49b536443ffecf",
+  "seed": 0,
+  "backend": "openwam",
+  "rounds": [
+    {"round": 1, "task_id": 0, "lang": "en", "expected_choice": "open_middle_drawer", "instruction": "please pull open the middle drawer of the cabinet"},
+    {"round": 2, "task_id": 0, "lang": "zh", "expected_choice": "open_middle_drawer", "instruction": "请把柜子中间的抽屉拉开"},
+    {"round": 3, "task_id": 1, "lang": "en", "expected_choice": "put_bowl_on_stove", "instruction": "place the bowl on the stove"},
+    {"round": 4, "task_id": 1, "lang": "zh", "expected_choice": "put_bowl_on_stove", "instruction": "把碗放到炉灶上面"},
+    {"round": 5, "task_id": 2, "lang": "en", "expected_choice": "put_wine_bottle_on_cabinet_top", "instruction": "get the wine bottle onto the cabinet top"},
+    {"round": 6, "task_id": 2, "lang": "zh", "expected_choice": "put_wine_bottle_on_cabinet_top", "instruction": "请把红酒瓶摆到柜子上面"},
+    {"round": 7, "task_id": 3, "lang": "en", "expected_choice": "open_top_drawer_put_bowl_inside", "instruction": "open the top drawer and place the bowl inside it"},
+    {"round": 8, "task_id": 3, "lang": "zh", "expected_choice": "open_top_drawer_put_bowl_inside", "instruction": "请先把顶层抽屉拉开，再把碗放进去"},
+    {"round": 9, "task_id": 4, "lang": "en", "expected_choice": "put_bowl_on_cabinet_top", "instruction": "put the bowl on the cabinet's top surface"},
+    {"round": 10, "task_id": 4, "lang": "zh", "expected_choice": "put_bowl_on_cabinet_top", "instruction": "把碗放到柜子顶部"},
+    {"round": 11, "task_id": 5, "lang": "en", "expected_choice": "push_plate_front_of_stove", "instruction": "push the plate to the front of the stove"},
+    {"round": 12, "task_id": 5, "lang": "zh", "expected_choice": "push_plate_front_of_stove", "instruction": "把盘子推到炉灶前方"},
+    {"round": 13, "task_id": 6, "lang": "en", "expected_choice": "put_cream_cheese_in_bowl", "instruction": "put the cream cheese inside the bowl"},
+    {"round": 14, "task_id": 6, "lang": "zh", "expected_choice": "put_cream_cheese_in_bowl", "instruction": "把奶油奶酪放到碗里"},
+    {"round": 15, "task_id": 7, "lang": "en", "expected_choice": "turn_on_stove", "instruction": "switch on the stove"},
+    {"round": 16, "task_id": 7, "lang": "zh", "expected_choice": "turn_on_stove", "instruction": "请把炉子打开"},
+    {"round": 17, "task_id": 8, "lang": "en", "expected_choice": "put_bowl_on_plate", "instruction": "set the bowl on the plate"},
+    {"round": 18, "task_id": 8, "lang": "zh", "expected_choice": "put_bowl_on_plate", "instruction": "请把黑碗搁到盘子上"},
+    {"round": 19, "task_id": 9, "lang": "en", "expected_choice": "put_wine_bottle_on_rack", "instruction": "place the wine bottle up on the wine rack"},
+    {"round": 20, "task_id": 9, "lang": "zh", "expected_choice": "put_wine_bottle_on_rack", "instruction": "把酒瓶放到架子上"}
+  ]
+}

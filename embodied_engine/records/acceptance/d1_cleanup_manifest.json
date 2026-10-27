@@ -1,0 +1,86 @@
+{
+  "schema": "embodied_engine.d1_cleanup.v1",
+  "created_at": "2026-10-27T16:40:00+08:00",
+  "authorization": "user explicitly authorized stopping and deleting project-specific d1 resources",
+  "service_before": {
+    "pid": 1410342,
+    "started_at": "2026-10-27T03:07:15+08:00",
+    "cmdline": "/home/host/page-dmh/embodied_engine/.venv-d1/bin/python agent/d1_service.py",
+    "listen": "127.0.0.1:14710",
+    "gpu": "GPU0, 6800 MiB",
+    "stop_command": "bash scripts/d1_server.sh stop",
+    "after_stop": {
+      "pid_gone": true,
+      "port_14710_closed": true,
+      "gpu0_process_released": true
+    }
+  },
+  "disk_before_bytes": 181420122112,
+  "paths": [
+    {
+      "path": "/home/host/page-dmh/openwam_harness/checkpoints/LiquidAI-d1-3B",
+      "type": "model_checkpoint",
+      "files": 16,
+      "bytes": 6265092138,
+      "mib": 5974.86,
+      "hardlinks": 0,
+      "purpose": "d1-3B resident decision model weights",
+      "dependency": "agent/d1_service.py, agent/d1_planner.py, scripts/d1_server.sh",
+      "action": "delete directory"
+    },
+    {
+      "path": "/home/host/page-dmh/embodied_engine/.venv-d1",
+      "type": "python_venv",
+      "regular_inodes": 34561,
+      "shared_inodes_with_venv_openwam": 34131,
+      "unique_inodes": 430,
+      "unique_bytes": 6280626,
+      "unique_mib": 5.99,
+      "du_apparent_mib": 7296.0,
+      "hardlink_note": "du counts shared blocks in both venvs; deleting .venv-d1 does not free the shared 7.1 GiB. Only the 5.99 MiB of unique files is freed.",
+      "symlinks": [
+        ".venv-d1/bin/python -> /usr/bin/python3.10",
+        ".venv-d1/bin/python3 -> python",
+        ".venv-d1/bin/python3.10 -> python",
+        ".venv-d1/lib64 -> lib"
+      ],
+      "action": "delete directory entries only; rm -rf does not follow symlinks and must not touch .venv-openwam"
+    },
+    {
+      "path": "/home/host/page-dmh/embodied_engine/records/d1_server.pid",
+      "type": "runtime_record",
+      "bytes": 8,
+      "action": "delete"
+    },
+    {
+      "path": "/home/host/page-dmh/embodied_engine/records/d1_server.json",
+      "type": "launch_record",
+      "bytes": 493,
+      "action": "delete; identity is retained in this manifest"
+    }
+  ],
+  "retained": [
+    "Qwen3.5-9B, OpenWAM, Pi0.5 weights and environments",
+    ".venv-openwam (shared inodes must remain)",
+    "records/ab/ab_frozen.json and records/ab/failure_evidence/ (slim d1 comparison evidence)",
+    "records/logs/d1_server.log (failure evidence)",
+    "d1 experiment code in git history on experiment/d1-3b-20261027"
+  ],
+  "expected_freed_bytes": 6271372764,
+  "actual_freed_bytes": 6287941632,
+  "actual_freed_gib": 5.856,
+  "freed_measurement": "df free-space delta on / across the deletion, not a sum of du",
+  "verified_after": {
+    "checked_at": "2026-10-27T10:55:00+00:00",
+    "checkpoint_dir_exists": false,
+    "venv_d1_dir_exists": false,
+    "d1_pid_record_exists": false,
+    "d1_launch_record_exists": false,
+    "port_14710_listening": false,
+    "gpu0_memory_used_mib": 4,
+    "venv_openwam_regular_files": 34131,
+    "venv_openwam_note": "the 34131 files that were hard-linked into .venv-d1 are untouched",
+    "d1_source_files_exist": false
+  },
+  "deletion_rule": "Do not delete global model caches or anything outside the listed project paths. Verify df free-space delta instead of summing du."
+}

@@ -6,10 +6,6 @@
       "host": "127.0.0.1",
       "port": 14700
     },
-    "d1": {
-      "host": "127.0.0.1",
-      "port": 14710
-    },
     "inference": {
       "host": "127.0.0.1",
       "port": 14600
@@ -40,38 +36,15 @@
     }
   },
   "agent": {
-    "mode": "qwen",
     "llm_model": "Qwen3.5-9B",
     "llm_base_url": "http://127.0.0.1:8001/v1",
     "temperature": 0.0,
-    "max_tokens": 900,
+    "max_tokens": 300,
     "planner_vision": false,
-    "d1": {
-      "model": "LiquidAI/d1-3B",
-      "base_model": "LiquidAI/LFM2.5-VL-3B",
-      "license": "lfm1.0",
-      "source": "ModelScope",
-      "model_path": "/home/host/page-dmh/openwam_harness/checkpoints/LiquidAI-d1-3B",
-      "model_sha256": "50e03317847caf6df9a9aee27ed40f20554a86a21e60d1d47ba41a422b546c0c",
-      "python": "/home/host/page-dmh/embodied_engine/.venv-d1/bin/python",
-      "url": "http://127.0.0.1:14710",
-      "gpu_index": 0,
-      "timeout_s": 30,
-      "output_tokens_per_decision": 0,
-      "fallback_on": [
-        "error",
-        "unavailable"
-      ],
-      "thresholds": {
-        "supported_min": 0.5,
-        "operation_min": 0.5,
-        "operation_verb_min": 0.3,
-        "specified_min": 0.5,
-        "relation_min": 0.5,
-        "source_min": 0.5,
-        "target_min": 0.5,
-        "margin_min": 0.2
-      }
+    "semantic_router": {
+      "max_tokens": 24,
+      "max_repairs": 1,
+      "model_mode": "non_thinking"
     },
     "jev": {
       "endpoint": "https://api.typesafe.ai/v1/systemone",

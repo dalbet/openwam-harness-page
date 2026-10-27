@@ -196,6 +196,7 @@ def planner_bench(*, instruction: str, task_id: int, snapshot: dict[str, Any], r
         wall_s = time.perf_counter() - started
         attempts = response.get("attempts") or []
         last = attempts[-1] if attempts else {}
+        understanding = response.get("understanding") or {}
         rows.append(
             {
                 "n": index + 1,
@@ -203,17 +204,21 @@ def planner_bench(*, instruction: str, task_id: int, snapshot: dict[str, Any], r
                 "http_status": status,
                 "wall_s": round(wall_s, 4),
                 "status": response.get("status"),
-                "agent_mode": response.get("agent_mode"),
                 "total_s": response.get("total_s"),
                 "attempts": len(attempts),
                 "repairs": response.get("repairs"),
                 "timing": last.get("timing"),
+                "understanding": understanding,
                 "plan_steps": (response.get("plan") or {}).get("steps"),
                 "errors": response.get("errors"),
                 "response_keys": sorted(response.keys()),
             }
         )
-        print(f"[planner] {index + 1}/{reps} wall={wall_s:.3f}s status={response.get('status')}", flush=True)
+        print(
+            f"[planner] {index + 1}/{reps} wall={wall_s:.3f}s "
+            f"status={response.get('status')} choice={understanding.get('semantic_choice')}",
+            flush=True,
+        )
     warm = [row for row in rows if not row["cold"]]
     attempt_timings = [row["timing"] for row in rows if isinstance(row.get("timing"), dict)]
     return {
@@ -231,6 +236,7 @@ def planner_bench(*, instruction: str, task_id: int, snapshot: dict[str, Any], r
         "parse_s": summarize([row.get("parse_s") for row in attempt_timings]),
         "validate_s": summarize([row.get("validate_s") for row in attempt_timings]),
         "requests_observed": summarize([row.get("requests_observed") for row in attempt_timings]),
+        "choices": [row.get("understanding", {}).get("semantic_choice") for row in rows],
         "rows": rows,
     }
 
@@ -372,12 +378,6 @@ def main() -> int:
     parser.add_argument("--skip-planner", action="store_true")
     parser.add_argument("--skip-openwam", action="store_true")
     parser.add_argument("--skip-episode", action="store_true")
-    parser.add_argument(
-        "--planner-mode",
-        choices=["qwen", "d1", "d1_with_qwen_fallback"],
-        default=None,
-        help="switch the Agent mode before the planner bench, then restore the previous mode",
-    )
     args = parser.parse_args()
 
     report: dict[str, Any] = {
@@ -410,36 +410,13 @@ def main() -> int:
     }
 
     if not args.skip_planner:
-        previous_mode = None
-        if args.planner_mode:
-            _, current = http("GET", f"{config.service_url('engine')}/api/agent_mode")
-            previous_mode = current.get("mode")
-            if previous_mode != args.planner_mode:
-                status, switched = http(
-                    "POST",
-                    f"{config.service_url('engine')}/api/agent_mode",
-                    {"mode": args.planner_mode},
-                    timeout_s=30,
-                )
-                if switched.get("status") != "ok":
-                    raise RuntimeError(f"agent mode switch failed: {status} {switched}")
-        try:
-            report["planner"] = planner_bench(
-                instruction=task["instruction"],
-                task_id=args.task,
-                snapshot=snapshot,
-                reps=args.planner_reps,
-            )
-        finally:
-            if previous_mode and previous_mode != args.planner_mode:
-                http(
-                    "POST",
-                    f"{config.service_url('engine')}/api/agent_mode",
-                    {"mode": previous_mode},
-                    timeout_s=30,
-                )
-        report["planner"]["mode"] = args.planner_mode or previous_mode
-        report["planner"]["restored_mode"] = previous_mode
+        report["planner"] = planner_bench(
+            instruction=task["instruction"],
+            task_id=args.task,
+            snapshot=snapshot,
+            reps=args.planner_reps,
+        )
+        report["planner"]["mode"] = "semantic_router"
     if not args.skip_openwam:
         report["openwam"] = openwam_bench(
             obs=obs,
@@ -461,9 +438,11 @@ def main() -> int:
         }
         episode["timing"] = record.get("timing")
         episode["openwam"] = record.get("openwam")
+        episode["semantic"] = record.get("semantic")
+        episode["release_evidence"] = record.get("release_evidence")
         episode["plan"] = {
             key: (record.get("plan") or {}).get(key)
-            for key in ("source", "latency_s", "steps", "interpretation")
+            for key in ("source", "latency_s", "steps", "interpretation", "official_instruction")
         }
         report["episode"] = episode
 

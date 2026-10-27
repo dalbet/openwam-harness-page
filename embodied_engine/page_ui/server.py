@@ -103,12 +103,13 @@ def identity_message(status: dict) -> dict:
     action = identity.get("action_model") or {}
     inference = identity.get("inference") or {}
     openwam = action.get("openwam") or {}
+    plan = status.get("plan") or {}
     return {
         "type": "identity",
         "agent_model": agent.get("model") or "unavailable",
         "agent_status": agent.get("status"),
-        "agent_mode": agent.get("mode") or "unknown",
-        "agent_modes": agent.get("modes") or ["qwen", "d1", "d1_with_qwen_fallback"],
+        "agent_mode": agent.get("mode") or "semantic_router",
+        "agent_router": agent.get("routing") or {},
         "action_model": action.get("name") or "unavailable",
         "action_backend": action.get("backend"),
         "world_model": openwam.get("name") or "not configured",
@@ -117,6 +118,8 @@ def identity_message(status: dict) -> dict:
         "inference_backend": (inference.get("identity") or {}).get("backend") or "unknown",
         "phase": status.get("phase"),
         "failure_reason": status.get("failure_reason") or "",
+        "raw_instruction": status.get("instruction") or "",
+        "understanding": plan.get("understanding") or {},
     }
 
 
@@ -423,21 +426,6 @@ async def handle_msg(msg: dict, client: Client) -> None:
             await HUB.text({"type": "state", "phase": "已重置", "detail": f"task {out.get('scene_epoch')}", "cls": "good"})
         else:
             await HUB.text({"type": "state", "phase": "重置失败", "detail": out.get("error") or str(out), "cls": "bad"})
-    elif kind == "agent_mode":
-        mode = str(msg.get("mode") or "")
-        out = await engine_post("/api/agent_mode", {"mode": mode}, timeout=15)
-        if out.get("status") == "ok":
-            await HUB.text(identity_message(await engine_get("/api/status", timeout=10)))
-            await HUB.text({"type": "state", "phase": "Agent 已切换", "detail": mode, "cls": "good"})
-        else:
-            await HUB.text(
-                {
-                    "type": "state",
-                    "phase": "Agent 切换被拒绝",
-                    "detail": out.get("error") or str(out),
-                    "cls": "bad",
-                }
-            )
     elif kind == "get_status":
         client.enqueue_text(identity_message(await engine_get("/api/status", timeout=10)))
     elif kind == "client_perf":

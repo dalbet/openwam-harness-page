@@ -1,10 +1,16 @@
 #!/usr/bin/env python
-"""Agent layer service: task understanding, structured planning, recovery.
+"""Agent layer service: semantic routing, plan assembly, bounded recovery.
 
-Binds to 127.0.0.1:14700. The model is the local Qwen3.5-9B served by vLLM
-on port 8000. Jev (TypeSafe System One) is disabled: only a waitlisted cloud
-API is published, no local weights or credentials are available. The planner
-receives scene metadata and simulation state, not camera pixels.
+Binds to 127.0.0.1:14700. Qwen3.5-9B is the only language model. It is used
+twice, for different jobs:
+
+* ``/plan``: a compact semantic router that chooses one of the ten catalog
+  tasks (or clarify/unsupported) from the user's original instruction. Code
+  then looks up the official LIBERO instruction, checks the live scene and
+  assembles the single ``whole_task`` step for OpenWAM.
+* ``/recover``: a bounded retry/abort decision for the whole-task policy.
+
+No camera pixels are sent to the language model.
 """
 
 from __future__ import annotations
@@ -21,37 +27,8 @@ if str(PROJECT) not in sys.path:
 
 from aiohttp import web  # noqa: E402
 
-from agent import d1_planner, planner  # noqa: E402
-from common import config  # noqa: E402
-
-AGENT_MODES = {"qwen", "d1", "d1_with_qwen_fallback"}
-
-
-def _mode() -> str:
-    mode = str(config.engine_config()["agent"].get("mode") or "qwen")
-    return mode if mode in AGENT_MODES else "qwen"
-
-
-def _d1_identity() -> dict:
-    cfg = config.engine_config()["agent"]["d1"]
-    health = d1_planner.D1Client(cfg["url"], timeout_s=2.0).health(timeout_s=0.75)
-    return {
-        "model": cfg["model"],
-        "base_model": cfg["base_model"],
-        "license": cfg["license"],
-        "source": cfg["source"],
-        "url": cfg["url"],
-        "reachable": health.get("status") == "ok",
-        "health": health if health.get("status") == "ok" else health.get("error") or health,
-    }
-
-
-def _active_model(mode: str, d1: dict, llm_model: str) -> str:
-    if mode == "d1":
-        return d1["model"]
-    if mode == "d1_with_qwen_fallback":
-        return f"{d1['model']} with {llm_model} fallback"
-    return llm_model
+from agent import planner, semantic_router  # noqa: E402
+from common import config, task_catalog  # noqa: E402
 
 
 def _model_identity() -> dict:
@@ -66,155 +43,152 @@ def _model_identity() -> dict:
         return {"reachable": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
+def _router_choice(decision: dict) -> dict:
+    return {
+        "status": decision.get("status"),
+        "choice": decision.get("choice"),
+        "reason_code": decision.get("reason_code"),
+        "reason": decision.get("reason"),
+        "model": (decision.get("router") or {}).get("model"),
+        "mode": (decision.get("router") or {}).get("mode"),
+        "max_tokens": (decision.get("router") or {}).get("max_tokens"),
+        "catalog_version": (decision.get("router") or {}).get("catalog_version"),
+        "catalog_sha256": (decision.get("router") or {}).get("catalog_sha256"),
+        "latency_s": decision.get("total_s"),
+        "repairs": decision.get("repairs"),
+        "attempts": decision.get("attempts"),
+        "scene_support": decision.get("scene_support"),
+    }
+
+
+def _understanding(
+    *,
+    instruction: str,
+    decision: dict,
+    task: dict | None,
+    loaded_task: dict,
+    assembled: dict | None,
+) -> dict:
+    chosen = task or {}
+    official = str(chosen.get("official_instruction") or "")
+    support = decision.get("scene_support") or {}
+    return {
+        "raw_instruction": instruction,
+        "semantic_choice": decision.get("choice"),
+        "decision_status": decision.get("status"),
+        "reason_code": decision.get("reason_code"),
+        "reason": decision.get("reason") or (assembled or {}).get("reason"),
+        "task_key": chosen.get("key"),
+        "task_id": chosen.get("task_id"),
+        "official_instruction": official or None,
+        "prompt_source": "config/tasks.json official_instruction" if official else None,
+        "model": (decision.get("router") or {}).get("model"),
+        "model_mode": (decision.get("router") or {}).get("mode"),
+        "catalog_version": task_catalog.version(),
+        "catalog_sha256": task_catalog.fingerprint(),
+        "router_latency_s": decision.get("total_s"),
+        "scene_support": {
+            "ok": support.get("ok"),
+            "missing": support.get("missing") or [],
+        },
+        "loaded_task_id": loaded_task.get("task_id"),
+        "loaded_task_key": loaded_task.get("key"),
+        "required_task_id": chosen.get("task_id") if chosen else None,
+        "required_task_key": chosen.get("key") if chosen else None,
+        "needs_scene_switch": bool(assembled and assembled.get("status") == "task_mismatch"),
+        "target_preserved": official == str(chosen.get("instruction") or "") if official else None,
+    }
+
+
 async def health(request: web.Request) -> web.Response:
     agent_cfg = config.engine_config()["agent"]
-    mode = _mode()
-    d1 = _d1_identity()
     identity = _model_identity()
     return web.json_response(
         {
             "service": "agent",
             "status": "ok",
-            "mode": mode,
-            "model": _active_model(mode, d1, agent_cfg["llm_model"]),
+            "mode": "semantic_router",
+            "model": agent_cfg["llm_model"],
             "llm_model": agent_cfg["llm_model"],
             "llm_base_url": agent_cfg["llm_base_url"],
             "llm": identity,
-            "d1": d1,
             "planner_vision": False,
+            "routing": {
+                "contract": "one catalog choice; code assembles the official whole_task prompt",
+                **semantic_router.router_options(),
+                "catalog": task_catalog.catalog_evidence(),
+            },
             "jev": {
                 "enabled": False,
                 "official_endpoint": agent_cfg["jev"]["endpoint"],
                 "reason": "TypeSafe System One is a waitlisted cloud API; no local weights or credentials are present",
             },
-            "role": "task understanding, object binding, skill selection, recovery decisions",
+            "role": "semantic routing to the task catalog, plan assembly, bounded recovery decisions",
         }
     )
 
 
 def _qwen_plan(instruction: str, task: dict, snapshot: dict, body: dict) -> dict:
-    result = planner.request_plan(
+    """Route the user text, then assemble the official whole_task plan."""
+    started = time.perf_counter()
+    decision = semantic_router.decide(instruction, snapshot)
+    skills = _skills_for(body.get("backend"))
+    chosen = decision.get("task") if isinstance(decision.get("task"), dict) else None
+    assembled: dict | None = None
+    assembly_started = time.perf_counter()
+    if decision.get("status") == "ok":
+        assembled = semantic_router.assemble_plan(
+            decision,
+            loaded_task_id=int(task["task_id"]),
+            instruction=instruction,
+            snapshot=snapshot,
+            skills=skills,
+        )
+    assembly_s = time.perf_counter() - assembly_started
+    understanding = _understanding(
         instruction=instruction,
-        task=task,
-        snapshot=snapshot,
-        skills=_skills_for(body.get("backend")),
-        attempts=body.get("attempts") or [],
+        decision=decision,
+        task=chosen,
+        loaded_task=task,
+        assembled=assembled,
     )
-    result["agent_mode"] = "qwen"
-    result.setdefault("plan_source", "qwen3.5-9b")
+    understanding["assembly_s"] = round(assembly_s, 6)
+    result: dict = {
+        "agent_mode": "qwen",
+        "plan_source": "qwen3.5-9b-semantic-router",
+        "understanding": understanding,
+        "attempts": decision.get("attempts") or [],
+        "errors": decision.get("errors") or [],
+        "repairs": decision.get("repairs") or 0,
+    }
+    if decision.get("status") != "ok":
+        result.update(
+            {
+                "status": decision["status"],
+                "reason_code": decision.get("reason_code"),
+                "reason": decision.get("reason"),
+                "plan": None,
+            }
+        )
+    elif assembled is None or assembled.get("status") != "ok" or not assembled.get("plan"):
+        result.update(
+            {
+                "status": (assembled or {}).get("status") or "planning_failed",
+                "reason_code": (assembled or {}).get("reason_code"),
+                "reason": (assembled or {}).get("reason")
+                or "the assembled whole_task plan failed its contract",
+                "errors": (assembled or {}).get("errors") or result["errors"],
+                "plan": None,
+            }
+        )
+    else:
+        result.update({"status": "ok", "plan": assembled["plan"], "errors": []})
+    result["total_s"] = round(time.perf_counter() - started, 4)
     return result
 
 
-def _d1_accepted(d1_result: dict, mode: str) -> dict:
-    return {
-        "status": "ok",
-        "plan": d1_result["plan"],
-        "decision": d1_result.get("decision"),
-        "evidence": d1_result.get("evidence"),
-        "attempts": [],
-        "errors": [],
-        "repairs": 0,
-        "agent_mode": mode,
-        "plan_source": "d1-3b",
-        "total_s": (d1_result.get("decision") or {}).get("total_s"),
-    }
-
-
-def _d1_rejected(d1_result: dict, mode: str) -> dict:
-    return {
-        "status": d1_result.get("status") or "rejected",
-        "reason_code": d1_result.get("reason_code"),
-        "reason": d1_result.get("reason"),
-        "evidence": d1_result.get("evidence"),
-        "plan": None,
-        "attempts": [],
-        "errors": [{"field": "plan", "code": d1_result.get("reason_code"), "value": d1_result.get("reason")}],
-        "repairs": 0,
-        "agent_mode": mode,
-        "plan_source": "d1-3b",
-    }
-
-
-def _fallback_allowed(cfg: dict, d1_result: dict | None, d1_error: str | None) -> bool:
-    """Only the failure kinds named in agent.d1.fallback_on hand the plan to Qwen.
-
-    A semantic rejection (unsupported/ambiguous/missing information) is a
-    decision, not an outage, and stays a rejection by default.
-    """
-    allowed = set(cfg.get("fallback_on") or [])
-    if d1_error is not None:
-        return bool(allowed & {"error", "unavailable"})
-    return "rejection" in allowed
-
-
-async def plan(request: web.Request) -> web.Response:
-    try:
-        body = await request.json()
-    except json.JSONDecodeError:
-        return web.json_response({"status": "bad_request", "error": "invalid JSON"}, status=400)
-    instruction = str(body.get("instruction") or "").strip()
-    if not instruction:
-        return web.json_response({"status": "bad_request", "error": "instruction is required"}, status=400)
-    try:
-        task = config.task_for(int(body.get("task_id")))
-    except (KeyError, TypeError, ValueError) as exc:
-        return web.json_response({"status": "bad_request", "error": str(exc)}, status=400)
-    snapshot = body.get("snapshot")
-    if not isinstance(snapshot, dict):
-        return web.json_response({"status": "bad_request", "error": "snapshot is required"}, status=400)
-    started = time.perf_counter()
-    mode = _mode()
-    try:
-        if mode in {"d1", "d1_with_qwen_fallback"}:
-            d1_cfg = config.engine_config()["agent"]["d1"]
-            d1_error = None
-            d1_result = None
-            try:
-                d1_result = d1_planner.plan_with_d1(
-                    instruction=instruction,
-                    snapshot=snapshot,
-                    skills=_skills_for(body.get("backend")),
-                    d1_url=d1_cfg["url"],
-                    task_id=int(task["task_id"]),
-                    thresholds=d1_cfg.get("thresholds"),
-                    timeout_s=float(d1_cfg.get("timeout_s") or 30.0),
-                )
-            except Exception as exc:
-                d1_error = f"{type(exc).__name__}: {exc}"
-            if d1_result is not None and d1_result.get("status") == "accepted":
-                result = _d1_accepted(d1_result, mode)
-            elif mode == "d1_with_qwen_fallback" and _fallback_allowed(d1_cfg, d1_result, d1_error):
-                result = _qwen_plan(instruction, task, snapshot, body)
-                result["agent_mode"] = mode
-                result["fallback"] = {
-                    "from": "d1-3b",
-                    "status": d1_result.get("status") if d1_result else None,
-                    "reason": d1_error or (d1_result or {}).get("reason_code"),
-                }
-                result["plan_source"] = (result.get("plan") or {}).get("plan_source") or "qwen3.5-9b"
-            elif d1_result is not None:
-                result = _d1_rejected(d1_result, mode)
-            else:
-                return web.json_response(
-                    {"status": "error", "error": f"d1 decision failed: {d1_error}", "agent_mode": mode},
-                    status=502,
-                )
-        else:
-            result = _qwen_plan(instruction, task, snapshot, body)
-    except Exception as exc:
-        return web.json_response({"status": "error", "error": f"{type(exc).__name__}: {exc}"}, status=502)
-    result["total_s"] = round(time.perf_counter() - started, 3)
-    status = 200 if result["status"] == "ok" else 422
-    return web.json_response(result, status=status)
-
-
 def _skills_for(backend: str | None) -> dict:
-    """Restrict the skill catalog to what the selected backend can execute.
-
-    A whole-task policy cannot run pick_place/open_drawer sub-skills, and a
-    sub-skill executor cannot run a whole-task policy: the catalog is the
-    contract that keeps the planner from proposing an unexecutable step.
-    """
+    """Restrict the skill catalog to what the selected backend can execute."""
     catalog = config.skill_config()
     rows = list(catalog.get("skills") or [])
     name = str(backend or config.engine_config()["action_model"].get("backend") or "pi05").lower()
@@ -230,12 +204,10 @@ TRANSIENT_RETRY_CODES = {"chunk_budget_exhausted"}
 
 
 def _bounded_transient_decision(body: dict) -> dict | None:
-    """Agent policy: one bounded retry for a transient execution timeout.
+    """One bounded retry for a transient execution timeout.
 
     This is a decision-layer rule, not a planner shortcut. It never declares
-    success and never relaxes completion evidence; it only avoids spending a
-    full language-model call to rediscover that a single chunk budget ran out.
-    A second failure for the same step goes to the language model.
+    success and never relaxes completion evidence.
     """
     failure = body.get("failure") or {}
     code = str(failure.get("reason_code") or "")
@@ -259,36 +231,36 @@ def _bounded_transient_decision(body: dict) -> dict | None:
     }
 
 
-def _d1_bounded_recovery(body: dict) -> dict:
-    """d1 is a decision model, not a free-text re-planner.
-
-    In pure d1 mode recovery is therefore a bounded execution policy: one
-    retry for a whole-task step, then an explicit abort with the failure kept.
-    No success is inferred and no plan is rewritten.
-    """
-    failed_step = body.get("failed_step") or {}
-    prior = [
-        row
-        for row in (body.get("attempts") or [])
-        if isinstance(row, dict) and row.get("step") == failed_step
-    ]
-    if not prior:
-        return {
-            "status": "ok",
-            "decision": "retry",
-            "reason": "d1 mode: one bounded retry of the whole-task step",
-            "steps": [],
-            "policy": "d1_bounded_retry",
-            "attempts": [],
-        }
-    return {
-        "status": "ok",
-        "decision": "abort",
-        "reason": "d1 mode: the whole-task step already failed once; keeping the recorded failure",
-        "steps": [],
-        "policy": "d1_bounded_retry",
-        "attempts": [],
-    }
+async def plan(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"status": "bad_request", "error": "invalid JSON"}, status=400)
+    instruction = str(body.get("instruction") or "").strip()
+    if not instruction:
+        return web.json_response({"status": "bad_request", "error": "instruction is required"}, status=400)
+    try:
+        task = config.task_for(int(body.get("task_id")))
+    except (KeyError, TypeError, ValueError) as exc:
+        return web.json_response({"status": "bad_request", "error": str(exc)}, status=400)
+    snapshot = body.get("snapshot")
+    if not isinstance(snapshot, dict):
+        return web.json_response({"status": "bad_request", "error": "snapshot is required"}, status=400)
+    started = time.perf_counter()
+    try:
+        result = _qwen_plan(instruction, task, snapshot, body)
+    except Exception as exc:
+        return web.json_response({"status": "error", "error": f"{type(exc).__name__}: {exc}"}, status=502)
+    result["total_s"] = round(time.perf_counter() - started, 4)
+    http_status = {
+        "ok": 200,
+        "task_mismatch": 409,
+        "needs_clarification": 422,
+        "unsupported": 422,
+        "scene_not_supported": 422,
+        "planning_failed": 422,
+    }.get(str(result.get("status")), 422)
+    return web.json_response(result, status=http_status)
 
 
 async def recover(request: web.Request) -> web.Response:
@@ -309,10 +281,6 @@ async def recover(request: web.Request) -> web.Response:
     if fast is not None:
         fast["total_s"] = round(time.perf_counter() - started, 3)
         return web.json_response(fast)
-    if _mode() == "d1":
-        result = _d1_bounded_recovery(body)
-        result["total_s"] = round(time.perf_counter() - started, 3)
-        return web.json_response(result)
     try:
         result = planner.request_recovery(
             instruction=instruction,
@@ -326,9 +294,9 @@ async def recover(request: web.Request) -> web.Response:
         )
     except Exception as exc:
         return web.json_response({"status": "error", "error": f"{type(exc).__name__}: {exc}"}, status=502)
-    result["agent_mode"] = _mode()
+    result["agent_mode"] = "qwen"
     result["total_s"] = round(time.perf_counter() - started, 3)
-    status = 200 if result["status"] == "ok" else 422
+    status = 200 if result.get("status") == "ok" else 422
     return web.json_response(result, status=status)
 
 
@@ -342,7 +310,7 @@ def make_app() -> web.Application:
 
 def main() -> None:
     service = config.engine_config()["services"]["agent"]
-    print(f"[agent] mode={_mode()} on {service['host']}:{service['port']}", flush=True)
+    print(f"[agent] qwen semantic router on {service['host']}:{service['port']}", flush=True)
     web.run_app(make_app(), host=service["host"], port=int(service["port"]), access_log=None)
 
 

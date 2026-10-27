@@ -1,0 +1,912 @@
+{
+  "schema": "embodied_engine.semantic_eval.v2",
+  "frozen": true,
+  "frozen_at": "2026-10-27",
+  "note": "Third, previously unseen held-out set frozen before its first run. Set 20261027 and 20261027b were used while tuning the clarify/unsupported boundary and are regression sets.",
+  "catalog_version": "2026-10-27.1",
+  "catalog_sha256": "7eb62a5ddbf3a48fcf20885522cf182761bcd554549841703a49b536443ffecf",
+  "positive_layout": "per task: 1 official + 5 new English paraphrases + 2 new Chinese expressions",
+  "negative_layout": "pronoun, missing target, vague place, unlisted level, wrong object, wrong place, wrong relation, combination, outside capability, scene mismatch",
+  "cases": [
+    {
+      "id": "c00_official",
+      "task_id": 0,
+      "kind": "positive",
+      "source": "official",
+      "instruction": "open the middle drawer of the cabinet",
+      "expected_choice": "open_middle_drawer",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c00_en1",
+      "task_id": 0,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "would you open the cabinet's middle drawer for me",
+      "expected_choice": "open_middle_drawer",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c00_en2",
+      "task_id": 0,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "middle drawer of the cabinet, please open it",
+      "expected_choice": "open_middle_drawer",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c00_en3",
+      "task_id": 0,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "pull the middle drawer out of the wooden cabinet",
+      "expected_choice": "open_middle_drawer",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c00_en4",
+      "task_id": 0,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "open the drawer in the middle of the cabinet",
+      "expected_choice": "open_middle_drawer",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c00_en5",
+      "task_id": 0,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "the cabinet's middle drawer should be open",
+      "expected_choice": "open_middle_drawer",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c00_zh1",
+      "task_id": 0,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "请把柜子正中间那个抽屉打开",
+      "expected_choice": "open_middle_drawer",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c00_zh2",
+      "task_id": 0,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "帮我把柜子中部的抽屉拉开",
+      "expected_choice": "open_middle_drawer",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c01_official",
+      "task_id": 1,
+      "kind": "positive",
+      "source": "official",
+      "instruction": "put the bowl on the stove",
+      "expected_choice": "put_bowl_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c01_en1",
+      "task_id": 1,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "can you put the black bowl on the stove",
+      "expected_choice": "put_bowl_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c01_en2",
+      "task_id": 1,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "the bowl belongs on the stove",
+      "expected_choice": "put_bowl_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c01_en3",
+      "task_id": 1,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "place the bowl onto the stove",
+      "expected_choice": "put_bowl_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c01_en4",
+      "task_id": 1,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "move the bowl so that it rests on the stove",
+      "expected_choice": "put_bowl_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c01_en5",
+      "task_id": 1,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "set the black bowl on the stove's surface",
+      "expected_choice": "put_bowl_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c01_zh1",
+      "task_id": 1,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "把黑碗放到灶上",
+      "expected_choice": "put_bowl_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c01_zh2",
+      "task_id": 1,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "请将碗放到炉灶的表面",
+      "expected_choice": "put_bowl_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c02_official",
+      "task_id": 2,
+      "kind": "positive",
+      "source": "official",
+      "instruction": "put the wine bottle on top of the cabinet",
+      "expected_choice": "put_wine_bottle_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c02_en1",
+      "task_id": 2,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "place the wine bottle onto the top of the cabinet",
+      "expected_choice": "put_wine_bottle_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c02_en2",
+      "task_id": 2,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "put the wine bottle up on top of the cabinet",
+      "expected_choice": "put_wine_bottle_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c02_en3",
+      "task_id": 2,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "the bottle of wine should rest on the cabinet's top",
+      "expected_choice": "put_wine_bottle_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c02_en4",
+      "task_id": 2,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "lift the wine bottle and set it on top of the cabinet",
+      "expected_choice": "put_wine_bottle_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c02_en5",
+      "task_id": 2,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "set the wine bottle on the upper side of the cabinet",
+      "expected_choice": "put_wine_bottle_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c02_zh1",
+      "task_id": 2,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "请把酒瓶放到柜子的顶端",
+      "expected_choice": "put_wine_bottle_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c02_zh2",
+      "task_id": 2,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "把葡萄酒瓶搁在柜子上面",
+      "expected_choice": "put_wine_bottle_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c03_official",
+      "task_id": 3,
+      "kind": "positive",
+      "source": "official",
+      "instruction": "open the top drawer and put the bowl inside",
+      "expected_choice": "open_top_drawer_put_bowl_inside",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c03_en1",
+      "task_id": 3,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "open the top drawer of the cabinet and put the black bowl in it",
+      "expected_choice": "open_top_drawer_put_bowl_inside",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c03_en2",
+      "task_id": 3,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "put the bowl in the top drawer, opening that drawer first",
+      "expected_choice": "open_top_drawer_put_bowl_inside",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c03_en3",
+      "task_id": 3,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "first slide the top drawer open, then place the bowl inside it",
+      "expected_choice": "open_top_drawer_put_bowl_inside",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c03_en4",
+      "task_id": 3,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "the black bowl needs to go into the opened top drawer",
+      "expected_choice": "open_top_drawer_put_bowl_inside",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c03_en5",
+      "task_id": 3,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "open the cabinet's uppermost drawer and set the bowl inside",
+      "expected_choice": "open_top_drawer_put_bowl_inside",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c03_zh1",
+      "task_id": 3,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "先把柜子最上层的抽屉打开，再把碗放进那个抽屉",
+      "expected_choice": "open_top_drawer_put_bowl_inside",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c03_zh2",
+      "task_id": 3,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "请打开顶层抽屉，然后将碗放入其中",
+      "expected_choice": "open_top_drawer_put_bowl_inside",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c04_official",
+      "task_id": 4,
+      "kind": "positive",
+      "source": "official",
+      "instruction": "put the bowl on top of the cabinet",
+      "expected_choice": "put_bowl_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c04_en1",
+      "task_id": 4,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "place the black bowl onto the top of the cabinet",
+      "expected_choice": "put_bowl_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c04_en2",
+      "task_id": 4,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "put the bowl up on the cabinet's top",
+      "expected_choice": "put_bowl_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c04_en3",
+      "task_id": 4,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "the bowl needs to rest on top of the cabinet",
+      "expected_choice": "put_bowl_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c04_en4",
+      "task_id": 4,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "lift the bowl and set it on top of the cupboard",
+      "expected_choice": "put_bowl_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c04_en5",
+      "task_id": 4,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "set the bowl down on the cabinet top surface",
+      "expected_choice": "put_bowl_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c04_zh1",
+      "task_id": 4,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "请把黑碗放到柜子上去",
+      "expected_choice": "put_bowl_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c04_zh2",
+      "task_id": 4,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "把碗摆到柜子最上层表面",
+      "expected_choice": "put_bowl_on_cabinet_top",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c05_official",
+      "task_id": 5,
+      "kind": "positive",
+      "source": "official",
+      "instruction": "push the plate to the front of the stove",
+      "expected_choice": "push_plate_front_of_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c05_en1",
+      "task_id": 5,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "push the plate forward toward the stove",
+      "expected_choice": "push_plate_front_of_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c05_en2",
+      "task_id": 5,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "slide the plate to the stove's front area",
+      "expected_choice": "push_plate_front_of_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c05_en3",
+      "task_id": 5,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "move the plate so that it is in front of the stove",
+      "expected_choice": "push_plate_front_of_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c05_en4",
+      "task_id": 5,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "shove the plate toward the front of the stove",
+      "expected_choice": "push_plate_front_of_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c05_en5",
+      "task_id": 5,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "the plate should end up in front of the stove, push it there",
+      "expected_choice": "push_plate_front_of_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c05_zh1",
+      "task_id": 5,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "把盘子推到炉子跟前",
+      "expected_choice": "push_plate_front_of_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c05_zh2",
+      "task_id": 5,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "请将盘子推到灶台前方",
+      "expected_choice": "push_plate_front_of_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c06_official",
+      "task_id": 6,
+      "kind": "positive",
+      "source": "official",
+      "instruction": "put the cream cheese in the bowl",
+      "expected_choice": "put_cream_cheese_in_bowl",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c06_en1",
+      "task_id": 6,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "put the cream cheese into the black bowl",
+      "expected_choice": "put_cream_cheese_in_bowl",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c06_en2",
+      "task_id": 6,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "place the cream cheese inside the bowl",
+      "expected_choice": "put_cream_cheese_in_bowl",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c06_en3",
+      "task_id": 6,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "the cream cheese belongs inside the bowl",
+      "expected_choice": "put_cream_cheese_in_bowl",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c06_en4",
+      "task_id": 6,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "drop the cream cheese down into the bowl",
+      "expected_choice": "put_cream_cheese_in_bowl",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c06_en5",
+      "task_id": 6,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "set the cream cheese in the bowl",
+      "expected_choice": "put_cream_cheese_in_bowl",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c06_zh1",
+      "task_id": 6,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "请把奶油奶酪放进碗中",
+      "expected_choice": "put_cream_cheese_in_bowl",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c06_zh2",
+      "task_id": 6,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "把芝士放到黑碗里",
+      "expected_choice": "put_cream_cheese_in_bowl",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c07_official",
+      "task_id": 7,
+      "kind": "positive",
+      "source": "official",
+      "instruction": "turn on the stove",
+      "expected_choice": "turn_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c07_en1",
+      "task_id": 7,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "turn the stove on for me",
+      "expected_choice": "turn_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c07_en2",
+      "task_id": 7,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "switch the stove on",
+      "expected_choice": "turn_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c07_en3",
+      "task_id": 7,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "please start the stove",
+      "expected_choice": "turn_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c07_en4",
+      "task_id": 7,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "the stove needs to be on, turn it on",
+      "expected_choice": "turn_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c07_en5",
+      "task_id": 7,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "power up the stove",
+      "expected_choice": "turn_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c07_zh1",
+      "task_id": 7,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "请把炉灶启动",
+      "expected_choice": "turn_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c07_zh2",
+      "task_id": 7,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "帮我打开炉子",
+      "expected_choice": "turn_on_stove",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c08_official",
+      "task_id": 8,
+      "kind": "positive",
+      "source": "official",
+      "instruction": "put the bowl on the plate",
+      "expected_choice": "put_bowl_on_plate",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c08_en1",
+      "task_id": 8,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "put the black bowl onto the plate",
+      "expected_choice": "put_bowl_on_plate",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c08_en2",
+      "task_id": 8,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "place the bowl on the plate",
+      "expected_choice": "put_bowl_on_plate",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c08_en3",
+      "task_id": 8,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "the bowl should sit on the plate",
+      "expected_choice": "put_bowl_on_plate",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c08_en4",
+      "task_id": 8,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "set the bowl down on the plate",
+      "expected_choice": "put_bowl_on_plate",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c08_en5",
+      "task_id": 8,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "move the bowl so it rests on the plate",
+      "expected_choice": "put_bowl_on_plate",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c08_zh1",
+      "task_id": 8,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "请把碗放到盘子上",
+      "expected_choice": "put_bowl_on_plate",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c08_zh2",
+      "task_id": 8,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "把黑碗摆到盘子上",
+      "expected_choice": "put_bowl_on_plate",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c09_official",
+      "task_id": 9,
+      "kind": "positive",
+      "source": "official",
+      "instruction": "put the wine bottle on the rack",
+      "expected_choice": "put_wine_bottle_on_rack",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c09_en1",
+      "task_id": 9,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "put the wine bottle up on the wine rack",
+      "expected_choice": "put_wine_bottle_on_rack",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c09_en2",
+      "task_id": 9,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "place the wine bottle onto the wine rack",
+      "expected_choice": "put_wine_bottle_on_rack",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c09_en3",
+      "task_id": 9,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "the wine bottle should rest on the rack",
+      "expected_choice": "put_wine_bottle_on_rack",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c09_en4",
+      "task_id": 9,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "set the bottle of wine on the rack",
+      "expected_choice": "put_wine_bottle_on_rack",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c09_en5",
+      "task_id": 9,
+      "kind": "positive",
+      "source": "en",
+      "instruction": "get the wine bottle onto the wine rack",
+      "expected_choice": "put_wine_bottle_on_rack",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c09_zh1",
+      "task_id": 9,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "请把酒瓶摆到酒架上",
+      "expected_choice": "put_wine_bottle_on_rack",
+      "expected_status": "ok"
+    },
+    {
+      "id": "c09_zh2",
+      "task_id": 9,
+      "kind": "positive",
+      "source": "zh",
+      "instruction": "把葡萄酒瓶放到架子上",
+      "expected_choice": "put_wine_bottle_on_rack",
+      "expected_status": "ok"
+    },
+    {
+      "id": "cN01_pronoun",
+      "task_id": 4,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "put that on the stove",
+      "expected_choice": "clarify",
+      "expected_status": "needs_clarification"
+    },
+    {
+      "id": "cN02_zh_pronoun",
+      "task_id": 1,
+      "kind": "negative",
+      "source": "zh",
+      "instruction": "请把它放进抽屉里",
+      "expected_choice": "clarify",
+      "expected_status": "needs_clarification"
+    },
+    {
+      "id": "cN03_vague_place",
+      "task_id": 8,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "move the bowl over there",
+      "expected_choice": "clarify",
+      "expected_status": "needs_clarification"
+    },
+    {
+      "id": "cN04_no_level",
+      "task_id": 0,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "open the drawer of the cabinet",
+      "expected_choice": "clarify",
+      "expected_status": "needs_clarification"
+    },
+    {
+      "id": "cN05_zh_pronoun_target",
+      "task_id": 6,
+      "kind": "negative",
+      "source": "zh",
+      "instruction": "把奶油奶酪放到它里面",
+      "expected_choice": "clarify",
+      "expected_status": "needs_clarification"
+    },
+    {
+      "id": "cN06_bottom_drawer",
+      "task_id": 0,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "open the cabinet's bottom drawer",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN07_bottle_in_bowl",
+      "task_id": 2,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "put the wine bottle into the bowl",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN08_behind_stove",
+      "task_id": 4,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "put the bowl behind the stove",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN09_cheese_on_cabinet",
+      "task_id": 6,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "put the cream cheese on the cabinet",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN10_stove_off",
+      "task_id": 7,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "shut the stove off",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN11_push_back",
+      "task_id": 5,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "push the plate to the back of the stove",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN12_banana_plate",
+      "task_id": 8,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "put the banana on the plate",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN13_microwave",
+      "task_id": 0,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "open the microwave",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN14_drawer_plus_rack",
+      "task_id": 3,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "open the top drawer and put the wine bottle on the rack",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN15_zh_combination",
+      "task_id": 3,
+      "kind": "negative",
+      "source": "zh",
+      "instruction": "把碗放到柜子上，同时把顶层抽屉打开",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN16_zh_plate_on_stove",
+      "task_id": 1,
+      "kind": "negative",
+      "source": "zh",
+      "instruction": "把盘子放到炉子上",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN17_plate_in_bowl",
+      "task_id": 8,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "put the plate in the bowl",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN18_beside_cabinet",
+      "task_id": 2,
+      "kind": "negative",
+      "source": "en",
+      "instruction": "put the bowl beside the cabinet",
+      "expected_choice": "unsupported",
+      "expected_status": "unsupported"
+    },
+    {
+      "id": "cN19_scene_plate",
+      "task_id": 4,
+      "kind": "scene_mismatch",
+      "source": "en",
+      "instruction": "put the bowl on the plate",
+      "expected_choice": "put_bowl_on_plate",
+      "expected_status": "task_mismatch"
+    },
+    {
+      "id": "cN20_scene_stove",
+      "task_id": 0,
+      "kind": "scene_mismatch",
+      "source": "en",
+      "instruction": "turn on the stove",
+      "expected_choice": "turn_on_stove",
+      "expected_status": "task_mismatch"
+    }
+  ]
+}

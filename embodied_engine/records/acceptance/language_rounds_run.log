@@ -1,0 +1,52 @@
+[round 1] task 0 en: please pull open the middle drawer of the cabinet
+  mapping=True choice=open_middle_drawer native=True evidence=native_only release=not_applicable 33.621s fail=None
+[round 2] task 0 zh: 请把柜子中间的抽屉拉开
+  mapping=True choice=open_middle_drawer native=True evidence=native_only release=not_applicable 38.806s fail=None
+[round 3] task 1 en: place the bowl on the stove
+  mapping=True choice=put_bowl_on_stove native=True evidence=held_or_unknown release=unknown 26.614s fail=None
+[round 4] task 1 zh: 把碗放到炉灶上面
+  mapping=True choice=put_bowl_on_stove native=True evidence=held_or_unknown release=unknown 25.424s fail=None
+[round 5] task 2 en: get the wine bottle onto the cabinet top
+  mapping=True choice=put_wine_bottle_on_cabinet_top native=False evidence=released_without_native_success release=observed 519.894s fail=native_goal_not_reached
+[round 6] task 2 zh: 请把红酒瓶摆到柜子上面
+  mapping=True choice=put_wine_bottle_on_cabinet_top native=True evidence=held_or_unknown release=unknown 25.771s fail=None
+[round 7] task 3 en: open the top drawer and place the bowl inside it
+  mapping=True choice=open_top_drawer_put_bowl_inside native=True evidence=held_or_unknown release=unknown 50.997s fail=None
+[round 8] task 3 zh: 请先把顶层抽屉拉开，再把碗放进去
+  mapping=True choice=open_top_drawer_put_bowl_inside native=True evidence=held_or_unknown release=unknown 51.451s fail=None
+[round 9] task 4 en: put the bowl on the cabinet's top surface
+  mapping=True choice=put_bowl_on_cabinet_top native=True evidence=held_or_unknown release=unknown 26.51s fail=None
+[round 10] task 4 zh: 把碗放到柜子顶部
+  mapping=True choice=put_bowl_on_cabinet_top native=True evidence=held_or_unknown release=unknown 27.612s fail=None
+[round 11] task 5 en: push the plate to the front of the stove
+  mapping=True choice=push_plate_front_of_stove native=True evidence=native_only release=not_applicable 53.955s fail=None
+[round 12] task 5 zh: 把盘子推到炉灶前方
+  mapping=True choice=push_plate_front_of_stove native=True evidence=native_only release=not_applicable 42.524s fail=None
+[round 13] task 6 en: put the cream cheese inside the bowl
+  mapping=True choice=put_cream_cheese_in_bowl native=True evidence=released release=observed 29.183s fail=None
+[round 14] task 6 zh: 把奶油奶酪放到碗里
+  mapping=True choice=put_cream_cheese_in_bowl native=True evidence=released release=observed 30.338s fail=None
+[round 15] task 7 en: switch on the stove
+  mapping=True choice=turn_on_stove native=True evidence=native_only release=not_applicable 25.509s fail=None
+[round 16] task 7 zh: 请把炉子打开
+  mapping=True choice=turn_on_stove native=True evidence=native_only release=not_applicable 25.382s fail=None
+[round 17] task 8 en: set the bowl on the plate
+  mapping=True choice=put_bowl_on_plate native=True evidence=held_or_unknown release=unknown 24.68s fail=None
+[round 18] task 8 zh: 请把黑碗搁到盘子上
+  mapping=True choice=put_bowl_on_plate native=True evidence=held_or_unknown release=unknown 25.143s fail=None
+[round 19] task 9 en: place the wine bottle up on the wine rack
+  mapping=True choice=put_wine_bottle_on_rack native=True evidence=held_or_unknown release=unknown 37.613s fail=None
+[round 20] task 9 zh: 把酒瓶放到架子上
+  mapping=True choice=put_wine_bottle_on_rack native=True evidence=held_or_unknown release=unknown 37.65s fail=None
+{
+  "out": "/home/host/page-dmh/embodied_engine/records/acceptance/language_rounds_20261027.json",
+  "summary": {
+    "rounds": 20,
+    "mapping_ok": 20,
+    "native_success": 19,
+    "released": 2,
+    "held_or_unknown": 11,
+    "not_applicable_native_ok": 6,
+    "absent": 0
+  }
+}

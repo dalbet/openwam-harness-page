@@ -8,7 +8,8 @@ const sceneSel = $("scene"), loadBtn = $("load"), taskIn = $("task"),
   idAgent = $("id-agent"), idAgentMode = $("id-agent-mode"), idAction = $("id-action"), idWorld = $("id-world"),
   idInference = $("id-inference"), idPhase = $("id-phase"),
   idFailureWrap = $("id-failure-wrap"), idFailure = $("id-failure"),
-  agentModeSel = $("agent-mode"), switchAgentBtn = $("switch-agent");
+  idRaw = $("id-raw"), idChoice = $("id-choice"), idStandard = $("id-standard"),
+  idSwitchWrap = $("id-switch-wrap"), idSwitch = $("id-switch");
 
 const agCtx = agentCanvas.getContext("2d");
 const wrCtx = wristCanvas.getContext("2d");
@@ -41,27 +42,12 @@ function setStatus(phase, detail, cls){
   statusEl.appendChild(span);
   if (detail){ statusEl.appendChild(document.createTextNode(` — ${detail}`)); }
 }
-const IDLE_PHASES = new Set(["starting", "ready", "succeeded", "failed", "stopped"]);
-let agentMode = null;
-function refreshAgentSwitch(){
-  const idle = IDLE_PHASES.has(idPhase.textContent);
-  switchAgentBtn.disabled = !wsConnected || !idle || !agentModeSel.value || agentModeSel.value === agentMode;
-  switchAgentBtn.title = idle ? "" : "仅空闲状态可切换 Agent";
-}
 function applyIdentity(m){
-  if (m.agent_model) idAgent.textContent = m.agent_model;
-  if (m.agent_mode){
-    agentMode = m.agent_mode;
-    idAgentMode.textContent = m.agent_mode;
-    if (m.agent_modes && !agentModeSel.options.length){
-      m.agent_modes.forEach((mode)=>{
-        const o = document.createElement("option");
-        o.value = mode; o.textContent = mode;
-        agentModeSel.appendChild(o);
-      });
-    }
-    if (!agentModeSel.value) agentModeSel.value = m.agent_mode;
-  }
+  if (m.agent_model) idAgent.textContent = `${m.agent_model}${m.agent_mode ? ` · ${m.agent_mode}` : ""}`;
+  const router = m.agent_router || {};
+  idAgentMode.textContent = router.model_mode
+    ? `${router.model_mode} / ${router.max_tokens} tok / catalog ${(router.catalog || {}).version || "?"}`
+    : "semantic_router";
   if (m.action_model) idAction.textContent = `${m.action_model}${m.action_backend ? ` (${m.action_backend})` : ""}`;
   if (m.world_model) idWorld.textContent = `${m.world_model} [${m.world_model_status || "unknown"}]`;
   if (m.inference_mode) idInference.textContent = `${m.inference_mode}${m.inference_backend ? ` / ${m.inference_backend}` : ""}`;
@@ -69,7 +55,23 @@ function applyIdentity(m){
   const failure = (m.failure_reason || "").trim();
   idFailureWrap.style.display = failure ? "" : "none";
   idFailure.textContent = failure;
-  refreshAgentSwitch();
+  const u = m.understanding || {};
+  idRaw.textContent = u.raw_instruction || m.raw_instruction || "—";
+  if (u.semantic_choice){
+    const task = u.task_id !== null && u.task_id !== undefined ? ` → task ${u.task_id} ${u.task_key || ""}` : "";
+    idChoice.textContent = `${u.semantic_choice}${task}`;
+    idChoice.className = u.decision_status === "ok" ? "good" : "bad";
+  } else {
+    idChoice.textContent = "—";
+    idChoice.className = "";
+  }
+  idStandard.textContent = u.official_instruction || "—";
+  idStandard.className = u.official_instruction ? "" : "bad";
+  const needSwitch = u.needs_scene_switch === true;
+  idSwitchWrap.style.display = needSwitch ? "" : "none";
+  idSwitch.textContent = needSwitch
+    ? `task ${u.required_task_id} ${u.required_task_key || ""}`
+    : "";
 }
 
 // ---- WebSocket ----
@@ -78,13 +80,12 @@ function connect(){
   const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/ws`);
   ws.binaryType = "arraybuffer";
-  ws.onopen = () => { wsConnected = true; setStatus("就绪", "已连接服务器"); requestScenes(); refreshAgentSwitch(); };
+  ws.onopen = () => { wsConnected = true; setStatus("就绪", "已连接服务器"); requestScenes(); };
   ws.onclose = () => {
     wsConnected = false;
     setStatus("断开", "与服务器的连接已断开，尝试重连…", "warn");
     disableControls(true);
     clearBuffer();
-    refreshAgentSwitch();
     setTimeout(connect, 1500);
   };
   ws.onerror = () => { try{ ws.close(); }catch(e){} };
@@ -134,7 +135,6 @@ function handleText(txt){
       if(!terminalReached) setStatus(m.phase, m.detail||"", m.cls||"");
       if (m.phase) idPhase.textContent = m.phase;
       if (m.cls === "bad" && m.detail){ idFailureWrap.style.display = ""; idFailure.textContent = m.detail; }
-      refreshAgentSwitch();
       break;
     case "ended":
       if (acceptEid && m.episode_id && m.episode_id !== acceptEid) break;
@@ -261,13 +261,6 @@ resetBtn.onclick = () => {
   send({type:"reset"});
   setStatus("重置中", "重新初始化当前场景…", "warn");
 };
-switchAgentBtn.onclick = () => {
-  if (!wsConnected || !agentModeSel.value) return;
-  switchAgentBtn.disabled = true;
-  send({type:"agent_mode", mode:agentModeSel.value});
-  setStatus("切换 Agent", agentModeSel.value, "warn");
-};
-agentModeSel.addEventListener("change", refreshAgentSwitch);
 taskIn.addEventListener("input", ()=>{ startBtn.disabled = !taskIn.value.trim(); });
 
 // 心跳

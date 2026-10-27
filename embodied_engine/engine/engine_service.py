@@ -36,7 +36,7 @@ if str(PROJECT) not in sys.path:
     sys.path.insert(0, str(PROJECT))
 
 from adapters.env_client import EnvClient  # noqa: E402
-from common import config, records  # noqa: E402
+from common import config, records, task_catalog  # noqa: E402
 from common import plan_contract
 from engine import completion  # noqa: E402
 from engine.inference_client import InferenceClient  # noqa: E402
@@ -46,6 +46,55 @@ from engine.skills import SkillFailure, SkillRunner, Stopped  # noqa: E402
 
 def _now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
+
+
+def _release_evidence(
+    task: dict[str, Any], step_results: list[dict[str, Any]], snapshot: dict[str, Any]
+) -> dict[str, Any]:
+    """Report gripper release as measured evidence, never as inferred success.
+
+    Release is only expected for pick/place tasks (including the composite
+    open-top-drawer-and-place-bowl case). Opening a drawer or turning on a stove
+    has no release phase, so those tasks are explicitly marked not applicable
+    rather than failing a release check.
+    """
+    kind = str(task.get("kind") or "")
+    applicable = kind in {"pick_place", "composite"}
+    rows = []
+    observed = False
+    for index, row in enumerate(step_results):
+        release = row.get("release") or {}
+        events = release.get("events") or []
+        openings = release.get("openings") or []
+        if events:
+            observed = True
+        rows.append(
+            {
+                "step_index": index,
+                "skill": (row.get("step") or {}).get("skill"),
+                "events": events,
+                "event_count": len(events),
+                "openings_m": openings,
+                "source": release.get("source"),
+            }
+        )
+    sim = snapshot.get("sim") or {}
+    final_opening = sim.get("gripper_opening_m")
+    if isinstance(final_opening, (int, float)) and float(final_opening) > 0.05:
+        observed = True
+    state = "observed" if observed else ("unknown" if applicable else "not_applicable")
+    return {
+        "applicable": applicable,
+        "state": state,
+        "observed": bool(observed),
+        "final_gripper_opening_m": final_opening,
+        "threshold_m": 0.05,
+        "steps": rows,
+        "note": (
+            "Measured finger separation in the whole-task trace; native goal success "
+            "does not by itself prove the object was released."
+        ),
+    }
 
 
 def _scene_fingerprint(snapshot: dict[str, Any]) -> str:
@@ -384,13 +433,12 @@ class Engine:
             "agent": {
                 "service": agent.get("service", "agent"),
                 "status": agent.get("status", "unreachable"),
-                "mode": agent.get("mode", config.agent_mode()),
-                "modes": list(config.AGENT_MODES),
+                "mode": agent.get("mode", "semantic_router"),
                 "model": agent.get("model", self.cfg["agent"]["llm_model"]),
                 "llm_model": agent.get("llm_model", self.cfg["agent"]["llm_model"]),
-                "d1": agent.get("d1"),
                 "planner_vision": agent.get("planner_vision", False),
                 "llm": agent.get("llm"),
+                "routing": agent.get("routing"),
                 "jev": agent.get("jev", {"enabled": False}),
             },
             "action_model": action_identity,
@@ -569,10 +617,7 @@ class Engine:
         alive = bool(thread and thread.is_alive())
         sim_at_ack = sim_at_request
         if not alive:
-            try:
-                sim_at_ack = int(self.env.state_snapshot().get("sim_action_count") or sim_at_request)
-            except Exception:
-                sim_at_ack = sim_at_request
+            sim_at_ack = self._settled_sim_count(sim_at_request)
         budget = {
             "reason": reason,
             "sim_at_request": int(sim_at_request),
@@ -584,49 +629,38 @@ class Engine:
             "thread_alive": alive,
         }
         with self.lock:
+            self.sim_action_count = int(sim_at_ack)
             self.last_stop = budget
         return {"status": "ok", "active": alive, "phase": self.phase, "stop": budget}
 
-    IDLE_PHASES = {"starting", "ready", "succeeded", "failed", "stopped"}
+    def _settled_sim_count(self, fallback: int) -> int:
+        """Simulator action count after any in-flight step has finished.
 
-    def set_agent_mode(self, mode: str) -> dict[str, Any]:
-        """Switch the Agent model only while no rollout owns the episode.
-
-        The mode is persisted in config/engine.json, which the Agent service
-        re-reads per request. A switch during planning/running/recovering or
-        while the rollout thread is alive is refused, so a plan is never
-        produced by one model and recorded as another.
+        The rollout thread may have handed one ``env.step`` to the env server
+        when the stop flag rose; joining the thread returns as soon as the
+        caller sees the flag, which can be *while* that step is still running
+        in the env process. A single snapshot taken at that moment under-reports
+        the count by one, so the stop budget claimed ``in_flight_actions=0``
+        and the next status poll already showed one more action. Poll until two
+        consecutive snapshots agree, and keep the maximum seen.
         """
-        if mode not in config.AGENT_MODES:
-            return {"status": "bad_request", "error": f"unknown agent mode {mode!r}", "mode": config.agent_mode()}
-        with self.lock:
-            phase = self.phase
-            active = self.rollout_thread is not None and self.rollout_thread.is_alive()
-            if active or phase not in self.IDLE_PHASES:
-                return {
-                    "status": "busy",
-                    "error": f"agent mode can only change while idle; phase={phase}",
-                    "phase": phase,
-                    "mode": config.agent_mode(),
-                }
-        if mode != "qwen":
-            d1_cfg = self.cfg["agent"]["d1"]
+        best = int(fallback)
+        client = self.env.client
+        if client is None:
+            return best
+        previous = None
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
             try:
-                health = _get_json(f"{d1_cfg['url']}/health", timeout_s=3)
-            except Exception as exc:
-                health = {"status": "unreachable", "error": f"{type(exc).__name__}: {exc}"}
-            if health.get("status") != "ok":
-                return {
-                    "status": "unavailable",
-                    "error": "d1 service is not ready; start it before selecting a d1 mode",
-                    "d1": health,
-                    "mode": config.agent_mode(),
-                }
-        config.set_agent_mode(mode)
-        with self.lock:
-            self.health_cache = {"at": 0.0, "value": {}}
-        return {"status": "ok", "mode": mode, "phase": phase}
-
+                current = int(client.state_snapshot().get("sim_action_count") or fallback)
+            except Exception:
+                break
+            best = max(best, current)
+            if previous is not None and current == previous:
+                break
+            previous = current
+            time.sleep(0.05)
+        return best
 
     def start_run(
         self, task_id: int, instruction: str | None, seed: int | None = None
@@ -823,7 +857,7 @@ class Engine:
         plan_completed_at: float | None = None
         openwam_stats: dict[str, Any] | None = None
         try:
-            self._set_phase("planning", f"{config.agent_mode()} structured plan")
+            self._set_phase("planning", "Qwen semantic routing + whole_task plan")
             plan_started = time.perf_counter()
             plan_response = _post_json(
                 f"{self.agent_url}/plan",
@@ -869,14 +903,15 @@ class Engine:
                     or ((plan_response.get("plan") or {}).get("plan_source") if isinstance(plan_response.get("plan"), dict) else None)
                     or "qwen3.5-9b",
                     "agent_mode": plan_response.get("agent_mode"),
-                    "decision": plan_response.get("decision"),
-                    "fallback": plan_response.get("fallback"),
+                    "understanding": plan_response.get("understanding"),
+                    "reason": plan_response.get("reason"),
+                    "reason_code": plan_response.get("reason_code"),
                     "planner_vision": False,
                 }
             if plan_response.get("status") != "ok":
                 raise SkillFailure(
                     "plan_invalid",
-                    "Agent plan was not valid",
+                    str(plan_response.get("reason") or "Agent plan was not valid"),
                     {"response": plan_response},
                 )
             plan = plan_response["plan"]
@@ -904,6 +939,9 @@ class Engine:
             # A replan may reorder or add steps, but dropping this step would
             # silently solve a different task.
             goal_step = dict(steps[-1]) if steps else None
+            # Recovery must ask about the same official prompt the policy was
+            # given, not the user's paraphrase.
+            goal_prompt = str((goal_step or {}).get("prompt") or instruction)
             index = 0
             retries = 0
             replans = 0
@@ -1005,7 +1043,7 @@ class Engine:
                         recovery = _post_json(
                             f"{self.agent_url}/recover",
                             {
-                                "instruction": instruction,
+                                "instruction": goal_prompt,
                                 "task_id": task["task_id"],
                                 "snapshot": snapshot,
                                 "failed_step": step,
@@ -1137,7 +1175,7 @@ class Engine:
                     recovery = _post_json(
                         f"{self.agent_url}/recover",
                         {
-                            "instruction": instruction,
+                            "instruction": goal_prompt,
                             "task_id": task["task_id"],
                             "snapshot": snapshot,
                             "failed_step": step,
@@ -1223,7 +1261,7 @@ class Engine:
                         recovery = _post_json(
                             f"{self.agent_url}/recover",
                             {
-                                "instruction": instruction,
+                                "instruction": goal_prompt,
                                 "task_id": task["task_id"],
                                 "snapshot": snapshot,
                                 "failed_step": step,
@@ -1383,6 +1421,23 @@ class Engine:
             execution_status = "stopped"
             failure = {"reason_code": "user_stop", "message": "episode stopped by user", "evidence": {}}
             final_verification = {}
+            # A stopped episode must still report what the simulator actually
+            # did before the stop; the loop's ``snapshot`` is the one taken at
+            # prepare time because the interrupted step never returned. Reading
+            # it here is safe (the env server is still alive and the scene has
+            # not changed), and without it the record said "0 actions".
+            try:
+                client = self.env.client
+                if client is not None:
+                    snapshot = client.state_snapshot()
+                    self.sim_action_count = int(
+                        snapshot.get("sim_action_count") or self.sim_action_count
+                    )
+            except Exception as exc:  # noqa: BLE001 - reporting must not mask the stop
+                records.append_journal(
+                    {"t": time.time(), "stage": "stop_snapshot_failed", "episode_id": episode_id,
+                     "detail": f"{type(exc).__name__}: {exc}"}
+                )
         except SkillFailure as exc:
             execution_status = "failed"
             failure = {
@@ -1405,11 +1460,13 @@ class Engine:
             failure = None
         final_snapshot = snapshot if isinstance(snapshot, dict) else {}
         native_final = bool(final_snapshot.get("native_goal"))
+        release_evidence = _release_evidence(task, step_results, final_snapshot)
         record = {
             "schema": "embodied_engine.run.v1",
             "task_id": task["task_id"],
             "task_bddl": task["bddl"],
             "instruction": instruction,
+            "semantic": (self.plan or {}).get("understanding") or {},
             "episode_id": episode_id,
             "run_id": run_id,
             "scene_epoch": final_snapshot.get("scene_epoch"),
@@ -1430,8 +1487,9 @@ class Engine:
                 "interpretation": (plan or {}).get("interpretation"),
                 "success_condition": (plan or {}).get("success_condition"),
                 "steps": (plan or {}).get("steps"),
-                "source": (self.plan or {}).get("source") or "qwen3.5-9b",
-                "agent_mode": (self.plan or {}).get("agent_mode") or config.agent_mode(),
+                "source": (self.plan or {}).get("source") or "qwen3.5-9b-semantic-router",
+                "agent_mode": (self.plan or {}).get("agent_mode") or "qwen",
+                "official_instruction": ((self.plan or {}).get("understanding") or {}).get("official_instruction"),
                 "planner_vision": False,
                 "latency_s": round(timing["planner_s"], 3),
                 "agent_response": self.plan,
@@ -1439,6 +1497,7 @@ class Engine:
             "steps": step_results,
             "openwam": openwam_stats,
             "final_verification": final_verification,
+            "release_evidence": release_evidence,
             "timing": {
                 **{key: round(value, 3) for key, value in timing.items()},
                 "total_s_engine": round(ended - started, 3),
@@ -1560,13 +1619,21 @@ async def tasks(request: web.Request) -> web.Response:
             {
                 "id": f"task_{row['task_id']}",
                 "task_id": row["task_id"],
+                "key": row["key"],
                 "label": f"{row['task_id']}: {row['instruction']}",
                 "instruction": row["instruction"],
+                "official_instruction": row.get("official_instruction"),
                 "kind": row["kind"],
                 "bddl": row["bddl"],
             }
         )
-    return web.json_response({"status": "ok", "scenes": rows})
+    return web.json_response(
+        {
+            "status": "ok",
+            "catalog": task_catalog.catalog_evidence(),
+            "scenes": rows,
+        }
+    )
 
 
 async def load(request: web.Request) -> web.Response:
@@ -1633,20 +1700,6 @@ async def metrics(request: web.Request) -> web.Response:
     )
 
 
-async def agent_mode(request: web.Request) -> web.Response:
-    if request.method == "GET":
-        return web.json_response(
-            {"status": "ok", "mode": config.agent_mode(), "modes": list(config.AGENT_MODES)}
-        )
-    body = await _json_body(request)
-    try:
-        out = await asyncio.to_thread(_engine().set_agent_mode, str(body.get("mode") or ""))
-    except Exception as exc:
-        return web.json_response({"status": "error", "error": f"{type(exc).__name__}: {exc}"}, status=503)
-    status = {"ok": 200, "bad_request": 400, "busy": 409, "unavailable": 503}.get(out.get("status"), 400)
-    return web.json_response(out, status=status)
-
-
 async def _json_body(request: web.Request) -> dict[str, Any]:
     try:
         body = await request.json()
@@ -1661,8 +1714,6 @@ def make_app() -> web.Application:
     app.router.add_get("/metrics", metrics)
     app.router.add_get("/api/status", status)
     app.router.add_get("/api/tasks", tasks)
-    app.router.add_get("/api/agent_mode", agent_mode)
-    app.router.add_post("/api/agent_mode", agent_mode)
     app.router.add_post("/api/load", load)
     app.router.add_post("/api/run", run)
     app.router.add_post("/api/stop", stop)

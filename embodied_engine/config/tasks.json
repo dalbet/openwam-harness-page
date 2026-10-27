@@ -1,116 +1,284 @@
 {
+  "schema": "embodied_engine.task_catalog.v2",
+  "version": "2026-10-27.1",
   "suite": "libero_goal",
-  "source": "installed LIBERO libero_goal BDDL + registry",
+  "source": "installed LIBERO libero_goal task map + BDDL + init files",
+  "official_instruction_source": "LIBERO Task.language is generated from the task filename by libero/benchmark/__init__.py::grab_language_from_filename; BDDL :language is recorded separately and is not the benchmark instruction",
+  "libero": {
+    "repo": "https://github.com/RLinf/LIBERO.git",
+    "commit": "a8323074d93a09e32bd898630a70531b1f51bc77",
+    "requested_revision": "rpent",
+    "dist": "rpent_libero-0.2.0",
+    "package_path": "/home/host/page-dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/libero/libero",
+    "task_order_file": "benchmark/libero_suite_task_map.py",
+    "task_order": [
+      "open_the_middle_drawer_of_the_cabinet",
+      "put_the_bowl_on_the_stove",
+      "put_the_wine_bottle_on_top_of_the_cabinet",
+      "open_the_top_drawer_and_put_the_bowl_inside",
+      "put_the_bowl_on_top_of_the_cabinet",
+      "push_the_plate_to_the_front_of_the_stove",
+      "put_the_cream_cheese_in_the_bowl",
+      "turn_on_the_stove",
+      "put_the_bowl_on_the_plate",
+      "put_the_wine_bottle_on_the_rack"
+    ],
+    "tasks_info_sha256": "547286ceb6485e85aa1472c03466a613573982d92284d792c1ab63524b479382"
+  },
   "tasks": [
     {
       "task_id": 0,
+      "key": "open_middle_drawer",
       "instruction": "open the middle drawer of the cabinet",
+      "official_instruction": "open the middle drawer of the cabinet",
+      "bddl_language": "Open the middle layer of the drawer",
       "bddl": "open_the_middle_drawer_of_the_cabinet.bddl",
+      "bddl_sha256": "832ab48ec476807c767e8985666e295700f92d1f8daeae1c34eee1e75293769b",
+      "init_file": "open_the_middle_drawer_of_the_cabinet.pruned_init",
+      "init_sha256": "977efe1216bee72bb4e9fa9ec4be1bcfe37fb00ece815eac117feba019b34b9f",
       "goal_atoms": ["Open wooden_cabinet_1_middle_region"],
       "kind": "open_drawer",
       "objects": ["wooden_cabinet_1"],
       "targets": ["wooden_cabinet_1_middle_region"],
       "completion": "drawer_open",
-      "drawer_level": "middle"
+      "drawer_level": "middle",
+      "semantics": {
+        "operation": "open_drawer",
+        "source": null,
+        "target": "wooden_cabinet_1_middle_region",
+        "relation": "open",
+        "subgoals": []
+      },
+      "capability": "Open the middle drawer of the wooden cabinet."
     },
     {
       "task_id": 1,
+      "key": "put_bowl_on_stove",
       "instruction": "put the bowl on the stove",
+      "official_instruction": "put the bowl on the stove",
+      "bddl_language": "Put the bowl on the stove",
       "bddl": "put_the_bowl_on_the_stove.bddl",
+      "bddl_sha256": "c6812d6c988be830412aa6fc4801af04d60f8c4565d2625763b6a0f2b843a87f",
+      "init_file": "put_the_bowl_on_the_stove.pruned_init",
+      "init_sha256": "7c1819725af8d08988078d6efb98ddb6dbefadb2e6d20df4ed23a2074f4d9ed1",
       "goal_atoms": ["On akita_black_bowl_1 flat_stove_1_cook_region"],
       "kind": "pick_place",
       "objects": ["akita_black_bowl_1", "flat_stove_1"],
       "targets": ["flat_stove_1_cook_region"],
       "completion": "object_on_target",
-      "object_phrase": "the black bowl"
+      "object_phrase": "the black bowl",
+      "semantics": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "flat_stove_1_cook_region",
+        "relation": "on",
+        "subgoals": []
+      },
+      "capability": "Place the black bowl on the stove cooking surface."
     },
     {
       "task_id": 2,
+      "key": "put_wine_bottle_on_cabinet_top",
       "instruction": "put the wine bottle on top of the cabinet",
+      "official_instruction": "put the wine bottle on top of the cabinet",
+      "bddl_language": "Put the wine bottle on the top of the drawer",
       "bddl": "put_the_wine_bottle_on_top_of_the_cabinet.bddl",
+      "bddl_sha256": "2ef6f403a8451e216af44158c1a6c975cf8e5058ad02d78367ac0be443d096fe",
+      "init_file": "put_the_wine_bottle_on_top_of_the_cabinet.pruned_init",
+      "init_sha256": "b8c659d17c722bf848065bec6b4d088ab8e90f48b5ae991b2f118b0f2b5bbe4b",
       "goal_atoms": ["On wine_bottle_1 wooden_cabinet_1_top_side"],
       "kind": "pick_place",
       "objects": ["wine_bottle_1", "wooden_cabinet_1"],
       "targets": ["wooden_cabinet_1_top_side"],
       "completion": "object_on_target",
-      "object_phrase": "the wine bottle"
+      "object_phrase": "the wine bottle",
+      "semantics": {
+        "operation": "pick_place",
+        "source": "wine_bottle_1",
+        "target": "wooden_cabinet_1_top_side",
+        "relation": "on",
+        "subgoals": []
+      },
+      "capability": "Place the wine bottle on the top surface of the wooden cabinet."
     },
     {
       "task_id": 3,
+      "key": "open_top_drawer_put_bowl_inside",
       "instruction": "open the top drawer and put the bowl inside",
+      "official_instruction": "open the top drawer and put the bowl inside",
+      "bddl_language": "Open the top layer of the drawer and put the bowl inside",
       "bddl": "open_the_top_drawer_and_put_the_bowl_inside.bddl",
+      "bddl_sha256": "3056e4dc72ee590432cfb18c610fd077a572c8b8f256e45328031005dd0b6757",
+      "init_file": "open_the_top_drawer_and_put_the_bowl_inside.pruned_init",
+      "init_sha256": "1cd5354ade9ab9f323a518515f961df96123b7daeca017df1f62d3e9ff18794f",
       "goal_atoms": ["In akita_black_bowl_1 wooden_cabinet_1_top_region"],
       "kind": "composite",
       "objects": ["akita_black_bowl_1", "wooden_cabinet_1"],
       "targets": ["wooden_cabinet_1_top_region"],
       "completion": "drawer_open_and_object_in",
       "drawer_level": "top",
-      "object_phrase": "the black bowl"
+      "object_phrase": "the black bowl",
+      "semantics": {
+        "operation": "composite",
+        "source": "akita_black_bowl_1",
+        "target": "wooden_cabinet_1_top_region",
+        "relation": "in",
+        "subgoals": [
+          {"operation": "open_drawer", "source": null, "target": "wooden_cabinet_1_top_region", "relation": "open"},
+          {"operation": "pick_place", "source": "akita_black_bowl_1", "target": "wooden_cabinet_1_top_region", "relation": "in"}
+        ]
+      },
+      "capability": "Open the top drawer of the wooden cabinet and put the black bowl inside that same drawer. Both subgoals are required."
     },
     {
       "task_id": 4,
+      "key": "put_bowl_on_cabinet_top",
       "instruction": "put the bowl on top of the cabinet",
+      "official_instruction": "put the bowl on top of the cabinet",
+      "bddl_language": "Put the bowl on the top of the drawer",
       "bddl": "put_the_bowl_on_top_of_the_cabinet.bddl",
+      "bddl_sha256": "2ffba859a154f50c3c99ffb3420743fa5aa65c70bf7d4cd26f5bc81d07be5713",
+      "init_file": "put_the_bowl_on_top_of_the_cabinet.pruned_init",
+      "init_sha256": "c0b7baf82f36f5304488bac91d788800a1c93d0a9fd19a73f448992d5366e145",
       "goal_atoms": ["On akita_black_bowl_1 wooden_cabinet_1_top_side"],
       "kind": "pick_place",
       "objects": ["akita_black_bowl_1", "wooden_cabinet_1"],
       "targets": ["wooden_cabinet_1_top_side"],
       "completion": "object_on_target",
-      "object_phrase": "the black bowl"
+      "object_phrase": "the black bowl",
+      "semantics": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "wooden_cabinet_1_top_side",
+        "relation": "on",
+        "subgoals": []
+      },
+      "capability": "Place the black bowl on the top surface of the wooden cabinet."
     },
     {
       "task_id": 5,
+      "key": "push_plate_front_of_stove",
       "instruction": "push the plate to the front of the stove",
+      "official_instruction": "push the plate to the front of the stove",
+      "bddl_language": "Push the plate to the front of the stove",
       "bddl": "push_the_plate_to_the_front_of_the_stove.bddl",
+      "bddl_sha256": "26f22f8ad39a4b2b344b049115c45661a877fa0b4821fb78246725e7e87d8c0b",
+      "init_file": "push_the_plate_to_the_front_of_the_stove.pruned_init",
+      "init_sha256": "794beed679b18bbd7d9fb851c81877a974915ad63addff2d5ac5af0607fafac9",
       "goal_atoms": ["On plate_1 main_table_stove_front_region"],
       "kind": "push",
       "objects": ["plate_1", "flat_stove_1"],
       "targets": ["main_table_stove_front_region"],
       "completion": "object_on_target",
-      "object_phrase": "the plate"
+      "object_phrase": "the plate",
+      "semantics": {
+        "operation": "push_object",
+        "source": "plate_1",
+        "target": "main_table_stove_front_region",
+        "relation": "on",
+        "subgoals": []
+      },
+      "capability": "Push the plate along the table to the front of the stove; do not grasp it."
     },
     {
       "task_id": 6,
+      "key": "put_cream_cheese_in_bowl",
       "instruction": "put the cream cheese in the bowl",
+      "official_instruction": "put the cream cheese in the bowl",
+      "bddl_language": "Put the cream cheese on the bowl",
       "bddl": "put_the_cream_cheese_in_the_bowl.bddl",
+      "bddl_sha256": "81c54eace32b92466598103b3b6e8435ce90f10996ef18cec4a35fe6c4d31a98",
+      "init_file": "put_the_cream_cheese_in_the_bowl.pruned_init",
+      "init_sha256": "524de11d240f33b93d5218b1779a1ded1037950fcf865f07d0c0029cc48cf3f5",
       "goal_atoms": ["On cream_cheese_1 akita_black_bowl_1"],
       "kind": "pick_place",
       "objects": ["cream_cheese_1", "akita_black_bowl_1"],
       "targets": ["akita_black_bowl_1"],
       "completion": "object_on_target",
-      "object_phrase": "the cream cheese"
+      "object_phrase": "the cream cheese",
+      "semantics": {
+        "operation": "pick_place",
+        "source": "cream_cheese_1",
+        "target": "akita_black_bowl_1",
+        "relation": "in",
+        "subgoals": []
+      },
+      "capability": "Put the cream cheese inside the black bowl.",
+      "note": "The BDDL goal atom is On cream_cheese_1 akita_black_bowl_1 while the official instruction says in; the semantic relation is recorded as in and the native goal atom is not rewritten."
     },
     {
       "task_id": 7,
+      "key": "turn_on_stove",
       "instruction": "turn on the stove",
+      "official_instruction": "turn on the stove",
+      "bddl_language": "Turn on the stove",
       "bddl": "turn_on_the_stove.bddl",
+      "bddl_sha256": "cbd2a0514d53226c5d09e17af40b22935d4cb6ff8fdaff0d55f555de1adecc13",
+      "init_file": "turn_on_the_stove.pruned_init",
+      "init_sha256": "ed121db31d749647d70741c4c4ef0bd8e0876663986578795968e962d9b91340",
       "goal_atoms": ["Turnon flat_stove_1"],
       "kind": "turn_on",
       "objects": ["flat_stove_1"],
       "targets": ["flat_stove_1"],
-      "completion": "stove_on"
+      "completion": "stove_on",
+      "semantics": {
+        "operation": "turn_on",
+        "source": null,
+        "target": "flat_stove_1",
+        "relation": "turn_on",
+        "subgoals": []
+      },
+      "capability": "Turn on the stove."
     },
     {
       "task_id": 8,
+      "key": "put_bowl_on_plate",
       "instruction": "put the bowl on the plate",
+      "official_instruction": "put the bowl on the plate",
+      "bddl_language": "Put the bowl on the plate",
       "bddl": "put_the_bowl_on_the_plate.bddl",
+      "bddl_sha256": "358b7781437e412c67d6a7648c1c28796b6b1bf117a25e61316cb8dfeb940e5b",
+      "init_file": "put_the_bowl_on_the_plate.pruned_init",
+      "init_sha256": "ef3466ffad734754dc40eba1f6f5712e37aa46b9692c595e0da34f16d3a0c668",
       "goal_atoms": ["On akita_black_bowl_1 plate_1"],
       "kind": "pick_place",
       "objects": ["akita_black_bowl_1", "plate_1"],
       "targets": ["plate_1"],
       "completion": "object_on_target",
-      "object_phrase": "the black bowl"
+      "object_phrase": "the black bowl",
+      "semantics": {
+        "operation": "pick_place",
+        "source": "akita_black_bowl_1",
+        "target": "plate_1",
+        "relation": "on",
+        "subgoals": []
+      },
+      "capability": "Place the black bowl on the plate."
     },
     {
       "task_id": 9,
+      "key": "put_wine_bottle_on_rack",
       "instruction": "put the wine bottle on the rack",
+      "official_instruction": "put the wine bottle on the rack",
+      "bddl_language": "Put the wine bottle on the rack",
       "bddl": "put_the_wine_bottle_on_the_rack.bddl",
+      "bddl_sha256": "3d3ee18139056aa3780572cde17b1c50dc20ae0d299403f65e514e8471ba0e8e",
+      "init_file": "put_the_wine_bottle_on_the_rack.pruned_init",
+      "init_sha256": "fa09aa4ade871c1c6be3dd8c93eb3437ea15190fd7dc73b8c986c8d2d3cfb062",
       "goal_atoms": ["On wine_bottle_1 wine_rack_1_top_region"],
       "kind": "pick_place",
       "objects": ["wine_bottle_1", "wine_rack_1"],
       "targets": ["wine_rack_1_top_region"],
       "completion": "object_on_target",
-      "object_phrase": "the wine bottle"
+      "object_phrase": "the wine bottle",
+      "semantics": {
+        "operation": "pick_place",
+        "source": "wine_bottle_1",
+        "target": "wine_rack_1_top_region",
+        "relation": "on",
+        "subgoals": []
+      },
+      "capability": "Place the wine bottle on the wine rack."
     }
   ]
 }
