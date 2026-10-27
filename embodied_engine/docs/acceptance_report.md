@@ -1,5 +1,8 @@
 # 十任务验收摘要（LIBERO-Goal，seed 0，每项 3 回合）
 
+> 阶段说明：§1–§10 是 **Pi0.5 基线**的 30 回合验收；§11 是本阶段新增的 **OpenWAM 模型层接入**验收
+> （独立代码状态、独立数据）。两节的数字不可混用。
+
 本文件只记录已经跑出来的数字和失败原因。所有结果来自 `records/acceptance/final_3x_rehome.json`
 及其引用的 30 份回合记录（归档在 `records/acceptance/final_3x_rehome_runs/`），可用
 
@@ -293,7 +296,7 @@ Inference: async_chunk_prefetch / pi05
 | P1 | task 3 放置（举过柜顶） | 2/3，失败回合 3 次放置都未进抽屉 | 记录失败回合的碗/抽屉相对位姿，考虑放置前的水平重定位触发条件（不得降门槛） |
 | P1 | task 7 每次都要 1 次恢复 | 6/6 回合 3/3，但每次首个 `turn_on` 都在 16 块（80 动作）处 `chunk_budget_exhausted`，第 2 次从按钮处继续才成功 | 让 `turn_on` 也走"按钮关节有进展就 +10 块"的扩展（与 `open_drawer` 同一机制），预计省掉 3 次恢复 / 约 10 s/回合 |
 | P2 | 推断只重叠 38% | 块长 5 动作 ≈ 0.335 s < 单块推断 0.354 s | 试 index 1 预取或更长动作块，同条件对比 |
-| P2 | OpenWAM | BLOCKED：缺 Wan2.2-TI2V-5B 主干与运行依赖，未跑过动作推理 | 见 `architecture.md` §2，不冒充接入 |
+| — | OpenWAM | 已解除：自包含检查点、独立环境、真实推理与十任务验收 | 见本文件 §11 与 `architecture.md` §2.2；剩余限制见 §11.8 |
 | P3 | 旧链路同条件对照 | 只有单项（规划）可比较 | 若需要整回合对照，旧链路需补计时埋点 |
 
 ## 10. 产物
@@ -307,3 +310,126 @@ Inference: async_chunk_prefetch / pi05
 | `records/logs/final_3x_rehome.log` | 验收过程日志 |
 | `records/run_journal.jsonl` | 运行期事件（预取丢弃、预算扩展、归位、释放等） |
 | `docs/architecture.md` | 三层组件、接口、来源、启动/状态/停止命令 |
+
+## 11. OpenWAM 模型层接入验收（2026-10-26）
+
+本节是**独立阶段**的验收：把 `OpenWAM-Alpha-Sim-LIBERO` 真正接到 `embodied_engine` 模型层，
+与前面的 Pi0.5 30 回合验收不是同一份代码状态。上面的数字仍只属于 Pi0.5。
+
+### 11.1 结论
+
+| 项目 | 结果 |
+| --- | --- |
+| 资产缺失判断 | **不需要下载** `Wan2.2-TI2V-5B`：检查点自包含（12.4068B 参数 / 24.814 GB 单文件），配置内嵌组件规格 |
+| 独立环境 | `.venv-openwam`（无 sudo）：`torch 2.7.1+cu128`、`transformers 5.20.2`、`diffusers 0.41.0`，sm_120 实测可用 |
+| 真实加载 | GPU2 常驻，加载约 110 s，显存 **24,778 MiB**；`strict=True` 载入无缺失/多余 key |
+| 接入方式 | `action_model.backend=openwam`，WebSocket 常驻服务 `14520`，整任务 `whole_task` 一步计划 |
+| 动作契约 | 10 维 native EEF10 → 7 维 LIBERO OSC，与官方实现**逐函数数值对拍**通过 |
+| Task 1 连续 3 回合 | **3 / 3 成功**（29.8 / 31.0 / 31.8 s，84 / 86 / 87 动作） |
+| LIBERO-Goal 十任务单轮 | **10 / 10 成功**，0 次恢复；耗时中位 33.3 s，动作中位 91.5 |
+| stop/reset 隔离 | `scripts/test_lifecycle.py` PASS：停止后 0 个在途动作、模型侧缓冲清零、新场景 epoch |
+| 与 Pi0.5 共存 | 同一进程内双向切换：`pi05` task 1 成功（26.46 s / 144 动作），再切回 `openwam` 成功（28.90 s / 83 动作）；切换后引擎身份与动作维度随动更新，无缓存串味 |
+
+### 11.2 资产核实（为什么没有下载主干）
+
+| 检查 | 事实 |
+| --- | --- |
+| `config.yaml` 的 `model.video_backbone.components` | 存在 `dit` / `vae` / `text_encoder` 三个组件的 `class_path` 与构造参数 |
+| 部署加载路径 | 日志 `Using config-embedded component specs for video-backbone construction`，空壳实例化 + 从 safetensors 载入 |
+| `model_path` 的作用 | 仅 tokenizer 兜底；tokenizer 已在本目录 `tokenizer/google/umt5-xxl/` |
+| 权重分布（safetensors 头部） | DiT 9.997 GB + UMT5 11.363 GB + ActionDiT 2.042 GB + VAE 1.409 GB + proprio 0.001 GB = 24.814 GB |
+| 参数总量 | 12.4068B（DiT 5.0B + T5 5.68B + Action 1.02B + VAE 0.705B） |
+| 加载校验 | `load_checkpoint(strict=True)` 成功即 `missing=[] / unexpected=[]` |
+
+结论：外部 Wan 目录缺失**不是**阻断项；本阶段唯一真正缺的是运行依赖与隔离环境，已补齐。
+
+### 11.3 契约对拍（`tests/test_openwam_contract.py`）
+
+| 项 | 样本 | 结果 |
+| --- | --- | --- |
+| `quat → rot6d` / `rot6d → quat` / `rot6d → axis-angle` | 200 组随机旋转 | 与 `benchmarks/utils/action_conversion.py` `allclose` |
+| 原始 proprio → EEF10 | 50 组随机 pos/quat/gripper | 与 `libero_obs_to_eef10` 一致 |
+| native EEF10 → 7 维 OSC | 200 组随机动作 | 与 `openwam2libero_interface.native_eef10_to_libero7d` 一致，且落在 `[-1,1]` |
+| 图像槽位 | 真实随机 256×256 双相机 | 旋转 180° + LANCZOS：head 320×256、wrist 160×128，与 `client.resize_for_lshape_slot` 逐像素相等 |
+
+### 11.4 十任务单轮结果（seed 0，每任务 1 回合，不重试）
+
+| task | 指令 | 结果 | 耗时（s） | 仿真动作 | 首次推断（s） | 稳态推断中位（ms） | goal 处夹爪开度（m） |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | open the middle drawer of the cabinet | ✅ | 43.9 | 129 | 0.524 | 29 | 0.077（张开） |
+| 1 | put the bowl on the stove | ✅ | 32.7 | 86 | 0.490 | 31 | 0.006 |
+| 2 | put the wine bottle on top of the cabinet | ✅ | 31.4 | 82 | 0.525 | 30 | 0.031 |
+| 3 | open the top drawer and put the bowl inside | ✅ | 54.4 | 170 | 0.521 | 29 | 0.008 |
+| 4 | put the bowl on top of the cabinet | ✅ | 33.0 | 88 | 0.532 | 31 | 0.012 |
+| 5 | push the plate to the front of the stove | ✅ | 47.1 | 146 | 0.528 | 30 | 0.078（张开） |
+| 6 | put the cream cheese in the bowl | ✅ | 33.6 | 95 | 0.468 | 29 | 0.053～0.067（张开） |
+| 7 | turn on the stove | ✅ | 28.3 | 77 | 0.522 | 29 | 0.028 |
+| 8 | put the bowl on the plate | ✅ | 29.2 | 81 | 0.464 | 31 | 0.015 |
+| 9 | put the wine bottle on the rack | ✅ | 42.6 | 126 | 0.525 | 30 | 0.041 |
+
+汇总（`python3 scripts/summarize_openwam.py records/acceptance/openwam_libero_goal_all10.json`）：
+
+- 成功 **10/10**，原生目标与用户目标一致（`final_verification.method=native_libero_goal`，3 个新样本全真）；
+- 规划延迟中位 **5.72 s**（每回合 1 次）；
+- 首次推断中位 0.52 s（服务端首块生成），稳态 **29–31 ms**（服务端缓冲区出队）；
+- 单回合推断累计 3.7–7.8 s，仿真步进累计 5.4–12.0 s，回合总时长 28.3–54.4 s；
+- 峰值显存 **24,778 MiB**（GPU2 独占，未影响 GPU0/1/3 上已有进程）；
+- 恢复次数 **0**。
+
+**必须说明的口径**：官方 LIBERO goal 不要求"松手"。这 10 回合里有 3 回合在 goal 处测得
+夹爪张开（抽屉/推盘子/把奶酪放进碗），其余 7 回合到达 goal 时夹爪仍是闭合的
+（目标原子 `On/In` 成立，物体已接触目标面，但策略没有张开手指）。
+因此本阶段的 `user_goal_success` 以官方 goal 为准；若额外要求"释放证据"，
+只能算 **3/10**。报告不把闭合夹爪写成一次释放，也不补 Pi0.5 式的 release 收据。
+
+### 11.5 生命周期与隔离
+
+`scripts/test_lifecycle.py`（stop 在第 11 个动作后发起）：
+
+| 检查 | 观测值 |
+| --- | --- |
+| `sim_at_request` / `sim_at_ack` | 11 / 11，`in_flight_actions=0` |
+| 停止后 3 s 的动作数 | 冻结在 11（没有新动作下发） |
+| 模型侧缓冲 | `backend_resets +1`（OpenWAM 返回 `reset_ack`） |
+| 停止回合的结果 | `execution_status=stopped`、`failure_code=user_stop`，不报成功 |
+| reset | `scene_epoch 8 → 9`，`last_result`/`episode_id` 清空 |
+| reset 后重跑 | task 1 成功（新场景，无旧动作） |
+
+### 11.6 一次真实故障与修复（保留记录）
+
+切换后端后的第一次回归（`openwam_switchback_task1.json` 的第一版）失败了：
+`inference_failed，ValueError: OpenWAM proprio must be 10-D EEF10, got 8`，0 动作。
+
+- **根因**：引擎在启动时缓存了 `config/engine.json`。`set_backend.sh` 只重启推理服务，
+  引擎仍以为后端是 `pi05`，于是给 Agent 下发 Pi0.5 的技能目录，规划出 `pick_place`，
+  再把它交给 OpenWAM 后端 —— 8 维 proprio 进了 10 维契约。
+- **修复**（两处，都是真问题，不是绕过）：
+  1. `engine_service._action_backend()` 改为向推理服务查询**实际在服务的后端**，配置只作兜底；
+  2. 计划落库后加"后端—技能"闸门：`openwam` 要求恰好一个 `whole_task`，
+     其它后端禁止 `whole_task`，不匹配直接 `plan_backend_mismatch` 失败，不进入执行。
+- **复测**：同一命令重跑通过（28.9 s / 83 动作），并已在 §11.1 记为可用。
+
+### 11.7 产物
+
+| 文件 | 内容 |
+| --- | --- |
+| `records/acceptance/openwam_libero_goal_all10.json` | 十任务单轮汇总 |
+| `records/acceptance/openwam_libero_goal_all10_runs/` | 上述 10 回合完整记录归档 |
+| `records/acceptance/openwam_task1_repeat.json`（+ `_runs/`） | Task 1 连续 3 回合 |
+| `records/acceptance/pi05_regression_task1.json`（+ `_runs/`） | 切回 Pi0.5 的回归回合 |
+| `records/acceptance/openwam_switchback_task1.json`（+ `_runs/`） | 切回 OpenWAM 的回归回合 |
+| `records/openwam_server.json` | 常驻服务启动记录（commit、checkpoint、horizon、GPU） |
+| `records/logs/openwam_server.log`、`openwam_suite_all10.log` | 服务与验收日志 |
+| `scripts/openwam_server.sh`、`scripts/set_backend.sh` | 常驻服务管理与后端切换 |
+| `scripts/openwam_probe.py`、`scripts/summarize_openwam.py` | 加载探针与结果汇总 |
+| `tests/test_openwam_contract.py`、`tests/test_openwam_backend_smoke.py`、`tests/test_whole_task_plan.py` | 契约对拍、模型层冒烟、整任务计划契约 |
+
+### 11.8 已知限制
+
+| 优先级 | 限制 | 现状 |
+| --- | --- | --- |
+| P1 | 整任务策略不做子技能拆解 | Agent 只能发 `whole_task`；OpenWAM 无法被要求"只做 open_drawer"之类的子任务 |
+| P1 | 7/10 回合到达 goal 时夹爪未张开 | 官方 goal 成立，但没有"释放"证据；如要求释放需另行训练/约束 |
+| P2 | 十任务只跑了 1 回合/任务 | 方差未知（Pi0.5 在同任务上曾出现 3/3 → 1/3 的波动），需要 ≥20 回合/任务 |
+| P2 | `execute_horizon` 与 `generate_horizon` 都是 32 | 未做"缩短执行 horizon 提升反应性"的对照实验 |
+| P3 | 编译未启用 | `--compile-enabled false`；开启后的延迟/稳定性未测 |

@@ -15,7 +15,11 @@ ALLOWED_RELATIONS = {
     "push_object": ("on",),
     "open_drawer": ("open",),
     "turn_on": ("turn_on",),
+    # Whole-task policies take the full official instruction and produce the
+    # whole trajectory themselves; there is no object/site binding to check.
+    "whole_task": ("task",),
 }
+
 
 
 def _error(field: str, code: str, value: Any, expected: str) -> dict[str, Any]:
@@ -71,6 +75,25 @@ def validate_plan(
         target = step.get("target_n")
         target_is_site = isinstance(target, str) and target in sites
         target_is_object = isinstance(target, str) and target in objects
+        if skill == "whole_task":
+            # No binding: the target of the task is the whole scene.
+            if target is not None or step.get("object_n") is not None:
+                errors.append(
+                    _error(f"{prefix}.target_n", "whole_task_takes_no_binding", target, "null object_n and target_n")
+                )
+            prompt = step.get("prompt")
+            if not isinstance(prompt, str) or not prompt.strip():
+                errors.append(_error(f"{prefix}.prompt", "empty_prompt", prompt, "full LIBERO task instruction"))
+            cleaned.append(
+                {
+                    "skill": skill,
+                    "object_n": None,
+                    "target_n": None,
+                    "relation": relation,
+                    "prompt": (prompt or "").strip() or None,
+                }
+            )
+            continue
         if not (target_is_site or target_is_object):
             errors.append(_error(f"{prefix}.target_n", "target_not_in_scene", target, "a site or object in this scene"))
         obj = step.get("object_n")
@@ -135,7 +158,10 @@ def validate_plan(
         )
     if errors:
         return None, errors
-    if task.get("kind") in {"open_drawer", "composite"}:
+    whole_task = any(step.get("skill") == "whole_task" for step in cleaned)
+    if whole_task and len(cleaned) != 1:
+        return None, [_error("steps", "whole_task_must_be_alone", len(cleaned), "exactly one whole_task step")]
+    if not whole_task and task.get("kind") in {"open_drawer", "composite"}:
         has_open = any(step.get("skill") == "open_drawer" for step in [*executed, *cleaned])
         if not has_open:
             errors.append(

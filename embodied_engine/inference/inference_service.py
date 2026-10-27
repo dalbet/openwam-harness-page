@@ -35,12 +35,31 @@ if str(PROJECT) not in sys.path:
 from aiohttp import web  # noqa: E402
 
 from common import config, numpy_json  # noqa: E402
-from models.pi05_backend import Pi05Backend  # noqa: E402
+
+
+def _build_backend():
+    """Instantiate the backend named by ``action_model.backend``.
+
+    The choice is explicit: an unknown value is a hard error, and the OpenWAM
+    path never silently falls back to Pi0.5 (or the other way round).
+    """
+    action = config.engine_config()["action_model"]
+    name = str(action.get("backend") or "").strip().lower()
+    if name == "pi05":
+        from models.pi05_backend import Pi05Backend
+
+        return name, Pi05Backend(config.service_url("pi05"))
+    if name == "openwam":
+        from models.openwam_backend import OpenWAMBackend
+
+        row = action["openwam"]
+        return name, OpenWAMBackend(str(row["server_url"]), timeout_s=float(row.get("timeout_s") or 300))
+    raise RuntimeError(f"unknown action_model.backend={name!r}; expected 'pi05' or 'openwam'")
 
 
 class InferenceEngine:
     def __init__(self, base_url: str):
-        self.backend = Pi05Backend(base_url)
+        self.backend_name, self.backend = _build_backend()
         self.lock = threading.Lock()
         self.queue: deque[dict[str, Any]] = deque()
         self.queue_lock = threading.Lock()
@@ -80,6 +99,17 @@ class InferenceEngine:
             self.cond.notify_all()
         with self.results_lock:
             self.results.clear()
+        # The receding-horizon buffer lives inside the model server: dropping
+        # only our queue would leave already-generated but not-yet-executed
+        # actions from the previous episode/scene valid.
+        backend_reset = getattr(self.backend, "reset", None)
+        if callable(backend_reset):
+            try:
+                out = backend_reset()
+                self.metrics["backend_resets"] = int(self.metrics.get("backend_resets", 0)) + 1
+                self.metrics["last_backend_reset"] = out
+            except Exception as exc:
+                self.metrics["backend_reset_error"] = f"{type(exc).__name__}: {exc}"
         return token
 
     def cancel(self, reason: str) -> dict[str, Any]:
@@ -95,7 +125,17 @@ class InferenceEngine:
                 if value.get("status") == "pending":
                     self.results[request_id] = {"status": "discarded", "reason": f"cancel:{reason}", "request": value.get("request")}
         self.metrics["prefetch_discarded"] += dropped
+        backend_reset = getattr(self.backend, "reset", None)
+        if callable(backend_reset):
+            try:
+                out = backend_reset()
+                self.metrics["backend_resets"] = int(self.metrics.get("backend_resets", 0)) + 1
+                self.metrics["backend_resets_on_cancel"] = int(self.metrics.get("backend_resets_on_cancel", 0)) + 1
+                self.metrics["last_backend_reset"] = out
+            except Exception as exc:
+                self.metrics["backend_reset_error"] = f"{type(exc).__name__}: {exc}"
         return {"status": "ok", "discarded": dropped}
+
 
     def submit(self, request: dict[str, Any], obs: dict[str, Any]) -> dict[str, Any]:
         token = self._check_token(request.get("token"))
@@ -160,6 +200,9 @@ class InferenceEngine:
             "actions": out["actions"],
             "actions_shape": out["actions_shape"],
             "inference_s": out["inference_s"],
+            "server_latency_ms": out.get("server_latency_ms"),
+            "action_space": out.get("action_space"),
+            "action_raw": out.get("action_raw"),
             "queued_s": round(queued_s, 4),
             "total_s": round(time.perf_counter() - started, 4),
         }
@@ -217,6 +260,9 @@ class InferenceEngine:
                     "actions": numpy_json.encode(out["actions"]),
                     "actions_shape": out["actions_shape"],
                     "inference_s": out["inference_s"],
+                    "server_latency_ms": out.get("server_latency_ms"),
+                    "action_space": out.get("action_space"),
+                    "action_raw": out.get("action_raw"),
                     "queued_s": round(queued_s, 4),
                     "total_s": round(time.perf_counter() - started, 4),
                 }
@@ -238,34 +284,90 @@ class InferenceEngine:
         return None
 
     def identity(self) -> dict[str, Any]:
+        """What is actually serving actions, and what is merely available.
+
+        ``action_model`` describes the *selected* backend only. The ``openwam``
+        block always describes OpenWAM's on-disk artifact, and its
+        ``integration`` says whether OpenWAM is on the execution path
+        (``on_execution_path``), selected but unreachable, or not selected.
+        """
         cfg = config.engine_config()["action_model"]
         openwam = cfg["openwam"]
+        backend = self.backend_name
         checkpoint = Path(openwam["checkpoint"]) / openwam["checkpoint_file"]
-        size = None
         try:
             size = checkpoint.stat().st_size
         except OSError:
-            pass
-        return {
-            "backend": cfg["backend"],
+            size = None
+        openwam_spec = {
+            "name": openwam["name"],
+            "checkpoint": str(checkpoint),
+            "hf_revision": openwam["hf_revision"],
+            "bytes_on_disk": size,
+            "action_horizon": int(openwam["generate_horizon"]),
+            "execute_horizon": int(openwam["execute_horizon"]),
+            "denoise_steps": int(openwam["denoise_steps"]),
+        }
+        pi05_spec = {
+            "backend": "pi05",
             "name": cfg["name"],
             "checkpoint": cfg["checkpoint"],
             "revision": cfg["revision"],
-            "action_chunk": cfg["action_chunk"],
-            "action_dim": cfg["action_dim"],
+            "action_chunk": int(cfg["action_chunk"]),
+            "action_dim": int(cfg["action_dim"]),
             "control_frequency_hz": cfg["control_frequency_hz"],
-            "server": self.backend.health(),
-            "openwam": {
-                "name": openwam["name"],
-                "checkpoint": str(checkpoint),
-                "hf_revision": openwam["hf_revision"],
-                "bytes_on_disk": size,
-                "action_horizon": openwam["action_horizon"],
-                "denoise_steps": openwam["denoise_steps"],
-                "integration": "not_on_execution_path",
-                "reason": "weights downloading; a separate torch 2.7.1/cu128 environment is required",
-            },
+            "server_url": config.service_url("pi05"),
         }
+        if backend == "openwam":
+            server_health = self.backend.health()
+            reachable = bool(server_health.get("reachable"))
+            served = {
+                "backend": "openwam",
+                "name": openwam["name"],
+                "checkpoint": openwam["checkpoint"],
+                "checkpoint_file": openwam["checkpoint_file"],
+                "revision": openwam["hf_revision"],
+                "action_dim": int(openwam["action_dim"]),
+                "action_space": openwam["action_space"],
+                "action_horizon": int(openwam["generate_horizon"]),
+                "execute_horizon": int(openwam["execute_horizon"]),
+                "denoise_steps": int(openwam["denoise_steps"]),
+                "inference_mode": "sync_step",
+                "server": server_health,
+                "inference_s_last": self.metrics.get("inference_s_last"),
+                "inference_calls": self.metrics.get("infer_calls", 0) + self.metrics.get("prefetch_completed", 0),
+                "counterpart": pi05_spec,
+            }
+            openwam_block = {
+                **openwam_spec,
+                "integration": "on_execution_path" if reachable else "selected_unreachable",
+                "reason": (
+                    "active backend: resident OpenWAM policy server, real action inference over WebSocket"
+                    if reachable
+                    else "selected backend is openwam but its server is unreachable"
+                ),
+                "server": server_health,
+            }
+        else:
+            served = {
+                **pi05_spec,
+                "inference_mode": str(config.engine_config()["inference"]["mode"]),
+                "server": self.backend.health(),
+                "counterpart": {
+                    "backend": "openwam",
+                    "name": openwam["name"],
+                    "checkpoint": openwam["checkpoint"],
+                    "checkpoint_file": openwam["checkpoint_file"],
+                    "action_horizon": int(openwam["generate_horizon"]),
+                    "select_with": "action_model.backend=openwam (restart inference service)",
+                },
+            }
+            openwam_block = {
+                **openwam_spec,
+                "integration": "not_on_execution_path",
+                "reason": "Pi0.5 is the selected backend; OpenWAM is loadable but not executing",
+            }
+        return {**served, "openwam": openwam_block}
 
     def metrics_row(self) -> dict[str, Any]:
         with self.results_lock:
@@ -275,8 +377,16 @@ class InferenceEngine:
         row = dict(self.metrics)
         row["pending_prefetch"] = pending
         row["ready_results"] = ready
-        row["mode"] = config.engine_config()["inference"]["mode"]
+        row["mode"] = self.mode()
+        row["backend"] = self.backend_name
         return row
+
+    def mode(self) -> str:
+        """Actual inference mode: OpenWAM runs one real action per step."""
+        if self.backend_name == "openwam":
+            return str(config.engine_config()["inference"].get("openwam_mode") or "sync_step")
+        return str(config.engine_config()["inference"]["mode"])
+
 
 
 ENGINE: InferenceEngine | None = None
@@ -284,16 +394,19 @@ ENGINE: InferenceEngine | None = None
 
 async def health(request: web.Request) -> web.Response:
     assert ENGINE is not None
+    identity = ENGINE.identity()
     return web.json_response(
         {
             "service": "inference",
-            "status": "ok" if ENGINE.identity()["server"].get("reachable") else "degraded",
-            "mode": config.engine_config()["inference"]["mode"],
-            "identity": ENGINE.identity(),
+            "status": "ok" if identity["server"].get("reachable") else "degraded",
+            "mode": ENGINE.mode(),
+            "backend": ENGINE.backend_name,
+            "identity": identity,
             "metrics": ENGINE.metrics_row(),
             "token": ENGINE.token,
         }
     )
+
 
 
 async def reset(request: web.Request) -> web.Response:
@@ -383,8 +496,17 @@ def main() -> None:
     service = config.engine_config()["services"]["inference"]
     port = args.port or int(service["port"])
     ENGINE = InferenceEngine(config.service_url("pi05"))
-    print(f"[inference] resident Pi0.5 on {service['host']}:{port}; vla={config.service_url('pi05')}", flush=True)
+    action = config.engine_config()["action_model"]
+    if ENGINE.backend_name == "openwam":
+        target = f"openwam server {action['openwam']['server_url']}"
+    else:
+        target = f"pi05 {config.service_url('pi05')}"
+    print(
+        f"[inference] backend={ENGINE.backend_name} on {service['host']}:{port} -> {target}; mode={ENGINE.mode()}",
+        flush=True,
+    )
     web.run_app(make_app(), host=service["host"], port=port, access_log=None)
+
 
 
 if __name__ == "__main__":

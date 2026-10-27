@@ -45,6 +45,34 @@ You receive the failed skill, its failure evidence, the remaining user goal, and
 Use "retry" only for a transient execution problem (timeout, one missed grasp); return an empty steps list. Use "replan" only when you provide a non-empty, complete, validated step list using the same skill rules and exact names as the plan request. Use "abort" when the goal is unreachable with the available skills; return an empty steps list. Do not claim success. Do not output anything outside the JSON object.
 """
 
+# The whole-task catalog has exactly one entry: a policy that consumes the full
+# official instruction and drives the robot itself. Sub-skill decomposition
+# would be an instruction the policy never saw in training, so the planner is
+# asked to emit that single step verbatim instead.
+WHOLE_TASK_SYSTEM_PROMPT = """You are the Agent layer of a LIBERO-Goal robot system whose action model is a whole-task policy (OpenWAM).
+You do not see camera images. Your input is the user instruction, task registry metadata, a read-only simulation snapshot, and the skill catalog. The snapshot is simulation truth.
+
+The selected policy was trained on complete LIBERO episodes conditioned on the official task instruction. It is not a set of sub-skill tools: do not decompose the task into pick/place/open-drawer steps, and do not invent names, sites or controller parameters.
+
+Return exactly one JSON object and nothing else, with exactly one step:
+{"interpretation": "one sentence",
+ "steps": [{"skill": "whole_task", "object_n": null, "target_n": null, "relation": "task", "prompt": "<the official LIBERO instruction, in English>"}],
+ "success_condition": "how the user goal is checked from simulation state"}
+The step prompt must be the task instruction itself (e.g. "put the black bowl on the stove"), because that is the exact string the policy was trained to follow.
+"""
+
+WHOLE_TASK_RECOVERY_PROMPT = """You are the Agent layer deciding how to recover when the whole-task policy (OpenWAM) ended without the native LIBERO goal.
+Return exactly one JSON object:
+{"decision": "retry" | "abort", "reason": "short reason", "steps": [{"skill": "whole_task", "object_n": null, "target_n": null, "relation": "task", "prompt": "<official LIBERO instruction>"}]}
+Use "retry" when a fresh attempt from the current state could still succeed (transient inference/threading problem, partial progress). Use "abort" when the evidence shows the policy could not do the task. A replan into sub-skills is not available for this policy. Do not claim success. Do not output anything outside the JSON object.
+"""
+
+
+def whole_task_catalog(skills: dict[str, Any]) -> bool:
+    rows = [str(row.get("name")) for row in (skills.get("skills") or []) if isinstance(row, dict)]
+    return rows == ["whole_task"]
+
+
 
 def client_options() -> dict[str, Any]:
     agent = config.engine_config()["agent"]
@@ -183,8 +211,9 @@ def request_plan(
     attempts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     summary = scene_summary(task, snapshot, skills)
+    system_prompt = WHOLE_TASK_SYSTEM_PROMPT if whole_task_catalog(skills) else SYSTEM_PROMPT
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {
             "role": "user",
             "content": json.dumps(
@@ -253,8 +282,9 @@ def request_recovery(
     completed_steps: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     summary = scene_summary(task, snapshot, skills)
+    system_prompt = WHOLE_TASK_RECOVERY_PROMPT if whole_task_catalog(skills) else RECOVERY_PROMPT
     messages = [
-        {"role": "system", "content": RECOVERY_PROMPT},
+        {"role": "system", "content": system_prompt},
         {
             "role": "user",
             "content": json.dumps(

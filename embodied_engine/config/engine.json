@@ -49,7 +49,7 @@
     }
   },
   "action_model": {
-    "backend": "pi05",
+    "backend": "openwam",
     "name": "Pi0.5 LIBERO-130 SFT",
     "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
     "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
@@ -61,8 +61,19 @@
       "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
       "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
       "checkpoint_file": "checkpoint_step_10690.safetensors",
-      "action_horizon": 10,
-      "denoise_steps": 10
+      "repo": "/home/host/page-dmh/openwam_harness/OpenWAM",
+      "repo_commit": "4d7f642b841913ea3c176010b692b1de3d5ef180",
+      "python": "/home/host/page-dmh/embodied_engine/.venv-openwam/bin/python",
+      "server_url": "ws://127.0.0.1:14520",
+      "server_port": 14520,
+      "gpu_index": 2,
+      "generate_horizon": 32,
+      "execute_horizon": 32,
+      "action_dim": 10,
+      "action_space": "native_eef10",
+      "denoise_steps": 10,
+      "max_steps": 600,
+      "timeout_s": 300
     }
   },
   "env": {
@@ -75,10 +86,12 @@
   },
   "inference": {
     "mode": "async_chunk_prefetch",
+    "openwam_mode": "sync_step",
     "queue_size": 1,
     "allow_prefetch_boundaries": false,
     "max_chunk_age_actions": 5,
-    "pi05_timeout_s": 120
+    "pi05_timeout_s": 120,
+    "openwam_timeout_s": 300
   },
   "execution": {
     "pick_max_chunks": 40,

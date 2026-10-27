@@ -1,0 +1,17 @@
+{
+  "pid": 816539,
+  "url": "ws://127.0.0.1:14520",
+  "port": 14520,
+  "gpu_index": 2,
+  "python": "/home/host/page-dmh/embodied_engine/.venv-openwam/bin/python",
+  "repo": "/home/host/page-dmh/openwam_harness/OpenWAM",
+  "repo_commit": "4d7f642b841913ea3c176010b692b1de3d5ef180",
+  "checkpoint_dir": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+  "checkpoint_file": "checkpoint_step_10690.safetensors",
+  "generate_horizon": 32,
+  "execute_horizon": 32,
+  "denoise_steps": 10,
+  "inference_mode": "sync",
+  "compile_enabled": false,
+  "started_at": "2026-10-26T14:30:49+00:00"
+}

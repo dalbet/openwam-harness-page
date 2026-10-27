@@ -1,0 +1,66 @@
+{
+  "meta": {
+    "schema": "embodied_engine.suite.v1",
+    "started_at": "2026-10-26T15:01:03",
+    "engine": "http://127.0.0.1:14800",
+    "runs_per_task": 1,
+    "agent_model": "Qwen3.5-9B",
+    "action_model": "Pi0.5 LIBERO-130 SFT",
+    "inference_mode": "async_chunk_prefetch",
+    "env": {
+      "suite": "libero_goal",
+      "seed": 0,
+      "task_id": 1,
+      "port": 14561,
+      "identity": {
+        "service_instance_id": "978c911f85a142e7868e9ca85f4edb4c",
+        "scene_generation": 1,
+        "sim_action_count": 0,
+        "task_scope": "official_single",
+        "mode": "free",
+        "code": "episode-service-state-1"
+      },
+      "ready": true
+    }
+  },
+  "rows": [
+    {
+      "task_id": 1,
+      "run": 1,
+      "episode_id": "ep-20261026-150106-611ac8",
+      "phase": "succeeded",
+      "execution_status": "completed",
+      "native_task_success": true,
+      "user_goal_success": true,
+      "failure_code": null,
+      "reason": "all skills and final verification passed",
+      "duration_s": 26.459,
+      "episode_sim_actions": 144,
+      "recovery_count": 0,
+      "recovery_log": [],
+      "timing": {
+        "planner_s": 6.919,
+        "execution_s": 16.303,
+        "release_s": 2.028,
+        "verification_s": 0.456,
+        "inference_s_sum": 8.066,
+        "env_step_s_sum": 9.753,
+        "snapshot_s_sum": 1.311,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 4.854,
+        "prefetch_inference_overlap_s_est": 7.703,
+        "recovery_s": 0.0,
+        "total_s_engine": 26.459,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-150106-611ac8.json",
+      "seed": 0,
+      "scene_epoch": 4,
+      "inference_mode": "async_chunk_prefetch",
+      "wall_s": 27.274
+    }
+  ],
+  "finished_at": "2026-10-26T15:01:33",
+  "success_count": 1,
+  "attempts": 1
+}

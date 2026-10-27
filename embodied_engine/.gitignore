@@ -1,6 +1,8 @@
 # Runtime state, not source.
 __pycache__/
 *.pyc
+.venv-download/
+.venv-openwam/
 records/*.pid
 records/logs/
 records/runs/

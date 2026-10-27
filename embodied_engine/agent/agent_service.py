@@ -79,7 +79,7 @@ async def plan(request: web.Request) -> web.Response:
             instruction=instruction,
             task=task,
             snapshot=snapshot,
-            skills=config.skill_config(),
+            skills=_skills_for(body.get("backend")),
             attempts=body.get("attempts") or [],
         )
     except Exception as exc:
@@ -87,6 +87,24 @@ async def plan(request: web.Request) -> web.Response:
     result["total_s"] = round(time.perf_counter() - started, 3)
     status = 200 if result["status"] == "ok" else 422
     return web.json_response(result, status=status)
+
+
+def _skills_for(backend: str | None) -> dict:
+    """Restrict the skill catalog to what the selected backend can execute.
+
+    A whole-task policy cannot run pick_place/open_drawer sub-skills, and a
+    sub-skill executor cannot run a whole-task policy: the catalog is the
+    contract that keeps the planner from proposing an unexecutable step.
+    """
+    catalog = config.skill_config()
+    rows = list(catalog.get("skills") or [])
+    name = str(backend or config.engine_config()["action_model"].get("backend") or "pi05").lower()
+    wanted = "whole_task" if name == "openwam" else None
+    if wanted:
+        rows = [row for row in rows if row.get("name") == wanted]
+    else:
+        rows = [row for row in rows if row.get("name") != "whole_task"]
+    return {**catalog, "skills": rows}
 
 
 TRANSIENT_RETRY_CODES = {"chunk_budget_exhausted"}
@@ -145,7 +163,7 @@ async def recover(request: web.Request) -> web.Response:
             instruction=instruction,
             task=task,
             snapshot=snapshot,
-            skills=config.skill_config(),
+            skills=_skills_for(body.get("backend")),
             failed_step=body.get("failed_step") or {},
             failure=body.get("failure") or {},
             attempts=body.get("attempts") or [],

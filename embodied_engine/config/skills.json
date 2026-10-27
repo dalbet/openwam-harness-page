@@ -35,6 +35,17 @@
       "preconditions": ["appliance exposes a turn-on state"],
       "completion": "native Turnon goal true",
       "executor": "skills.turn_on"
+    },
+    {
+      "name": "whole_task",
+      "summary": "Run the resident whole-task policy on the full official instruction and let it produce the trajectory. Used only when the selected action-model backend is a whole-task policy (OpenWAM).",
+      "params": ["prompt"],
+      "preconditions": [
+        "action_model.backend is openwam and its resident server is reachable",
+        "prompt is the exact official LIBERO instruction, not a sub-skill prompt"
+      ],
+      "completion": "native LIBERO goal latched from a measured observation; measured gripper separation recorded as release evidence",
+      "executor": "engine.openwam_rollout"
     }
   ],
   "binding": {

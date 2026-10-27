@@ -39,6 +39,7 @@ from common import config, records  # noqa: E402
 from common import plan_contract
 from engine import completion  # noqa: E402
 from engine.inference_client import InferenceClient  # noqa: E402
+from engine.openwam_rollout import WholeTaskRunner  # noqa: E402
 from engine.skills import SkillFailure, SkillRunner, Stopped  # noqa: E402
 
 
@@ -282,6 +283,7 @@ class Engine:
         self.failure_reason = ""
         self.failure_code = ""
         self.last_result: dict[str, Any] = {}
+        self.last_stop: dict[str, Any] = {}
         self.plan: dict[str, Any] | None = None
         self.steps_done: list[dict[str, Any]] = []
         self.latest_frames: dict[str, Any] = {}
@@ -312,16 +314,27 @@ class Engine:
             agent = {"status": "unreachable", "error": f"{type(exc).__name__}: {exc}"}
         inference = self.inference.health()
         action_cfg = self.cfg["action_model"]
-        identity = {
-            "agent": {
-                "service": agent.get("service", "agent"),
-                "status": agent.get("status", "unreachable"),
-                "model": agent.get("model", self.cfg["agent"]["llm_model"]),
-                "planner_vision": agent.get("planner_vision", False),
-                "llm": agent.get("llm"),
-                "jev": agent.get("jev", {"enabled": False}),
-            },
-            "action_model": {
+        infer_ident = inference.get("identity") or {}
+        openwam_row = infer_ident.get("openwam") or {}
+        if infer_ident:
+            action_identity = {
+                "backend": infer_ident.get("backend") or action_cfg["backend"],
+                "name": infer_ident.get("name") or action_cfg["name"],
+                "checkpoint": infer_ident.get("checkpoint") or action_cfg["checkpoint"],
+                "revision": infer_ident.get("revision") or action_cfg["revision"],
+                "action_chunk": infer_ident.get("action_horizon") or action_cfg["action_chunk"],
+                "action_dim": infer_ident.get("action_dim") or action_cfg["action_dim"],
+                "action_space": infer_ident.get("action_space"),
+                "execute_horizon": infer_ident.get("execute_horizon"),
+                "denoise_steps": infer_ident.get("denoise_steps"),
+                "inference_mode": infer_ident.get("inference_mode") or inference.get("mode"),
+                "control_frequency_hz": action_cfg["control_frequency_hz"],
+                "counterpart": infer_ident.get("counterpart"),
+                "server": infer_ident.get("server"),
+                "openwam": {**action_cfg.get("openwam", {}), **openwam_row},
+            }
+        else:
+            action_identity = {
                 "backend": action_cfg["backend"],
                 "name": action_cfg["name"],
                 "checkpoint": action_cfg["checkpoint"],
@@ -332,19 +345,24 @@ class Engine:
                 "openwam": {
                     **action_cfg.get("openwam", {}),
                     "integration": "not_on_execution_path",
-                    "reason": (
-                        "blocked: checkpoint_step_10690.safetensors is on disk (24.8 GB, "
-                        "action_backbone present) but the config requires the Wan2.2-TI2V-5B "
-                        "video backbone, which is absent, and diffusers>=0.38 / "
-                        "transformers>=5.5 are not installable in this env; no action "
-                        "inference has ever been run, so Pi0.5 stays the action model"
-                    ),
+                    "reason": f"inference service unreachable: {inference.get('error') or inference.get('status')}",
                 },
+            }
+        identity = {
+            "agent": {
+                "service": agent.get("service", "agent"),
+                "status": agent.get("status", "unreachable"),
+                "model": agent.get("model", self.cfg["agent"]["llm_model"]),
+                "planner_vision": agent.get("planner_vision", False),
+                "llm": agent.get("llm"),
+                "jev": agent.get("jev", {"enabled": False}),
             },
+            "action_model": action_identity,
             "inference": {
                 "service": inference.get("service", "inference"),
                 "status": inference.get("status", "unreachable"),
                 "mode": inference.get("mode", self.cfg["inference"]["mode"]),
+                "backend": inference.get("backend"),
                 "identity": inference.get("identity"),
                 "metrics": inference.get("metrics"),
             },
@@ -373,6 +391,7 @@ class Engine:
                 "failure_reason": self.failure_reason,
                 "failure_code": self.failure_code,
                 "last_result": self.last_result,
+                "last_stop": self.last_stop,
                 "plan": self.plan,
                 "steps": self.steps_done,
                 "metrics": self.metrics,
@@ -488,14 +507,38 @@ class Engine:
     def stop(self, reason: str = "user_stop") -> dict[str, Any]:
         with self.lock:
             active = self.rollout_thread is not None and self.rollout_thread.is_alive()
+            sim_at_request = self.sim_action_count
             if active:
                 self.stop_event.set()
                 self._set_phase("stopping", f"stop requested: {reason}")
+        # Cancelling the inference request also clears the model-side
+        # receding-horizon buffer, so no generated action can be replayed into
+        # the next episode.
         self.inference.cancel(reason)
         thread = self.rollout_thread
         if thread is not None and thread.is_alive():
             thread.join(timeout=float(self.cfg["timing"]["stop_join_s"]))
-        return {"status": "ok", "active": bool(thread and thread.is_alive()), "phase": self.phase}
+        alive = bool(thread and thread.is_alive())
+        sim_at_ack = sim_at_request
+        if not alive:
+            try:
+                sim_at_ack = int(self.env.state_snapshot().get("sim_action_count") or sim_at_request)
+            except Exception:
+                sim_at_ack = sim_at_request
+        budget = {
+            "reason": reason,
+            "sim_at_request": int(sim_at_request),
+            "sim_at_ack": int(sim_at_ack),
+            # An env.step already handed to the simulator when the flag rose
+            # cannot be recalled; the contract is "no new action is issued",
+            # so this is 0 or 1 and is reported instead of hidden.
+            "in_flight_actions": max(0, int(sim_at_ack) - int(sim_at_request)),
+            "thread_alive": alive,
+        }
+        with self.lock:
+            self.last_stop = budget
+        return {"status": "ok", "active": alive, "phase": self.phase, "stop": budget}
+
 
     def start_run(self, task_id: int, instruction: str | None) -> dict[str, Any]:
         task = config.task_for(task_id)
@@ -571,6 +614,59 @@ class Engine:
 
     # ---- rollout ----
 
+    def _action_backend(self) -> str:
+        """The backend that is actually serving, not the one in the stale config.
+
+        The inference service is restarted by ``scripts/set_backend.sh`` while
+        the engine keeps running, so ``self.cfg`` can name a backend that is no
+        longer serving. The inference service is authoritative; the config is
+        only a fallback when it is unreachable.
+        """
+        try:
+            row = self.inference.health()
+            name = row.get("backend")
+            if name:
+                return str(name).lower()
+        except Exception:
+            pass
+        return str(self.cfg["action_model"].get("backend") or "pi05").lower()
+
+    def _run_whole_task(
+        self,
+        *,
+        env: EnvClient,
+        obs: dict[str, Any],
+        snapshot: dict[str, Any],
+        step: dict[str, Any],
+        task: dict[str, Any],
+        token: str,
+        episode_id: str,
+        stop_event: threading.Event,
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        """Run one whole-task policy rollout; returns (record, obs, snapshot)."""
+        openwam = self.cfg["action_model"]["openwam"]
+        runner = WholeTaskRunner(
+            env=env,
+            inference=self.inference,
+            token=token,
+            episode_id=episode_id,
+            task=task,
+            step=step,
+            obs=obs,
+            snapshot=snapshot,
+            baseline=snapshot,
+            stop_event=stop_event,
+            journal=lambda stage, row: records.append_journal(
+                {"t": time.time(), "stage": stage, "episode_id": episode_id, "row": row}
+            ),
+            max_steps=int(openwam.get("max_steps") or 600),
+            timeout_s=float(openwam.get("timeout_s") or 300),
+            gpu_index=openwam.get("gpu_index"),
+            frame_sink=self._set_frames,
+        )
+        result = runner.run()
+        return result, runner.obs, runner.snapshot
+
     def _run_episode(self, task: dict[str, Any], instruction: str, episode_id: str, run_id: int, stop_event: threading.Event) -> None:
         started = time.time()
         started_iso = _now_iso()
@@ -626,7 +722,13 @@ class Engine:
             plan_started = time.perf_counter()
             plan_response = _post_json(
                 f"{self.agent_url}/plan",
-                {"instruction": instruction, "task_id": task["task_id"], "snapshot": snapshot, "attempts": []},
+                {
+                    "instruction": instruction,
+                    "task_id": task["task_id"],
+                    "snapshot": snapshot,
+                    "attempts": [],
+                    "backend": self._action_backend(),
+                },
                 timeout_s=180,
             )
             timing["planner_s"] += time.perf_counter() - plan_started
@@ -650,6 +752,24 @@ class Engine:
                 )
             plan = plan_response["plan"]
             steps = list(plan["steps"])
+            # A plan is validated against the catalog the planner was given;
+            # this is the second gate, because a wrong executor would run the
+            # right skill against the wrong action contract (8-D proprio into a
+            # 10-D EEF10 backend) and fail halfway through an episode.
+            backend = self._action_backend()
+            planned = [step.get("skill") for step in steps]
+            if backend == "openwam" and planned != ["whole_task"]:
+                raise SkillFailure(
+                    "plan_backend_mismatch",
+                    "openwam backend requires exactly one whole_task step",
+                    {"backend": backend, "planned_skills": planned},
+                )
+            if backend != "openwam" and "whole_task" in planned:
+                raise SkillFailure(
+                    "plan_backend_mismatch",
+                    f"{backend} backend cannot execute whole_task",
+                    {"backend": backend, "planned_skills": planned},
+                )
             # The user-visible goal is the final step of the initial plan.
             # A replan may reorder or add steps, but dropping this step would
             # silently solve a different task.
@@ -699,6 +819,91 @@ class Engine:
                     # attempt got stuck; the runner brings the arm back to the
                     # episode's initial EEF pose first (bounded, see skills.py).
                     runner_step["attempt"] = attempt_no
+                if step.get("skill") == "whole_task":
+                    record, obs, snapshot = self._run_whole_task(
+                        env=env,
+                        obs=obs,
+                        snapshot=snapshot,
+                        step=runner_step,
+                        task=task,
+                        token=token,
+                        episode_id=episode_id,
+                        stop_event=stop_event,
+                    )
+                    timing["execution_s"] += time.perf_counter() - skill_started
+                    timing["inference_s_sum"] += record["timing"]["inference_s_sum"]
+                    timing["env_step_s_sum"] += record["timing"]["env_step_s_sum"]
+                    timing["snapshot_s_sum"] += record["timing"]["snapshot_s_sum"]
+                    record["step"] = step
+                    record["attempt"] = attempt_no
+                    step_results.append(record)
+                    with self.lock:
+                        self.steps_done = [s for s in step_results]
+                    native_ever = native_ever or bool(record.get("ok"))
+                    self._set_frames(obs, snapshot)
+                    if not record.get("ok"):
+                        evidence = record.get("verification") or {}
+                        failure = {
+                            "reason_code": evidence.get("reason_code") or "native_goal_not_reached",
+                            "message": f"whole_task finished {record.get('sim_actions')} actions without the native goal",
+                            "evidence": evidence,
+                            "step": step,
+                            "snapshot": snapshot,
+                        }
+                        # The policy is whole-task: a sub-skill replan is not a
+                        # legal recovery. Only an explicit retry/abort from the
+                        # Agent is honoured, and the failure stays recorded.
+                        self._set_phase("recovering", "whole_task native goal not reached")
+                        recover_started = time.perf_counter()
+                        recovery = _post_json(
+                            f"{self.agent_url}/recover",
+                            {
+                                "instruction": instruction,
+                                "task_id": task["task_id"],
+                                "snapshot": snapshot,
+                                "failed_step": step,
+                                "failure": _recovery_failure(failure),
+                                "completed_steps": [],
+                                "attempts": [
+                                    {
+                                        "step": attempt.get("step"),
+                                        "failure": _recovery_failure(attempt.get("failure") or {}),
+                                        "chunks_used": attempt.get("chunks_used"),
+                                    }
+                                    for attempt in attempts
+                                ],
+                                "backend": self._action_backend(),
+                            },
+                            timeout_s=180,
+                        )
+                        timing["recovery_s"] += time.perf_counter() - recover_started
+                        self.metrics["recovery_calls"] += 1
+                        decision = recovery.get("decision")
+                        recovery_log.append(
+                            {
+                                "step": step,
+                                "failure_code": failure["reason_code"],
+                                "decision": decision,
+                                "policy": recovery.get("policy") or "qwen",
+                                "reason": recovery.get("reason"),
+                                "agent_s": recovery.get("total_s"),
+                            }
+                        )
+                        attempts.append({"step": step, "failure": failure})
+                        if recovery.get("status") != "ok":
+                            raise SkillFailure("recovery_invalid", "Agent recovery decision was invalid", {"recovery": recovery})
+                        if decision == "retry" and retries < max_recoveries:
+                            retries += 1
+                            step_results.pop()
+                            continue
+                        raise SkillFailure(
+                            failure["reason_code"],
+                            failure["message"],
+                            {"verification": evidence, "recovery": recovery},
+                        )
+                    index += 1
+                    retries = 0
+                    continue
                 runner = SkillRunner(
                     env=env,
                     inference=self.inference,
@@ -791,6 +996,7 @@ class Engine:
                             "failed_step": step,
                             "failure": _recovery_failure(failure),
                             "completed_steps": [row.get("step") for row in step_results],
+                            "backend": self._action_backend(),
                             "attempts": [
                                 {
                                     "step": attempt.get("step"),
@@ -876,6 +1082,7 @@ class Engine:
                                 "failed_step": step,
                                 "failure": _recovery_failure(failure),
                                 "completed_steps": [row.get("step") for row in step_results],
+                                "backend": self._action_backend(),
                                 "attempts": [
                                     {
                                         "step": attempt.get("step"),
@@ -945,7 +1152,33 @@ class Engine:
                 for position, result in enumerate(step_results):
                     step = result["step"]
                     release = result.get("release")
-                    if step.get("skill") == "pick_place":
+                    if step.get("skill") == "whole_task":
+                        # Whole-task policies own the whole trajectory: the
+                        # only user-goal check is the native LIBERO goal, and
+                        # it must hold on every fresh sample. Release is
+                        # measured and reported, never required or invented.
+                        flags = [bool(s.get("native_goal")) for s in samples]
+                        ok = all(flags)
+                        openings = [
+                            (s.get("sim") or {}).get("gripper_opening_m") for s in samples
+                        ]
+                        measured = [float(v) for v in openings if isinstance(v, (int, float))]
+                        check = {
+                            "ok": ok,
+                            "method": "native_libero_goal",
+                            "samples": flags,
+                            "reason_code": None if ok else "native_goal_not_reached",
+                            "gripper_opening_m": [round(v, 4) for v in measured],
+                            "release_observed": bool(
+                                result.get("release", {}).get("events")
+                            ) or any(v > 0.05 for v in measured),
+                            "release_source": "measured_gripper_separation",
+                            "note": (
+                                "official LIBERO goal atoms; the policy's own gripper "
+                                "commands are measured, not replaced by executor receipts"
+                            ),
+                        }
+                    elif step.get("skill") == "pick_place":
                         check = completion.verification(samples, step, task, baseline, release=release)
                     else:
                         check = completion.verification(samples, step, task, baseline)
@@ -1070,7 +1303,8 @@ class Engine:
             "recovery_count": len([a for a in attempts]),
             "recovery_log": recovery_log,
             "human_interventions": 0,
-            "inference_mode": self.cfg["inference"]["mode"],
+            "inference_mode": (self._health().get("inference") or {}).get("mode") or self.cfg["inference"]["mode"],
+            "action_backend": self._action_backend(),
             "model": self._health().get("action_model"),
             "agent_model": self._health().get("agent", {}).get("model"),
             "env": self.env.view(),
