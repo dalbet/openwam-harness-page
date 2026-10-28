@@ -1,0 +1,70 @@
+{
+  "schema": "embodied_engine.composite_stop.v1",
+  "generated_at": "2026-10-28T00:21:35",
+  "engine": "http://127.0.0.1:14800",
+  "cases": [
+    {
+      "case": "stop-finalizer-single-control",
+      "kind": "finalizer",
+      "episode_id": "ep-20261028-002152-fbcebd",
+      "ok": true,
+      "trigger_phase": "running",
+      "trigger_detail": "step 1/1 whole_task  ->",
+      "trigger_sim_actions": 97,
+      "stop_ack": {
+        "status": "ok",
+        "active": false,
+        "phase": "stopped",
+        "stop": {
+          "reason": "stop-test:stop-finalizer-single-control",
+          "sim_at_request": 97,
+          "sim_at_ack": 98,
+          "in_flight_actions": 1,
+          "thread_alive": false,
+          "settle_agreements": 3,
+          "cancel_barrier_s": 0.0008,
+          "in_flight_after_cancel": 0,
+          "inference_idle": true,
+          "chunk_buffer_cleared": true
+        }
+      },
+      "after_stop": {
+        "samples": [
+          98,
+          98,
+          98,
+          98,
+          98,
+          98,
+          98,
+          98,
+          98,
+          98,
+          98,
+          98,
+          98
+        ],
+        "first": 98,
+        "last": 98,
+        "advanced": false,
+        "phase": "stopped"
+      },
+      "final_phase": "stopped",
+      "final_detail": "episode stopped",
+      "step_2_started": false,
+      "record_execution_status": "stopped",
+      "record_failure": {
+        "code": "user_stop",
+        "reason": "episode stopped by user"
+      },
+      "record_sim_actions": 98,
+      "scene_epoch": 2,
+      "journal_stages": [
+        "episode_end",
+        "finalizer_step",
+        "stopped",
+        "stopping"
+      ]
+    }
+  ]
+}

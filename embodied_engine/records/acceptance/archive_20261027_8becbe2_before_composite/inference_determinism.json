@@ -1,0 +1,57 @@
+{
+ "engine": "http://127.0.0.1:14800",
+ "server": "ws://127.0.0.1:14520",
+ "prompt": "put the wine bottle on top of the cabinet",
+ "state": [
+  0.06888,
+  0.03516,
+  0.96429,
+  1.0,
+  0.0,
+  0.0,
+  0.0,
+  1.0,
+  0.0,
+  1.0
+ ],
+ "identical": true,
+ "max_abs_diff": 0.0,
+ "mean_abs_diff": 0.0,
+ "runs": [
+  {
+   "run": 1,
+   "action": [
+    0.02700805477797985,
+    0.01831054501235485,
+    0.3332519233226776,
+    1.0078125,
+    -0.0234375,
+    -0.1337890625,
+    0.02734375,
+    1.0078125,
+    0.005859375,
+    1.0
+   ],
+   "server_step": 1,
+   "server_latency_ms": 505.44
+  },
+  {
+   "run": 2,
+   "action": [
+    0.02700805477797985,
+    0.01831054501235485,
+    0.3332519233226776,
+    1.0078125,
+    -0.0234375,
+    -0.1337890625,
+    0.02734375,
+    1.0078125,
+    0.005859375,
+    1.0
+   ],
+   "server_step": 1,
+   "server_latency_ms": 495.26
+  }
+ ],
+ "note": "same observation, same prompt, no seed sent by the client (server default 42), buffer reset before each request"
+}

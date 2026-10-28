@@ -1,0 +1,77 @@
+{
+ "schema": "embodied_engine.lifecycle_planner_generation.v1",
+ "steps": [
+  {
+   "http": 200,
+   "step": "load_task0"
+  },
+  {
+   "http": 200,
+   "episode": "ep-20261027-080511-39f246",
+   "step": "run_task0"
+  },
+  {
+   "http": 409,
+   "status": "busy",
+   "error": "agent mode can only change while idle; phase=running",
+   "mode": "qwen",
+   "step": "switch_during_rollout"
+  },
+  {
+   "http": 200,
+   "stop": {
+    "reason": "generation_check",
+    "sim_at_request": 0,
+    "sim_at_ack": 0,
+    "in_flight_actions": 0,
+    "thread_alive": true
+   },
+   "step": "stop"
+  },
+  {
+   "phase": "stopped",
+   "plan": null,
+   "gen": 6,
+   "stale": 2,
+   "code": "user_stop",
+   "step": "after_stop"
+  },
+  {
+   "http": 200,
+   "status": "ok",
+   "mode": "d1",
+   "step": "switch_idle_d1"
+  },
+  {
+   "http": 200,
+   "episode": "ep-20261027-080546-28e565",
+   "step": "run_task1_d1"
+  },
+  {
+   "phase": "succeeded",
+   "gen": 8,
+   "plan_status": "ok",
+   "plan_source": "d1-3b",
+   "agent_mode": "d1",
+   "steps": [
+    {
+     "skill": "whole_task",
+     "object_n": null,
+     "target_n": null,
+     "relation": "task",
+     "prompt": "put the bowl on the stove"
+    }
+   ],
+   "user_goal": null,
+   "native": true,
+   "code": null,
+   "step": "task1_done"
+  },
+  {
+   "http": 200,
+   "mode": "qwen",
+   "step": "restore_qwen"
+  }
+ ],
+ "finished_at": "2026-10-27T08:06:12+0000"
+}

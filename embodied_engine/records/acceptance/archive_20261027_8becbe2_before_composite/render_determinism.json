@@ -1,0 +1,107 @@
+{
+ "schema": "embodied_engine.render_determinism.v1",
+ "env": "http://127.0.0.1:14561",
+ "camera": "agentview",
+ "size": 256,
+ "task_id_recorded": 1,
+ "env_task_id": 1,
+ "suite": "libero_goal",
+ "seed": 0,
+ "resets": 3,
+ "same_state_pixels": {
+  "shape": [
+   256,
+   256,
+   3
+  ],
+  "max_abs_diff": 0,
+  "mean_abs_diff": 0.0,
+  "differing_pixels": 0,
+  "differing_pixels_gt16": 0
+ },
+ "pose_identical": true,
+ "positions_identical": true,
+ "quats_identical": true,
+ "orientation": [
+  {
+   "site": "akita_black_bowl_1_default_site",
+   "max_angle_deg_vs_first_reset": 0.0
+  },
+  {
+   "site": "cream_cheese_1_default_site",
+   "max_angle_deg_vs_first_reset": 0.0
+  },
+  {
+   "site": "flat_stove_1_default_site",
+   "max_angle_deg_vs_first_reset": 0.0
+  },
+  {
+   "site": "plate_1_default_site",
+   "max_angle_deg_vs_first_reset": 0.0
+  },
+  {
+   "site": "wine_bottle_1_default_site",
+   "max_angle_deg_vs_first_reset": 0.0
+  },
+  {
+   "site": "wine_rack_1_default_site",
+   "max_angle_deg_vs_first_reset": 0.0
+  },
+  {
+   "site": "wooden_cabinet_1_default_site",
+   "max_angle_deg_vs_first_reset": 0.0
+  }
+ ],
+ "scene_epochs": [
+  15,
+  16,
+  17
+ ],
+ "pairwise": [
+  {
+   "a": 0,
+   "b": 1,
+   "shape": [
+    256,
+    256,
+    3
+   ],
+   "max_abs_diff": 190,
+   "mean_abs_diff": 3.0439,
+   "differing_pixels": 12966,
+   "differing_pixels_gt16": 3941
+  },
+  {
+   "a": 0,
+   "b": 2,
+   "shape": [
+    256,
+    256,
+    3
+   ],
+   "max_abs_diff": 190,
+   "mean_abs_diff": 3.206,
+   "differing_pixels": 13510,
+   "differing_pixels_gt16": 3161
+  },
+  {
+   "a": 1,
+   "b": 2,
+   "shape": [
+    256,
+    256,
+    3
+   ],
+   "max_abs_diff": 191,
+   "mean_abs_diff": 3.8067,
+   "differing_pixels": 13683,
+   "differing_pixels_gt16": 4070
+  }
+ ],
+ "diff_fraction": {
+  "0-1": 0.1978,
+  "0-2": 0.2061,
+  "1-2": 0.2088
+ },
+ "note": "same_state_pixels isolates the renderer: identical. pose_identical compares eef, gripper opening, all 17 joints and every object xyz across resets. The snapshot exposes no quaternions, so an identical-position reset can still differ in object or free-joint rotation; a differing image therefore means the policy input is not reproducible, not that the model sampled differently."
+}

@@ -1,0 +1,21 @@
+[1] task 0 en single: please pull open the middle drawer of the cabinet
+  -> completed map=True native=True user=True actions=120 dur=34.849 fail=None
+[2] task 1 en single: place the bowl on the stove
+  -> completed map=True native=True user=True actions=120 dur=31.188 fail=None
+[3] task 2 en single: get the wine bottle onto the cabinet top
+  -> completed map=True native=True user=True actions=98 dur=29.464 fail=None
+[4] task 3 en single: open the top drawer and place the bowl inside it
+  -> completed map=True native=True user=True actions=183 dur=51.339 fail=None
+[5] task 4 en single: put the bowl on the cabinet's top surface
+  -> completed map=True native=True user=True actions=120 dur=31.094 fail=None
+[6] task 5 en single: push the plate to the front of the stove
+  -> completed map=True native=True user=True actions=150 dur=42.338 fail=None
+[7] task 6 en single: put the cream cheese inside the bowl
+  -> completed map=True native=True user=True actions=100 dur=29.749 fail=None
+[8] task 7 en single: switch on the stove
+  -> completed map=True native=True user=True actions=77 dur=23.758 fail=None
+[9] task 8 en single: set the bowl on the plate
+  -> completed map=True native=True user=True actions=120 dur=30.935 fail=None
+[10] task 9 en single: place the wine bottle up on the wine rack
+  -> completed map=True native=True user=False actions=129 dur=37.505 fail=None
+{"rounds": 10, "mapping_ok": 10, "native_success": 10, "user_goal_success": 9, "failed": 0, "stopped": 0}

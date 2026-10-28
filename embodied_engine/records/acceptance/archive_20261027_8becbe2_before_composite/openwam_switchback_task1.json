@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "schema": "embodied_engine.suite.v1",
+    "started_at": "2026-10-26T14:59:21",
+    "engine": "http://127.0.0.1:14800",
+    "runs_per_task": 1,
+    "agent_model": "Qwen3.5-9B",
+    "action_model": "OpenWAM-Alpha-Sim-LIBERO",
+    "inference_mode": "sync_step",
+    "env": {
+      "suite": "libero_goal",
+      "seed": 0,
+      "task_id": null,
+      "port": 14561,
+      "identity": {},
+      "ready": false
+    }
+  },
+  "rows": [
+    {
+      "task_id": 1,
+      "run": 1,
+      "episode_id": "ep-20261026-145937-cfd1f6",
+      "phase": "succeeded",
+      "execution_status": "completed",
+      "native_task_success": true,
+      "user_goal_success": true,
+      "failure_code": null,
+      "reason": "all skills and final verification passed",
+      "duration_s": 28.934,
+      "episode_sim_actions": 83,
+      "recovery_count": 0,
+      "recovery_log": [],
+      "timing": {
+        "planner_s": 4.899,
+        "execution_s": 21.284,
+        "release_s": 0.0,
+        "verification_s": 0.246,
+        "inference_s_sum": 3.807,
+        "env_step_s_sum": 5.416,
+        "snapshot_s_sum": 0.758,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "total_s_engine": 28.934,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-145937-cfd1f6.json",
+      "seed": 0,
+      "scene_epoch": 2,
+      "inference_mode": "sync_step",
+      "wall_s": 29.739
+    }
+  ],
+  "finished_at": "2026-10-26T15:00:07",
+  "success_count": 1,
+  "attempts": 1
+}

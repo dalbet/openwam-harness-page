@@ -4,6 +4,8 @@
 > （独立代码状态、独立数据）。两节的数字不可混用。
 > §12–§14 是速度测量、d1 对照与 60 回合 A/B 的历史记录；§15 起记录 2026-10-27 的
 > **d1 下线、十任务目录统一、Qwen 语义路由、20 回合语言闭环**，其中 d1 已不再运行。
+> §23–§30 记录 **同场景两步组合 `0 → 8`**：路由与执行机制通过，组合的物理目标未同时成立
+> （`combo_verified` 0/6），失败位置与证据见 §23.5–§23.6。
 
 本文件只记录已经跑出来的数字和失败原因。所有结果来自 `records/acceptance/final_3x_rehome.json`
 及其引用的 30 份回合记录（归档在 `records/acceptance/final_3x_rehome_runs/`），可用
@@ -1430,3 +1432,371 @@ snapshot 17.3 + convert 1.3（这几项在时间上重叠，不能相加当墙�
 2. 收尾期间被 stop 只有单测覆盖，没有真实回合的时序样本。
 3. `1 → 7` 组合的旋钮可达性没有测量。
 4. task 2 失败的渲染差异来源（光照/阴影/纹理/渲染上下文）未定位。
+
+## 23. 同场景两步组合 `0 → 8`：六回合冻结验收（真实执行，2026-10-27/28）
+
+> 结论先行：**路由 6/6、第一步 6/6、交接 6/6，第二步原生目标 1/6，双目标同真 0/6。**
+> `0 → 8` 不是一条已通过的能力；它是一条**执行机制已经跑通、物理上还没成立**的组合。
+> 失败没有被重跑覆盖，也没有被包装成成功率。
+
+### 23.1 协议
+
+| 项 | 值 |
+| --- | --- |
+| 分支 | `feature/openwam-composite-0-8-20261027`（自 `8becbe2`） |
+| 冻结清单 | `config/composite_rounds_20261027.json`（sha256 固定，运行前写入） |
+| 回合 | 3 个初始化索引（0/1/2）×（英文/中文）= **6 回合**，不重试、不换 seed |
+| 场景锚 | task 8 的 BDDL + 每个索引自己的 `pruned_init`；episode 内不 reset、不重载、不改 BDDL、不传送物体 |
+| 第一步 | 向 OpenWAM 发 task 0 官方指令 `open the middle drawer of the cabinet`，由引擎 `drawer_open` 谓词判定（`qpos < -0.14`，连续 2 个新样本） |
+| 第二步 | 向 OpenWAM 发 task 8 官方指令 `put the bowl on the plate`，由 LIBERO 原生目标判定；放置沿用 §19 的释放/稳定性验证 |
+| Agent 模型 | `Qwen3.5-9B`（语义路由，非 thinking，`max_tokens=24`） |
+| 动作模型 | `OpenWAM-Alpha-Sim-LIBERO`，`checkpoint_step_10690`，`action_dim=10`，`chunk=32` |
+| 预算 | 第一步 240 动作、第二步 600 动作；handoff 有界（≤60 动作） |
+| 记录 | `records/acceptance/composite_rounds_20261027.json` + `..._runs/`（6 份原始回合，逐份 1.8 MB） |
+
+### 23.2 总表
+
+| 回合 | 语言 | seed | 路由 | 第一步 动作 / s | 交接 动作 | 姿态 起点→终点 | 第二步 动作 / s | 总动作 | 总时长 s | 失败码 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `c08-s0-en` | en | 0 | ✅ | 121 / 31.6 | 36 | 103.5° → 2.8° | 600 / 157.3 | 757 | 195.7 | `composite_step_2_failed` |
+| `c08-s0-zh` | zh | 0 | ✅ | 121 / 31.2 | 36 | 103.6° → 2.8° | 600 / 157.7 | 757 | 195.7 | `composite_step_2_failed` |
+| `c08-s1-en` | en | 1 | ✅ | 115 / 30.2 | 32 | 105.5° → 2.7° | 600 / 156.0 | 747 | 193.0 | `composite_step_2_failed` |
+| `c08-s1-zh` | zh | 1 | ✅ | 118 / 30.9 | 37 | 101.4° → 2.8° | 600 / 156.6 | 755 | 194.2 | `composite_step_2_failed` |
+| `c08-s2-en` | en | 2 | ✅ | 114 / 30.0 | 45 | 105.4° → 1.1° | 479 / 126.2 | 641 | 164.2 | `composite_final_verification_failed` |
+| `c08-s2-zh` | zh | 2 | ✅ | 123 / 32.3 | 31 | 102.3° → 2.6° | 600 / 156.7 | 754 | 195.6 | `composite_step_2_failed` |
+
+汇总（`scripts/summarize_composite_rounds.py` 原样输出）：
+
+```json
+{"rounds": 6, "mapping_ok": 6, "step_1_ok": 6, "step_2_native": 1, "combo_verified": 0,
+ "scene_epoch_continuous": 6, "handoff_ready": 6}
+```
+
+### 23.3 不变量核对（逐回合，全部通过）
+
+| 回合 | `scene_epoch` | 动作计数 起→止 | 步间 reset | 步间 reload | BDDL 变更 | 物体传送 | 动作计数连续 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `c08-s0-en` | 2 → 2 | 0 → 757 | 0 | 0 | false | false | ✅ |
+| `c08-s0-zh` | 4 → 4 | 0 → 757 | 0 | 0 | false | false | ✅ |
+| `c08-s1-en` | 2 → 2 | 0 → 747 | 0 | 0 | false | false | ✅ |
+| `c08-s1-zh` | 4 → 4 | 0 → 755 | 0 | 0 | false | false | ✅ |
+| `c08-s2-en` | 2 → 2 | 0 → 641 | 0 | 0 | false | false | ✅ |
+| `c08-s2-zh` | 4 → 4 | 0 → 754 | 0 | 0 | false | false | ✅ |
+
+"动作计数连续"的判据：`第一步动作 + 交接退离动作 + 第二步动作 == episode_sim_actions`，
+6/6 完全相等（例如 `c08-s0-en`：121 + 36 + 600 = 757）。
+
+**"native 不得终止第一步"这条要求有了一次真实反例级证据**：`c08-s2-en` 的第一步里，
+加载场景自己的原生标志在滚动过程中真的翻到了 `true`（`native_current=true`，
+`native_ever=false`，即第二步目标的原子在此期间被某个瞬间满足过），第一步**没有**因此提前
+结束，而是继续跑到 `drawer_open`（`qpos=-0.1484`）才停。记录里这条标志和"第一步的目标"
+是分开的字段。
+
+### 23.4 第一步与交接：机制通过
+
+- 第一步 6/6 在 114–123 动作、30.0–32.3 s 内达到 `drawer_open`（`qpos` −0.1457…−0.1559），
+  没有任何一回合用到 240 的预算上限，也没有任何一回合因场景原生标志提前结束。
+- 交接 6/6 `status=ready`：第一步目标复验通过 → 抽屉/开关步**不套放置 finalizer**
+  （`release.required=false`，理由写进记录）→ 有界退离 31–45 动作、
+  **姿态从 101.4–105.5° 收敛到 1.1–2.8°**（不改这一步就是第二步"看着抽屉内壁抓碗"）→
+  `scene_epoch`/`scene_generation` 不变 → 抽屉 `qpos` 在退离后仍在阈值内
+  （−0.1457…−0.1559）→ `inference.reset("handoff:…")` 返回新 token → 新 `observation_id`
+  （例如 `…:2:159:163` 相对交接前的 `…:2:121:124`）。
+- 第二步第一块动作由新 token 生成，第一步的 receding-horizon 缓冲没有被第二步消费：
+  6/6 回合 `chunks_used` 第一步 4 块、第二步 15–19 块，两段的行首请求都带各自的 `step_id`。
+
+### 23.5 第二步失败：两类，都不粉饰
+
+**A. 5 回合没到原生目标**（`native_goal_not_reached`，用满 600 动作预算）：
+
+```json
+{"ok": false, "method": "native_libero_goal", "native_goal": false, "samples": 601,
+ "sim_actions": 600, "limit": "max_steps", "reason_code": "native_goal_not_reached",
+ "prompt": "put the bowl on the plate"}
+```
+
+不是"差一点"，而是 30 s 内一次都没有出现 `On(bowl, plate)`。同一索引的单步对照
+（§26）在同一台机器、同一策略上 26.7–29.3 s 就完成，所以这不是"这个索引太难"。
+
+**B. 1 回合到了原生目标，但终局复验判定第一步目标已被破坏**（`c08-s2-en`）：
+
+| 检查点 | 抽屉关节 `wooden_cabinet_1_middle_level` | 阈值 |
+| --- | --- | --- |
+| 第一步判定时 | −0.1484 | < −0.14 ✅ |
+| 退离后 / 第二步开始 | **−0.1547** | < −0.14 ✅ |
+| 第二步完成、终局复验 | **−0.0999** | < −0.14 ❌ |
+
+第二步确实完成了它自己的任务（479 动作、原生目标成立、释放来源 `policy_chunk`、
+`placement_verified=true`），但它在过程中把抽屉**推回了约 5.5 cm**，
+于是"中间抽屉打开 ∧ 碗在盘子上并完成释放"的合取不成立。引擎报告
+`composite_final_verification_failed` / `step_goal_regressed`，`combo_verified=false`。
+这不是判据过严，是**组合的两个目标在物理上互相破坏**。
+
+### 23.6 失败回合补测：破坏第一步状态的证据（修复后单回合，2026-10-28）
+
+冻结的 6 回合是在"步骤失败证据还不含前序步骤状态"的代码上跑的，所以 5 个
+`composite_step_2_failed` 回合**没有**记录失败瞬间的抽屉 `qpos`（这是本轮的证据缺口，见 §29）。
+补上这段只读证据后，用同一句英文指令、同一 seed 0 跑了一回合
+`config/composite_postfix_validation_20261027.json` → `records/acceptance/composite_postfix_validation_20261027b.json`：
+
+| 项 | 值 |
+| --- | --- |
+| 路由 | `["open_middle_drawer", "put_bowl_on_plate"]`，`mapping_ok=true` |
+| 第一步 | 通过（`drawer_open`） |
+| 第二步 | 600 动作预算用尽，`native_goal_not_reached` |
+| **失败瞬间的抽屉 `qpos`** | **−0.1167**（阈值 −0.14，已回到"没开够"） |
+| 第二步动作数 | 763 总计 |
+
+也就是说，两回合（`c08-s2-en` 的 −0.0999、本回合的 −0.1167）里凡是**在第二步结束时测过**
+抽屉状态的，抽屉都被推回了 3.4–5.5 cm。第一步的开抽屉状态在这个场景布局下**撑不过第二步**。
+
+严格说明这条证据的边界：它证明"第二步执行中抽屉被推回"，**没有**分离
+"张开的抽屉挡住机械臂 → 第二步失败"与"机械臂在第二步里把抽屉碰回去 → 第一步失败"
+这两个方向。要分离需要接触力或逐帧遮挡证据，本轮没有采集，所以不写成因果结论。
+
+补充一条操作事实：这轮补测之前还有一次失败尝试，清单用的是临时文件、字段写成
+`expected_choice`（脚本的复合分支读 `expected_keys`），于是报告里出现
+`mapping_ok=false` 而实际 `semantic_choice` 与预期完全一致。那份记录
+（`composite_postfix_validation_20261027.json`）**保留未改**，没有手工翻转任何判定；
+正确做法是把清单写成 `config/composite_postfix_validation_20261027.json` 再跑一次，
+那份才是本条引用的 `..._b.json`。
+
+### 23.7 时延分解（引擎自报，秒）
+
+| 回合 | 规划（路由） | 执行 | 交接 | 推理 Σ | `env.step` Σ | 观测 Σ | 快照 Σ | 总 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `c08-s0-en` | 0.824 | 188.9 | 2.762 | 33.6 | 48.3 | 31.5 | 7.1 | 195.7 |
+| `c08-s0-zh` | 0.826 | 188.9 | 2.756 | 32.7 | 49.4 | 31.5 | 7.0 | 195.7 |
+| `c08-s1-en` | 0.802 | 186.3 | 2.549 | 32.1 | 48.8 | 31.3 | 6.8 | 193.0 |
+| `c08-s1-zh` | 0.833 | 187.5 | 2.938 | 32.0 | 49.5 | 31.5 | 6.9 | 194.2 |
+| `c08-s2-en` | 0.838 | 156.1 | 3.613 | 26.9 | 41.5 | 25.9 | 5.7 | 164.2 |
+| `c08-s2-zh` | 0.848 | 189.0 | 2.499 | 32.3 | 50.2 | 31.7 | 7.0 | 195.6 |
+
+读法：总时长里 96–97% 是"两步的策略执行"，规划只占 0.8 s 左右，交接 2.5–3.6 s。
+这组数字**不能**当作组合能用的证据——它只是把 6 个失败回合的时间花在哪里讲清楚。
+
+## 24. 组合路由：Qwen 只选 key，代码查表（开发集 17 + 冻结验收集 16）
+
+### 24.1 契约
+
+模型输出**有序目录 key 列表**（`["open_middle_drawer", "put_bowl_on_plate"]`）或
+`clarify` / `unsupported`；官方指令、task_id、BDDL 目标全部由代码查 `config/tasks.json`，
+提示词里没有它们（也不含第一步的指令或结果）。识别与可执行是两件事：
+
+| 情形 | 出口 | `reason_code` |
+| --- | --- | --- |
+| 目录里有、且是当前唯一放行的有序对 | 组装两步计划 | — |
+| 目录里有、但不是放行的对（含倒序、其它组合） | `unsupported` | `unsupported_combo`（附放行对） |
+| 目录里没有（关系/实体不存在） | `unsupported` | `key_not_in_catalog` / `step_goal_unsupported` |
+| 超过两步 | `unsupported` | `step_limit_exceeded` |
+| 缺槽（抽屉层级、代词、冠词不明确） | `clarify` | — |
+| 说的是单任务 | 单任务路径（与既有行为一致，`task_scope="single"`） | — |
+
+### 24.2 开发集（`config/composite_routes_20261027.json`，先固定）
+
+| 指标 | 值 |
+| --- | --- |
+| 用例 | 17（中英各半：正序/同义/倒序/缺层级/仅单步/不支持对/三步/物体冲突/代词歧义/顺序歧义） |
+| 通过 | **17 / 17** |
+| 总时延 中位 / p95 / 最大 | 0.807 / 1.038 / 1.040 s |
+| TTFT 中位 | 0.176 s |
+| 输出 token 中位 | 14 |
+| 请求数 / 修复次数 | 17 / 0 |
+
+### 24.3 冻结验收集（`config/composite_routes_frozen_20261027.json`，开发集定稿后才写）
+
+| 用例 | 语言 | 结果 | 总时延 s | TTFT s | token |
+| --- | --- | --- | --- | --- | --- |
+| `before-order` | en / zh | `ok`（两步） | 0.761 / 0.810 | 0.136 / 0.180 | 14 / 14 |
+| `two-sentences` | en / zh | `ok` | 0.807 / 0.807 | 0.177 / 0.176 | 14 / 14 |
+| `and-order` | en / zh | `ok` | 0.809 / 0.823 | 0.177 / 0.182 | 14 / 14 |
+| `reversed-unsupported` | en / zh | `unsupported` | 0.825 / 0.816 | 0.177 / 0.179 | 14 / 14 |
+| `other-pair` | en / zh | `unsupported` | 0.953 / 0.958 | 0.177 / 0.181 | 17 / 17 |
+| `single-two-verbs` | en / zh | 单任务（`task_mismatch`） | 0.724 / 0.724 | 0.179 / 0.181 | 12 / 12 |
+| `ambiguous-article` | en / zh | `needs_clarification` | 0.494 / 0.499 | 0.182 / 0.182 | 7 / 7 |
+| `unsupported-relation` | en | `unsupported` | 0.444 | 0.178 | 6 |
+| `three-actions` | zh | `unsupported` | 0.907 | 0.178 | 16 |
+
+| 指标 | 值 |
+| --- | --- |
+| 通过 | **16 / 16** |
+| 总时延 中位 / p95 / 最大 | 0.808 / 0.953 / 0.958 s |
+| TTFT 中位 | 0.178 s |
+| 输出 token 中位 | 14 |
+| 请求数 / 修复次数 | 16 / 0 |
+
+两组都达到本轮"median ≤1.5 s、p95 ≤2 s"的目标（实测 median ≈0.81 s、p95 ≈0.95–1.04 s），
+而且是在**不牺牲判定正确性**的前提下达到的：倒序、其它对、三步、缺槽全部按规则拒绝或追问，
+没有为了"能跑"把不支持的对降级成单任务。
+
+## 25. 真实 stop 测试：四个同步点，四个都停住
+
+同步不靠 `sleep` 猜时序：用例都等引擎**自己发布**的阶段再触发。
+
+| 用例 | 触发条件（引擎发布） | 触发时动作数 | stop ack | ack 后是否继续动作 | 第二步是否开始 | 记录状态 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `stop-step1` | `phase=running` 且 detail 含 `step 1/2`、动作 ≥25 | 25 | ok | 否 | 否 | `stopped` |
+| `stop-handoff` | `phase=handoff`（第一步已判定、第二步未开始） | 119 | ok | 否 | 否 | `stopped` |
+| `stop-step2` | `phase=running` 且 detail 含 `step 2/2`、动作 ≥20 | 160 | ok | 否 | 是（中断在第二步里） | `stopped` |
+| `stop-finalizer` | 第一条 `finalizer_step` 日志（finalizer 正在执行自己的动作） | 97 | ok | 否 | 否（单任务对照） | `stopped` |
+
+`stop-finalizer` 为什么用单任务：组合第二步的 finalizer 只有在碗成为"待释放候选"时才启动，
+而本轮 5/6 回合第二步根本没到那一步，没有可同步的 finalizer 窗口。用它同一段
+`PlacementFinalizer` 代码路径（task 4，seed 0）才能真的**在释放中途**打断，
+报告里的这一条因此明确标注为"单任务对照，不是组合回合"。
+
+补齐记录（中断瞬间的状态）：
+
+```json
+{"execution_status": "stopped", "reason_code": "user_stop", "attempted": true,
+ "extra_actions": 2, "action_rows": [{"phase": "release", "n": 1, "gripper_opening_m": 0.0581},
+                                    {"phase": "release", "n": 2, "gripper_opening_m": 0.0659}]}
+```
+
+**这两个 stop 用例各暴露了一个真实缺陷，都已修复并复测**（修复只动停止路径，不动组合判定）：
+
+1. **`Stopped` 被 finalizer 吞掉**：`PlacementFinalizer.run` 内部捕获 `Stopped` 并写进
+   placement 块，外层却没重新抛出，结果是"用户点了停止、释放被打断，回合却记为
+   `completed` / `succeeded`"。修复前实测记录：`execution_status=completed`、
+   `placement.execution_status=unknown`、`reason_code=user_stop`（自相矛盾）。
+   修复后：`execution_status=stopped`、`user_goal_status=not_met`。
+2. **中断后的 placement 证据被丢弃**：停止发生在步骤返回之前，步骤行从未生成，
+   记录里于是写成 `reason_code=no_whole_task_step` / `attempted=false`，
+   把"释放做了 2 个动作被打断"抹成"没尝试"。修复后保留
+   `attempted=true`、`extra_actions=2` 与逐动作行。
+
+## 26. 单步对照：把"第一步失败 / 交接失败 / 第二步分布变化"分开
+
+同一策略、同一 3 个索引、同一句官方任务（task 8 单任务，无抽屉、无交接）：
+
+| 回合 | 路由 | 原生目标 | 用户目标 | 动作 | 时长 s | 释放来源 | 推理 Σ | `env.step` Σ |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `single-s0-en` | ✅ | ✅ | met | 98 | 29.3 | `policy_chunk` | 4.3 | 6.8 |
+| `single-s1-en` | ✅ | ✅ | met | 88 | 26.7 | `policy_chunk` | 4.0 | 6.0 |
+| `single-s2-en` | ✅ | ✅ | met | 92 | 27.6 | `policy_chunk` | 4.1 | 6.3 |
+
+对照结论（只写对照能支撑的部分）：
+
+- 三个索引上 task 8 **本身**是可完成的，用 88–98 动作、26.7–29.3 s，不需要执行层 finalizer。
+  所以 5/6 的第二步失败**不是**"这个索引本来就做不出来"。
+- 单步 `env.step` Σ 只有 6.0–6.8 s，组合第二步 600 动作回合 41.5–50.2 s：
+  组合第二步的动作花在更长的轨迹上（更多块、更多次观测），不是单步同一路径的重复。
+- 差异只可能来自"第二步从一个不是官方 init 的场景起步"（抽屉开着、机械臂带着第一步的历史）
+  与"抽屉状态被第二步破坏"这两项组合固有因素。二者本轮**没有**被分离。
+
+## 27. 十任务冒烟：组合代码上重跑，判定不变
+
+同一份冻结清单 `config/smoke_10tasks_20261027.json`（每任务 1 回合、seed 0、自然语言指令），
+在组合分支代码上重跑一遍，与 `8becbe2` 基线对比：
+
+| task | 指令（冻结英文表述） | 路由 | native | 用户目标 | 释放来源 | 动作 | 时长 s |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | pull open the middle drawer | ✅ | ✅ | met | 不适用（抽屉） | 125 | 36.3 |
+| 1 | place the bowl on the stove | ✅ | ✅ | met | `policy_chunk` | 92 | 28.0 |
+| 2 | get the wine bottle onto the cabinet top | ✅ | ✅ | met | `policy_chunk` | 94 | 28.5 |
+| 3 | open the top drawer and place the bowl inside | ✅ | ✅ | met | `policy_chunk` | 183 | 51.3 |
+| 4 | put the bowl on the cabinet's top surface | ✅ | ✅ | met | `policy_chunk` | 98 | 29.5 |
+| 5 | push the plate to the front of the stove | ✅ | ✅ | met | 不适用（推物） | 142 | 41.2 |
+| 6 | put the cream cheese inside the bowl | ✅ | ✅ | met | `policy_chunk` | 98 | 29.3 |
+| 7 | switch on the stove | ✅ | ✅ | met | 不适用（开关） | 78 | 24.0 |
+| 8 | set the bowl on the plate | ✅ | ✅ | met | `policy_chunk` | 99 | 29.5 |
+| 9 | place the wine bottle up on the wine rack | ✅ | ✅ | **unknown** | 未测到（`not_at_release_candidate`） | 128 | 37.3 |
+
+| 口径 | 基线 `8becbe2`（`smoke_10tasks_20261027.json`） | 组合分支（`smoke_10tasks_post_composite_20261027.json`） |
+| --- | --- | --- |
+| 路由正确 | 10 / 10 | 10 / 10 |
+| 原生目标 | 10 / 10 | 10 / 10 |
+| 用户目标 met | 9 / 10 | 9 / 10 |
+| 用户目标 unknown | 1（task 9） | 1（task 9） |
+| 回合失败 | 0 | 0 |
+
+**task 9 的 `unknown` 是测量缺口，不是成功也不是失败**：原生目标与终局复验都成立，
+但酒架在桌面上方，`relation + release_height` 前置条件不成立，释放无法测量，
+于是 `evidence_source=none`、`placement.execution_status=unknown`。这条口径没有放宽。
+
+冒烟只是"1 回合 × 10 任务"，**不构成稳定成功率**：单回合无法区分能力与运气，
+本轮也没有用重跑去换一个更好看的数字。
+
+## 28. `1 → 7` 旋钮可达性：只做了几何测量，动态可达性**未测**
+
+`0 → 8` 没有通过，所以按本轮边界 `1 → 7` 不进入放行清单，也不跑完整回合。
+只做了一个**只读**几何探针（`scripts/knob_reach_probe.py` →
+`records/acceptance/knob_reach_probe_20261027.json`）：加载官方 task 7 场景（seed 0）后
+只读状态，`env_steps=0`、`policy_calls=0`、动作计数与 `observation_id` 前后不变。
+
+实测（世界坐标，来自实时仿真 + 安装的碰撞模型）：
+
+| 量 | 值 |
+| --- | --- |
+| 灶台基座（旋钮铰点） | (−0.4067, 0.2145, 0.905) |
+| 灶眼 `cook_region` 中心 | (−0.2567, 0.2145, 0.905)（= 基座 + (0.15, 0, 0)） |
+| 灶眼半径（半边长） | 0.075 m |
+| 旋钮外缘到灶眼近边的水平距离 | **0.0317 m** |
+| 碗心在灶眼中心时，旋钮尖端到碗沿 | **0.0527 m** |
+| 碗被推到灶眼最近的边缘时，旋钮尖端到碗沿（最坏） | **0.0223 m** |
+| 高度区间 | 旋钮 0.9054–0.9550，碗 0.9066–0.9571（**重叠**） |
+
+结论（严格限定在几何）：
+
+- 没有直接穿插：即使把碗推到最靠近旋钮的灶眼边缘，也有约 2.2 cm 净空。
+- 但两者的高度区间完全重叠，最坏净空只有 2.2 cm，**手指接触旋钮时可能扫到碗沿**。
+- **动态可达性未测**：策略能不能在碗在场时按下旋钮、按下过程中会不会把碗推走，
+  本轮没有执行，所以 `1 → 7` 继续留在"未验证、不放行"。
+- 探针代码只在报告里提供几何，`verdict.dynamic_reachability="not_tested"` 是写死在产物里的。
+
+## 29. 本轮结论与缺口（如实列）
+
+### 29.1 结论
+
+1. **执行机制通过**：一个 episode、一个 `scene_epoch`、动作计数连续、无 reset/reload/BDDL 变更/
+   物体传送；两步各带自己的 `step_id`、各自的官方指令、各自的判定；交接把第一步目标复验、
+   按类型免掉放置 finalizer、位姿闭环退离（姿态 105°→<3°）、清策略缓冲、换新观测都做到了。
+2. **`0 → 8` 不是一个通过的能力**：第二步原生目标 1/6、双目标同真 0/6。
+3. **失败位置已经定位到第二步**，而且有两条独立证据：(a) 同一策略在同一 3 个索引上单步 task 8
+   全成；(b) 在测过抽屉状态的两回合里，第二步把第一步的开抽屉状态推回了 3.4–5.5 cm。
+4. **自然语言组合规划通过**：开发集 17/17、冻结验收集 16/16，median ≈0.81 s、p95 ≈0.95–1.04 s，
+   0 次修复重试；倒序/其它组合/三步/缺槽按规则拒绝或追问。
+5. **真实 stop 覆盖通过**：第一步、步间、第二步、finalizer 中途四个同步点都停住且不泄漏动作；
+   顺带修掉两个"停止被记账错"的缺陷。
+
+### 29.2 缺口与未证实项
+
+| # | 缺口 | 影响 | 为什么没做 |
+| --- | --- | --- | --- |
+| 1 | 第二步失败与抽屉状态的**因果方向**未分离 | 不知道是"抽屉挡臂"还是"臂撞抽屉" | 需要接触力/逐帧遮挡证据，本轮未采集 |
+| 2 | 冻结 6 回合跑在 3 项"只改证据/只改停止路径"的修复之前 | 5 个失败回合缺失败瞬间的抽屉 `qpos` | 修复后补跑 1 回合（§23.6）复现同一失败，未重跑整组（重跑=覆盖证据） |
+| 3 | `1 → 7` 动态可达性未测 | 该组合仍不可宣称可执行 | 边界要求 `0 → 8` 先通过，而它没通过 |
+| 4 | task 9（酒架）用户目标 `unknown` | 十任务里 1 项无法判定 | 目标在桌面上方，释放高度前置不成立 |
+| 5 | task 2 长时间失败的渲染差异根因未定位 | 未归因 | 与本节无关，沿用 §20 的结论 |
+| 6 | 组合只有 6 回合、3 个索引 | 方差未知 | 本轮为冻结验收，不重试不扩样 |
+| 7 | 无进展强制终止规则仍未接入 | 失败回合会跑满预算（600 动作） | 缺有效阈值，按边界不接入 |
+
+### 29.3 本轮代码改动与证据的对应关系
+
+| 改动 | 文件 | 为什么不能改变组合判定 |
+| --- | --- | --- |
+| 步骤失败时复验前序步骤目标（只读） | `engine/engine_service.py` | 只在失败分支追加证据字段，不改控制流 |
+| finalizer 内 `Stopped` 重新抛出 | `engine/engine_service.py` | 只影响被 stop 的回合，正常回合不触发 |
+| 停止回合保留 placement 块 | `engine/engine_service.py` | 只在 placement 为空（停止/失败）时兜底 |
+| `eef_quat` 只读快照字段 | `adapters/env_runtime/episode_service.py` | 只读，不参与动作生成 |
+| stop 测试脚本：第二步同步点、finalizer 提前退出、按任务重定向 | `scripts/composite_stop_tests.py` | 只影响测试脚本自身 |
+| 旋钮几何探针 | `scripts/knob_reach_probe.py` | 只读探针，不接入执行 |
+
+## 30. 本轮产物
+
+| 产物 | 路径 |
+| --- | --- |
+| 组合契约 | `common/composite_plan.py` |
+| 交接实现 | `engine/composite.py` |
+| 执行编排 | `engine/engine_service.py`、`engine/openwam_rollout.py` |
+| 组合路由 | `agent/semantic_router.py`、`agent/agent_service.py`、`config/engine.json` |
+| 组合清单 | `config/composite_rounds_20261027.json`（6 回合）、`config/composite_control_single_20261027.json`（单步对照）、`config/composite_postfix_validation_20261027.json`（修复后单回合） |
+| 路由集合 | `config/composite_routes_20261027.json`（开发）、`config/composite_routes_frozen_20261027.json`（冻结） |
+| 组合回合 | `records/acceptance/composite_rounds_20261027.json` + `..._runs/`（6 份原始回合）、`composite_rounds_20261027.md` |
+| 单步对照 | `records/acceptance/composite_control_single_20261027.json` + `..._runs/` |
+| stop 测试 | `records/acceptance/composite_stop_tests_20261027.json`（三步）、`composite_stop_tests_finalizer_20261027.json`（finalizer 中途） |
+| 路由评测 | `records/offline/composite_routes_dev_5.json`（17/17）、`composite_routes_test_frozen_2.json`（16/16） |
+| 冒烟 | `records/acceptance/smoke_10tasks_20261027.json`（基线）、`smoke_10tasks_post_composite_20261027.json`（组合代码） |
+| 旋钮探针 | `records/acceptance/knob_reach_probe_20261027.json` |
+| 证据归档 | `records/acceptance/archive_20261027_8becbe2_before_composite/`（本轮开始前的验收清单与仍存在的原始记录；轮转已丢的只留清单摘要并标注，不重建） |
+| 单测 | `tests/test_composite_plan.py`、`tests/test_composite_handoff.py`；`pytest tests` 共 **105 passed** |

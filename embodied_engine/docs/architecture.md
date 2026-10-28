@@ -420,26 +420,139 @@ LIBERO 的 `terminated=True`、服务端的 `can_continue`、策略 chunk 的剩
 `unknown`（附 `placement_reason`），不是 `success`；关系丢失是 `failure`；
 不需要释放的技能（开抽屉/推/开炉灶）走各自的关节或位移条件。
 
-## 9. 同场景两步组合（下一阶段入口，未执行）
+## 9. 同场景两步组合（0→8 已实现）
 
 十个 LIBERO-Goal BDDL 声明的是**同一套资产**（`main_table`、`wooden_cabinet_1`、
 `flat_stove_1`、`wine_rack_1` + 四个物体）与语义相同的 `:init` 区域，区别只在
-`:goal` 与各自采样的 `pruned_init`。所以"两个目标是否同场景存在"对任意一对都成立，
-真正的问题在别处：第二目标的前置条件是否被第一步破坏、第一步终态能否作为第二步起点、
-以及组合的用户目标由谁验证。
+`:goal` 与各自采样的 `pruned_init`。可行性矩阵与两个候选（`0→8`、`1→7`）见
+`docs/acceptance_report.md` §21；**本轮只实现并真实执行 `0→8`**，`1→7` 只在报告里
+记录"旋钮可达性未测量"。
 
-入口固定为下面四条，不引入 reset、不重载场景、不改 BDDL：
+### 9.1 契约（`common/composite_plan.py`，纯数据，无仿真）
 
-1. **episode 的 BDDL 用第二步任务的**，这样第二步的原生目标仍是基准谓词，`terminated`
-   只对第二步有效；第一步的成功由引擎自己的谓词（`drawer_open` / `stove_on` /
-   `object_on_target`）判定，**不看** `terminated`。
-2. 第一步跑完必须走完 §8 的收尾（释放 + 退离 + 新观测），并把策略缓冲清空，
-   第二步才允许请求策略；否则第二步会拿到基于第一步旧观测的动作。
-3. 组合用户目标 = 两个原子分别记录（`step_1_verified`、`step_2_native`），
-   再合成为 `combo_verified`；不允许用第二步的 `terminated` 冒充整体完成。
-4. 单一 `pruned_init` 只能属于一个任务，因此第二步从"非自己官方初始状态"起步，
-   这是组合的固有分布偏移，必须作为结果的一部分报告，不能悄悄换成"看起来更好"的 init。
+- `options()`：`enabled`、`supported_pairs`（当前只有 `["open_middle_drawer",
+  "put_bowl_on_plate"]`）、`max_steps=2`、每步预算（`1:240`、`2:600`）、
+  `goal_confirm_samples=2`。
+- `completion_for(task, is_anchor)`：**锚定步**用加载场景的原生目标
+  （`native_liberio_goal`），早于锚定的步用引擎谓词（抽屉 `drawer_open`、
+  开关 `stove_button`、放置/推物 `relation`）。第一步的原生标志照常记录，但
+  **不作为它的目标**。
+- `support(keys, loaded_task, catalog)`：识别与执行分离。返回 `ok/executable`
+  或明确的 `reason_code`：`not_a_composite`、`step_limit_exceeded`、
+  `duplicate_step`、`key_not_in_catalog`、`unsupported_combo`、
+  `requires_scene_switch`、`step_goal_unsupported`。复合以**最后一步**的 BDDL
+  为锚，因此只有 `loaded_task` 是锚定任务时才可执行。
+- `build_plan()`：生成 `step_id="c1"/"c2"`、`step_index`、`step_task_id/key`、
+  `prompt`（目录官方指令）、`goal_kind` 与 `completion`；`validate_plan()`
+  是执行前的结构自检。
+- 路由与执行共用这一份定义，"哪些有序对能执行"没有第二处副本。
 
-可行性矩阵与两个候选（`0→8`、`1→7`）见 `docs/acceptance_report.md` §21，
-生成脚本 `scripts/composite_matrix.py`（资产事实每跑一次重新解析 BDDL，
-判断列是人工标注并附理由）。本轮**没有**执行任何组合回合，也没有扩展路由输出。
+### 9.2 执行（`engine/engine_service.py` + `engine/openwam_rollout.py`）
+
+1. `/api/load` 用**锚定任务**（task 8）的 BDDL 与固定 init 索引；episode 内不
+   reset、不重载、不改 BDDL、不传送物体。
+2. 计划来自 Qwen 的有序 key 列表；`task_scope="combo"` 时 `goal_step` 仍是最后
+   一步，但每一步都带自己的 `step_id`，请求行、动作、完成状态按 `step_id` 隔离。
+3. 第一步向 OpenWAM 发**第一步的官方指令**，由 `goal_state` 的引擎谓词判定完成
+   （`drawer_open`：`qpos < -0.14`，连续 2 个新样本）。`WholeTaskRunner` 只在
+   `goal is None`（非组合步）时信任加载场景的 `native_goal`；组合步即使
+   `native_goal` 为真也不会提前结束第一步。
+4. 每步有界预算（240/600 动作）；预算耗尽即失败并写明阶段
+   （`composite_step_1_failed` / `composite_step_2_failed` / `composite_handoff_failed`），
+   不会靠整场 reset 续命。
+
+### 9.3 步间处理（`engine/composite.py::Handoff`）
+
+顺序固定，任何一项不满足就 `not_ready` 并拒绝启动第二步：
+
+1. **校验第一步目标**：`state_check(pre)` 必须成立，否则 `step_1_unverified`。
+2. **按动作类型松手**：`release_required(step_task)` 为假的抽屉/开关步不套放置
+   finalizer（记录里写 `release.required=false` 与理由），只有放置/推物步才走
+   §8 的释放路径。
+3. **有界退离到 episode 初始 EEF 位姿**：位置按 0.04 m/步、姿态按轴角闭环
+   （OSC 单位旋转指令约 0.05 rad，代码按实测四元数逐步收敛），上限 60 动作，
+   收敛阈值 0.01 m / 0.05 rad（≈2.9°）。退离**只动机械臂**，不关门、不挪物。
+   记录 `start_angle_deg`/`end_angle_deg`/`rotation_applied`/`moved_m`/`reason`。
+   为什么必须恢复姿态：OpenWAM 的 proprio 是 EEF10（位置 3 + 旋转 6D + 夹爪 1），
+   姿态不恢复时第二步从"手腕朝向抽屉"的分布起步，手腕相机看到的是抽屉内壁。
+4. **检查退离没有破坏第一步目标**（`retreat_preserved_goal`），`scene_epoch` 与
+   `scene_generation` 不变。
+5. **清空策略缓冲**：`inference.reset("handoff:<episode>:<step_id>")` 返回新 token，
+   清队列、清结果、清模型侧 receding-horizon 缓冲；第二步请求带新 token，
+   不会有第一步在途 chunk 被执行。
+6. **取新观测并确认新鲜**：`raw_obs()` + `state_snapshot()`，`observation_id`
+   必须不同于交接前；第二步以该观测开始。
+
+### 9.4 终局与记录
+
+- 第二步发**第二步的官方指令**；放置沿用 §8 的释放与稳定性验证，保留
+  `policy_chunk` 与 `execution_finalizer` 的来源区分。
+- 回合成功（`completed`）后，用**新的**仿真样本对两步同时复验：
+  `step_1_final_ok ∧ step_2_final_native`，再叠加释放证据得到 `combo_verified`。
+- 记录字段（`composite` 段）分开记账，不互相推导：
+  `scene_epoch_start/end/continuous`、`sim_action_count_start/end`、
+  `env_reset_between_steps=0`、`env_reload_between_steps=0`、`bddl_mutation=false`、
+  `object_teleport=false`、每步 `ok`（该步结束时）/`ok_final`（终局复验）/
+  `native_current`/`native_ever`/`sim_actions`/`release_state`/`release_source`、
+  `handoff`（§9.3 全部字段），以及 `native_goal_current`/`native_goal_ever`、
+  `step_1_ok`/`step_1_final_ok`/`step_2_native`/`step_2_final_native`/
+  `final_verification_read`/`combo_verified`。
+- 只读证据扩展：环境快照 `sim.eef_quat`（`adapters/env_runtime/episode_service.py`），
+  用于退离闭环与记录，不参与任何动作生成。
+
+### 9.5 路由（`agent/semantic_router.py`）
+
+- Qwen 只输出**有序目录 key 列表**或 `clarify`/`unsupported`；官方动作指令一律由
+  代码查 `config/tasks.json`，提示词里没有官方指令、task_id 或 BDDL 目标。
+- 组合语义先识别再判可执行：模型可以识别任意"两步能力"，只有 `support()` 放行的
+  有序对才组装计划；其余返回 `unsupported` + `unsupported_combo`（附支持对），
+  不降级成单任务、不交换顺序。
+- 顺序（词序/显式先后）、实体、场景、目标冲突、超过两步、缺槽（抽屉层级、代词）
+  都有对应出口：`clarify` 只用于缺槽，`unsupported` 用于说清了但目录没有。
+- 单任务路径与既有输出（`task_scope="single"`、`semantic_choice`、官方指令一致）
+  保持不变；组合额外返回 `composite_keys`、`composite_executable`、
+  `composite_reason_code`、`step_official_instructions`、`step_goals`。
+
+### 9.6 已知偏移（写进结果，不隐藏）
+
+第二步从第一步的终态起步：抽屉是开的、机械臂带着第一步的动作历史。即使位姿已回到
+初始 EEF（位置 ≤1 cm、姿态 ≤3°），**主相机的画面与官方 init 不同**，这是组合的
+固有分布偏移；验收报告把"第二步在偏移下的表现"与"第二步单步对照"分开写，
+不把偏移导致的失败归因为模型采样或渲染。
+
+
+### 9.7 实测结果（2026-10-27/28，6 回合冻结 + 补测）
+
+机制与能力的结论必须分开读：
+
+| 层面 | 结果 | 证据 |
+| --- | --- | --- |
+| 组合路由（Qwen） | 开发集 17/17、冻结验收集 16/16；median ≈0.81 s、p95 ≈0.95–1.04 s | `records/offline/composite_routes_*.json` |
+| 第一步（`drawer_open`） | 6/6，114–123 动作，未用满 240 预算 | `records/acceptance/composite_rounds_20261027.json` |
+| 交接 | 6/6 `ready`，退离 31–45 动作，姿态 101.4–105.5° → 1.1–2.8° | 同上 `composite.handoff` |
+| 第二步原生目标 | **1/6** | 同上 `composite.step_2_native` |
+| 双目标同真（`combo_verified`） | **0/6** | 同上 |
+| 单步对照（task 8，同 3 索引） | 3/3，88–98 动作 | `composite_control_single_20261027.json` |
+| stop（第一步/步间/第二步/finalizer 中途） | 4/4 停住、ack 后不再动作 | `composite_stop_tests_20261027.json`、`..._finalizer_20261027.json` |
+
+失败结构（写进记录，不隐藏）：
+
+1. 5 回合第二步 600 动作内一次都没出现 `On(bowl, plate)`；
+2. 1 回合第二步完成了自己（479 动作、`policy_chunk` 释放、`placement_verified=true`），
+   但终局复验发现第一步目标已回退：抽屉 `qpos` 从第二步开始时的 −0.1547 变成 −0.0999
+   （阈值 −0.14），引擎报 `composite_final_verification_failed` / `step_goal_regressed`；
+3. 修复后补测 1 回合（同指令、同 seed 0）在失败瞬间测到抽屉 `qpos=−0.1167`，
+   即第二轮独立复现"第二步把第一步的开抽屉状态推回 3.4–5.5 cm"。
+
+因此 `0 → 8` 在本轮**不是**一条可用能力：执行机制（步身份、缓冲隔离、交接、双目标分开记账）
+成立，**物理上两个目标会互相破坏**。因果方向（抽屉挡臂 vs 臂撞抽屉）未分离，见
+`docs/acceptance_report.md` §23.5–§23.6 与 §29.2。`1 → 7` 因此没有进入放行清单，
+只做了只读几何测量（`scripts/knob_reach_probe.py`），动态可达性标注 `not_tested`。
+
+### 9.8 组合失败证据的字段（本轮新增，只读）
+
+- `composite_steps[i].failure_evidence.prior_steps_at_failure`：某一步失败时，用**同一份**
+  失败快照复验此前各步的目标（`engine_predicate` 结果 + `qpos`）。没有它，
+  "第二步没到"和"第二步把第一步拆了"在记录里长得一样。
+- 被 stop 打断的回合保留 `placement` 块（`attempted`/`extra_actions`/逐动作行）：
+  finalizer 内部把 `Stopped` 写进块后由外层重新抛出，避免"释放半途被打断却记成 completed"。

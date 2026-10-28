@@ -1,0 +1,1381 @@
+{
+  "schema": "embodied_engine.speed.v1",
+  "created_at": "2026-10-27T07:58:21+0000",
+  "task_id": 1,
+  "environment": {
+    "project": "/home/host/page-dmh/embodied_engine",
+    "git_head": "21e262e4a448d40c0d27807e2cce4c3cb6595cd4",
+    "config_sha256": "ddf00e523531682e938def3734eb5bf82b3ce08f8a604079b9ee35f46812fd72",
+    "control_frequency_hz": 20,
+    "pi05": {
+      "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+      "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027"
+    },
+    "openwam": {
+      "name": "OpenWAM-Alpha-Sim-LIBERO",
+      "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+      "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+      "checkpoint_file": "checkpoint_step_10690.safetensors",
+      "repo": "/home/host/page-dmh/openwam_harness/OpenWAM",
+      "repo_commit": "4d7f642b841913ea3c176010b692b1de3d5ef180",
+      "python": "/home/host/page-dmh/embodied_engine/.venv-openwam/bin/python",
+      "server_url": "ws://127.0.0.1:14520",
+      "server_port": 14520,
+      "gpu_index": 2,
+      "generate_horizon": 32,
+      "execute_horizon": 32,
+      "action_dim": 10,
+      "action_space": "native_eef10",
+      "denoise_steps": 10,
+      "max_steps": 600,
+      "timeout_s": 300
+    },
+    "openwam_launch_record": {
+      "pid": 816539,
+      "url": "ws://127.0.0.1:14520",
+      "port": 14520,
+      "gpu_index": 2,
+      "python": "/home/host/page-dmh/embodied_engine/.venv-openwam/bin/python",
+      "repo": "/home/host/page-dmh/openwam_harness/OpenWAM",
+      "repo_commit": "4d7f642b841913ea3c176010b692b1de3d5ef180",
+      "checkpoint_dir": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+      "checkpoint_file": "checkpoint_step_10690.safetensors",
+      "generate_horizon": 32,
+      "execute_horizon": 32,
+      "denoise_steps": 10,
+      "inference_mode": "sync",
+      "compile_enabled": false,
+      "started_at": "2026-10-26T14:30:49+00:00"
+    },
+    "agent": {
+      "mode": "qwen",
+      "llm_model": "Qwen3.5-9B",
+      "llm_base_url": "http://127.0.0.1:8001/v1",
+      "temperature": 0.0,
+      "max_tokens": 900,
+      "planner_vision": false,
+      "d1": {
+        "model": "LiquidAI/d1-3B",
+        "base_model": "LiquidAI/LFM2.5-VL-3B",
+        "license": "lfm1.0",
+        "source": "ModelScope",
+        "model_path": "/home/host/page-dmh/openwam_harness/checkpoints/LiquidAI-d1-3B",
+        "model_sha256": "50e03317847caf6df9a9aee27ed40f20554a86a21e60d1d47ba41a422b546c0c",
+        "python": "/home/host/page-dmh/embodied_engine/.venv-d1/bin/python",
+        "url": "http://127.0.0.1:14710",
+        "gpu_index": 0,
+        "timeout_s": 30,
+        "output_tokens_per_decision": 0,
+        "fallback_on": [
+          "error",
+          "unavailable"
+        ],
+        "thresholds": {
+          "supported_min": 0.5,
+          "operation_min": 0.5,
+          "operation_verb_min": 0.3,
+          "specified_min": 0.5,
+          "relation_min": 0.5,
+          "source_min": 0.5,
+          "target_min": 0.5,
+          "margin_min": 0.2
+        }
+      },
+      "jev": {
+        "endpoint": "https://api.typesafe.ai/v1/systemone",
+        "credential_env": "TYPESAFE_API_KEY",
+        "official": true,
+        "enabled": false
+      }
+    },
+    "env": {
+      "suite": "libero_goal",
+      "seed": 0,
+      "max_episode_steps": 10000,
+      "cuda_device": 3,
+      "python": "/home/host/page-dmh/openwam_harness/envs/rpent/bin/python",
+      "rpent_root": "/home/host/page-dmh/openwam_harness/RPent"
+    },
+    "inference": {
+      "mode": "async_chunk_prefetch",
+      "openwam_mode": "sync_step",
+      "queue_size": 1,
+      "allow_prefetch_boundaries": false,
+      "max_chunk_age_actions": 5,
+      "pi05_timeout_s": 120,
+      "openwam_timeout_s": 300
+    },
+    "gpus": [
+      {
+        "index": 0,
+        "uuid": "GPU-e5e68d37-6462-35a2-3077-74a7c43f1fad",
+        "name": "NVIDIA GeForce RTX 5090",
+        "memory_used_mib": 6812,
+        "memory_total_mib": 32607,
+        "utilization_pct": 0
+      },
+      {
+        "index": 1,
+        "uuid": "GPU-3dec5b6d-98ba-1927-bf30-3526bee8b721",
+        "name": "NVIDIA GeForce RTX 5090",
+        "memory_used_mib": 7542,
+        "memory_total_mib": 32607,
+        "utilization_pct": 0
+      },
+      {
+        "index": 2,
+        "uuid": "GPU-3b015c91-c51d-9508-bd18-82bbe17ed6a0",
+        "name": "NVIDIA GeForce RTX 5090",
+        "memory_used_mib": 24778,
+        "memory_total_mib": 32607,
+        "utilization_pct": 0
+      },
+      {
+        "index": 3,
+        "uuid": "GPU-8b700365-8095-77f9-b950-91006b61eb18",
+        "name": "NVIDIA GeForce RTX 5090",
+        "memory_used_mib": 23078,
+        "memory_total_mib": 32607,
+        "utilization_pct": 0
+      }
+    ],
+    "processes": {
+      "openwam": [
+        "/home/host/page-dmh/embodied_engine/.venv-openwam/bin/python",
+        "scripts/deploy.py",
+        "--ckpt-dir",
+        "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+        "--ckpt-name",
+        "checkpoint_step_10690.safetensors",
+        "--device",
+        "cuda:0",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "14520",
+        "--compile-enabled",
+        "false",
+        "--inference-mode",
+        "sync",
+        "--denoise-steps",
+        "10",
+        "--inference-horizon",
+        "32"
+      ],
+      "inference": [
+        "/home/host/page-dmh/openwam_harness/envs/rpent/bin/python",
+        "inference/inference_service.py"
+      ],
+      "agent": [
+        "/home/host/page-dmh/openwam_harness/envs/rpent/bin/python",
+        "/home/host/page-dmh/embodied_engine/agent/agent_service.py"
+      ],
+      "engine": [
+        "/home/host/page-dmh/openwam_harness/envs/rpent/bin/python",
+        "/home/host/page-dmh/embodied_engine/engine/engine_service.py"
+      ]
+    },
+    "identities": {
+      "engine": {
+        "service": "engine",
+        "status": "ok",
+        "identity": {
+          "agent": {
+            "service": "agent",
+            "status": "ok",
+            "mode": "qwen",
+            "modes": [
+              "qwen",
+              "d1",
+              "d1_with_qwen_fallback"
+            ],
+            "model": "Qwen3.5-9B",
+            "llm_model": "Qwen3.5-9B",
+            "d1": {
+              "model": "LiquidAI/d1-3B",
+              "base_model": "LiquidAI/LFM2.5-VL-3B",
+              "license": "lfm1.0",
+              "source": "ModelScope",
+              "url": "http://127.0.0.1:14710",
+              "reachable": true,
+              "health": {
+                "service": "d1",
+                "status": "ok",
+                "model": "LiquidAI/d1-3B",
+                "base_model": "LiquidAI/LFM2.5-VL-3B",
+                "license": "lfm1.0",
+                "source": "ModelScope",
+                "model_path": "/home/host/page-dmh/openwam_harness/checkpoints/LiquidAI-d1-3B",
+                "model_sha256": "50e03317847caf6df9a9aee27ed40f20554a86a21e60d1d47ba41a422b546c0c",
+                "device": "NVIDIA GeForce RTX 5090",
+                "cuda_visible_devices": "0",
+                "dtype": "bfloat16",
+                "load_s": 8.339,
+                "uptime_s": 17463.3,
+                "stats": {
+                  "calls": 452,
+                  "errors": 0,
+                  "mean_s": 0.07219,
+                  "last_s": 0.06526,
+                  "max_s": 3.09951,
+                  "last_input_tokens": 1216
+                },
+                "output_tokens_per_decision": 0
+              }
+            },
+            "planner_vision": false,
+            "llm": {
+              "reachable": true,
+              "models": [
+                "Qwen3.5-9B"
+              ]
+            },
+            "jev": {
+              "enabled": false,
+              "official_endpoint": "https://api.typesafe.ai/v1/systemone",
+              "reason": "TypeSafe System One is a waitlisted cloud API; no local weights or credentials are present"
+            }
+          },
+          "action_model": {
+            "backend": "openwam",
+            "name": "OpenWAM-Alpha-Sim-LIBERO",
+            "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+            "revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+            "action_chunk": 32,
+            "action_dim": 10,
+            "action_space": "native_eef10",
+            "execute_horizon": 32,
+            "denoise_steps": 10,
+            "inference_mode": "sync_step",
+            "control_frequency_hz": 20,
+            "counterpart": {
+              "backend": "pi05",
+              "name": "Pi0.5 LIBERO-130 SFT",
+              "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+              "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
+              "action_chunk": 5,
+              "action_dim": 7,
+              "control_frequency_hz": 20,
+              "server_url": "http://127.0.0.1:14510"
+            },
+            "server": {
+              "reachable": true,
+              "url": "ws://127.0.0.1:14520",
+              "contract": {
+                "type": "pong",
+                "representation": "eef"
+              },
+              "ping_s": 0.0012,
+              "stats": {
+                "requests": 15812,
+                "errors": 0,
+                "resets": 289,
+                "reconnects": 1,
+                "chunk_generations": 548,
+                "cache_hits": 15264,
+                "first_inference_s": 0.5023,
+                "last_client_s": 0.4903,
+                "last_server_ms": 475.39,
+                "action_dim": 10,
+                "last_error": "reset: ConnectionClosedError: no close frame received or sent"
+              }
+            },
+            "openwam": {
+              "name": "OpenWAM-Alpha-Sim-LIBERO",
+              "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO/checkpoint_step_10690.safetensors",
+              "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+              "checkpoint_file": "checkpoint_step_10690.safetensors",
+              "repo": "/home/host/page-dmh/openwam_harness/OpenWAM",
+              "repo_commit": "4d7f642b841913ea3c176010b692b1de3d5ef180",
+              "python": "/home/host/page-dmh/embodied_engine/.venv-openwam/bin/python",
+              "server_url": "ws://127.0.0.1:14520",
+              "server_port": 14520,
+              "gpu_index": 2,
+              "generate_horizon": 32,
+              "execute_horizon": 32,
+              "action_dim": 10,
+              "action_space": "native_eef10",
+              "denoise_steps": 10,
+              "max_steps": 600,
+              "timeout_s": 300,
+              "bytes_on_disk": 24813767464,
+              "action_horizon": 32,
+              "integration": "on_execution_path",
+              "reason": "active backend: resident OpenWAM policy server, real action inference over WebSocket",
+              "server": {
+                "reachable": true,
+                "url": "ws://127.0.0.1:14520",
+                "contract": {
+                  "type": "pong",
+                  "representation": "eef"
+                },
+                "ping_s": 0.0012,
+                "stats": {
+                  "requests": 15812,
+                  "errors": 0,
+                  "resets": 289,
+                  "reconnects": 1,
+                  "chunk_generations": 548,
+                  "cache_hits": 15264,
+                  "first_inference_s": 0.5023,
+                  "last_client_s": 0.4903,
+                  "last_server_ms": 475.39,
+                  "action_dim": 10,
+                  "last_error": "reset: ConnectionClosedError: no close frame received or sent"
+                }
+              }
+            }
+          },
+          "inference": {
+            "service": "inference",
+            "status": "ok",
+            "mode": "sync_step",
+            "backend": "openwam",
+            "identity": {
+              "backend": "openwam",
+              "name": "OpenWAM-Alpha-Sim-LIBERO",
+              "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+              "checkpoint_file": "checkpoint_step_10690.safetensors",
+              "revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+              "action_dim": 10,
+              "action_space": "native_eef10",
+              "action_horizon": 32,
+              "execute_horizon": 32,
+              "denoise_steps": 10,
+              "inference_mode": "sync_step",
+              "server": {
+                "reachable": true,
+                "url": "ws://127.0.0.1:14520",
+                "contract": {
+                  "type": "pong",
+                  "representation": "eef"
+                },
+                "ping_s": 0.0012,
+                "stats": {
+                  "requests": 15812,
+                  "errors": 0,
+                  "resets": 289,
+                  "reconnects": 1,
+                  "chunk_generations": 548,
+                  "cache_hits": 15264,
+                  "first_inference_s": 0.5023,
+                  "last_client_s": 0.4903,
+                  "last_server_ms": 475.39,
+                  "action_dim": 10,
+                  "last_error": "reset: ConnectionClosedError: no close frame received or sent"
+                }
+              },
+              "inference_s_last": 0.4903,
+              "inference_calls": 0,
+              "counterpart": {
+                "backend": "pi05",
+                "name": "Pi0.5 LIBERO-130 SFT",
+                "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+                "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
+                "action_chunk": 5,
+                "action_dim": 7,
+                "control_frequency_hz": 20,
+                "server_url": "http://127.0.0.1:14510"
+              },
+              "openwam": {
+                "name": "OpenWAM-Alpha-Sim-LIBERO",
+                "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO/checkpoint_step_10690.safetensors",
+                "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+                "bytes_on_disk": 24813767464,
+                "action_horizon": 32,
+                "execute_horizon": 32,
+                "denoise_steps": 10,
+                "integration": "on_execution_path",
+                "reason": "active backend: resident OpenWAM policy server, real action inference over WebSocket",
+                "server": {
+                  "reachable": true,
+                  "url": "ws://127.0.0.1:14520",
+                  "contract": {
+                    "type": "pong",
+                    "representation": "eef"
+                  },
+                  "ping_s": 0.0012,
+                  "stats": {
+                    "requests": 15812,
+                    "errors": 0,
+                    "resets": 289,
+                    "reconnects": 1,
+                    "chunk_generations": 548,
+                    "cache_hits": 15264,
+                    "first_inference_s": 0.5023,
+                    "last_client_s": 0.4903,
+                    "last_server_ms": 475.39,
+                    "action_dim": 10,
+                    "last_error": "reset: ConnectionClosedError: no close frame received or sent"
+                  }
+                }
+              }
+            },
+            "metrics": {
+              "infer_calls": 0,
+              "prefetch_calls": 0,
+              "prefetch_queued": 0,
+              "prefetch_replaced": 0,
+              "prefetch_completed": 0,
+              "prefetch_discarded": 0,
+              "model_errors": 0,
+              "inference_s_total": 721.129299999988,
+              "inference_s_last": 0.4903,
+              "chunk_generations": 548,
+              "cache_hits": 15264,
+              "last_request": {
+                "episode_id": "ep-20261027-075723-450d87",
+                "scene_epoch": 3,
+                "observation_id": "query-5dee37aab3e44901bc671cda2997ff35:3:128:278",
+                "sim_action_count": 128,
+                "skill": "whole_task",
+                "step_id": 128,
+                "prompt": "put the wine bottle on the rack",
+                "queued_s": 0.0,
+                "total_s": 0.5746,
+                "chunk": {
+                  "chunk_generation": true,
+                  "cache_hit": false,
+                  "chunk_id": 4,
+                  "buffer_index": 0,
+                  "generated_actions": 32,
+                  "consumed_actions": 1,
+                  "execute_horizon": 32
+                }
+              },
+              "backend_resets": 290,
+              "last_backend_reset": {
+                "status": "ok"
+              },
+              "backend_resets_on_cancel": 3,
+              "pending_prefetch": 0,
+              "ready_results": 0,
+              "mode": "sync_step",
+              "backend": "openwam"
+            }
+          },
+          "env": {
+            "suite": "libero_goal",
+            "seed": 2,
+            "configured_seed": 0,
+            "task_id": 9,
+            "port": 14561,
+            "identity": {
+              "service_instance_id": "5dee37aab3e44901bc671cda2997ff35",
+              "scene_generation": 2,
+              "sim_action_count": 145,
+              "task_scope": "official_single",
+              "mode": "free",
+              "code": "episode-service-state-1"
+            },
+            "ready": true
+          },
+          "engine": {
+            "phase": "succeeded",
+            "detail": "task 9 complete: 42.808s, 132 sim actions"
+          }
+        },
+        "phase": "succeeded"
+      },
+      "inference": {
+        "service": "inference",
+        "status": "ok",
+        "mode": "sync_step",
+        "backend": "openwam",
+        "identity": {
+          "backend": "openwam",
+          "name": "OpenWAM-Alpha-Sim-LIBERO",
+          "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",
+          "checkpoint_file": "checkpoint_step_10690.safetensors",
+          "revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+          "action_dim": 10,
+          "action_space": "native_eef10",
+          "action_horizon": 32,
+          "execute_horizon": 32,
+          "denoise_steps": 10,
+          "inference_mode": "sync_step",
+          "server": {
+            "reachable": true,
+            "url": "ws://127.0.0.1:14520",
+            "contract": {
+              "type": "pong",
+              "representation": "eef"
+            },
+            "ping_s": 0.0008,
+            "stats": {
+              "requests": 15812,
+              "errors": 0,
+              "resets": 289,
+              "reconnects": 1,
+              "chunk_generations": 548,
+              "cache_hits": 15264,
+              "first_inference_s": 0.5023,
+              "last_client_s": 0.4903,
+              "last_server_ms": 475.39,
+              "action_dim": 10,
+              "last_error": "reset: ConnectionClosedError: no close frame received or sent"
+            }
+          },
+          "inference_s_last": 0.4903,
+          "inference_calls": 0,
+          "counterpart": {
+            "backend": "pi05",
+            "name": "Pi0.5 LIBERO-130 SFT",
+            "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+            "revision": "6222623f635769bfc73c9472e29fab9b7fd8e027",
+            "action_chunk": 5,
+            "action_dim": 7,
+            "control_frequency_hz": 20,
+            "server_url": "http://127.0.0.1:14510"
+          },
+          "openwam": {
+            "name": "OpenWAM-Alpha-Sim-LIBERO",
+            "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO/checkpoint_step_10690.safetensors",
+            "hf_revision": "110b07e4d5581c81520a77419cbb0e9371df231b",
+            "bytes_on_disk": 24813767464,
+            "action_horizon": 32,
+            "execute_horizon": 32,
+            "denoise_steps": 10,
+            "integration": "on_execution_path",
+            "reason": "active backend: resident OpenWAM policy server, real action inference over WebSocket",
+            "server": {
+              "reachable": true,
+              "url": "ws://127.0.0.1:14520",
+              "contract": {
+                "type": "pong",
+                "representation": "eef"
+              },
+              "ping_s": 0.0008,
+              "stats": {
+                "requests": 15812,
+                "errors": 0,
+                "resets": 289,
+                "reconnects": 1,
+                "chunk_generations": 548,
+                "cache_hits": 15264,
+                "first_inference_s": 0.5023,
+                "last_client_s": 0.4903,
+                "last_server_ms": 475.39,
+                "action_dim": 10,
+                "last_error": "reset: ConnectionClosedError: no close frame received or sent"
+              }
+            }
+          }
+        },
+        "metrics": {
+          "infer_calls": 0,
+          "prefetch_calls": 0,
+          "prefetch_queued": 0,
+          "prefetch_replaced": 0,
+          "prefetch_completed": 0,
+          "prefetch_discarded": 0,
+          "model_errors": 0,
+          "inference_s_total": 721.129299999988,
+          "inference_s_last": 0.4903,
+          "chunk_generations": 548,
+          "cache_hits": 15264,
+          "last_request": {
+            "episode_id": "ep-20261027-075723-450d87",
+            "scene_epoch": 3,
+            "observation_id": "query-5dee37aab3e44901bc671cda2997ff35:3:128:278",
+            "sim_action_count": 128,
+            "skill": "whole_task",
+            "step_id": 128,
+            "prompt": "put the wine bottle on the rack",
+            "queued_s": 0.0,
+            "total_s": 0.5746,
+            "chunk": {
+              "chunk_generation": true,
+              "cache_hit": false,
+              "chunk_id": 4,
+              "buffer_index": 0,
+              "generated_actions": 32,
+              "consumed_actions": 1,
+              "execute_horizon": 32
+            }
+          },
+          "backend_resets": 290,
+          "last_backend_reset": {
+            "status": "ok"
+          },
+          "backend_resets_on_cancel": 3,
+          "pending_prefetch": 0,
+          "ready_results": 0,
+          "mode": "sync_step",
+          "backend": "openwam"
+        },
+        "token": "inf-1b4c08ef8d3e"
+      },
+      "agent": {
+        "service": "agent",
+        "status": "ok",
+        "mode": "qwen",
+        "model": "Qwen3.5-9B",
+        "llm_model": "Qwen3.5-9B",
+        "llm_base_url": "http://127.0.0.1:8001/v1",
+        "llm": {
+          "reachable": true,
+          "models": [
+            "Qwen3.5-9B"
+          ]
+        },
+        "d1": {
+          "model": "LiquidAI/d1-3B",
+          "base_model": "LiquidAI/LFM2.5-VL-3B",
+          "license": "lfm1.0",
+          "source": "ModelScope",
+          "url": "http://127.0.0.1:14710",
+          "reachable": true,
+          "health": {
+            "service": "d1",
+            "status": "ok",
+            "model": "LiquidAI/d1-3B",
+            "base_model": "LiquidAI/LFM2.5-VL-3B",
+            "license": "lfm1.0",
+            "source": "ModelScope",
+            "model_path": "/home/host/page-dmh/openwam_harness/checkpoints/LiquidAI-d1-3B",
+            "model_sha256": "50e03317847caf6df9a9aee27ed40f20554a86a21e60d1d47ba41a422b546c0c",
+            "device": "NVIDIA GeForce RTX 5090",
+            "cuda_visible_devices": "0",
+            "dtype": "bfloat16",
+            "load_s": 8.339,
+            "uptime_s": 17465.6,
+            "stats": {
+              "calls": 452,
+              "errors": 0,
+              "mean_s": 0.07219,
+              "last_s": 0.06526,
+              "max_s": 3.09951,
+              "last_input_tokens": 1216
+            },
+            "output_tokens_per_decision": 0
+          }
+        },
+        "planner_vision": false,
+        "jev": {
+          "enabled": false,
+          "official_endpoint": "https://api.typesafe.ai/v1/systemone",
+          "reason": "TypeSafe System One is a waitlisted cloud API; no local weights or credentials are present"
+        },
+        "role": "task understanding, object binding, skill selection, recovery decisions"
+      }
+    }
+  },
+  "scene": {
+    "scene_epoch": 1,
+    "observation_id": "query-e5914408e8a248a487589858da78a812:1:0:2",
+    "sim_action_count": 0,
+    "eef_pos": [
+      -0.21909466168868844,
+      -0.013611113325469364,
+      1.1590324716630507
+    ],
+    "env_identity": {
+      "service_instance_id": "e5914408e8a248a487589858da78a812",
+      "scene_generation": 1,
+      "sim_action_count": 0,
+      "task_scope": "official_single",
+      "mode": "free",
+      "code": "episode-service-state-1"
+    },
+    "env_meta": {
+      "suite": "libero_goal",
+      "task": 1,
+      "seed": 0,
+      "max_episode_steps": 10000
+    }
+  },
+  "instruction": {
+    "official": "put the bowl on the stove",
+    "model_prompt": "put the bowl on the stove",
+    "source": "config/tasks.json official instruction"
+  },
+  "planner": {
+    "reps": 12,
+    "cold": {
+      "n": 1,
+      "cold": true,
+      "http_status": 200,
+      "wall_s": 5.9557,
+      "status": "ok",
+      "agent_mode": "qwen",
+      "total_s": 5.949,
+      "attempts": 1,
+      "repairs": 0,
+      "timing": {
+        "elapsed_s": 5.908,
+        "prompt_tokens": 1312,
+        "completion_tokens": 126,
+        "model": "Qwen3.5-9B",
+        "vllm_queue_s": 0.0033,
+        "ttft_s": 0.2041,
+        "decode_s": 5.6982,
+        "inference_s": 5.883,
+        "server_e2e_s": 5.9013,
+        "requests_observed": 1,
+        "parse_s": 0.0,
+        "validate_s": 0.0001
+      },
+      "plan_steps": [
+        {
+          "skill": "whole_task",
+          "object_n": null,
+          "target_n": null,
+          "relation": "task",
+          "prompt": "put the bowl on the stove"
+        }
+      ],
+      "errors": [],
+      "response_keys": [
+        "agent_mode",
+        "attempts",
+        "errors",
+        "plan",
+        "plan_source",
+        "repairs",
+        "status",
+        "total_s"
+      ]
+    },
+    "wall_s": {
+      "n": 12,
+      "mean": 5.8373,
+      "min": 5.1906,
+      "median": 5.9161,
+      "p95": 5.9543,
+      "max": 5.9557
+    },
+    "warm_wall_s": {
+      "n": 11,
+      "mean": 5.8265,
+      "min": 5.1906,
+      "median": 5.9038,
+      "p95": 5.9543,
+      "max": 5.9543
+    },
+    "elapsed_s": {
+      "n": 12,
+      "mean": 5.7847,
+      "min": 5.14,
+      "median": 5.856,
+      "p95": 5.903,
+      "max": 5.908
+    },
+    "prompt_tokens": {
+      "n": 12,
+      "mean": 1312.0,
+      "min": 1312.0,
+      "median": 1312.0,
+      "p95": 1312.0,
+      "max": 1312.0
+    },
+    "completion_tokens": {
+      "n": 12,
+      "mean": 126.0,
+      "min": 126.0,
+      "median": 126.0,
+      "p95": 126.0,
+      "max": 126.0
+    },
+    "vllm_queue_s": {
+      "n": 12,
+      "mean": 0.0013,
+      "min": 0.0,
+      "median": 0.002,
+      "p95": 0.0026,
+      "max": 0.0033
+    },
+    "ttft_s": {
+      "n": 12,
+      "mean": 0.1839,
+      "min": 0.1737,
+      "median": 0.1829,
+      "p95": 0.1845,
+      "max": 0.2041
+    },
+    "decode_s": {
+      "n": 12,
+      "mean": 5.595,
+      "min": 4.9507,
+      "median": 5.6681,
+      "p95": 5.6989,
+      "max": 5.7136
+    },
+    "server_e2e_s": {
+      "n": 12,
+      "mean": 5.7785,
+      "min": 5.1342,
+      "median": 5.8492,
+      "p95": 5.8971,
+      "max": 5.9013
+    },
+    "parse_s": {
+      "n": 12,
+      "mean": 0.0,
+      "min": 0.0,
+      "median": 0.0,
+      "p95": 0.0,
+      "max": 0.0001
+    },
+    "validate_s": {
+      "n": 12,
+      "mean": 0.0001,
+      "min": 0.0001,
+      "median": 0.0001,
+      "p95": 0.0001,
+      "max": 0.0001
+    },
+    "requests_observed": {
+      "n": 12,
+      "mean": 1.0,
+      "min": 1.0,
+      "median": 1.0,
+      "p95": 1.0,
+      "max": 1.0
+    },
+    "rows": [
+      {
+        "n": 1,
+        "cold": true,
+        "http_status": 200,
+        "wall_s": 5.9557,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.949,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.908,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.0033,
+          "ttft_s": 0.2041,
+          "decode_s": 5.6982,
+          "inference_s": 5.883,
+          "server_e2e_s": 5.9013,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 2,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.9253,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.914,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.873,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.0,
+          "ttft_s": 0.1842,
+          "decode_s": 5.6823,
+          "inference_s": 5.8523,
+          "server_e2e_s": 5.8663,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 3,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.8912,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.872,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.832,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.002,
+          "ttft_s": 0.1825,
+          "decode_s": 5.6434,
+          "inference_s": 5.808,
+          "server_e2e_s": 5.8259,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 4,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.8428,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.831,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.791,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.002,
+          "ttft_s": 0.1819,
+          "decode_s": 5.6032,
+          "inference_s": 5.7695,
+          "server_e2e_s": 5.785,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 5,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.1906,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.179,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.14,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.0022,
+          "ttft_s": 0.1845,
+          "decode_s": 4.9507,
+          "inference_s": 5.1195,
+          "server_e2e_s": 5.1342,
+          "requests_observed": 1,
+          "parse_s": 0.0001,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 6,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.7159,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.705,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.665,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.0,
+          "ttft_s": 0.1737,
+          "decode_s": 5.4859,
+          "inference_s": 5.6458,
+          "server_e2e_s": 5.6594,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 7,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.9038,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.892,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.852,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.0,
+          "ttft_s": 0.181,
+          "decode_s": 5.665,
+          "inference_s": 5.8327,
+          "server_e2e_s": 5.8457,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 8,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.8869,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.875,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.836,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.002,
+          "ttft_s": 0.1815,
+          "decode_s": 5.6479,
+          "inference_s": 5.8127,
+          "server_e2e_s": 5.8293,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 9,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.941,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.929,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.889,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.0,
+          "ttft_s": 0.1845,
+          "decode_s": 5.6989,
+          "inference_s": 5.8692,
+          "server_e2e_s": 5.8832,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 10,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.9543,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.943,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.903,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.0019,
+          "ttft_s": 0.1842,
+          "decode_s": 5.7136,
+          "inference_s": 5.8823,
+          "server_e2e_s": 5.8971,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 11,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.9161,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.898,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.856,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.0026,
+          "ttft_s": 0.1813,
+          "decode_s": 5.6681,
+          "inference_s": 5.8331,
+          "server_e2e_s": 5.8492,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      },
+      {
+        "n": 12,
+        "cold": false,
+        "http_status": 200,
+        "wall_s": 5.924,
+        "status": "ok",
+        "agent_mode": "qwen",
+        "total_s": 5.912,
+        "attempts": 1,
+        "repairs": 0,
+        "timing": {
+          "elapsed_s": 5.872,
+          "prompt_tokens": 1312,
+          "completion_tokens": 126,
+          "model": "Qwen3.5-9B",
+          "vllm_queue_s": 0.0,
+          "ttft_s": 0.1829,
+          "decode_s": 5.6829,
+          "inference_s": 5.8503,
+          "server_e2e_s": 5.8655,
+          "requests_observed": 1,
+          "parse_s": 0.0,
+          "validate_s": 0.0001
+        },
+        "plan_steps": [
+          {
+            "skill": "whole_task",
+            "object_n": null,
+            "target_n": null,
+            "relation": "task",
+            "prompt": "put the bowl on the stove"
+          }
+        ],
+        "errors": [],
+        "response_keys": [
+          "agent_mode",
+          "attempts",
+          "errors",
+          "plan",
+          "plan_source",
+          "repairs",
+          "status",
+          "total_s"
+        ]
+      }
+    ],
+    "mode": "qwen",
+    "restored_mode": "qwen"
+  }
+}

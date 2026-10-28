@@ -1,0 +1,210 @@
+{
+  "schema": "embodied_engine.composite_stop.v1",
+  "generated_at": "2026-10-27T15:38:03",
+  "engine": "http://127.0.0.1:14800",
+  "cases": [
+    {
+      "case": "stop-step1",
+      "kind": "step-1",
+      "episode_id": "ep-20261027-153820-6df642",
+      "ok": true,
+      "trigger_phase": "running",
+      "trigger_detail": "step 1/2 whole_task  ->",
+      "trigger_sim_actions": 25,
+      "stop_ack": {
+        "status": "ok",
+        "active": false,
+        "phase": "stopped",
+        "stop": {
+          "reason": "stop-test:stop-step1",
+          "sim_at_request": 25,
+          "sim_at_ack": 25,
+          "in_flight_actions": 0,
+          "thread_alive": false,
+          "settle_agreements": 3,
+          "cancel_barrier_s": 0.001,
+          "in_flight_after_cancel": 0,
+          "inference_idle": true,
+          "chunk_buffer_cleared": true
+        }
+      },
+      "after_stop": {
+        "samples": [
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25
+        ],
+        "first": 25,
+        "last": 25,
+        "advanced": false,
+        "phase": "stopped"
+      },
+      "final_phase": "stopped",
+      "final_detail": "episode stopped",
+      "step_2_started": false,
+      "record_execution_status": "stopped",
+      "record_failure": {
+        "code": "user_stop",
+        "reason": "episode stopped by user"
+      },
+      "record_sim_actions": 25,
+      "scene_epoch": 2,
+      "journal_stages": [
+        "episode_end",
+        "loading",
+        "planning",
+        "ready",
+        "running",
+        "stopped",
+        "stopping"
+      ]
+    },
+    {
+      "case": "stop-handoff",
+      "kind": "handoff",
+      "episode_id": "ep-20261027-153839-bd1b6e",
+      "ok": true,
+      "trigger_phase": "handoff",
+      "trigger_detail": "step c1->c2 open_middle_drawer->put_bowl_on_plate",
+      "trigger_sim_actions": 119,
+      "stop_ack": {
+        "status": "ok",
+        "active": false,
+        "phase": "stopped",
+        "stop": {
+          "reason": "stop-test:stop-handoff",
+          "sim_at_request": 119,
+          "sim_at_ack": 120,
+          "in_flight_actions": 1,
+          "thread_alive": false,
+          "settle_agreements": 3,
+          "cancel_barrier_s": 0.001,
+          "in_flight_after_cancel": 0,
+          "inference_idle": true,
+          "chunk_buffer_cleared": true
+        }
+      },
+      "after_stop": {
+        "samples": [
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120
+        ],
+        "first": 120,
+        "last": 120,
+        "advanced": false,
+        "phase": "stopped"
+      },
+      "final_phase": "stopped",
+      "final_detail": "episode stopped",
+      "step_2_started": false,
+      "record_execution_status": "stopped",
+      "record_failure": {
+        "code": "user_stop",
+        "reason": "episode stopped by user"
+      },
+      "record_sim_actions": 120,
+      "scene_epoch": 4,
+      "journal_stages": [
+        "episode_end",
+        "handoff",
+        "loading",
+        "planning",
+        "ready",
+        "running",
+        "step_goal_latched",
+        "stopped",
+        "stopping"
+      ]
+    },
+    {
+      "case": "stop-step2",
+      "kind": "step-2",
+      "episode_id": "ep-20261027-153923-90e95e",
+      "ok": true,
+      "trigger_phase": "running",
+      "trigger_detail": "step 2/2 whole_task  ->",
+      "trigger_sim_actions": 160,
+      "stop_ack": {
+        "status": "ok",
+        "active": false,
+        "phase": "stopped",
+        "stop": {
+          "reason": "stop-test:stop-step2",
+          "sim_at_request": 160,
+          "sim_at_ack": 160,
+          "in_flight_actions": 0,
+          "thread_alive": false,
+          "settle_agreements": 3,
+          "cancel_barrier_s": 0.0007,
+          "in_flight_after_cancel": 0,
+          "inference_idle": true,
+          "chunk_buffer_cleared": true
+        }
+      },
+      "after_stop": {
+        "samples": [
+          160,
+          160,
+          160,
+          160,
+          160,
+          160,
+          160,
+          160,
+          160,
+          160,
+          160,
+          160
+        ],
+        "first": 160,
+        "last": 160,
+        "advanced": false,
+        "phase": "stopped"
+      },
+      "final_phase": "stopped",
+      "final_detail": "episode stopped",
+      "step_2_started": true,
+      "record_execution_status": "stopped",
+      "record_failure": {
+        "code": "user_stop",
+        "reason": "episode stopped by user"
+      },
+      "record_sim_actions": 160,
+      "scene_epoch": 6,
+      "journal_stages": [
+        "composite_handoff",
+        "composite_step_start",
+        "episode_end",
+        "handoff",
+        "loading",
+        "planning",
+        "policy_buffer_reset",
+        "ready",
+        "running",
+        "step_goal_latched",
+        "stopped",
+        "stopping"
+      ]
+    }
+  ]
+}

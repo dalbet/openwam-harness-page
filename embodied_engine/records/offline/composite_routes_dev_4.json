@@ -1,0 +1,844 @@
+{
+  "schema": "embodied_engine.composite_routes.v1",
+  "generated_at": "2026-10-27T14:25:42",
+  "manifest": "config/composite_routes_20261027.json",
+  "split": "dev",
+  "task_id": 8,
+  "agent": "http://127.0.0.1:14700",
+  "scene_objects": [
+    "akita_black_bowl_1",
+    "cream_cheese_1",
+    "plate_1",
+    "wine_bottle_1"
+  ],
+  "summary": {
+    "n": 17,
+    "passed": 17,
+    "median_s": 0.8196,
+    "p95_s": 1.0504,
+    "max_s": 1.0551
+  },
+  "composite_summary": {
+    "n": 8,
+    "passed": 8,
+    "median_s": 0.8248,
+    "p95_s": 0.8709,
+    "max_s": 0.8709
+  },
+  "by_lang": {
+    "en": {
+      "n": 9,
+      "passed": 9,
+      "median_s": 0.8037,
+      "p95_s": 1.0551,
+      "max_s": 1.0551
+    },
+    "zh": {
+      "n": 8,
+      "passed": 8,
+      "median_s": 0.8205,
+      "p95_s": 1.0504,
+      "max_s": 1.0504
+    }
+  },
+  "rows": [
+    {
+      "id": "dev-en-forward-then",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "note": "canonical English, explicit order",
+      "wall_s": 0.8037,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": true,
+          "got": true
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": true,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000738,
+      "agent_total_s": 0.801
+    },
+    {
+      "id": "dev-zh-forward-then",
+      "lang": "zh",
+      "text": "先打开柜子中间的抽屉，再把碗放到盘子上。",
+      "note": "canonical Chinese, explicit order",
+      "wall_s": 0.8196,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": true,
+          "got": true
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": true,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000675,
+      "agent_total_s": 0.8166
+    },
+    {
+      "id": "dev-en-forward-synonym",
+      "lang": "en",
+      "text": "Slide the center drawer open and afterwards set the bowl down on the plate.",
+      "note": "synonyms for open/place, explicit sequence word",
+      "wall_s": 0.8248,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": true,
+          "got": true
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": true,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.00179,
+      "agent_total_s": 0.8216
+    },
+    {
+      "id": "dev-zh-forward-synonym",
+      "lang": "zh",
+      "text": "拉开中间的抽屉，接着把碗搁在盘子里。",
+      "note": "Chinese synonyms 拉开/搁在/接着",
+      "wall_s": 0.8248,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": true,
+          "got": true
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": true,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000657,
+      "agent_total_s": 0.8212
+    },
+    {
+      "id": "dev-en-reversed",
+      "lang": "en",
+      "text": "Put the bowl on the plate first, then open the middle drawer of the cabinet.",
+      "note": "reversed order is recognised, execution refused",
+      "wall_s": 0.8263,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "put_bowl_on_plate",
+            "open_middle_drawer"
+          ],
+          "got": [
+            "put_bowl_on_plate",
+            "open_middle_drawer"
+          ]
+        },
+        {
+          "check": "reason",
+          "ok": true,
+          "expect": "unsupported_combo",
+          "got": "unsupported_combo"
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": false,
+          "got": false
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "put_bowl_on_plate",
+        "open_middle_drawer"
+      ],
+      "reason_code": "unsupported_combo",
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000231,
+      "agent_total_s": 0.8232
+    },
+    {
+      "id": "dev-zh-reversed",
+      "lang": "zh",
+      "text": "先把碗放到盘子上，然后再打开中间的抽屉。",
+      "note": "reversed order in Chinese, refused",
+      "wall_s": 0.8214,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "put_bowl_on_plate",
+            "open_middle_drawer"
+          ],
+          "got": [
+            "put_bowl_on_plate",
+            "open_middle_drawer"
+          ]
+        },
+        {
+          "check": "reason",
+          "ok": true,
+          "expect": "unsupported_combo",
+          "got": "unsupported_combo"
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": false,
+          "got": false
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "put_bowl_on_plate",
+        "open_middle_drawer"
+      ],
+      "reason_code": "unsupported_combo",
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000262,
+      "agent_total_s": 0.8183
+    },
+    {
+      "id": "dev-en-drawer-level-missing",
+      "lang": "en",
+      "text": "Open the drawer and put the bowl on the plate.",
+      "note": "drawer level missing; prompt now names 'open the drawer' as a clarify example",
+      "wall_s": 0.497,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "needs_clarification",
+          "got": "needs_clarification"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [],
+          "got": []
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "needs_clarification",
+      "keys": [],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1e-06,
+      "agent_total_s": 0.4942
+    },
+    {
+      "id": "dev-zh-drawer-level-missing",
+      "lang": "zh",
+      "text": "打开抽屉，然后把碗放到盘子上。",
+      "note": "抽屉层级缺失",
+      "wall_s": 0.5003,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "needs_clarification",
+          "got": "needs_clarification"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [],
+          "got": []
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "needs_clarification",
+      "keys": [],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1e-06,
+      "agent_total_s": 0.4939
+    },
+    {
+      "id": "dev-en-single-only",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet.",
+      "note": "single drawer request on the loaded task-8 scene: routing is correct, execution needs task 0 loaded (control for the composite anchor)",
+      "wall_s": 0.5466,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "task_mismatch",
+          "got": "task_mismatch"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer"
+          ],
+          "got": [
+            "open_middle_drawer"
+          ]
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "task_mismatch",
+      "keys": [
+        "open_middle_drawer"
+      ],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1.5e-05,
+      "agent_total_s": 0.5438
+    },
+    {
+      "id": "dev-zh-single-only",
+      "lang": "zh",
+      "text": "把碗放到盘子上。",
+      "note": "single-task Chinese, no composite keys",
+      "wall_s": 0.638,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 5.6e-05,
+      "agent_total_s": 0.635
+    },
+    {
+      "id": "dev-en-unsupported-pair",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet, then put the bowl on the stove.",
+      "note": "valid pair of capabilities, not executable in this round",
+      "wall_s": 0.8709,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_stove"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_stove"
+          ]
+        },
+        {
+          "check": "reason",
+          "ok": true,
+          "expect": "unsupported_combo",
+          "got": "unsupported_combo"
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": false,
+          "got": false
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_stove"
+      ],
+      "reason_code": "unsupported_combo",
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000243,
+      "agent_total_s": 0.8681
+    },
+    {
+      "id": "dev-zh-unsupported-pair",
+      "lang": "zh",
+      "text": "先打开中间的抽屉，然后把碗放到炉灶上。",
+      "note": "Chinese unsupported pair",
+      "wall_s": 0.8684,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_stove"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_stove"
+          ]
+        },
+        {
+          "check": "reason",
+          "ok": true,
+          "expect": "unsupported_combo",
+          "got": "unsupported_combo"
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": false,
+          "got": false
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_stove"
+      ],
+      "reason_code": "unsupported_combo",
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000243,
+      "agent_total_s": 0.8654
+    },
+    {
+      "id": "dev-en-three-steps",
+      "lang": "en",
+      "text": "Open the middle drawer, put the bowl on the plate, then turn on the stove.",
+      "note": "more than two steps; refusal may be step_limit_exceeded (keys kept) or outside_catalog (model declines), both are explicit unsupported",
+      "wall_s": 1.0551,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate",
+        "turn_on_stove"
+      ],
+      "reason_code": null,
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1e-06,
+      "agent_total_s": 1.0521
+    },
+    {
+      "id": "dev-zh-three-steps",
+      "lang": "zh",
+      "text": "打开中间的抽屉，把碗放到盘子上，再打开炉灶。",
+      "note": "超过两步; refusal may be step_limit_exceeded (keys kept) or outside_catalog (model declines), both are explicit unsupported",
+      "wall_s": 1.0504,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate",
+        "turn_on_stove"
+      ],
+      "reason_code": null,
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1e-06,
+      "agent_total_s": 1.0473
+    },
+    {
+      "id": "dev-en-object-conflict",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet, then put the bowl on the plate and on the stove.",
+      "note": "same object sent to two destinations",
+      "wall_s": 0.4628,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [],
+          "got": []
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1e-06,
+      "agent_total_s": 0.4562
+    },
+    {
+      "id": "dev-zh-pronoun-ambiguous",
+      "lang": "zh",
+      "text": "先打开中间的抽屉，然后把它放到盘子上。",
+      "note": "unresolved pronoun in step 2",
+      "wall_s": 0.5036,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "needs_clarification",
+          "got": "needs_clarification"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [],
+          "got": []
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "needs_clarification",
+      "keys": [],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1e-06,
+      "agent_total_s": 0.5005
+    },
+    {
+      "id": "dev-en-order-ambiguous",
+      "lang": "en",
+      "text": "Move the plate and open the middle drawer of the cabinet.",
+      "note": "push-to-front is not 'move', no destination given",
+      "wall_s": 0.4542,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [],
+          "got": []
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1e-06,
+      "agent_total_s": 0.4514
+    }
+  ]
+}

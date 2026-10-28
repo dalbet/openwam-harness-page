@@ -1,0 +1,1150 @@
+{
+  "schema": "embodied_engine.evidence_archive.v1",
+  "created_at": "2026-10-27T14:10:41",
+  "label": "8becbe2_before_composite",
+  "git_head": "8becbe2f6be65c92edc98a30cab63b6fe84d2d59",
+  "git_branch": "feature/openwam-composite-0-8-20261027",
+  "source_dir": "/home/host/page-dmh/embodied_engine/records/acceptance",
+  "manifests": [
+    {
+      "name": "composite_matrix_20261027.json",
+      "bytes": 5557,
+      "sha256": "9b696981d441e92f8978df41f206621946cf65408688cf2d8ce8a71717b0a7a1"
+    },
+    {
+      "name": "d1_cleanup_manifest.json",
+      "bytes": 3354,
+      "sha256": "dc4fe644620ae9986cb7e2c7cfbefbe357e396e5cc9b95da262f107cb3d91192"
+    },
+    {
+      "name": "dbg_task0_budget70.json",
+      "bytes": 1738,
+      "sha256": "f049433e609d4776fb322b5887175717733e54a4bf05452a9bddb6554fc4999a"
+    },
+    {
+      "name": "dbg_task3_3x.json",
+      "bytes": 8505,
+      "sha256": "f4d1717153e3bf218dbcf338c0039db88a010b3125bbe26a08e913173a7f6b27"
+    },
+    {
+      "name": "dbg_task3_descent.json",
+      "bytes": 6347,
+      "sha256": "df11d52c19d8cf5250d47bdeb785be88f133364be634ca8443a38bd89e612ef6"
+    },
+    {
+      "name": "dbg_task3_pick40.json",
+      "bytes": 5540,
+      "sha256": "9a7acaee1ab62b47d13bd470d329b2ade370522e4558208b8642cd7363b75cd0"
+    },
+    {
+      "name": "dbg_task3_repair.json",
+      "bytes": 5949,
+      "sha256": "807e0add59c593531a3721eb74a5e5119785f570be8809ec2d06e57c3bdac695"
+    },
+    {
+      "name": "dbg_tasks0_3_drop.json",
+      "bytes": 4478,
+      "sha256": "13b158a622ec357f46708c23e422eebee7733106f77325893fe2977b24fc0d9c"
+    },
+    {
+      "name": "final_3x_1152.json",
+      "bytes": 6028,
+      "sha256": "848a7b45a6a206f391431a493c455e6a50144783003b1d2b39a8b4a36a9d19aa"
+    },
+    {
+      "name": "final_3x_1155.json",
+      "bytes": 52211,
+      "sha256": "6bb86befb1d3f82896940550774132cda83898f85bfd2ab407d18b0c28329ffd"
+    },
+    {
+      "name": "final_3x_rehome.json",
+      "bytes": 50632,
+      "sha256": "7fa51e9119fe03cf7e17ff37021754e7ef1e94cc5d97530a2ca915027e83b836"
+    },
+    {
+      "name": "inference_determinism.json",
+      "bytes": 981,
+      "sha256": "64404ced8726f1a25002216cb7991e2e07c36e4470f6120674411666c7c6ff5a"
+    },
+    {
+      "name": "language_rounds_20261027.json",
+      "bytes": 30067,
+      "sha256": "4c567696bfc70664ac98b052a2208dd1ee21be39aadb5adacdf6ac41967274d4"
+    },
+    {
+      "name": "lifecycle_planner_generation.json",
+      "bytes": 1381,
+      "sha256": "0274b699b1ec00d2b3a8f6b2702c261332fe4a1efcee3a91c62e4b5086a1c730"
+    },
+    {
+      "name": "openwam_final_task1.json",
+      "bytes": 1712,
+      "sha256": "ae679222524e7899d3b2c8d367bac82657301d10105b19ead5412cd18b24a91c"
+    },
+    {
+      "name": "openwam_libero_goal_all10.json",
+      "bytes": 12600,
+      "sha256": "b1ed051472ca19ceb1baab0bdf604a0d3eea9021381d1982e7fecde8661b7658"
+    },
+    {
+      "name": "openwam_switchback_task1.json",
+      "bytes": 1713,
+      "sha256": "b15d683ad885f6a2fa63b8e5286af01a59e97ac25d6f7d271036f1ebd746a2fa"
+    },
+    {
+      "name": "openwam_task1_repeat.json",
+      "bytes": 4075,
+      "sha256": "6309543d7d5ab28af51555961007712d3648c494b170eaceb6cb9155ea09baea"
+    },
+    {
+      "name": "pi05_regression_final_task1.json",
+      "bytes": 1977,
+      "sha256": "9b16ee3910feb5feb33fa4000e11b65a7bc2bf1139ec2ccf8832a622dd2b97b9"
+    },
+    {
+      "name": "pi05_regression_task1.json",
+      "bytes": 1737,
+      "sha256": "6d7a54702c504f33ec6691b444ee3edff4c6d0d53aed7241889bac63be88aaa5"
+    },
+    {
+      "name": "placement_diag_baseline.json",
+      "bytes": 2539,
+      "sha256": "b165037c572dd6c42d64b1fba8dcebb7f6b2091b5927249470cf6873cee05f4d"
+    },
+    {
+      "name": "placement_diag_baseline2.json",
+      "bytes": 2538,
+      "sha256": "1b0426761cb1f72f788dbf3851cbcbb4e6abfefbbf335d641b19cf6c4810452f"
+    },
+    {
+      "name": "placement_diag_d1.json",
+      "bytes": 2510,
+      "sha256": "8879ee3e936aeb298fbc9e83cfbc5871a4b645164b58d9f6251cab53a7a8bcb3"
+    },
+    {
+      "name": "placement_diag_finalizer.json",
+      "bytes": 2553,
+      "sha256": "05b5608b97b9b474a26d8786dcfd30f681858c18906d8a194a3e3ce2390babbb"
+    },
+    {
+      "name": "placement_diag_finalizer2.json",
+      "bytes": 2521,
+      "sha256": "b61e546f775478b225708d4f5addb82bf5629a9d9af77a54ac50bce4ac560437"
+    },
+    {
+      "name": "placement_repeat_20261027.json",
+      "bytes": 4559,
+      "sha256": "fc1d7f357d17ffe75456a13b039afad261274fcba793f9556ff0d526551a4b46"
+    },
+    {
+      "name": "placement_rounds_20261027.json",
+      "bytes": 22710,
+      "sha256": "5d2cebd6fbb35858d98373e3c8a1804f6c849c0e66b87d676a06d8ee14491e00"
+    },
+    {
+      "name": "placement_rounds_final2_20261027.json",
+      "bytes": 22156,
+      "sha256": "bed57c16b6b572b15021da3286d37810e74c584cbfdee3be43687b224c8f6bd8"
+    },
+    {
+      "name": "placement_rounds_final_20261027.json",
+      "bytes": 21850,
+      "sha256": "e23d022183aeb606cf08159e0ba972f6e38e319a7e3278754ccfbf9819da3ecd"
+    },
+    {
+      "name": "progress_probe_20261027.json",
+      "bytes": 4962,
+      "sha256": "3c12be7211d6d803cfcf3bf925092f9afc3ce1ee6e821d23ee554bcdf1aebf52"
+    },
+    {
+      "name": "render_determinism.json",
+      "bytes": 2203,
+      "sha256": "02c2b75d6c231059a6f1b2bbde1f31ded48b4e3e0d359e2f070e0bb430193dbb"
+    },
+    {
+      "name": "smoke2_all.json",
+      "bytes": 17249,
+      "sha256": "bc835b77de79a635edb35f6551e6c534f49de0cffb188b085e3e70094fcf85d8"
+    },
+    {
+      "name": "smoke_1101.json",
+      "bytes": 18653,
+      "sha256": "d40c92e43494868bb4d075934640cf58bc5c49759f10a616aad2e1c8a23c1e17"
+    },
+    {
+      "name": "smoke_rehome.json",
+      "bytes": 1739,
+      "sha256": "df25b2e575cf6d7059ca709a561ab0c4cc7ebd3448b4c4529b925c6e7584be76"
+    },
+    {
+      "name": "speed_openwam_cold.json",
+      "bytes": 52622,
+      "sha256": "2ff40fc7ff321f042f44cc4463af183217d5a6874892bba0eb099eb5386f6568"
+    },
+    {
+      "name": "speed_planner_d1.json",
+      "bytes": 35929,
+      "sha256": "de4a1f6762f10388f0738c236071691a02130744876e7e10e6fc2ee35fa99d47"
+    },
+    {
+      "name": "speed_planner_qwen.json",
+      "bytes": 41381,
+      "sha256": "1f28508be9dfa43f3753e45212c97cc3e87074a522584accd6f51ec833004bbd"
+    },
+    {
+      "name": "speed_qwen_openwam.json",
+      "bytes": 121978,
+      "sha256": "1df994b73ea6963b46e9bd2fbf0bddff37fe170a751874bfa522b2d22c996453"
+    }
+  ],
+  "manifest_count": 38,
+  "raw_records_copied": 59,
+  "missing_raw_records": [
+    {
+      "manifest": "dbg_task0_budget70.json",
+      "row": 0,
+      "task_id": 0,
+      "episode_id": "ep-20261026-111334-19de87",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-111334-19de87.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_task3_3x.json",
+      "row": 0,
+      "task_id": 3,
+      "episode_id": "ep-20261026-113342-fad9d3",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-113342-fad9d3.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_task3_3x.json",
+      "row": 1,
+      "task_id": 3,
+      "episode_id": "ep-20261026-113539-04afbe",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-113539-04afbe.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_task3_3x.json",
+      "row": 2,
+      "task_id": 3,
+      "episode_id": "ep-20261026-113726-cd0215",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-113726-cd0215.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_task3_descent.json",
+      "row": 0,
+      "task_id": 3,
+      "episode_id": "ep-20261026-112831-ff8b17",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-112831-ff8b17.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_task3_descent.json",
+      "row": 1,
+      "task_id": 3,
+      "episode_id": "ep-20261026-113024-ed04bc",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-113024-ed04bc.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_task3_pick40.json",
+      "row": 0,
+      "task_id": 3,
+      "episode_id": "ep-20261026-111901-7c0d00",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-111901-7c0d00.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_task3_pick40.json",
+      "row": 1,
+      "task_id": 3,
+      "episode_id": "ep-20261026-112044-45acb3",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-112044-45acb3.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_task3_repair.json",
+      "row": 0,
+      "task_id": 3,
+      "episode_id": "ep-20261026-112400-21af22",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-112400-21af22.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_task3_repair.json",
+      "row": 1,
+      "task_id": 3,
+      "episode_id": "ep-20261026-112521-f048de",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-112521-f048de.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_tasks0_3_drop.json",
+      "row": 0,
+      "task_id": 0,
+      "episode_id": "ep-20261026-111608-b20f5a",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-111608-b20f5a.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "dbg_tasks0_3_drop.json",
+      "row": 1,
+      "task_id": 3,
+      "episode_id": "ep-20261026-111654-f5b273",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-111654-f5b273.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1152.json",
+      "row": 0,
+      "task_id": 0,
+      "episode_id": "ep-20261026-115229-7317b2",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115229-7317b2.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1152.json",
+      "row": 1,
+      "task_id": 0,
+      "episode_id": "ep-20261026-115308-511adb",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115308-511adb.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1152.json",
+      "row": 2,
+      "task_id": 0,
+      "episode_id": "ep-20261026-115345-528407",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115345-528407.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1152.json",
+      "row": 3,
+      "task_id": 1,
+      "episode_id": "ep-20261026-115437-9243c5",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115437-9243c5.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 0,
+      "task_id": 0,
+      "episode_id": "ep-20261026-115536-2e32e1",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115536-2e32e1.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 1,
+      "task_id": 0,
+      "episode_id": "ep-20261026-115605-94677b",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115605-94677b.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 2,
+      "task_id": 0,
+      "episode_id": "ep-20261026-115719-76f1fa",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115719-76f1fa.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 3,
+      "task_id": 1,
+      "episode_id": "ep-20261026-115811-d1cc33",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115811-d1cc33.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 4,
+      "task_id": 1,
+      "episode_id": "ep-20261026-115838-bb7bb2",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115838-bb7bb2.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 5,
+      "task_id": 1,
+      "episode_id": "ep-20261026-115905-9448fb",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115905-9448fb.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 6,
+      "task_id": 2,
+      "episode_id": "ep-20261026-115947-41c6cc",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-115947-41c6cc.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 7,
+      "task_id": 2,
+      "episode_id": "ep-20261026-120009-11edeb",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-120009-11edeb.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 8,
+      "task_id": 2,
+      "episode_id": "ep-20261026-120031-df45ad",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-120031-df45ad.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 9,
+      "task_id": 3,
+      "episode_id": "ep-20261026-120115-ad089c",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-120115-ad089c.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 10,
+      "task_id": 3,
+      "episode_id": "ep-20261026-120301-2137a6",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-120301-2137a6.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 11,
+      "task_id": 3,
+      "episode_id": "ep-20261026-120450-aad8fd",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-120450-aad8fd.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 12,
+      "task_id": 4,
+      "episode_id": "ep-20261026-120622-f84d3a",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-120622-f84d3a.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 13,
+      "task_id": 4,
+      "episode_id": "ep-20261026-120700-c70fab",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-120700-c70fab.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 14,
+      "task_id": 4,
+      "episode_id": "ep-20261026-120803-8bd8f0",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-120803-8bd8f0.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 15,
+      "task_id": 5,
+      "episode_id": "ep-20261026-120852-bce103",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-120852-bce103.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 16,
+      "task_id": 5,
+      "episode_id": "ep-20261026-120927-afad2f",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-120927-afad2f.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 17,
+      "task_id": 5,
+      "episode_id": "ep-20261026-121002-5ccd0a",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121002-5ccd0a.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 18,
+      "task_id": 6,
+      "episode_id": "ep-20261026-121059-52d860",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121059-52d860.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 19,
+      "task_id": 6,
+      "episode_id": "ep-20261026-121127-9972d5",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121127-9972d5.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 20,
+      "task_id": 6,
+      "episode_id": "ep-20261026-121306-17d9b4",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121306-17d9b4.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 21,
+      "task_id": 7,
+      "episode_id": "ep-20261026-121351-1d8fc2",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121351-1d8fc2.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 22,
+      "task_id": 7,
+      "episode_id": "ep-20261026-121453-67bcca",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121453-67bcca.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 23,
+      "task_id": 7,
+      "episode_id": "ep-20261026-121519-e75f2e",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121519-e75f2e.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 24,
+      "task_id": 8,
+      "episode_id": "ep-20261026-121612-c83436",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121612-c83436.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 25,
+      "task_id": 8,
+      "episode_id": "ep-20261026-121639-da2000",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121639-da2000.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 26,
+      "task_id": 8,
+      "episode_id": "ep-20261026-121704-b9b78f",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121704-b9b78f.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 27,
+      "task_id": 9,
+      "episode_id": "ep-20261026-121747-ca5177",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121747-ca5177.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 28,
+      "task_id": 9,
+      "episode_id": "ep-20261026-121836-1685e8",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121836-1685e8.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "final_3x_1155.json",
+      "row": 29,
+      "task_id": 9,
+      "episode_id": "ep-20261026-121910-7238f3",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-121910-7238f3.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 0,
+      "task_id": 0,
+      "episode_id": "ep-20261027-110007-89cd9a",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-110007-89cd9a.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 1,
+      "task_id": 0,
+      "episode_id": "ep-20261027-110046-dd3524",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-110046-dd3524.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 2,
+      "task_id": 1,
+      "episode_id": "ep-20261027-110142-441703",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-110142-441703.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 3,
+      "task_id": 1,
+      "episode_id": "ep-20261027-110210-580c24",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-110210-580c24.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 4,
+      "task_id": 2,
+      "episode_id": "ep-20261027-110254-b1e664",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-110254-b1e664.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 5,
+      "task_id": 2,
+      "episode_id": "ep-20261027-111136-87e588",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111136-87e588.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 6,
+      "task_id": 3,
+      "episode_id": "ep-20261027-111220-3d73e5",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111220-3d73e5.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 7,
+      "task_id": 3,
+      "episode_id": "ep-20261027-111312-70dcf4",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111312-70dcf4.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 8,
+      "task_id": 4,
+      "episode_id": "ep-20261027-111422-b07e42",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111422-b07e42.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 9,
+      "task_id": 4,
+      "episode_id": "ep-20261027-111449-a7669d",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111449-a7669d.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 10,
+      "task_id": 5,
+      "episode_id": "ep-20261027-111535-9cfcb3",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111535-9cfcb3.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 11,
+      "task_id": 5,
+      "episode_id": "ep-20261027-111631-7fcf10",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111631-7fcf10.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 12,
+      "task_id": 6,
+      "episode_id": "ep-20261027-111732-e435a2",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111732-e435a2.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 13,
+      "task_id": 6,
+      "episode_id": "ep-20261027-111802-d5b11c",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111802-d5b11c.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 14,
+      "task_id": 7,
+      "episode_id": "ep-20261027-111849-5e294b",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111849-5e294b.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 15,
+      "task_id": 7,
+      "episode_id": "ep-20261027-111916-f20e4c",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-111916-f20e4c.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 16,
+      "task_id": 8,
+      "episode_id": "ep-20261027-112000-6f01d7",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-112000-6f01d7.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 17,
+      "task_id": 8,
+      "episode_id": "ep-20261027-112025-34c9b3",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-112025-34c9b3.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 18,
+      "task_id": 9,
+      "episode_id": "ep-20261027-112109-3851d1",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-112109-3851d1.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "language_rounds_20261027.json",
+      "row": 19,
+      "task_id": 9,
+      "episode_id": "ep-20261027-112148-e02fa1",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-112148-e02fa1.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_diag_baseline.json",
+      "row": 0,
+      "task_id": 1,
+      "episode_id": "ep-20261027-122801-afb669",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-122801-afb669.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_diag_baseline2.json",
+      "row": 0,
+      "task_id": 1,
+      "episode_id": "ep-20261027-122858-a35c4a",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-122858-a35c4a.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_diag_d1.json",
+      "row": 0,
+      "task_id": 1,
+      "episode_id": "ep-20261027-123141-8986a4",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-123141-8986a4.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_diag_finalizer.json",
+      "row": 0,
+      "task_id": 1,
+      "episode_id": "ep-20261027-123501-c89b48",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-123501-c89b48.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_diag_finalizer2.json",
+      "row": 0,
+      "task_id": 1,
+      "episode_id": "ep-20261027-123604-3f0a33",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-123604-3f0a33.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_repeat_20261027.json",
+      "row": 0,
+      "task_id": 2,
+      "episode_id": "ep-20261027-124843-29235f",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-124843-29235f.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_repeat_20261027.json",
+      "row": 1,
+      "task_id": 2,
+      "episode_id": "ep-20261027-124916-013e30",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-124916-013e30.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 0,
+      "task_id": 1,
+      "episode_id": "ep-20261027-123733-52b848",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-123733-52b848.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 1,
+      "task_id": 1,
+      "episode_id": "ep-20261027-123807-a45c8e",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-123807-a45c8e.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 2,
+      "task_id": 1,
+      "episode_id": "ep-20261027-123844-bd7090",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-123844-bd7090.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 3,
+      "task_id": 2,
+      "episode_id": "ep-20261027-123932-f1d5d7",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-123932-f1d5d7.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 4,
+      "task_id": 2,
+      "episode_id": "ep-20261027-124005-74ee73",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-124005-74ee73.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 5,
+      "task_id": 2,
+      "episode_id": "ep-20261027-124038-c705b6",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-124038-c705b6.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 6,
+      "task_id": 3,
+      "episode_id": "ep-20261027-124125-381055",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-124125-381055.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 7,
+      "task_id": 3,
+      "episode_id": "ep-20261027-124222-11f05e",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-124222-11f05e.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 8,
+      "task_id": 3,
+      "episode_id": "ep-20261027-124318-92160b",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-124318-92160b.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 9,
+      "task_id": 8,
+      "episode_id": "ep-20261027-124428-189335",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-124428-189335.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 10,
+      "task_id": 8,
+      "episode_id": "ep-20261027-124502-494ca5",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-124502-494ca5.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_20261027.json",
+      "row": 11,
+      "task_id": 8,
+      "episode_id": "ep-20261027-124536-abb8dd",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-124536-abb8dd.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 0,
+      "task_id": 1,
+      "episode_id": "ep-20261027-130436-396743",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-130436-396743.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 1,
+      "task_id": 1,
+      "episode_id": "ep-20261027-130510-f2f857",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-130510-f2f857.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 2,
+      "task_id": 1,
+      "episode_id": "ep-20261027-130545-0f0e83",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-130545-0f0e83.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 3,
+      "task_id": 2,
+      "episode_id": "ep-20261027-130632-042d90",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-130632-042d90.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 4,
+      "task_id": 2,
+      "episode_id": "ep-20261027-130707-0e4f46",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-130707-0e4f46.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 5,
+      "task_id": 2,
+      "episode_id": "ep-20261027-130741-0e775f",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-130741-0e775f.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 6,
+      "task_id": 3,
+      "episode_id": "ep-20261027-130828-0109a9",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-130828-0109a9.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 7,
+      "task_id": 3,
+      "episode_id": "ep-20261027-131011-dc79cb",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-131011-dc79cb.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 8,
+      "task_id": 3,
+      "episode_id": "ep-20261027-131112-9dbbfc",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-131112-9dbbfc.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 9,
+      "task_id": 8,
+      "episode_id": "ep-20261027-131223-9fc973",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-131223-9fc973.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 10,
+      "task_id": 8,
+      "episode_id": "ep-20261027-131257-bbd380",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-131257-bbd380.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "placement_rounds_final_20261027.json",
+      "row": 11,
+      "task_id": 8,
+      "episode_id": "ep-20261027-131333-13fc7a",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-131333-13fc7a.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke2_all.json",
+      "row": 0,
+      "task_id": 0,
+      "episode_id": "ep-20261026-114024-6d7ae2",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-114024-6d7ae2.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke2_all.json",
+      "row": 1,
+      "task_id": 1,
+      "episode_id": "ep-20261026-114128-37692b",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-114128-37692b.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke2_all.json",
+      "row": 2,
+      "task_id": 2,
+      "episode_id": "ep-20261026-114211-023fe7",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-114211-023fe7.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke2_all.json",
+      "row": 3,
+      "task_id": 3,
+      "episode_id": "ep-20261026-114254-d5b192",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-114254-d5b192.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke2_all.json",
+      "row": 4,
+      "task_id": 4,
+      "episode_id": "ep-20261026-114458-3db36a",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-114458-3db36a.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke2_all.json",
+      "row": 5,
+      "task_id": 5,
+      "episode_id": "ep-20261026-114555-b930b0",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-114555-b930b0.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke2_all.json",
+      "row": 6,
+      "task_id": 6,
+      "episode_id": "ep-20261026-114655-33fcfb",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-114655-33fcfb.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke2_all.json",
+      "row": 7,
+      "task_id": 7,
+      "episode_id": "ep-20261026-114741-557c8b",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-114741-557c8b.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke2_all.json",
+      "row": 8,
+      "task_id": 8,
+      "episode_id": "ep-20261026-114859-ecc04c",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-114859-ecc04c.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke2_all.json",
+      "row": 9,
+      "task_id": 9,
+      "episode_id": "ep-20261026-114942-9b61ab",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-114942-9b61ab.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_1101.json",
+      "row": 0,
+      "task_id": 0,
+      "episode_id": "ep-20261026-110202-6255d5",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-110202-6255d5.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_1101.json",
+      "row": 1,
+      "task_id": 1,
+      "episode_id": "ep-20261026-110256-c57fbe",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-110256-c57fbe.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_1101.json",
+      "row": 2,
+      "task_id": 2,
+      "episode_id": "ep-20261026-110340-faf84c",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-110340-faf84c.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_1101.json",
+      "row": 3,
+      "task_id": 3,
+      "episode_id": "ep-20261026-110424-cbbf4c",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-110424-cbbf4c.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_1101.json",
+      "row": 4,
+      "task_id": 4,
+      "episode_id": "ep-20261026-110619-b4de5e",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-110619-b4de5e.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_1101.json",
+      "row": 5,
+      "task_id": 5,
+      "episode_id": "ep-20261026-110703-34565e",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-110703-34565e.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_1101.json",
+      "row": 6,
+      "task_id": 6,
+      "episode_id": "ep-20261026-110803-1a7c25",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-110803-1a7c25.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_1101.json",
+      "row": 7,
+      "task_id": 7,
+      "episode_id": "ep-20261026-110846-51f50d",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-110846-51f50d.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_1101.json",
+      "row": 8,
+      "task_id": 8,
+      "episode_id": "ep-20261026-110936-f0e0cc",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-110936-f0e0cc.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_1101.json",
+      "row": 9,
+      "task_id": 9,
+      "episode_id": "ep-20261026-111017-36c188",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-111017-36c188.json",
+      "reason": "rotated_out_of_records_runs"
+    },
+    {
+      "manifest": "smoke_rehome.json",
+      "row": 0,
+      "task_id": 0,
+      "episode_id": "ep-20261026-122611-a7c97e",
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-122611-a7c97e.json",
+      "reason": "rotated_out_of_records_runs"
+    }
+  ],
+  "missing_count": 118,
+  "note": "Missing raw episodes were already deleted by records/runs rotation; they are listed, not recreated or back-filled."
+}

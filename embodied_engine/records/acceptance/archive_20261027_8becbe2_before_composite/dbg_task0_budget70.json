@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "schema": "embodied_engine.suite.v1",
+    "started_at": "2026-10-26T11:13:16",
+    "engine": "http://127.0.0.1:14800",
+    "runs_per_task": 1,
+    "agent_model": "Qwen3.5-9B",
+    "action_model": "Pi0.5 LIBERO-130 SFT",
+    "inference_mode": "async_chunk_prefetch",
+    "env": {
+      "suite": "libero_goal",
+      "seed": 0,
+      "task_id": null,
+      "port": 14561,
+      "identity": {},
+      "ready": false
+    }
+  },
+  "rows": [
+    {
+      "task_id": 0,
+      "run": 1,
+      "episode_id": "ep-20261026-111334-19de87",
+      "phase": "succeeded",
+      "execution_status": "completed",
+      "native_task_success": true,
+      "user_goal_success": true,
+      "failure_code": null,
+      "reason": "all skills and final verification passed",
+      "duration_s": 26.94,
+      "episode_sim_actions": 156,
+      "recovery_count": 0,
+      "recovery_log": [],
+      "timing": {
+        "planner_s": 5.586,
+        "execution_s": 17.88,
+        "release_s": 1.199,
+        "verification_s": 0.459,
+        "inference_s_sum": 9.431,
+        "env_step_s_sum": 10.261,
+        "snapshot_s_sum": 1.413,
+        "chunk_gap_s_sum": 0.001,
+        "chunk_decision_wait_s_sum": 5.755,
+        "prefetch_inference_overlap_s_est": 9.078,
+        "recovery_s": 0.0,
+        "total_s_engine": 26.94,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261026-111334-19de87.json",
+      "seed": 0,
+      "scene_epoch": 2,
+      "inference_mode": "async_chunk_prefetch",
+      "wall_s": 28.026
+    }
+  ],
+  "finished_at": "2026-10-26T11:14:02",
+  "success_count": 1,
+  "attempts": 1
+}

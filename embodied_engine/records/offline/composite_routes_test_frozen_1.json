@@ -1,0 +1,831 @@
+{
+  "schema": "embodied_engine.composite_routes.v1",
+  "generated_at": "2026-10-27T14:26:17",
+  "manifest": "config/composite_routes_frozen_20261027.json",
+  "split": "test",
+  "task_id": 8,
+  "agent": "http://127.0.0.1:14700",
+  "scene_objects": [
+    "akita_black_bowl_1",
+    "cream_cheese_1",
+    "plate_1",
+    "wine_bottle_1"
+  ],
+  "summary": {
+    "n": 16,
+    "passed": 16,
+    "median_s": 0.8168,
+    "p95_s": 0.9512,
+    "max_s": 0.9578
+  },
+  "composite_summary": {
+    "n": 11,
+    "passed": 11,
+    "median_s": 0.8196,
+    "p95_s": 0.9578,
+    "max_s": 0.9578
+  },
+  "by_lang": {
+    "en": {
+      "n": 8,
+      "passed": 8,
+      "median_s": 0.7966,
+      "p95_s": 0.9578,
+      "max_s": 0.9578
+    },
+    "zh": {
+      "n": 8,
+      "passed": 8,
+      "median_s": 0.8198,
+      "p95_s": 0.9512,
+      "max_s": 0.9512
+    }
+  },
+  "rows": [
+    {
+      "id": "test-en-before-order",
+      "lang": "en",
+      "text": "Before you put the bowl on the plate, get the middle drawer of the cabinet open.",
+      "note": "order expressed with before",
+      "wall_s": 0.7766,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": true,
+          "got": true
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": true,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000659,
+      "agent_total_s": 0.7733
+    },
+    {
+      "id": "test-zh-before-order",
+      "lang": "zh",
+      "text": "把碗放到盘子上之前，先把柜子中间的抽屉打开。",
+      "note": "中文“之前”表达顺序",
+      "wall_s": 0.8216,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": true,
+          "got": true
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": true,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000682,
+      "agent_total_s": 0.8156
+    },
+    {
+      "id": "test-en-two-sentences",
+      "lang": "en",
+      "text": "Get the middle drawer open. Then place the bowl on the plate.",
+      "note": "two sentences, order by sequence",
+      "wall_s": 0.8196,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": true,
+          "got": true
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": true,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000689,
+      "agent_total_s": 0.8166
+    },
+    {
+      "id": "test-zh-two-sentences",
+      "lang": "zh",
+      "text": "把中间抽屉拉开。然后把碗摆到盘子上。",
+      "note": "中文两句，顺序明确",
+      "wall_s": 0.8161,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": true,
+          "got": true
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": true,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000686,
+      "agent_total_s": 0.8131
+    },
+    {
+      "id": "test-en-and-order",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet and put the bowl on the plate.",
+      "note": "plain 'and' keeps the user's word order",
+      "wall_s": 0.8169,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": true,
+          "got": true
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": true,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000684,
+      "agent_total_s": 0.814
+    },
+    {
+      "id": "test-zh-and-order",
+      "lang": "zh",
+      "text": "打开中间的抽屉，把碗放到盘子上。",
+      "note": "中文并列，按词序",
+      "wall_s": 0.818,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "ok",
+          "got": "ok"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_bowl_on_plate"
+          ]
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": true,
+          "got": true
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "ok",
+      "keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "reason_code": null,
+      "executable": true,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000659,
+      "agent_total_s": 0.8147
+    },
+    {
+      "id": "test-en-reversed-unsupported",
+      "lang": "en",
+      "text": "Place the bowl on the plate, then pull the middle drawer open.",
+      "note": "reversed order recognised but not executable",
+      "wall_s": 0.8167,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "put_bowl_on_plate",
+            "open_middle_drawer"
+          ],
+          "got": [
+            "put_bowl_on_plate",
+            "open_middle_drawer"
+          ]
+        },
+        {
+          "check": "reason",
+          "ok": true,
+          "expect": "unsupported_combo",
+          "got": "unsupported_combo"
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": false,
+          "got": false
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "put_bowl_on_plate",
+        "open_middle_drawer"
+      ],
+      "reason_code": "unsupported_combo",
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000236,
+      "agent_total_s": 0.8133
+    },
+    {
+      "id": "test-zh-reversed-unsupported",
+      "lang": "zh",
+      "text": "把碗摆到盘子上，再拉开中间的抽屉。",
+      "note": "中文倒序，识别但拒绝执行",
+      "wall_s": 0.8224,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "put_bowl_on_plate",
+            "open_middle_drawer"
+          ],
+          "got": [
+            "put_bowl_on_plate",
+            "open_middle_drawer"
+          ]
+        },
+        {
+          "check": "reason",
+          "ok": true,
+          "expect": "unsupported_combo",
+          "got": "unsupported_combo"
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": false,
+          "got": false
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "put_bowl_on_plate",
+        "open_middle_drawer"
+      ],
+      "reason_code": "unsupported_combo",
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000254,
+      "agent_total_s": 0.8164
+    },
+    {
+      "id": "test-en-other-pair",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet and put the wine bottle on the rack.",
+      "note": "valid capabilities, unsupported pair this round",
+      "wall_s": 0.9578,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_wine_bottle_on_rack"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_wine_bottle_on_rack"
+          ]
+        },
+        {
+          "check": "reason",
+          "ok": true,
+          "expect": "unsupported_combo",
+          "got": "unsupported_combo"
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": false,
+          "got": false
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "open_middle_drawer",
+        "put_wine_bottle_on_rack"
+      ],
+      "reason_code": "unsupported_combo",
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000258,
+      "agent_total_s": 0.9549
+    },
+    {
+      "id": "test-zh-other-pair",
+      "lang": "zh",
+      "text": "先拉开中间的抽屉，再把酒瓶放到架子上。",
+      "note": "中文不支持组合",
+      "wall_s": 0.9512,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_middle_drawer",
+            "put_wine_bottle_on_rack"
+          ],
+          "got": [
+            "open_middle_drawer",
+            "put_wine_bottle_on_rack"
+          ]
+        },
+        {
+          "check": "reason",
+          "ok": true,
+          "expect": "unsupported_combo",
+          "got": "unsupported_combo"
+        },
+        {
+          "check": "executable",
+          "ok": true,
+          "expect": false,
+          "got": false
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "open_middle_drawer",
+        "put_wine_bottle_on_rack"
+      ],
+      "reason_code": "unsupported_combo",
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000261,
+      "agent_total_s": 0.9482
+    },
+    {
+      "id": "test-en-single-two-verbs",
+      "lang": "en",
+      "text": "Open the top drawer and put the bowl inside it.",
+      "note": "one native capability reads as two actions: must not split into a pair; scene control",
+      "wall_s": 0.7229,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "task_mismatch",
+          "got": "task_mismatch"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_top_drawer_put_bowl_inside"
+          ],
+          "got": [
+            "open_top_drawer_put_bowl_inside"
+          ]
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "task_mismatch",
+      "keys": [
+        "open_top_drawer_put_bowl_inside"
+      ],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1.5e-05,
+      "agent_total_s": 0.72
+    },
+    {
+      "id": "test-zh-single-two-verbs",
+      "lang": "zh",
+      "text": "打开上面的抽屉，然后把碗放进去。",
+      "note": "中文同理，不拆成组合",
+      "wall_s": 0.7233,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "task_mismatch",
+          "got": "task_mismatch"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [
+            "open_top_drawer_put_bowl_inside"
+          ],
+          "got": [
+            "open_top_drawer_put_bowl_inside"
+          ]
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "task_mismatch",
+      "keys": [
+        "open_top_drawer_put_bowl_inside"
+      ],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1.4e-05,
+      "agent_total_s": 0.72
+    },
+    {
+      "id": "test-en-ambiguous-article",
+      "lang": "en",
+      "text": "Open a drawer, then put the bowl on the plate.",
+      "note": "level unresolved",
+      "wall_s": 0.4948,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "needs_clarification",
+          "got": "needs_clarification"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [],
+          "got": []
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "needs_clarification",
+      "keys": [],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1e-06,
+      "agent_total_s": 0.4918
+    },
+    {
+      "id": "test-zh-ambiguous-article",
+      "lang": "zh",
+      "text": "开个抽屉，接着把碗放到盘子上。",
+      "note": "中文层级未定",
+      "wall_s": 0.4969,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "needs_clarification",
+          "got": "needs_clarification"
+        },
+        {
+          "check": "keys",
+          "ok": true,
+          "expect": [],
+          "got": []
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "needs_clarification",
+      "keys": [],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1e-06,
+      "agent_total_s": 0.4939
+    },
+    {
+      "id": "test-en-unsupported-relation",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet, then put the bowl beside the plate.",
+      "note": "stated relation no capability has ('beside')",
+      "wall_s": 0.4634,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [],
+      "reason_code": null,
+      "executable": null,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 1e-06,
+      "agent_total_s": 0.4571
+    },
+    {
+      "id": "test-zh-three-actions",
+      "lang": "zh",
+      "text": "打开中间的抽屉，打开上面的抽屉，再把碗放到盘子上。",
+      "note": "超过两步",
+      "wall_s": 0.9194,
+      "checks": [
+        {
+          "check": "status",
+          "ok": true,
+          "expect": "unsupported",
+          "got": "unsupported"
+        },
+        {
+          "check": "no_errors",
+          "ok": true,
+          "expect": [],
+          "got": []
+        }
+      ],
+      "passed": true,
+      "status": "unsupported",
+      "keys": [
+        "open_middle_drawer",
+        "open_top_drawer_put_bowl_inside"
+      ],
+      "reason_code": "unsupported_combo",
+      "executable": false,
+      "plan_source": "qwen3.5-9b-semantic-router",
+      "attempts": 1,
+      "repairs": 0,
+      "understanding_s": null,
+      "assembly_s": 0.000258,
+      "agent_total_s": 0.9164
+    }
+  ]
+}

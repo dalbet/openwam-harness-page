@@ -1,0 +1,165 @@
+{
+  "meta": {
+    "schema": "embodied_engine.rounds.v1",
+    "started_at": "2026-10-27T14:27:05",
+    "manifest": "config/composite_probe_20261027.json",
+    "manifest_sha256": "17933e45e20a40f77f056f229972e5d8a176d30a0a658f16d6a356017f418d5a",
+    "seed": 0,
+    "engine": "http://127.0.0.1:14800",
+    "agent_model": "Qwen3.5-9B",
+    "agent_mode": "semantic_router",
+    "action_model": "OpenWAM-Alpha-Sim-LIBERO",
+    "inference_mode": "sync_step",
+    "catalog": {
+      "schema": "embodied_engine.task_catalog.v2",
+      "version": "2026-10-27.1",
+      "sha256": "7eb62a5ddbf3a48fcf20885522cf182761bcd554549841703a49b536443ffecf",
+      "path": "/home/host/page-dmh/embodied_engine/config/tasks.json",
+      "suite": "libero_goal",
+      "libero_repo": "https://github.com/RLinf/LIBERO.git",
+      "libero_commit": "a8323074d93a09e32bd898630a70531b1f51bc77",
+      "libero_package_path": "/home/host/page-dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/libero/libero",
+      "tasks_info_sha256": "547286ceb6485e85aa1472c03466a613573982d92284d792c1ab63524b479382"
+    },
+    "rounds_total": 1,
+    "retry_policy": "no round is ever retried or skipped",
+    "finished_at": "2026-10-27T14:30:22",
+    "summary": {
+      "rounds": 1,
+      "mapping_ok": 1,
+      "native_success": 0,
+      "user_goal_success": 0,
+      "failed": 1,
+      "stopped": 0
+    }
+  },
+  "rows": [
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.7986,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": false,
+      "step_2_native": false,
+      "combo_verified": false,
+      "native_task_success": false,
+      "native_goal_final": false,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": false,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 125,
+          "duration_s": 32.304,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {}
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": false,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 600,
+          "duration_s": 155.434,
+          "failure_code": null,
+          "release_state": "unknown",
+          "release_source": "none",
+          "evidence": {}
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_s": 0.9592,
+      "handoff_retreat_actions": 12,
+      "handoff_retreat_reason": "bounded_actions_exhausted",
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-2107aedcf10f",
+        "reset_s": 0.0036,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 12,
+      "scene_epoch_start": 3,
+      "scene_epoch_end": 3,
+      "execution_status": "failed",
+      "failure_code": "composite_step_2_failed",
+      "failure_reason": "composite step 2 (put_bowl_on_plate) did not reach its goal after 600 actions",
+      "episode_sim_actions": 737,
+      "duration_s": 192.829,
+      "timing": {
+        "planner_s": 0.809,
+        "execution_s": 187.755,
+        "release_s": 0.001,
+        "verification_s": 0.0,
+        "inference_s_sum": 32.9,
+        "env_step_s_sum": 48.349,
+        "snapshot_s_sum": 6.938,
+        "observe_s_sum": 31.466,
+        "convert_s_sum": 0.449,
+        "frame_s_sum": 0.023,
+        "plan_to_first_action_s": 0.747,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 0.96,
+        "total_s_engine": 192.829,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261027-142708-d97e8d",
+      "scene_epoch": 3,
+      "seed": 0,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261027-142708-d97e8d.json",
+      "round": "probe-1",
+      "wall_s": 193.625,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_probe_20261027_runs/ep-20261027-142708-d97e8d.json"
+    }
+  ]
+}

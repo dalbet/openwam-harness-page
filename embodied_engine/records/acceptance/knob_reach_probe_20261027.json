@@ -1,0 +1,131 @@
+{
+  "schema": "embodied_engine.knob_reach.v1",
+  "generated_at": "2026-10-28T00:11:43",
+  "engine": "http://127.0.0.1:14800",
+  "candidate": [
+    "put_bowl_on_stove",
+    "turn_on_stove"
+  ],
+  "scene": {
+    "task_id": 7,
+    "seed": 0,
+    "bddl": "turn_on_stove.bddl",
+    "env_port": 14561
+  },
+  "read_only": {
+    "env_steps": 0,
+    "policy_calls": 0,
+    "objects_moved": 0,
+    "sim_action_count": [
+      0,
+      0
+    ],
+    "observation_ids": [
+      "query-fb3923a438744166b0b02dd2c5a2a410:3:0:9",
+      "query-fb3923a438744166b0b02dd2c5a2a410:3:0:10"
+    ],
+    "scene_epoch": [
+      3,
+      3
+    ]
+  },
+  "measured": {
+    "stove_base_xyz": [
+      -0.40606838493121333,
+      0.20097320596238835,
+      0.905
+    ],
+    "stove_button_xyz": [
+      -0.40606838493121333,
+      0.20097320596238835,
+      0.905
+    ],
+    "burner_xyz": [
+      -0.2560683849312133,
+      0.20097320596238835,
+      0.905
+    ],
+    "burner_offset_from_base": [
+      0.15,
+      0.0,
+      0.0
+    ],
+    "cook_region": {
+      "xyz": [
+        -0.2560683849312133,
+        0.20097320596238835,
+        0.905
+      ],
+      "size": [
+        0.075,
+        0.075,
+        0.0025
+      ]
+    },
+    "bowl_xyz": [
+      -0.0757622766562297,
+      0.012192592579604943,
+      0.8984041497264047
+    ],
+    "bowl_collision_radius_m": 0.0539,
+    "button_joint_qpos": 0.0,
+    "base_frame_unrotated": true
+  },
+  "model_geometry": {
+    "knob_extent_in_base_m": {
+      "min_x_in_base": -0.0520221130231255,
+      "max_x_in_base": 0.04331235261316557,
+      "min_y_in_base": -0.046299517773470036,
+      "max_y_in_base": 0.04885243773925523,
+      "min_z_in_base": 0.00035994779305371363,
+      "max_z_in_base": 0.050019740613674306,
+      "max_radius_m": 0.05516944728704449
+    },
+    "knob_body_quat_wxyz": [
+      0.7071068,
+      0.0,
+      0.0,
+      0.7071068
+    ],
+    "knob_world_min_xyz": [
+      -0.45809,
+      0.154674,
+      0.90536
+    ],
+    "knob_world_max_xyz": [
+      -0.362756,
+      0.249826,
+      0.95502
+    ],
+    "bowl_collision_box": {
+      "geoms": 40,
+      "min_z_m": 0.0015899765111640008,
+      "max_z_m": 0.052132020299095
+    }
+  },
+  "clearance": {
+    "cook_center_to_knob_pivot_m": 0.15,
+    "cook_near_edge_to_knob_pivot_m": 0.075,
+    "knob_tip_to_cook_near_edge_m": 0.0317,
+    "bowl_near_edge_at_cook_center_x": -0.31,
+    "bowl_near_edge_at_cook_near_edge_x": -0.385,
+    "knob_tip_to_bowl_edge_m_center": 0.0527,
+    "knob_tip_to_bowl_edge_m_worst_case": 0.0223,
+    "vertical_overlap_m": {
+      "knob_z_range": [
+        0.9054,
+        0.955
+      ],
+      "bowl_z_range_at_cook_region": [
+        0.9066,
+        0.9571
+      ]
+    }
+  },
+  "verdict": {
+    "geometric_obstruction": "no direct overlap at the measured clearance; the knob tip and the bowl rim are close enough that a finger contact can clip the bowl",
+    "dynamic_reachability": "not_tested",
+    "why_not_tested": "the executable whitelist still contains only open_middle_drawer->put_bowl_on_plate, and that pair did not reach combo_verified in the frozen 6-round suite; a 1->7 run would need a second composite capability switched on before it could be measured",
+    "claim": "geometry measured from the live scene plus the installed collision model; no statement about policy reachability"
+  }
+}

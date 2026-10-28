@@ -1,0 +1,154 @@
+{
+ "schema": "embodied_engine.composite_matrix.v1",
+ "status": "design_only_no_composite_episode_executed",
+ "derived": {
+  "tasks": 10,
+  "distinct_asset_sets": 1,
+  "distinct_semantic_init_layouts": 1,
+  "distinct_pruned_init_files": 10,
+  "co_present_assets": [
+   "flat_stove_1",
+   "main_table",
+   "wine_rack_1",
+   "wooden_cabinet_1",
+   "akita_black_bowl_1",
+   "cream_cheese_1",
+   "plate_1",
+   "wine_bottle_1"
+  ],
+  "finding": "all ten BDDLs declare the same four fixtures and four objects and the same semantic init regions; only the goal atoms and the sampled pruned_init differ. Any pair is therefore same-scene by construction, but a composed episode must start from one task's pruned_init, so the second goal begins from a state that is not its own official start."
+ },
+ "pairs": [
+  {
+   "pair": "0->8",
+   "first": {
+    "task_id": 0,
+    "key": "open_middle_drawer"
+   },
+   "second": {
+    "task_id": 8,
+    "key": "put_bowl_on_plate"
+   },
+   "verdict": "viable",
+   "order": 1,
+   "reason": "opening the middle drawer moves nothing the bowl-on-plate goal needs; step A is accepted by completion.drawer_open (qpos < -0.14)",
+   "step_a_verifiable": "drawer_open",
+   "second_step_precondition": "akita_black_bowl_1 and plate_1 untouched by step A",
+   "risk": "none identified"
+  },
+  {
+   "pair": "1->7",
+   "first": {
+    "task_id": 1,
+    "key": "put_bowl_on_stove"
+   },
+   "second": {
+    "task_id": 7,
+    "key": "turn_on_stove"
+   },
+   "verdict": "viable",
+   "order": 2,
+   "reason": "cook_region sits 0.15 m along +x from the stove button hinge, so a bowl on the burner need not cover the knob; the only pair whose two goals describe one cooking act",
+   "step_a_verifiable": "object_on_target (On bowl flat_stove_1_cook_region)",
+   "second_step_precondition": "flat_stove_1 button joint free and reachable",
+   "risk": "the bowl may sit in the front approach path to the knob; needs one real probe before it is called feasible"
+  },
+  {
+   "pair": "7->1",
+   "first": {
+    "task_id": 7,
+    "key": "turn_on_stove"
+   },
+   "second": {
+    "task_id": 1,
+    "key": "put_bowl_on_stove"
+   },
+   "verdict": "allowed_but_backwards",
+   "order": 3,
+   "reason": "same assets as 1->7 in reverse; no thermal model in the scene, so nothing breaks, but the sentence is semantically odd",
+   "step_a_verifiable": "stove_on",
+   "second_step_precondition": "cook_region free",
+   "risk": "an already-on stove is off the OpenWAM training distribution"
+  },
+  {
+   "pair": "6->8",
+   "first": {
+    "task_id": 6,
+    "key": "put_cream_cheese_in_bowl"
+   },
+   "second": {
+    "task_id": 8,
+    "key": "put_bowl_on_plate"
+   },
+   "verdict": "coupled",
+   "order": 4,
+   "reason": "step B carries the bowl that step A's goal relation (cream cheese on bowl) depends on",
+   "step_a_verifiable": "object_on_target (On cream_cheese_1 akita_black_bowl_1)",
+   "second_step_precondition": "cream cheese stays in the bowl while the bowl is carried",
+   "risk": "the first goal can be silently broken during transport; the composite would need both atoms re-checked at the end, not just the last one"
+  },
+  {
+   "pair": "8->4",
+   "first": {
+    "task_id": 8,
+    "key": "put_bowl_on_plate"
+   },
+   "second": {
+    "task_id": 4,
+    "key": "put_bowl_on_cabinet_top"
+   },
+   "verdict": "same_object_relocation",
+   "order": 5,
+   "reason": "both steps move only the bowl; this is one skill applied twice, not two skills composed",
+   "step_a_verifiable": "object_on_target",
+   "second_step_precondition": "re-grasp the bowl from the plate",
+   "risk": "still needs release + retreat + a fresh observation between steps, which the finalizer now provides"
+  },
+  {
+   "pair": "3->8",
+   "first": {
+    "task_id": 3,
+    "key": "open_top_drawer_put_bowl_inside"
+   },
+   "second": {
+    "task_id": 8,
+    "key": "put_bowl_on_plate"
+   },
+   "verdict": "rejected",
+   "order": 6,
+   "reason": "step A leaves the bowl inside the top drawer, so step B has to reach into a drawer the policy has never been trained to grasp from",
+   "step_a_verifiable": "object_in_region",
+   "second_step_precondition": "bowl graspable outside a drawer",
+   "risk": "deep-region grasp is the exact failure mode task 3 already shows (round 7)"
+  },
+  {
+   "pair": "0->3",
+   "first": {
+    "task_id": 0,
+    "key": "open_middle_drawer"
+   },
+   "second": {
+    "task_id": 3,
+    "key": "open_top_drawer_put_bowl_inside"
+   },
+   "verdict": "rejected",
+   "order": 7,
+   "reason": "task 3 is itself the official drawer-then-place composite; using it as a step would sell an existing capability as a new one",
+   "step_a_verifiable": "drawer_open",
+   "second_step_precondition": "top drawer open, which task 3's own goal already requires",
+   "risk": "would double-count the official composite"
+  }
+ ],
+ "entry_point": {
+  "episode_bddl": "the second task's BDDL, so its native goal stays benchmark-valid",
+  "first_step": "run in mode=free against the same env; accept it with the engine predicate named in step_a_verifiable, never with env terminated",
+  "handoff": "PlacementFinalizer release + retreat + new observation + cleared policy buffer before step two",
+  "combo_goal_evidence": "both atoms recorded separately; env terminated only ever attests the second atom",
+  "refused": "no reset, no scene reload, no synthetic BDDL editing"
+ },
+ "not_done": [
+  "no composite episode has been run",
+  "the router still returns one task per utterance",
+  "the legacy openwam_harness/sequential combo flag is a different stack and is not wired to this engine"
+ ]
+}
