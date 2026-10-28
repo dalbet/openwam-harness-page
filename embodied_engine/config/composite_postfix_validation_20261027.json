@@ -1,0 +1,17 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "created_at": "2026-10-28T08:30:00+08:00",
+  "note": "Post-fix validation round, run after the frozen 6-round suite. The engine change it validates is evidence-only: a composite step failure now re-checks the earlier steps' goals on the same sample (read-only), so 'step 2 never arrived' can be told apart from 'step 2 destroyed step 1'. The instruction is the frozen c08-s0-en utterance verbatim; nothing about the router, policy or handoff changed.",
+  "seed": 0,
+  "rounds": [
+    {
+      "round": "postfix-c08-s0-en",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0
+    }
+  ]
+}

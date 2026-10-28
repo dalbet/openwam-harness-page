@@ -1,0 +1,17 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-10-27T22:50:00+08:00",
+  "note": "Development probe for the 0->8 composite: one English round on init index 0. Not part of the frozen six-round acceptance; used to find execution defects before freezing.",
+  "seed": 0,
+  "rounds": [
+    {
+      "round": "probe-1",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0
+    }
+  ]
+}

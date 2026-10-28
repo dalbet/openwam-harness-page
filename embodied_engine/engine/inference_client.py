@@ -97,6 +97,7 @@ def request_row(
     skill: str,
     step_id: int,
     prompt: str,
+    step_ref: str | None = None,
 ) -> dict[str, Any]:
     return {
         "token": token,
@@ -106,6 +107,7 @@ def request_row(
         "sim_action_count": snapshot.get("sim_action_count"),
         "skill": skill,
         "step_id": step_id,
+        "step_ref": step_ref,
         "prompt": prompt,
         "created_at": time.time(),
     }

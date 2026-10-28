@@ -39,6 +39,7 @@ from adapters.env_client import EnvClient  # noqa: E402
 from common import config, records, task_catalog  # noqa: E402
 from common import plan_contract
 from engine import completion  # noqa: E402
+from engine import composite  # noqa: E402
 from engine import finalize  # noqa: E402
 from engine.inference_client import InferenceClient  # noqa: E402
 from engine.openwam_rollout import WholeTaskRunner  # noqa: E402
@@ -291,6 +292,21 @@ def _port_listener(port: int) -> int | None:
         if digits:
             return int(digits)
     return None
+
+
+def _quat_of(obs: dict[str, Any] | None) -> list[float] | None:
+    """x,y,z,w end-effector orientation from a raw observation, normalised."""
+    value = (obs or {}).get("robot0_eef_quat")
+    if value is None:
+        return None
+    try:
+        quat = [float(v) for v in np.asarray(value).reshape(-1)[:4]]
+    except (TypeError, ValueError):
+        return None
+    norm = float(np.linalg.norm(quat))
+    if norm < 1e-9:
+        return None
+    return [component / norm for component in quat]
 
 
 def _cmdline(pid: int) -> str:
@@ -899,9 +915,17 @@ class Engine:
         token: str,
         episode_id: str,
         stop_event: threading.Event,
+        goal: dict[str, Any] | None = None,
+        max_steps: int | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-        """Run one whole-task policy rollout; returns (record, obs, snapshot)."""
+        """Run one whole-task policy rollout; returns (record, obs, snapshot).
+
+        ``goal`` is the engine predicate of a composite's early step. When it
+        is set the rollout ends on that predicate and the loaded scene's
+        native flag can never terminate the step.
+        """
         openwam = self.cfg["action_model"]["openwam"]
+        composite_opts = composite.options(self.cfg)
         runner = WholeTaskRunner(
             env=env,
             inference=self.inference,
@@ -916,11 +940,14 @@ class Engine:
             journal=lambda stage, row: records.append_journal(
                 {"t": time.time(), "stage": stage, "episode_id": episode_id, "row": row}
             ),
-            max_steps=int(openwam.get("max_steps") or 600),
+            max_steps=int(max_steps or openwam.get("max_steps") or 600),
             timeout_s=float(openwam.get("timeout_s") or 300),
             gpu_index=openwam.get("gpu_index"),
             frame_sink=self._set_frames,
             post_goal=dict(openwam.get("post_goal") or {}),
+            goal=goal,
+            goal_confirm_samples=int(composite_opts["goal_confirm_samples"]),
+            step_ref=str(step.get("step_id") or "step"),
         )
         result = runner.run()
         return result, runner.obs, runner.snapshot
@@ -1096,6 +1123,7 @@ class Engine:
             "chunk_decision_wait_s_sum": 0.0,
             "prefetch_inference_overlap_s_est": 0.0,
             "recovery_s": 0.0,
+            "handoff_s": 0.0,
         }
         step_results: list[dict[str, Any]] = []
         attempt_digests: list[dict[str, Any]] = []
@@ -1108,6 +1136,11 @@ class Engine:
         native_ever = False
         plan_completed_at: float | None = None
         openwam_stats: dict[str, Any] | None = None
+        composite_state: dict[str, Any] = {"enabled": False}
+        # Kept at episode scope: a stop raised from inside the placement
+        # finalizer aborts the step before its record row exists, so the only
+        # surviving evidence of "release was interrupted mid-way" is this block.
+        last_placement: dict[str, Any] = {}
         try:
             self._set_phase("planning", "Qwen semantic routing + whole_task plan")
             plan_started = time.perf_counter()
@@ -1169,24 +1202,77 @@ class Engine:
             plan = plan_response["plan"]
             plan_completed_at = time.perf_counter()
             steps = list(plan["steps"])
+            composite_plan = isinstance(plan, dict) and plan.get("task_scope") == "combo"
+            catalog_by_key = {str(row["key"]): row for row in task_catalog.tasks()}
             # A plan is validated against the catalog the planner was given;
             # this is the second gate, because a wrong executor would run the
             # right skill against the wrong action contract (8-D proprio into a
             # 10-D EEF10 backend) and fail halfway through an episode.
             backend = self._action_backend()
             planned = [step.get("skill") for step in steps]
-            if backend == "openwam" and planned != ["whole_task"]:
+            if composite_plan:
+                if backend != "openwam":
+                    raise SkillFailure(
+                        "plan_backend_mismatch",
+                        "composite plans require the openwam whole-task backend",
+                        {"backend": backend},
+                    )
+                composite_errors = composite.validate_plan(
+                    plan, catalog=catalog_by_key, loaded_task=task, cfg=self.cfg
+                )
+                if composite_errors:
+                    raise SkillFailure(
+                        "composite_plan_invalid",
+                        "the composite plan failed its own contract",
+                        {"errors": composite_errors, "plan": plan},
+                    )
+            elif backend == "openwam" and planned != ["whole_task"]:
                 raise SkillFailure(
                     "plan_backend_mismatch",
                     "openwam backend requires exactly one whole_task step",
                     {"backend": backend, "planned_skills": planned},
                 )
-            if backend != "openwam" and "whole_task" in planned:
+            if not composite_plan and backend != "openwam" and "whole_task" in planned:
                 raise SkillFailure(
                     "plan_backend_mismatch",
                     f"{backend} backend cannot execute whole_task",
                     {"backend": backend, "planned_skills": planned},
                 )
+            if composite_plan:
+                composite_state = {
+                    "enabled": True,
+                    "keys": list((plan.get("composite") or {}).get("keys") or []),
+                    "anchor": {
+                        "task_id": int(task["task_id"]),
+                        "key": str(task.get("key")),
+                        "bddl": task.get("bddl"),
+                    },
+                    "scene_epoch_start": snapshot.get("scene_epoch"),
+                    "sim_action_count_start": snapshot.get("sim_action_count"),
+                    "step_ids": [str(step.get("step_id")) for step in steps],
+                    "budgets": {
+                        str(step.get("step_index")): composite.step_budget(
+                            int(step.get("step_index") or 1), self.cfg
+                        )
+                        for step in steps
+                    },
+                    "handoff_records": [],
+                }
+                # The episode's initial wrist orientation, read before any
+                # action: the handoff restores it so step 2 starts from a pose
+                # close to the one the action model was trained to start in.
+                home_quat = (baseline.get("sim") or {}).get("eef_quat")
+                if home_quat is None:
+                    try:
+                        start_obs = env.raw_obs()
+                        home_quat = _quat_of(start_obs)
+                    except Exception as exc:  # noqa: BLE001 - orientation is optional evidence
+                        home_quat = None
+                        records.append_journal(
+                            {"t": time.time(), "stage": "composite_home_quat_failed",
+                             "episode_id": episode_id, "detail": f"{type(exc).__name__}: {exc}"}
+                        )
+                composite_state["home_quat"] = home_quat
             # The user-visible goal is the final step of the initial plan.
             # A replan may reorder or add steps, but dropping this step would
             # silently solve a different task.
@@ -1253,6 +1339,7 @@ class Engine:
                         }
                     )
                 if step.get("skill") == "whole_task":
+                    step_goal = composite.step_goal(step) if composite_state.get("enabled") else None
                     record, obs, snapshot = self._run_whole_task(
                         env=env,
                         obs=obs,
@@ -1262,6 +1349,12 @@ class Engine:
                         token=token,
                         episode_id=episode_id,
                         stop_event=stop_event,
+                        goal=step_goal,
+                        max_steps=(
+                            composite.step_budget(int(step.get("step_index") or 1), self.cfg)
+                            if composite_state.get("enabled")
+                            else None
+                        ),
                     )
                     timing["execution_s"] += time.perf_counter() - skill_started
                     timing["inference_s_sum"] += record["timing"]["inference_s_sum"]
@@ -1270,19 +1363,47 @@ class Engine:
                     timing["observe_s_sum"] += record["timing"].get("observe_s_sum", 0.0)
                     timing["convert_s_sum"] += record["timing"].get("convert_s_sum", 0.0)
                     timing["frame_s_sum"] += record["timing"].get("frame_s_sum", 0.0)
-                    placement_started = time.perf_counter()
-                    placement, obs, snapshot, token = self._finish_placement(
-                        env=env,
-                        task=task,
-                        record=record,
-                        obs=obs,
-                        snapshot=snapshot,
-                        token=token,
-                        episode_id=episode_id,
-                        stop_event=stop_event,
-                    )
-                    timing["release_s"] += time.perf_counter() - placement_started
-                    record["placement"] = placement
+                    if step_goal is not None:
+                        # An engine-predicate step has no held object and no
+                        # placement to finalize; forcing the placement finalizer
+                        # on it would be a different task.
+                        record["placement"] = {
+                            "schema": "embodied_engine.composite.step.v1",
+                            "required": False,
+                            "attempted": False,
+                            "release_executed": False,
+                            "release_verified": False,
+                            "placement_verified": False,
+                            "retreat_status": "handled_by_handoff",
+                            "execution_status": "not_applicable",
+                            "evidence_source": "engine_predicate",
+                            "policy_owned": True,
+                            "reason_code": None,
+                            "note": "this step's goal is an engine predicate; the placement finalizer is not applied",
+                        }
+                    else:
+                        placement_started = time.perf_counter()
+                        placement, obs, snapshot, token = self._finish_placement(
+                            env=env,
+                            task=task,
+                            record=record,
+                            obs=obs,
+                            snapshot=snapshot,
+                            token=token,
+                            episode_id=episode_id,
+                            stop_event=stop_event,
+                        )
+                        timing["release_s"] += time.perf_counter() - placement_started
+                        record["placement"] = placement
+                        if isinstance(placement, dict):
+                            last_placement = placement
+                        if stop_event.is_set() or placement.get("reason_code") == "user_stop":
+                            # The finalizer swallows Stopped internally and
+                            # reports it through the placement block. Without
+                            # this re-raise the episode would continue and be
+                            # recorded as ``completed`` / ``succeeded`` even
+                            # though a stop truncated the release mid-way.
+                            raise Stopped("stop requested during placement finalizer")
                     self._set_frames(obs, snapshot)
                     if openwam_stats is None:
                         wall = record.get("wall") or {}
@@ -1303,9 +1424,57 @@ class Engine:
                     step_results.append(record)
                     with self.lock:
                         self.steps_done = [s for s in step_results]
-                    native_ever = native_ever or bool(record.get("ok"))
+                    native_ever = native_ever or bool(record.get("native_events"))
                     self._set_frames(obs, snapshot)
                     if not record.get("ok"):
+                        if composite_state.get("enabled"):
+                            # A composite never retries a failed step inside the
+                            # episode: the failure is reported at the stage it
+                            # happened, with the actions it actually spent.
+                            evidence = record.get("verification") or {}
+                            # Which earlier steps' goals still hold on the very
+                            # sample where this step gave up. Without it a
+                            # composite failure cannot be told apart from "step 2
+                            # destroyed step 1's state", because step 1 was
+                            # verified minutes earlier. Read-only.
+                            prior: list[dict[str, Any]] = []
+                            for done in step_results:
+                                prior_step = done.get("step") or {}
+                                if prior_step.get("step_id") == step.get("step_id"):
+                                    continue
+                                if prior_step.get("skill") != "whole_task" or not prior_step.get("step_id"):
+                                    continue
+                                try:
+                                    goal_step = composite.step_goal(prior_step) if composite_state.get(
+                                        "enabled"
+                                    ) else prior_step
+                                    state = completion.goal_state(snapshot, goal_step, task, baseline)
+                                except Exception as exc:  # noqa: BLE001
+                                    state = {"ok": None, "error": f"{type(exc).__name__}: {exc}"}
+                                prior.append({"step_id": prior_step.get("step_id"), "state": state})
+                            raise SkillFailure(
+                                f"composite_step_{step.get('step_index')}_failed",
+                                (
+                                    f"composite step {step.get('step_index')} "
+                                    f"({step.get('step_task_key')}) did not reach its goal after "
+                                    f"{record.get('sim_actions')} actions"
+                                ),
+                                {
+                                    "step": {
+                                        "step_id": step.get("step_id"),
+                                        "task_id": step.get("step_task_id"),
+                                        "goal_kind": step.get("goal_kind"),
+                                        "prompt": step.get("prompt"),
+                                    },
+                                    "verification": evidence,
+                                    "prior_steps_at_failure": prior,
+                                    "sim_actions": record.get("sim_actions"),
+                                    "budget": (composite_state.get("budgets") or {}).get(
+                                        str(step.get("step_index"))
+                                    ),
+                                    "retries": 0,
+                                },
+                            )
                         evidence = record.get("verification") or {}
                         failure = {
                             "reason_code": evidence.get("reason_code") or "native_goal_not_reached",
@@ -1364,6 +1533,88 @@ class Engine:
                             failure["reason_code"],
                             failure["message"],
                             {"verification": evidence, "recovery": recovery},
+                        )
+                    if composite_state.get("enabled") and index + 1 < len(steps):
+                        # Step handoff: verify, (release only if the step's own
+                        # kind needs it), bounded retreat, fresh observation,
+                        # policy buffer reset, then start the next step from
+                        # that observation. No env reset, no scene reload.
+                        next_step = steps[index + 1]
+                        handoff_started = time.perf_counter()
+                        # Named phase so an external observer (and the stop
+                        # test) can synchronise on the handoff instead of
+                        # guessing timing with sleeps.
+                        self._set_phase(
+                            "handoff",
+                            f"step {step.get('step_id')}->{next_step.get('step_id')} "
+                            f"{step.get('step_task_key')}->{next_step.get('step_task_key')}",
+                        )
+                        handoff = composite.Handoff(
+                            env=env,
+                            inference=self.inference,
+                            stop_event=stop_event,
+                            cfg=self.cfg,
+                            episode_id=episode_id,
+                            step=step,
+                            step_task=catalog_by_key[step.get("step_task_key")],
+                            task=task,
+                            home_eef=home_eef,
+                            home_quat=composite_state.get("home_quat"),
+                            journal=lambda stage, row: records.append_journal(
+                                {"t": time.time(), "stage": stage, "episode_id": episode_id, "row": row}
+                            ),
+                            frame_sink=self._set_frames,
+                        )
+                        try:
+                            handoff_block, handoff_obs, handoff_snapshot, token = handoff.run(snapshot)
+                        except Stopped:
+                            raise
+                        except Exception as exc:  # noqa: BLE001 - report the stage, do not fake success
+                            raise SkillFailure(
+                                "composite_handoff_error",
+                                f"handoff after step {step.get('step_index')} raised {type(exc).__name__}: {exc}",
+                                {"traceback": traceback.format_exc()[-2000:]},
+                            ) from exc
+                        timing["handoff_s"] += time.perf_counter() - handoff_started
+                        composite_state["handoff_records"].append(handoff_block)
+                        composite_state["handoff"] = handoff_block
+                        records.append_journal(
+                            {
+                                "t": time.time(),
+                                "stage": "composite_handoff",
+                                "episode_id": episode_id,
+                                "status": handoff_block.get("status"),
+                                "from_step": step.get("step_id"),
+                                "to_step": next_step.get("step_id"),
+                                "sim_actions": handoff_block.get("sim_actions"),
+                            }
+                        )
+                        with self.lock:
+                            self.steps_done = [s for s in step_results]
+                        if handoff_block.get("status") != "ready":
+                            raise SkillFailure(
+                                "composite_handoff_failed",
+                                (
+                                    f"handoff after step {step.get('step_index')} is {handoff_block.get('status')}: "
+                                    f"{handoff_block.get('reason')}"
+                                ),
+                                {"handoff": handoff_block, "next_step": next_step.get("step_id")},
+                            )
+                        obs = handoff_obs
+                        snapshot = handoff_snapshot
+                        self._set_frames(obs, snapshot)
+                        records.append_journal(
+                            {
+                                "t": time.time(),
+                                "stage": "composite_step_start",
+                                "episode_id": episode_id,
+                                "step_id": next_step.get("step_id"),
+                                "task_id": next_step.get("step_task_id"),
+                                "prompt": next_step.get("prompt"),
+                                "observation_id": snapshot.get("observation_id"),
+                                "scene_epoch": snapshot.get("scene_epoch"),
+                                "token": token,
+                            }
                         )
                     index += 1
                     retries = 0
@@ -1616,7 +1867,31 @@ class Engine:
                 for position, result in enumerate(step_results):
                     step = result["step"]
                     release = result.get("release")
-                    if step.get("skill") == "whole_task":
+                    completion_kind = str((step.get("completion") or {}).get("kind") or "")
+                    if step.get("skill") == "whole_task" and completion_kind not in {"", "native_goal"}:
+                        # An early composite step is judged by its engine
+                        # predicate on the same fresh samples the final step
+                        # is judged on, not by the loaded scene's native flag.
+                        states = [composite.state_check(s, step, task) for s in samples]
+                        predicate_ok = all(bool(state.get("ok")) for state in states)
+                        first_state = states[0] if states else {}
+                        check = {
+                            "ok": predicate_ok,
+                            "method": f"engine_predicate:{first_state.get('predicate')}",
+                            "predicate": first_state.get("predicate"),
+                            "samples": [bool(state.get("ok")) for state in states],
+                            "qpos": [state.get("qpos") for state in states],
+                            "threshold": first_state.get("threshold"),
+                            "native_goal_samples": [bool(s.get("native_goal")) for s in samples],
+                            "sim_action_counts": [s.get("sim_action_count") for s in samples],
+                            "observation_ids": [s.get("observation_id") for s in samples],
+                            "reason_code": None if predicate_ok else "step_goal_regressed",
+                            "note": (
+                                "engine predicate on fresh post-episode samples; the loaded scene's native "
+                                "flag is not this step's goal"
+                            ),
+                        }
+                    elif step.get("skill") == "whole_task":
                         # Whole-task policies own the whole trajectory: the
                         # official LIBERO goal is the relation check, but a
                         # pick/place is only *complete* once a release was
@@ -1707,11 +1982,23 @@ class Engine:
                 native_ever = native_ever or any(bool(s.get("native_goal")) for s in samples)
                 if all_ok:
                     break
-                repairable = [(position, step) for position, step in failed if step.get("skill") == "open_drawer"]
+                repairable = [
+                    (position, step)
+                    for position, step in failed
+                    if step.get("skill") == "open_drawer" and not composite_state.get("enabled")
+                ]
                 if verify_repairs >= 1 or not repairable or len(repairable) != len(failed):
                     raise SkillFailure(
-                        "final_verification_failed",
-                        "final cross-skill verification failed",
+                        (
+                            "composite_final_verification_failed"
+                            if composite_state.get("enabled")
+                            else "final_verification_failed"
+                        ),
+                        (
+                            "the composite's end state does not satisfy every step goal on fresh samples"
+                            if composite_state.get("enabled")
+                            else "final cross-skill verification failed"
+                        ),
                         {"steps": final_steps, "snapshot": snapshot},
                     )
                 verify_repairs += 1
@@ -1797,8 +2084,104 @@ class Engine:
             if isinstance(row, dict) and isinstance(row.get("placement"), dict):
                 placement = row["placement"]
                 break
+        if not placement and last_placement:
+            placement = last_placement
         release_required = str(task.get("kind") or "") in {"pick_place", "composite"}
-        if release_required and placement:
+        composite_record: dict[str, Any] | None = None
+        if composite_state.get("enabled"):
+            # Every step of the composite is reported separately: its own goal,
+            # its own native observations, its own action count. The composite
+            # verdict is the conjunction, never the last step alone.
+            final_by_step = {
+                int((row.get("step") or {}).get("step_index") or 0): row
+                for row in (final_verification.get("steps") or [])
+                if isinstance(row, dict)
+            }
+            step_rows = []
+            for position, result in enumerate(step_results):
+                step = result.get("step") or {}
+                index = int(step.get("step_index") or position + 1)
+                final_row = final_by_step.get(index) or {}
+                verification = (final_row.get("verification") or {}) if final_row else {}
+                step_task = catalog_by_key.get(str(step.get("step_task_key"))) or {}
+                needs_release = composite.release_required(step_task)
+                step_placement = result.get("placement") or {}
+                if needs_release:
+                    release_state = "verified" if step_placement.get("placement_verified") else "unknown"
+                    release_source = step_placement.get("evidence_source") or "none"
+                else:
+                    release_state = "not_applicable"
+                    release_source = "not_applicable"
+                step_rows.append(
+                    composite.step_summary(
+                        step=step,
+                        record=result,
+                        snapshot=final_snapshot,
+                        verification=(result.get("verification") or {}),
+                        release_state=release_state,
+                        release_source=release_source,
+                        final_verification=verification,
+                    )
+                )
+            handoff = composite_state.get("handoff") or {}
+            scene_epochs = [composite_state.get("scene_epoch_start"), final_snapshot.get("scene_epoch")]
+            step_1_ok = bool(step_rows[0]["ok"]) if len(step_rows) > 0 else False
+            step_1_final_ok = step_rows[0]["ok_final"] if len(step_rows) > 0 else None
+            anchor_row = step_rows[-1] if step_rows else {}
+            step_2_native = bool((anchor_row.get("evidence") or {}).get("ok")) and len(step_rows) > 1
+            step_2_final_native = anchor_row.get("ok_final") if step_rows else None
+            composite_record = {
+                "schema": composite.SCHEMA,
+                "keys": composite_state.get("keys"),
+                "step_ids": composite_state.get("step_ids"),
+                "anchor": composite_state.get("anchor"),
+                "instruction": instruction,
+                "bddl_mutation": False,
+                "env_reset_between_steps": 0,
+                "env_reload_between_steps": 0,
+                "object_teleport": False,
+                "scene_epoch_start": composite_state.get("scene_epoch_start"),
+                "scene_epoch_end": final_snapshot.get("scene_epoch"),
+                "scene_epoch_continuous": bool(
+                    len(set(scene_epochs)) == 1 and scene_epochs[0] is not None
+                ),
+                "sim_action_count_start": composite_state.get("sim_action_count_start"),
+                "sim_action_count_end": final_snapshot.get("sim_action_count"),
+                "sim_actions_total": (
+                    int(final_snapshot.get("sim_action_count") or 0)
+                    - int(composite_state.get("sim_action_count_start") or 0)
+                ),
+                "budgets": composite_state.get("budgets"),
+                "handoff": handoff,
+                "steps": step_rows,
+                "step_1_ok": step_1_ok,
+                "step_1_final_ok": step_1_final_ok,
+                "step_2_native": bool(step_2_native),
+                "step_2_final_native": step_2_final_native,
+                "final_verification_read": bool(final_verification),
+                "step_2_native_samples": (anchor_row.get("evidence") or {}).get("samples"),
+                "step_2_release_verified": bool((step_2_native and anchor_row.get("release_state") == "verified")),
+                "combo_verified": bool(
+                    execution_status == "completed"
+                    and len(step_rows) == len(composite_state.get("keys") or [])
+                    and all(row.get("ok") for row in step_rows)
+                    and all(row.get("ok_final") is not False for row in step_rows)
+                ),
+                "native_goal_current": native_final,
+                "native_goal_ever": bool(native_ever),
+                "step_1_goal_ever": any(
+                    (row.get("verification") or {}).get("ok") for row in step_results[:1]
+                ),
+                "note": (
+                    "step 1 is judged by its engine predicate, step 2 by the loaded scene's native goal plus a "
+                    "measured release; both are re-checked on fresh samples of the same episode"
+                ),
+            }
+        if composite_record is not None:
+            user_goal = bool(composite_record["combo_verified"])
+            user_status = "met" if user_goal else "not_met"
+            release_required = bool(composite_record.get("step_2_release_verified") or user_goal)
+        elif release_required and placement:
             placement_ok = bool(placement.get("placement_verified"))
             user_goal = bool(execution_status == "completed" and placement_ok)
             if user_goal:
@@ -1843,13 +2226,17 @@ class Engine:
             "native_goal_final": native_final,
             "user_goal_success": bool(user_goal),
             "user_goal_status": user_status,
+            "task_scope": "combo" if composite_record is not None else "single",
             "placement": placement,
+            "composite": composite_record,
             "failure_code": (failure or {}).get("reason_code"),
             "failure_reason": (failure or {}).get("message"),
             "failure_evidence": (failure or {}).get("evidence"),
             "plan": {
                 "interpretation": (plan or {}).get("interpretation"),
                 "success_condition": (plan or {}).get("success_condition"),
+                "task_scope": (plan or {}).get("task_scope") or "single",
+                "composite": (plan or {}).get("composite"),
                 "steps": (plan or {}).get("steps"),
                 "source": (self.plan or {}).get("source") or "qwen3.5-9b-semantic-router",
                 "agent_mode": (self.plan or {}).get("agent_mode") or "qwen",

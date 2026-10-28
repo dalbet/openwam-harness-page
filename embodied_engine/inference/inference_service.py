@@ -169,11 +169,11 @@ class InferenceEngine:
             "enqueued": time.monotonic(),
             "event": threading.Event(),
         }
-        signature = (request.get("episode_id"), request.get("scene_epoch"), request.get("skill"), request.get("step_id"))
+        signature = (request.get("episode_id"), request.get("scene_epoch"), request.get("skill"), request.get("step_ref"), request.get("step_id"))
         with self.cond:
             if self.queue:
                 old = self.queue[0]
-                old_sig = (old["request"].get("episode_id"), old["request"].get("scene_epoch"), old["request"].get("skill"), old["request"].get("step_id"))
+                old_sig = (old["request"].get("episode_id"), old["request"].get("scene_epoch"), old["request"].get("skill"), old["request"].get("step_ref"), old["request"].get("step_id"))
                 old_count = old["request"].get("sim_action_count")
                 new_count = request.get("sim_action_count")
                 if old_sig == signature and isinstance(old_count, int) and isinstance(new_count, int) and new_count <= old_count:

@@ -24,7 +24,7 @@ import time
 from typing import Any, Callable
 
 from agent import planner
-from common import config, task_catalog
+from common import composite_plan, config, task_catalog
 from common.plan_contract import validate_plan
 
 MAX_TOKENS = 24
@@ -47,19 +47,26 @@ def router_options() -> dict[str, Any]:
         "model_mode": str(block.get("model_mode", "non_thinking")),
     }
 
-SYSTEM_PROMPT = """You are the semantic router for a LIBERO-Goal robot. Your only job is to decide which one supported capability the user's instruction asks for.
+SYSTEM_PROMPT = """You are the semantic router for a LIBERO-Goal robot. Your only job is to decide which one supported capability, or which ordered pair of supported capabilities, the user's instruction asks for.
 
 Decide in this order:
-1. Choose "clarify" when the user's words leave a slot unfilled and the capability list would decide it: an unresolved pronoun or demonstrative ("put it on the stove", "把它放到炉灶上"), no destination at all ("move the bowl"), or a container named without a level while capabilities name levels of that container ("put the bowl inside the cabinet").
-2. Otherwise choose exactly one capability key whose object, destination, relation, level and every subgoal match the complete goal. Polite phrasing, word order and ordinary synonyms do not change the goal.
-3. Otherwise choose "unsupported" because the request is specific enough to judge and no capability matches: an object, level, relation or place the user did state but no capability has ("open the lower drawer", "put the plate on the cabinet", "put the bowl next to the stove"), one half of a composite capability, or a combination of capabilities.
+1. Choose "clarify" when the user's words leave a slot unfilled and the capability list would decide it: an unresolved pronoun or demonstrative ("put it on the stove", "把它放到炉灶上"), no destination at all ("move the bowl"), or a container named without a level while capabilities name levels of that container. Missing a level is a missing slot even when another part of the same instruction is complete: "open the drawer and put the bowl on the plate" and "打开抽屉，然后把碗放到盘子上" ask which drawer, so choose "clarify".
+2. Otherwise, if the instruction asks for two of the supported capabilities in the same scene, return both keys in the order the user's words put them.
+3. Otherwise choose exactly one capability key whose object, destination, relation, level and every subgoal match the complete goal. Polite phrasing, word order and ordinary synonyms do not change the goal.
+4. Otherwise choose "unsupported" because the request is specific enough to judge and no capability matches: an object, level, relation or place the user did state but no capability has ("open the lower drawer", "put the plate on the cabinet", "put the bowl next to the stove"), one half of a composite capability, a combination that is not two capabilities from the list, or three or more separate capabilities.
 
-A stated relation or level is part of the request, not a missing slot: "beside", "near", "behind", "under" are unsupported relations, never reasons to clarify.
+Ordered pairs:
+- Return {"choice":["<key1>","<key2>"]} only when two separate capabilities in the list are both asked for. Keep the user's order and do not add, drop, split or reorder a step.
+- One capability can read like two actions ("open the top drawer and place the bowl inside it"). When the list has a capability for the whole goal, choose that single key, not a pair.
+- "clarify" when the order of two separate capabilities is neither stated nor implied by which goal depends on the other, when a step's object or place is missing, or when two goals conflict (the same object sent to two different destinations).
+- Three or more separate capabilities are outside this contract: choose "unsupported".
 
-Do not substitute a different object or place, and do not split a composite capability into its parts.
+A stated relation or level is part of the request, not a missing slot: "beside", "near", "behind", "under" are unsupported relations, never reasons to clarify. 
+
+Do not substitute a different object or place.
 
 Return exactly one JSON object and nothing else:
-{"choice":"<key>"} or {"choice":"clarify"} or {"choice":"unsupported"}
+{"choice":"<key>"} or {"choice":["<key1>","<key2>"]} or {"choice":"clarify"} or {"choice":"unsupported"}
 """
 
 
@@ -83,27 +90,54 @@ def build_messages(instruction: str) -> list[dict[str, str]]:
     ]
 
 
-def parse_choice(content: str) -> tuple[dict[str, str] | None, list[dict[str, Any]]]:
+def parse_choice(content: str) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     value, error = planner.parse_json_object(content)
     if value is None:
         return None, [{"field": "response", "code": "invalid_json", "value": error}]
     if "choice" not in value:
         return None, [{"field": "choice", "code": "missing", "value": sorted(value)}]
     choice = value.get("choice")
-    if not isinstance(choice, str) or not choice.strip():
-        return None, [{"field": "choice", "code": "not_string", "value": choice}]
-    cleaned = choice.strip()
     allowed = set(task_catalog.task_by_key()) | {"clarify", "unsupported"}
-    if cleaned not in allowed:
-        return None, [
-            {
-                "field": "choice",
-                "code": "not_in_catalog",
-                "value": cleaned,
-                "expected": sorted(allowed),
-            }
-        ]
-    return {"choice": cleaned}, []
+    if isinstance(choice, str):
+        cleaned = choice.strip()
+        if not cleaned:
+            return None, [{"field": "choice", "code": "not_string", "value": choice}]
+        if cleaned not in allowed:
+            return None, [
+                {
+                    "field": "choice",
+                    "code": "not_in_catalog",
+                    "value": cleaned,
+                    "expected": sorted(allowed),
+                }
+            ]
+        if cleaned in {"clarify", "unsupported"}:
+            return {"kind": "special", "choice": cleaned, "keys": []}, []
+        return {"kind": "single", "choice": cleaned, "keys": [cleaned]}, []
+    if isinstance(choice, list):
+        if not choice:
+            return None, [{"field": "choice", "code": "empty_list", "value": choice}]
+        keys: list[str] = []
+        for item in choice:
+            if not isinstance(item, str) or not item.strip():
+                return None, [{"field": "choice", "code": "not_string", "value": item}]
+            cleaned = item.strip()
+            if cleaned not in allowed or cleaned in {"clarify", "unsupported"}:
+                return None, [
+                    {
+                        "field": "choice",
+                        "code": "not_in_catalog",
+                        "value": cleaned,
+                        "expected": sorted(task_catalog.task_by_key()),
+                    }
+                ]
+            keys.append(cleaned)
+        if len(keys) == 1:
+            # A one-element list is neither shape; ask for a correction instead
+            # of quietly accepting a composite contract that was not used.
+            return None, [{"field": "choice", "code": "single_key_list", "value": keys, "expected": "a bare key string"}]
+        return {"kind": "composite", "choice": keys, "keys": keys}, []
+    return None, [{"field": "choice", "code": "not_string_or_list", "value": choice}]
 
 
 def _repair_messages(messages: list[dict[str, str]], content: str) -> list[dict[str, str]]:
@@ -115,6 +149,7 @@ def _repair_messages(messages: list[dict[str, str]], content: str) -> list[dict[
             "content": (
                 'Return one corrected JSON object with exactly {"choice":"<key>"} '
                 'using a key from the capability list, or "clarify", or "unsupported". '
+                'Use {"choice":["<key1>","<key2>"]} only when two separate capabilities are asked for. '
                 "Do not explain."
             ),
         },
@@ -195,6 +230,44 @@ def decide(
         result["reason"] = errors[0].get("value") if errors else "invalid router response"
         return result
 
+    kind = str(choice.get("kind") or "single")
+    if kind == "composite":
+        keys = list(choice["keys"])
+        result["composite_keys"] = keys
+        result["choice"] = keys
+        cfg = config.engine_config()
+        composite_opts = composite_plan.options(cfg)
+        if len(keys) > composite_opts["max_steps"]:
+            result["status"] = "unsupported"
+            result["reason_code"] = "step_limit_exceeded"
+            result["reason"] = (
+                f"the instruction asks for {len(keys)} separate capabilities; at most "
+                f"{composite_opts['max_steps']} can be executed"
+            )
+            return result
+        if len(set(keys)) != len(keys):
+            result["status"] = "unsupported"
+            result["reason_code"] = "duplicate_step"
+            result["reason"] = "the same capability appears twice in the requested sequence"
+            return result
+        by_key = task_catalog.task_by_key()
+        supports = []
+        for key in keys:
+            supports.append({"key": key, **task_catalog.scene_support(by_key[key], snapshot or {})})
+        result["scene_support"] = {
+            "ok": all(row.get("ok") for row in supports),
+            "steps": supports,
+            "missing": [missing for row in supports for missing in (row.get("missing") or [])],
+        }
+        if not result["scene_support"]["ok"]:
+            result["status"] = "scene_not_supported"
+            result["reason_code"] = "required_entity_absent"
+            missing = ", ".join(
+                f"{row['kind']}:{row['name']}" for row in result["scene_support"]["missing"]
+            )
+            result["reason"] = f"the loaded scene is missing {missing}"
+        return result
+
     selected = choice["choice"]
     if selected in {"clarify", "unsupported"}:
         result["status"] = "needs_clarification" if selected == "clarify" else "unsupported"
@@ -229,9 +302,59 @@ def assemble_plan(
     instruction: str,
     snapshot: dict[str, Any],
     skills: dict[str, Any],
+    loaded_task: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Turn a catalog choice into the single whole_task plan, after checks."""
+    """Turn a catalog choice into a plan, after checks.
+
+    A single choice becomes the one ``whole_task`` step. A composite choice is
+    only assembled when the ordered pair is executable in this scene; the model
+    recognizes the sequence, the code decides whether it can run.
+    """
     task = decision.get("task")
+    composite_keys = decision.get("composite_keys")
+    if composite_keys:
+        if decision.get("status") != "ok":
+            return {
+                "status": decision.get("status"),
+                "plan": None,
+                "errors": decision.get("errors") or [],
+                "reason_code": decision.get("reason_code"),
+                "reason": decision.get("reason"),
+            }
+        loaded = loaded_task or config.task_for(int(loaded_task_id))
+        catalog = task_catalog.task_by_key()
+        check = composite_plan.support(
+            list(composite_keys), loaded_task=loaded, catalog=catalog, cfg=config.engine_config()
+        )
+        if not check.get("ok"):
+            scene_switch = str(check.get("reason_code")) == "requires_scene_switch"
+            return {
+                "status": "task_mismatch" if scene_switch else "unsupported",
+                "plan": None,
+                "errors": [],
+                "reason_code": check.get("reason_code"),
+                "reason": check.get("reason"),
+                "composite": check,
+            }
+        plan = composite_plan.build_plan(
+            list(composite_keys),
+            catalog=catalog,
+            loaded_task=loaded,
+            instruction=instruction,
+            cfg=config.engine_config(),
+        )
+        errors = composite_plan.validate_plan(
+            plan, catalog=catalog, loaded_task=loaded, cfg=config.engine_config()
+        )
+        if errors:
+            return {
+                "status": "planning_failed",
+                "plan": None,
+                "errors": errors,
+                "reason_code": "composite_plan_contract_failed",
+            }
+        return {"status": "ok", "plan": plan, "errors": [], "composite": check}
+
     if decision.get("status") != "ok" or not isinstance(task, dict):
         return {"status": decision.get("status"), "plan": None, "errors": decision.get("errors") or []}
 

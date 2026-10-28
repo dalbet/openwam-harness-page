@@ -1,0 +1,222 @@
+{
+  "schema": "embodied_engine.composite_routes.v1",
+  "frozen_at": "2026-10-27T22:10:00+08:00",
+  "note": "Routing-only cases for the same-scene two-step contract. The loaded scene is task 8 (put_the_bowl_on_the_plate.bddl); only 0->8 is executable. Ordered keys are the contract; official instructions are never sent from here.",
+  "cases": [
+    {
+      "id": "dev-en-forward-then",
+      "split": "dev",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expect_status": "ok",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": true,
+      "note": "canonical English, explicit order"
+    },
+    {
+      "id": "dev-zh-forward-then",
+      "split": "dev",
+      "lang": "zh",
+      "text": "先打开柜子中间的抽屉，再把碗放到盘子上。",
+      "expect_status": "ok",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": true,
+      "note": "canonical Chinese, explicit order"
+    },
+    {
+      "id": "dev-en-forward-synonym",
+      "split": "dev",
+      "lang": "en",
+      "text": "Slide the center drawer open and afterwards set the bowl down on the plate.",
+      "expect_status": "ok",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": true,
+      "note": "synonyms for open/place, explicit sequence word"
+    },
+    {
+      "id": "dev-zh-forward-synonym",
+      "split": "dev",
+      "lang": "zh",
+      "text": "拉开中间的抽屉，接着把碗搁在盘子里。",
+      "expect_status": "ok",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": true,
+      "note": "Chinese synonyms 拉开/搁在/接着"
+    },
+    {
+      "id": "dev-en-reversed",
+      "split": "dev",
+      "lang": "en",
+      "text": "Put the bowl on the plate first, then open the middle drawer of the cabinet.",
+      "expect_status": "unsupported",
+      "expect_keys": [
+        "put_bowl_on_plate",
+        "open_middle_drawer"
+      ],
+      "expect_reason": "unsupported_combo",
+      "expect_executable": false,
+      "note": "reversed order is recognised, execution refused"
+    },
+    {
+      "id": "dev-zh-reversed",
+      "split": "dev",
+      "lang": "zh",
+      "text": "先把碗放到盘子上，然后再打开中间的抽屉。",
+      "expect_status": "unsupported",
+      "expect_keys": [
+        "put_bowl_on_plate",
+        "open_middle_drawer"
+      ],
+      "expect_reason": "unsupported_combo",
+      "expect_executable": false,
+      "note": "reversed order in Chinese, refused"
+    },
+    {
+      "id": "dev-en-drawer-level-missing",
+      "split": "dev",
+      "lang": "en",
+      "text": "Open the drawer and put the bowl on the plate.",
+      "expect_status": "needs_clarification",
+      "expect_keys": [],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "drawer level missing; prompt now names 'open the drawer' as a clarify example"
+    },
+    {
+      "id": "dev-zh-drawer-level-missing",
+      "split": "dev",
+      "lang": "zh",
+      "text": "打开抽屉，然后把碗放到盘子上。",
+      "expect_status": "needs_clarification",
+      "expect_keys": [],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "抽屉层级缺失"
+    },
+    {
+      "id": "dev-en-single-only",
+      "split": "dev",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet.",
+      "expect_status": "task_mismatch",
+      "expect_keys": [
+        "open_middle_drawer"
+      ],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "single drawer request on the loaded task-8 scene: routing is correct, execution needs task 0 loaded (control for the composite anchor)"
+    },
+    {
+      "id": "dev-zh-single-only",
+      "split": "dev",
+      "lang": "zh",
+      "text": "把碗放到盘子上。",
+      "expect_status": "ok",
+      "expect_keys": [
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "single-task Chinese, no composite keys"
+    },
+    {
+      "id": "dev-en-unsupported-pair",
+      "split": "dev",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet, then put the bowl on the stove.",
+      "expect_status": "unsupported",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_stove"
+      ],
+      "expect_reason": "unsupported_combo",
+      "expect_executable": false,
+      "note": "valid pair of capabilities, not executable in this round"
+    },
+    {
+      "id": "dev-zh-unsupported-pair",
+      "split": "dev",
+      "lang": "zh",
+      "text": "先打开中间的抽屉，然后把碗放到炉灶上。",
+      "expect_status": "unsupported",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_stove"
+      ],
+      "expect_reason": "unsupported_combo",
+      "expect_executable": false,
+      "note": "Chinese unsupported pair"
+    },
+    {
+      "id": "dev-en-three-steps",
+      "split": "dev",
+      "lang": "en",
+      "text": "Open the middle drawer, put the bowl on the plate, then turn on the stove.",
+      "expect_status": "unsupported",
+      "expect_keys": null,
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "more than two steps; refusal may be step_limit_exceeded (keys kept) or outside_catalog (model declines), both are explicit unsupported"
+    },
+    {
+      "id": "dev-zh-three-steps",
+      "split": "dev",
+      "lang": "zh",
+      "text": "打开中间的抽屉，把碗放到盘子上，再打开炉灶。",
+      "expect_status": "unsupported",
+      "expect_keys": null,
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "超过两步; refusal may be step_limit_exceeded (keys kept) or outside_catalog (model declines), both are explicit unsupported"
+    },
+    {
+      "id": "dev-en-object-conflict",
+      "split": "dev",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet, then put the bowl on the plate and on the stove.",
+      "expect_status": "unsupported",
+      "expect_keys": [],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "same object sent to two destinations"
+    },
+    {
+      "id": "dev-zh-pronoun-ambiguous",
+      "split": "dev",
+      "lang": "zh",
+      "text": "先打开中间的抽屉，然后把它放到盘子上。",
+      "expect_status": "needs_clarification",
+      "expect_keys": [],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "unresolved pronoun in step 2"
+    },
+    {
+      "id": "dev-en-order-ambiguous",
+      "split": "dev",
+      "lang": "en",
+      "text": "Move the plate and open the middle drawer of the cabinet.",
+      "expect_status": "unsupported",
+      "expect_keys": [],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "push-to-front is not 'move', no destination given"
+    }
+  ]
+}

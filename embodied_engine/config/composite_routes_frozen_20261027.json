@@ -1,0 +1,217 @@
+{
+  "schema": "embodied_engine.composite_routes.v1",
+  "frozen_at": "2026-10-27T22:40:00+08:00",
+  "frozen_note": "Frozen after the development set reached 17/17. These phrasings were never used while editing the router prompt; the file must not be edited after the first run. Scoring is per case; nothing is retried.",
+  "cases": [
+    {
+      "id": "test-en-before-order",
+      "split": "test",
+      "lang": "en",
+      "text": "Before you put the bowl on the plate, get the middle drawer of the cabinet open.",
+      "expect_status": "ok",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": true,
+      "note": "order expressed with before"
+    },
+    {
+      "id": "test-zh-before-order",
+      "split": "test",
+      "lang": "zh",
+      "text": "把碗放到盘子上之前，先把柜子中间的抽屉打开。",
+      "expect_status": "ok",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": true,
+      "note": "中文“之前”表达顺序"
+    },
+    {
+      "id": "test-en-two-sentences",
+      "split": "test",
+      "lang": "en",
+      "text": "Get the middle drawer open. Then place the bowl on the plate.",
+      "expect_status": "ok",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": true,
+      "note": "two sentences, order by sequence"
+    },
+    {
+      "id": "test-zh-two-sentences",
+      "split": "test",
+      "lang": "zh",
+      "text": "把中间抽屉拉开。然后把碗摆到盘子上。",
+      "expect_status": "ok",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": true,
+      "note": "中文两句，顺序明确"
+    },
+    {
+      "id": "test-en-and-order",
+      "split": "test",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet and put the bowl on the plate.",
+      "expect_status": "ok",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": true,
+      "note": "plain 'and' keeps the user's word order"
+    },
+    {
+      "id": "test-zh-and-order",
+      "split": "test",
+      "lang": "zh",
+      "text": "打开中间的抽屉，把碗放到盘子上。",
+      "expect_status": "ok",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "expect_reason": null,
+      "expect_executable": true,
+      "note": "中文并列，按词序"
+    },
+    {
+      "id": "test-en-reversed-unsupported",
+      "split": "test",
+      "lang": "en",
+      "text": "Place the bowl on the plate, then pull the middle drawer open.",
+      "expect_status": "unsupported",
+      "expect_keys": [
+        "put_bowl_on_plate",
+        "open_middle_drawer"
+      ],
+      "expect_reason": "unsupported_combo",
+      "expect_executable": false,
+      "note": "reversed order recognised but not executable"
+    },
+    {
+      "id": "test-zh-reversed-unsupported",
+      "split": "test",
+      "lang": "zh",
+      "text": "把碗摆到盘子上，再拉开中间的抽屉。",
+      "expect_status": "unsupported",
+      "expect_keys": [
+        "put_bowl_on_plate",
+        "open_middle_drawer"
+      ],
+      "expect_reason": "unsupported_combo",
+      "expect_executable": false,
+      "note": "中文倒序，识别但拒绝执行"
+    },
+    {
+      "id": "test-en-other-pair",
+      "split": "test",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet and put the wine bottle on the rack.",
+      "expect_status": "unsupported",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_wine_bottle_on_rack"
+      ],
+      "expect_reason": "unsupported_combo",
+      "expect_executable": false,
+      "note": "valid capabilities, unsupported pair this round"
+    },
+    {
+      "id": "test-zh-other-pair",
+      "split": "test",
+      "lang": "zh",
+      "text": "先拉开中间的抽屉，再把酒瓶放到架子上。",
+      "expect_status": "unsupported",
+      "expect_keys": [
+        "open_middle_drawer",
+        "put_wine_bottle_on_rack"
+      ],
+      "expect_reason": "unsupported_combo",
+      "expect_executable": false,
+      "note": "中文不支持组合"
+    },
+    {
+      "id": "test-en-single-two-verbs",
+      "split": "test",
+      "lang": "en",
+      "text": "Open the top drawer and put the bowl inside it.",
+      "expect_status": "task_mismatch",
+      "expect_keys": [
+        "open_top_drawer_put_bowl_inside"
+      ],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "one native capability reads as two actions: must not split into a pair; scene control"
+    },
+    {
+      "id": "test-zh-single-two-verbs",
+      "split": "test",
+      "lang": "zh",
+      "text": "打开上面的抽屉，然后把碗放进去。",
+      "expect_status": "task_mismatch",
+      "expect_keys": [
+        "open_top_drawer_put_bowl_inside"
+      ],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "中文同理，不拆成组合"
+    },
+    {
+      "id": "test-en-ambiguous-article",
+      "split": "test",
+      "lang": "en",
+      "text": "Open a drawer, then put the bowl on the plate.",
+      "expect_status": "needs_clarification",
+      "expect_keys": [],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "level unresolved"
+    },
+    {
+      "id": "test-zh-ambiguous-article",
+      "split": "test",
+      "lang": "zh",
+      "text": "开个抽屉，接着把碗放到盘子上。",
+      "expect_status": "needs_clarification",
+      "expect_keys": [],
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "中文层级未定"
+    },
+    {
+      "id": "test-en-unsupported-relation",
+      "split": "test",
+      "lang": "en",
+      "text": "Open the middle drawer of the cabinet, then put the bowl beside the plate.",
+      "expect_status": "unsupported",
+      "expect_keys": null,
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "stated relation no capability has ('beside')"
+    },
+    {
+      "id": "test-zh-three-actions",
+      "split": "test",
+      "lang": "zh",
+      "text": "打开中间的抽屉，打开上面的抽屉，再把碗放到盘子上。",
+      "expect_status": "unsupported",
+      "expect_keys": null,
+      "expect_reason": null,
+      "expect_executable": null,
+      "note": "超过两步"
+    }
+  ]
+}

@@ -28,7 +28,7 @@ if str(PROJECT) not in sys.path:
 from aiohttp import web  # noqa: E402
 
 from agent import planner, semantic_router  # noqa: E402
-from common import config, task_catalog  # noqa: E402
+from common import composite_plan, config, task_catalog  # noqa: E402
 
 
 def _model_identity() -> dict:
@@ -70,14 +70,36 @@ def _understanding(
     assembled: dict | None,
 ) -> dict:
     chosen = task or {}
+    composite_keys = list(decision.get("composite_keys") or [])
+    by_key = task_catalog.task_by_key() if composite_keys else {}
+    step_official = [
+        str((by_key.get(key) or {}).get("official_instruction") or "") for key in composite_keys
+    ]
     official = str(chosen.get("official_instruction") or "")
+    if composite_keys and step_official:
+        official = step_official[-1]
     support = decision.get("scene_support") or {}
+    composite_check = (assembled or {}).get("composite") or {}
     return {
         "raw_instruction": instruction,
         "semantic_choice": decision.get("choice"),
         "decision_status": decision.get("status"),
         "reason_code": decision.get("reason_code"),
         "reason": decision.get("reason") or (assembled or {}).get("reason"),
+        "task_scope": "combo" if composite_keys else "single",
+        "composite_keys": composite_keys,
+        "composite_executable": bool(composite_check.get("ok")) if composite_keys else None,
+        "composite_reason_code": composite_check.get("reason_code") if composite_keys else None,
+        "composite_supported_pairs": composite_check.get("supported_pairs") if composite_keys else None,
+        "step_official_instructions": step_official,
+        "step_goals": [
+            {
+                "key": row.get("key"),
+                "task_id": row.get("task_id"),
+                "goal_kind": (row.get("goal") or {}).get("kind"),
+            }
+            for row in (composite_check.get("steps") or [])
+        ],
         "task_key": chosen.get("key"),
         "task_id": chosen.get("task_id"),
         "official_instruction": official or None,
@@ -93,11 +115,26 @@ def _understanding(
         },
         "loaded_task_id": loaded_task.get("task_id"),
         "loaded_task_key": loaded_task.get("key"),
-        "required_task_id": chosen.get("task_id") if chosen else None,
-        "required_task_key": chosen.get("key") if chosen else None,
+        "required_task_id": chosen.get("task_id")
+        if chosen
+        else ((by_key.get(composite_keys[-1]) or {}).get("task_id") if composite_keys else None),
+        "required_task_key": chosen.get("key")
+        if chosen
+        else (composite_keys[-1] if composite_keys else None),
         "needs_scene_switch": bool(assembled and assembled.get("status") == "task_mismatch"),
-        "target_preserved": official == str(chosen.get("instruction") or "") if official else None,
+        "target_preserved": (
+            all(
+                norm_official(step_official[i]) == norm_official((by_key.get(key) or {}).get("instruction"))
+                for i, key in enumerate(composite_keys)
+            )
+            if composite_keys
+            else (official == str(chosen.get("instruction") or "") if official else None)
+        ),
     }
+
+
+def norm_official(value: Any) -> str:
+    return " ".join(str(value or "").strip().lower().split())
 
 
 async def health(request: web.Request) -> web.Response:
@@ -114,8 +151,12 @@ async def health(request: web.Request) -> web.Response:
             "llm": identity,
             "planner_vision": False,
             "routing": {
-                "contract": "one catalog choice; code assembles the official whole_task prompt",
+                "contract": (
+                    "one catalog choice, or an ordered pair of catalog choices; code looks up each "
+                    "official whole_task prompt and checks pair executability"
+                ),
                 **semantic_router.router_options(),
+                "composite": composite_plan.options(config.engine_config()),
                 "catalog": task_catalog.catalog_evidence(),
             },
             "jev": {
@@ -143,6 +184,7 @@ def _qwen_plan(instruction: str, task: dict, snapshot: dict, body: dict) -> dict
             instruction=instruction,
             snapshot=snapshot,
             skills=skills,
+            loaded_task=task,
         )
     assembly_s = time.perf_counter() - assembly_started
     understanding = _understanding(

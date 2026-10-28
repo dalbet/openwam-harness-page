@@ -1,0 +1,62 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-10-27T23:55:00+08:00",
+  "note": "Frozen six-round acceptance for the 0->8 same-scene composite: three pre-selected LIBERO init indices (0, 1, 2), one English and one Chinese raw instruction per index. Every round loads task 8 at that index once and never resets, reloads, mutates the BDDL or teleports an object inside the episode. Rounds are never retried or skipped; failures are kept. The seed-0 pair was also used by earlier development probes (documented in the acceptance report), so this file is frozen before the acceptance run, not before all development.",
+  "seed": 0,
+  "rounds": [
+    {
+      "round": "c08-s0-en",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0
+    },
+    {
+      "round": "c08-s0-zh",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "zh",
+      "instruction": "先打开柜子中间的抽屉，再把碗放到盘子上。",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0
+    },
+    {
+      "round": "c08-s1-en",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Slide the middle drawer open and afterwards set the bowl down on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 1
+    },
+    {
+      "round": "c08-s1-zh",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "zh",
+      "instruction": "拉开中间的抽屉，接着把碗放到盘子上。",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 1
+    },
+    {
+      "round": "c08-s2-en",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Before you put the bowl on the plate, get the middle drawer of the cabinet open.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 2
+    },
+    {
+      "round": "c08-s2-zh",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "zh",
+      "instruction": "把碗放到盘子上之前，先把柜子中间的抽屉打开。",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 2
+    }
+  ]
+}

@@ -115,6 +115,9 @@ class WholeTaskRunner:
         gpu_index: int | None = None,
         frame_sink: Callable[[dict[str, Any], dict[str, Any]], None] | None = None,
         post_goal: dict[str, Any] | None = None,
+        goal: dict[str, Any] | None = None,
+        goal_confirm_samples: int = 2,
+        step_ref: str | None = None,
     ):
         self.env = env
         self.inference = inference
@@ -131,6 +134,21 @@ class WholeTaskRunner:
         self.timeout_s = float(timeout_s)
         self.gpu_index = gpu_index
         self.frame_sink = frame_sink
+
+        # ---- step goal (composite step 1) ----------------------------------
+        # ``goal`` is an engine predicate (drawer_open / stove_button / relation)
+        # evaluated on every snapshot of this rollout. When it is set the
+        # native LIBERO flag of the *loaded* scene is recorded but never ends
+        # the step: a composite loads the last step's BDDL, so its native goal
+        # has nothing to do with an earlier step.
+        self.goal = dict(goal) if isinstance(goal, dict) else None
+        self.goal_confirm_samples = max(1, int(goal_confirm_samples))
+        self.step_ref = step_ref or str(step.get("step_id") or "step")
+        self.step_goal_events: list[dict[str, Any]] = []
+        self.step_goal_streak = 0
+        self.step_goal_latched = False
+        self._goal_facts: dict[str, Any] | None = None
+        self._last_window_facts: dict[str, Any] = {}
 
         self.prompt = str(step.get("prompt") or task.get("instruction") or "")
         self.sim_actions = 0
@@ -208,7 +226,47 @@ class WholeTaskRunner:
         state = self._record_observation(snap)
         self._last_state = state
         self._last_window_facts = self._window_observe(snap)
+        if self.goal is not None:
+            self._goal_facts = self._observe_step_goal(snap)
         return snap
+
+    # ---- step goal (composite early step) --------------------------------
+
+    def _observe_step_goal(self, snap: dict[str, Any]) -> dict[str, Any]:
+        try:
+            facts = completion.goal_state(snap, self.goal, self.task)
+        except Exception as exc:  # noqa: BLE001 - evidence must not break the rollout
+            facts = {"ok": False, "reason_code": "goal_evaluation_failed", "error": f"{type(exc).__name__}: {exc}"}
+        facts = dict(facts)
+        facts["native_goal"] = bool(snap.get("native_goal"))
+        facts["sim_action_count"] = snap.get("sim_action_count")
+        facts["observation_id"] = snap.get("observation_id")
+        if facts.get("ok"):
+            self.step_goal_streak += 1
+            if not self.step_goal_latched and self.step_goal_streak >= self.goal_confirm_samples:
+                self.step_goal_latched = True
+                self.step_goal_events.append(
+                    {
+                        "sim_action_count": facts.get("sim_action_count"),
+                        "observation_id": facts.get("observation_id"),
+                        "predicate": facts.get("predicate"),
+                        "confirm_samples": self.step_goal_streak,
+                        "source": "engine_predicate",
+                        "native_goal_at_latch": facts.get("native_goal"),
+                    }
+                )
+                self.journal(
+                    "step_goal_latched",
+                    {
+                        "step_ref": self.step_ref,
+                        "sim_actions": self.sim_actions,
+                        "predicate": facts.get("predicate"),
+                        "native_goal_at_latch": facts.get("native_goal"),
+                    },
+                )
+        else:
+            self.step_goal_streak = 0
+        return facts
 
     # ---- post-goal window ------------------------------------------------
 
@@ -387,6 +445,7 @@ class WholeTaskRunner:
             skill="whole_task",
             step_id=self.sim_actions,
             prompt=self.prompt,
+            step_ref=self.step_ref,
         )
         out = self.inference.infer(request, obs, timeout_s=self.timeout_s)
         if out.get("status") != "ok":
@@ -515,9 +574,12 @@ class WholeTaskRunner:
                     break
                 if loop_start > deadline:
                     raise RuntimeError(f"OpenWAM rollout exceeded its wall-clock guard after {self.sim_actions} actions")
-                if self._last_state.get("native_goal") and self._goal_decision() == "break":
+                if self.goal is not None:
+                    if self.step_goal_latched:
+                        self.stop_reason = self.stop_reason or "step_goal"
+                        break
+                elif self._last_state.get("native_goal") and self._goal_decision() == "break":
                     break
-
                 model_obs = self._observe_model_input()
                 observe_done = time.perf_counter()
                 row = self._infer(model_obs)
@@ -650,30 +712,59 @@ class WholeTaskRunner:
         warm_median = warm[len(warm) // 2] if warm else None
         state = self._last_state
         native = bool(self._last_state.get("native_goal"))
-        ok = bool(native)
+        if self.goal is not None:
+            ok = bool(self.step_goal_latched)
+        else:
+            ok = bool(native)
         if self.stop_reason is None:
-            self.stop_reason = "native_goal" if ok else ("budget" if self.sim_actions >= self.max_steps else "unknown")
+            self.stop_reason = (
+                ("step_goal" if ok else "budget")
+                if self.goal is not None
+                else ("native_goal" if ok else ("budget" if self.sim_actions >= self.max_steps else "unknown"))
+            )
         chunk_stats = self._chunk_stats()
         wall = self._wall_timing(total)
-        verification = {
-            "ok": ok,
-            "method": "native_libero_goal",
-            "native_goal": native,
-            "samples": len(self.observations),
-            "sim_actions": self.sim_actions,
-            "limit": "max_steps" if (not ok and self.sim_actions >= self.max_steps) else None,
-            "reason_code": None if ok else "native_goal_not_reached",
-            "prompt": self.prompt,
-        }
+        if self.goal is not None:
+            facts = dict(self._goal_facts or {})
+            verification = {
+                "ok": ok,
+                "method": f"engine_predicate:{facts.get('predicate')}",
+                "predicate": facts.get("predicate"),
+                "target": self.goal.get("target_n") or self.goal.get("relation"),
+                "qpos": facts.get("qpos"),
+                "threshold": facts.get("threshold"),
+                "native_goal": native,
+                "native_goal_note": "the loaded scene's flag; not this step's goal",
+                "samples": len(self.observations),
+                "confirm_samples": self.goal_confirm_samples,
+                "sim_actions": self.sim_actions,
+                "limit": "max_steps" if (not ok and self.sim_actions >= self.max_steps) else None,
+                "reason_code": None if ok else "step_goal_not_reached",
+                "prompt": self.prompt,
+            }
+        else:
+            verification = {
+                "ok": ok,
+                "method": "native_libero_goal",
+                "native_goal": native,
+                "samples": len(self.observations),
+                "sim_actions": self.sim_actions,
+                "limit": "max_steps" if (not ok and self.sim_actions >= self.max_steps) else None,
+                "reason_code": None if ok else "native_goal_not_reached",
+                "prompt": self.prompt,
+            }
         return {
             "skill": "whole_task",
             "object_n": None,
             "target_n": None,
             "relation": "task",
             "prompt": self.prompt,
-            "phase_reached": "native_goal" if ok else "budget",
+            "step_id": self.step_ref,
+            "goal_kind": (self.goal or {}).get("skill") or "native_goal",
+            "phase_reached": "step_goal" if (self.goal is not None and ok) else ("native_goal" if ok else "budget"),
             "ok": ok,
             "verification": verification,
+            "step_goal_events": self.step_goal_events,
             "release": {
                 "events": self.release_events,
                 "count": len(self.release_events),

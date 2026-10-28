@@ -381,6 +381,16 @@ def _worker_reading(env, bodies: dict) -> dict[str, Any]:
         eef_pos = None if eef is None else [float(item) for item in list(eef)[:3]]
     except (TypeError, ValueError):
         eef_pos = None
+    quat = raw.get("robot0_eef_quat") if isinstance(raw, dict) else None
+    eef_quat = None
+    try:
+        if quat is not None:
+            values = [float(item) for item in list(quat)[:4]]
+            norm = sum(value * value for value in values) ** 0.5
+            if len(values) == 4 and norm > 1e-9:
+                eef_quat = [value / norm for value in values]
+    except (TypeError, ValueError, IndexError):
+        eef_quat = None
     grip = raw.get("robot0_gripper_qpos") if isinstance(raw, dict) else None
     opening = None
     try:
@@ -427,6 +437,7 @@ def _worker_reading(env, bodies: dict) -> dict[str, Any]:
         "sim": {
             "objects": objects,
             "eef_pos": eef_pos,
+            "eef_quat": eef_quat,
             "gripper_opening_m": opening,
             "evidence_source": "readonly_rpc",
         },

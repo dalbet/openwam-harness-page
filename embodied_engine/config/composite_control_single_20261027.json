@@ -1,0 +1,32 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-10-28T00:05:00+08:00",
+  "note": "Single-step control for the composite: the same task 8 instruction alone, on the same three init indices, through the same routing and policy. It separates 'step 2 fails because of the drawer-open scene state / handoff' from 'this init index is simply hard for the policy'.",
+  "seed": 0,
+  "rounds": [
+    {
+      "round": "single-s0-en",
+      "task_id": 8,
+      "lang": "en",
+      "instruction": "Put the bowl on the plate.",
+      "expected_choice": "put_bowl_on_plate",
+      "seed": 0
+    },
+    {
+      "round": "single-s1-en",
+      "task_id": 8,
+      "lang": "en",
+      "instruction": "Put the bowl on the plate.",
+      "expected_choice": "put_bowl_on_plate",
+      "seed": 1
+    },
+    {
+      "round": "single-s2-en",
+      "task_id": 8,
+      "lang": "en",
+      "instruction": "Put the bowl on the plate.",
+      "expected_choice": "put_bowl_on_plate",
+      "seed": 2
+    }
+  ]
+}
