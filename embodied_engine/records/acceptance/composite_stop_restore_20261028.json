@@ -1,0 +1,259 @@
+{
+  "schema": "embodied_engine.composite_stop.v1",
+  "generated_at": "2026-10-28T11:37:51",
+  "engine": "http://127.0.0.1:14800",
+  "handoff_mode": "robot_state_restore",
+  "handoff_mode_reply": {
+    "status": "ok",
+    "mode": "robot_state_restore",
+    "options": {
+      "mode": "robot_state_restore",
+      "retreat_m": 0.18,
+      "retreat_step_m": 0.04,
+      "retreat_max_actions": 60,
+      "tolerance_m": 0.01,
+      "retreat_rot_step_rad": 1.0,
+      "rot_tolerance_rad": 0.05,
+      "min_clear_m": 0.02,
+      "reset_policy_buffer": true,
+      "gripper_open_command": -1.0,
+      "settle_actions": 2,
+      "settle_tol_m": 0.01,
+      "settle_tol_rot_rad": 0.05,
+      "restore_penetration_tol_m": 0.002,
+      "inflight_wait_s": 10.0,
+      "detach_from_contact": true,
+      "detach_max_actions": 8,
+      "detach_step_m": 0.04,
+      "settle_scene_tol_m": 0.01,
+      "settle_object_tol_m": 0.005,
+      "mode_requested": "robot_state_restore",
+      "mode_fallback": false
+    }
+  },
+  "cases": [
+    {
+      "case": "stop-step2",
+      "kind": "step-2",
+      "episode_id": "ep-20261028-113807-554a96",
+      "ok": true,
+      "trigger_phase": "running",
+      "trigger_detail": "step 2/2 whole_task  ->",
+      "trigger_sim_actions": 131,
+      "stop_ack": {
+        "status": "ok",
+        "active": false,
+        "phase": "stopped",
+        "stop": {
+          "reason": "stop-test:stop-step2",
+          "sim_at_request": 131,
+          "sim_at_ack": 131,
+          "in_flight_actions": 0,
+          "thread_alive": false,
+          "settle_agreements": 3,
+          "cancel_barrier_s": 0.0007,
+          "in_flight_after_cancel": 0,
+          "inference_idle": true,
+          "chunk_buffer_cleared": true
+        }
+      },
+      "after_stop": {
+        "samples": [
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131
+        ],
+        "first": 131,
+        "last": 131,
+        "advanced": false,
+        "phase": "stopped"
+      },
+      "final_phase": "stopped",
+      "final_detail": "episode stopped",
+      "step_2_started": true,
+      "record_execution_status": "stopped",
+      "record_failure": {
+        "code": "user_stop",
+        "reason": "episode stopped by user"
+      },
+      "record_sim_actions": 131,
+      "scene_epoch": 2,
+      "journal_stages": [
+        "None",
+        "composite_handoff",
+        "composite_step_start",
+        "episode_end",
+        "handoff",
+        "loading",
+        "planning",
+        "policy_buffer_reset",
+        "ready",
+        "running",
+        "step_goal_latched",
+        "stopped",
+        "stopping"
+      ],
+      "leak_check": {
+        "load_status": "ok",
+        "sim_action_count_after_load": 0,
+        "scene_epoch_after_load": 1,
+        "episode_after_load": null,
+        "phase_after_load": "ready",
+        "last_result_after_load": {},
+        "no_actions_left": true,
+        "new_episode": true
+      }
+    },
+    {
+      "case": "stop-restore-before-write",
+      "kind": "restore-before-write",
+      "episode_id": "ep-20261028-113925-760695",
+      "ok": true,
+      "trigger_phase": "handoff",
+      "trigger_detail": "step c1->c2 open_middle_drawer->put_bowl_on_plate",
+      "trigger_sim_actions": 124,
+      "stop_ack": {
+        "status": "ok",
+        "active": false,
+        "phase": "stopped",
+        "stop": {
+          "reason": "stop-test:stop-restore-before-write",
+          "sim_at_request": 124,
+          "sim_at_ack": 125,
+          "in_flight_actions": 1,
+          "thread_alive": false,
+          "settle_agreements": 3,
+          "cancel_barrier_s": 0.0007,
+          "in_flight_after_cancel": 0,
+          "inference_idle": true,
+          "chunk_buffer_cleared": true
+        }
+      },
+      "after_stop": {
+        "samples": [
+          125,
+          125,
+          125,
+          125,
+          125,
+          125,
+          125,
+          125,
+          125,
+          125,
+          125,
+          125
+        ],
+        "first": 125,
+        "last": 125,
+        "advanced": false,
+        "phase": "stopped"
+      },
+      "final_phase": "stopped",
+      "final_detail": "episode stopped",
+      "step_2_started": false,
+      "record_execution_status": "stopped",
+      "record_failure": {
+        "code": "user_stop",
+        "reason": "episode stopped by user"
+      },
+      "record_sim_actions": 125,
+      "scene_epoch": 2,
+      "journal_stages": [
+        "episode_end",
+        "stopped",
+        "stopping"
+      ],
+      "leak_check": {
+        "load_status": "ok",
+        "sim_action_count_after_load": 0,
+        "scene_epoch_after_load": 1,
+        "episode_after_load": null,
+        "phase_after_load": "ready",
+        "last_result_after_load": {},
+        "no_actions_left": true,
+        "new_episode": true
+      }
+    },
+    {
+      "case": "stop-restore-after-write",
+      "kind": "restore-after-write",
+      "episode_id": "ep-20261028-114042-355091",
+      "ok": true,
+      "trigger_phase": "running",
+      "trigger_detail": "step 2/2 whole_task  ->",
+      "trigger_sim_actions": 131,
+      "stop_ack": {
+        "status": "ok",
+        "active": false,
+        "phase": "stopped",
+        "stop": {
+          "reason": "stop-test:stop-restore-after-write",
+          "sim_at_request": 131,
+          "sim_at_ack": 131,
+          "in_flight_actions": 0,
+          "thread_alive": false,
+          "settle_agreements": 3,
+          "cancel_barrier_s": 0.0008,
+          "in_flight_after_cancel": 0,
+          "inference_idle": true,
+          "chunk_buffer_cleared": true
+        }
+      },
+      "after_stop": {
+        "samples": [
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131,
+          131
+        ],
+        "first": 131,
+        "last": 131,
+        "advanced": false,
+        "phase": "stopped"
+      },
+      "final_phase": "stopped",
+      "final_detail": "episode stopped",
+      "step_2_started": false,
+      "record_execution_status": "stopped",
+      "record_failure": {
+        "code": "user_stop",
+        "reason": "episode stopped by user"
+      },
+      "record_sim_actions": 131,
+      "scene_epoch": 2,
+      "journal_stages": [
+        "episode_end",
+        "stopped",
+        "stopping"
+      ],
+      "leak_check": {
+        "load_status": "ok",
+        "sim_action_count_after_load": 0,
+        "scene_epoch_after_load": 1,
+        "episode_after_load": null,
+        "phase_after_load": "ready",
+        "last_result_after_load": {},
+        "no_actions_left": true,
+        "new_episode": true
+      }
+    }
+  ]
+}

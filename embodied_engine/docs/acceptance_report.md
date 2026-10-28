@@ -1800,3 +1800,218 @@ snapshot 17.3 + convert 1.3（这几项在时间上重叠，不能相加当墙�
 | 旋钮探针 | `records/acceptance/knob_reach_probe_20261027.json` |
 | 证据归档 | `records/acceptance/archive_20261027_8becbe2_before_composite/`（本轮开始前的验收清单与仍存在的原始记录；轮转已丢的只留清单摘要并标注，不重建） |
 | 单测 | `tests/test_composite_plan.py`、`tests/test_composite_handoff.py`；`pytest tests` 共 **105 passed** |
+
+## 31. 步间交接 `robot_state_restore`：12 回合对照、单步对照、追踪诊断与 stop（2026-10-28，真实执行）
+
+本轮问题只有一个：**`0 → 8` 的第二步失败，是不是主要由机械臂交接状态造成？**
+做法是保留场景、把机器人写回回合初态，其余（Qwen 路由、OpenWAM 策略、官方指令、
+目标阈值、动作预算、执行窗口、`page_ui`）一律不动，然后与原有的动作归位模式对照。
+
+分支 `feature/openwam-composite-state-restore-20261028`，基线 `b8f23dc`。
+上一轮六回合证据目录未被覆盖；本轮所有结果写在新路径下。
+
+### 31.1 模式与记账口径
+
+| 模式 | 交接动作 | 谁写状态 | `robot_state_restore` | `robot_teleport` | `physical_continuity` |
+| --- | --- | --- | --- | --- | --- |
+| `action_retreat`（默认，原有） | 31–37 个闭环退离动作 | 只有策略动作 | false | false | true |
+| `robot_state_restore`（本轮新增） | 1 个脱离动作 + 2 个稳定动作 + 1 次状态写入 | env 服务内 RPC | true | true | false |
+
+机制细节见 `docs/architecture.md` §9.9/§9.10。要点：关节索引来自
+`robot.robot_joints`/`robot.gripper_joints` + `jnt_qposadr`/`jnt_dofadr`（不写死切片）；
+候选构型在独立 `mujoco.MjData` 副本上检查穿插；写入后 `update(force=True)` →
+`reset_goal()` → `composite_controller.reset()` 同步 OSC；复读校验 qpos 误差 /
+qvel / 非机器人摘要逐字节相等 / `sim.time` 不变；任何一项失败都不得 `ready`。
+
+### 31.2 单测（先做，`pytest tests` 共 **148 passed**）
+
+| 文件 | 条数 | 钉住的判定 |
+| --- | --- | --- |
+| `tests/test_robot_state_restore_service.py` | 13 | 机器人索引隔离（不动抽屉/物体自由关节）、非机器人摘要、候选构型穿插拒绝、控制器同步 |
+| `tests/test_handoff_robot_state_restore.py` | 18 | 未验证的写入不得 ready、持物/未释放拒绝、脱离机制、稳定动作单独记账、收敛判定 |
+| `tests/test_watch_joint_trace.py` | 10 | 第二步追踪只读、基线取交接状态、首次移动记录动作号与接触、无接触读不破坏执行 |
+
+单测不替代真实执行；下面是真实执行结果。
+
+### 31.3 真实恢复探针（先单 init，再上矩阵）
+
+| 探针 | 结果 |
+| --- | --- |
+| 写入 | `applied=true`、`verified=true`、`write_s≈0.023–0.030` |
+| 关节复读 | `robot_qpos_error=0.0`、`robot_qvel_abs_max=0.0` |
+| 非机器人状态 | 摘要写入前后逐字节相等（`non_robot_preserved=true`），`scene_time_unchanged=true` |
+| 稳定动作后 EEF 漂移 | `1.1e-05 – 2.1e-05 m`，姿态漂移 `≈5e-05 rad` |
+| 候选穿插检查 | `penetration_max_m=0.0`（容差 2 mm），`isolated_copy=true` |
+| 第一步目标 | 恢复后与取新观测后均成立，`observation_id` 已变 |
+| 交接自身推动场景 | 脱离动作让抽屉多开 `4.2–6.1 mm`；稳定动作让场景关节移动 `0.8–3.4 mm`（阈值内，逐回合记录） |
+
+结论：状态恢复本身是**可重复、可验证**的，交接不再是"未知位姿"。
+
+### 31.4 冻结 12 回合对照（3 个 init × 2 模式 × 2 次，交错）
+
+清单 `config/composite_state_restore_12_20261028.json`（`frozen_at` 2026-10-28T18:05+08:00），
+结果 `records/acceptance/composite_state_restore_12_20261028.json` +
+`..._runs/`（12 份原始回合）+ `..._summary.json`。
+三个 init 固定、官方英文指令固定；常驻 OpenWAM 不暴露按回合采样种子，重复回合只用于
+观察重复性，不作为更多独立初始化。
+
+总表：
+
+| 指标 | `action_retreat` | `robot_state_restore` | 合计 |
+| --- | --- | --- | --- |
+| 回合数 | 6 | 6 | 12 |
+| 路由映射 ok | 6 | 6 | 12 |
+| 第一步目标成立 | 6 | 6 | 12 |
+| 交接 ready | 6 | 6 | 12 |
+| 第二步 native 达到 | 2 | 3 | **5/12** |
+| 第二步释放与放置完整 | 2 | 3 | 5/12 |
+| **两个目标同时保持** | **0** | **0** | **0/12** |
+| `scene_epoch` 连续 | 6 | 6 | 12 |
+| 过程 reset/reload/BDDL 变更/物体传送 | 0 | 0 | 0 |
+
+逐回合（抽屉 `qpos` 阈值 −0.14，越负越开）：
+
+| 回合 | 模式 | init | 第一步结束抽屉 qpos | 回合末抽屉 qpos | 回退 (mm) | 第二步 native（动作数） | 释放 | 组合 | 失败码 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `c08-s0-retreat-r1` | action_retreat | 0 | -0.1501 | -0.0944 | +55.7 | 否（600） | none | 否 | `composite_step_2_failed` |
+| `c08-s0-restore-r1` | robot_state_restore | 0 | -0.1499 | -0.0774 | +72.4 | 否（600） | none | 否 | `composite_step_2_failed` |
+| `c08-s0-retreat-r2` | action_retreat | 0 | -0.1510 | -0.0692 | +81.8 | 是（527） | policy_chunk | 否 | `composite_final_verification_failed` |
+| `c08-s0-restore-r2` | robot_state_restore | 0 | -0.1565 | -0.0808 | +75.6 | 是（382） | policy_chunk | 否 | `composite_final_verification_failed` |
+| `c08-s1-retreat-r1` | action_retreat | 1 | -0.1505 | -0.1600 | -9.5 | 否（600） | none | 否 | `composite_step_2_failed` |
+| `c08-s1-restore-r1` | robot_state_restore | 1 | -0.1534 | +0.0016 | +155.0 | 否（600） | none | 否 | `composite_step_2_failed` |
+| `c08-s1-retreat-r2` | action_retreat | 1 | -0.1516 | -0.1375 | +14.1 | 否（600） | none | 否 | `composite_step_2_failed` |
+| `c08-s1-restore-r2` | robot_state_restore | 1 | -0.1516 | -0.0700 | +81.6 | 是（279） | policy_chunk | 否 | `composite_final_verification_failed` |
+| `c08-s2-retreat-r1` | action_retreat | 2 | -0.1541 | -0.0829 | +71.1 | 是（560） | policy_chunk | 否 | `composite_final_verification_failed` |
+| `c08-s2-restore-r1` | robot_state_restore | 2 | -0.1526 | -0.0619 | +90.7 | 否（600） | none | 否 | `composite_step_2_failed` |
+| `c08-s2-retreat-r2` | action_retreat | 2 | -0.1554 | -0.1598 | -4.4 | 否（600） | none | 否 | `composite_step_2_failed` |
+| `c08-s2-restore-r2` | robot_state_restore | 2 | -0.1499 | -0.0761 | +73.8 | 是（477） | policy_chunk | 否 | `composite_final_verification_failed` |
+
+三种结果分开报（不合并成功率）：
+
+| 结果 | `action_retreat` | `robot_state_restore` |
+| --- | --- | --- |
+| 第二步 native 达到 | 2/6 | 3/6 |
+| 第二步释放与放置完整 | 2/6 | 3/6 |
+| 最终两个目标同时保持 | 0/6 | 0/6 |
+
+### 31.5 单步对照（每个 init 一次 task 8，同代码同流程）
+
+`config/composite_state_restore_control_3_20261028.json` →
+`records/acceptance/composite_state_restore_control_3_20261028.json`。
+
+| 回合 | init | 结果 | 动作 | 时延 |
+| --- | --- | --- | --- | --- |
+| `ctl-s0-task8` | 0 | 用户目标成立 | 99 | 29.4 s |
+| `ctl-s1-task8` | 1 | 用户目标成立 | 94 | 28.4 s |
+| `ctl-s2-task8` | 2 | 用户目标成立 | 90 | 27.3 s |
+
+同一策略在同样的三个初始化上、从干净场景起，单步 task 8 **3/3 成功且只要 90–99 个动作**，
+第二轮却要 279–600 个动作。这把"策略不会放碗"排除掉，把问题定位在"第二步在一个
+已被第一步改变过的场景里执行"。
+
+### 31.6 第二步什么时候把抽屉推回去（追踪诊断，6 回合）
+
+追踪开关接在实际执行第二步的 `WholeTaskRunner` 上（组合两步都走 OpenWAM whole-task，
+只有 `skills.py` 的追踪在组合回合里永远不会触发——本轮已修）。
+清单 `config/composite_restore_trace_6_20261028.json`，结果
+`records/acceptance/composite_restore_trace_6_20261028.json` +
+`..._drawer.json`；这 6 回合是诊断重复，**不并入 31.4 的验收矩阵**。
+
+| 回合 | 模式 | init | 第二步交接时 qpos | 首次移动（全回合 / 步内动作号） | 首次位移 | 该刻接触 geom 对 | 位移 ≥5 mm 的步内动作 | 回合末 qpos | 第二步内回退 (mm) | 物体 start→end |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `tr-s0-retreat` | action_retreat | 0 | -0.151773 | 173 / 21 | 0.000151 m | `wooden_cabinet_1_g24` / `gripper0_right_finger1_collision` (-0.00097) | 25（-5.0 mm） | -0.1406 | 11.2 | [-0.0976,-0.0086,0.8984] → [0.0775,0.0669,0.9117] |
+| `tr-s0-restore` | robot_state_restore | 0 | -0.159458 | 132 / 1 | -0.000464 m | 无（该刻无机器人-非机器人接触） | 28（6.0 mm） | -0.0950 | 64.5 | [-0.0976,-0.0086,0.8984] → [0.0773,0.0237,0.9112] |
+| `tr-s1-retreat` | action_retreat | 1 | -0.156722 | 182 / 27 | -0.000528 m | `wooden_cabinet_1_g22` / `gripper0_right_hand_collision` (-0.00017) | 170（5.5 mm） | -0.1600 | -3.3 | 不变 |
+| `tr-s1-restore` | robot_state_restore | 1 | -0.157586 | 127 / 1 | -0.000375 m | 无 | 174（5.7 mm） | -0.1600 | -2.4 | 不变 |
+| `tr-s2-retreat` | action_retreat | 2 | -0.159944 | 180 / 20 | 0.000109 m | `wooden_cabinet_1_g22` / `gripper0_right_finger1_collision` (-0.00078) | 113（5.3 mm） | -0.0631 | 96.8 | [-0.1033,0.0023,0.8984] → [0.1457,0.0504,0.8984] |
+| `tr-s2-restore` | robot_state_restore | 2 | -0.160002 | 121 / 1 | 0.000109 m | 无 | 95（5.1 mm） | -0.1080 | 52.0 | 不变 |
+
+读法（只写记录里有的）：
+
+1. **`action_retreat`：能指名接触。** 第二步自己的第 20–27 个动作上，右手指
+   （`gripper0_right_finger1_collision`）或右手（`gripper0_right_hand_collision`）
+   压到抽屉 geom（`wooden_cabinet_1_g22`/`g24`），穿透 0.17–0.97 mm，抽屉随即开始退回。
+   这是"臂撞抽屉"的直接证据，也是上一轮缺口表第 1 项的补测。
+2. **`robot_state_restore`：第一次移动在第二步第 1 个动作，幅度只有 0.1–0.5 mm，
+   而且那一瞬间测不到任何机器人-非机器人接触。** 也就是说 teleport 后抽屉的
+   亚毫米级移动来自残余动力学/接触抖动的重新平衡，不是"被推"。真正 ≥5 mm 的回退
+   发生在第 28–174 个动作，那时追踪只采了一次接触（局限，见 31.8）。
+3. **坐标是清楚的**：`sim_action_count` 是全回合动作号，`skill_sim_actions` 是第二步内
+   动作号；`drawer_trace` 每 25 个动作保留一次，可直接对齐动作流。
+
+### 31.7 stop：三个真实同步点
+
+`records/acceptance/composite_stop_restore_20261028.json`（`--handoff-mode robot_state_restore`）。
+
+| 用例 | 同步点 | 结果 | ack 时动作数与之后 | 泄漏检查 |
+| --- | --- | --- | --- | --- |
+| `stop-step2` | 第二阶段 `running` 且已有 131 个动作 | PASS | `sim_at_request=sim_at_ack=131`，ack 后 2.5 s 内 12 次采样全为 131 | 重新 load 后动作数 0、新 episode、`ready` |
+| `stop-restore-before-write` | 交接刚关闭动作屏障（`policy_buffer_reset`），状态尚未写入 | PASS | `124 → 125`（在途 1 个动作被等完），之后不再增长 | 同上 |
+| `stop-restore-after-write` | 写入+稳定+新观测全部验证完（`handoff.status=ready`），第二步尚未发动作 | PASS | `131 → 131`（无在途动作），之后不再增长 | 同上 |
+
+三个用例的三份回合记录都是 `execution_status=stopped`、`failure_code=user_stop`；
+`stop-restore-before-write` 的记录里 `composite.handoff` 为空（写入没发生过），
+`stop-restore-after-write` 的记录里 `handoff.status=ready` 且 `restore.applied=true`，
+说明"stopping 时 barrier 之后才回 ack"这一条在真实执行里成立，且没有迟到的恢复。
+
+### 31.8 时延分解（引擎自报）
+
+| 项 | `action_retreat` | `robot_state_restore` |
+| --- | --- | --- |
+| 交接总时长 | 2.40 / 2.56 / 2.72 / 2.84 / 2.87 / 2.95 s（均值 2.72） | 0.309 / 0.313 / 0.322 / 0.325 / 0.328 / 0.335 s（均值 0.322） |
+| 其中状态写入 | — | 0.023–0.030 s |
+| 其中稳定动作 | — | 2 个动作，0.16 s |
+| 其中脱离动作 | — | 1 个动作 |
+| 交接动作数 | 31–37 | 3（1 脱离 + 2 稳定） |
+| 整回合均值 | 191.6 s | 168.0 s |
+| 第一步动作数 | 116–129 | 127–136 |
+| 第二步动作数 | 527–600 | 279–600 |
+
+交接本身快了约 8.4 倍（机械臂不再需要闭环走 0.24 m）。整回合差异主要来自第二步
+是否提前达到 native goal，不是交接开销。
+
+### 31.9 结论（按问题回答，不夸大）
+
+1. **机械臂交接状态不是第二步失败的主要原因。** 恢复模式在 6/6 回合里把机器人精确
+   写回初态（关节误差 0、速度 0、非机器人摘要逐字节相等、EEF 漂移 ≤2.1e-05 m、
+   OSC 目标已重锚），第二步 native 仍只有 3/6，两个目标同时保持仍是 0/6。
+2. **改善幅度落在重复性噪声里。** 3/6 对 2/6 的差别（合计 5/12）不足以支撑
+   "交接状态是重要因素"；重复回合只用于看重复性，不能当独立样本。
+3. **第二步完成时抽屉仍然回退（明确答案）。** 5 个第二步 native 达到的回合里，
+   抽屉全部退回 −0.0619…−0.0950（阈值 −0.14），回退 52–97 mm。
+   也就是说：**归位/恢复不足以保护前序目标**——两个目标在同一个动作流里互相拉扯。
+4. **反向也成立，所以不是单一因果。** 有 2 个回合抽屉被保住了
+   （`c08-s1-retreat-r1` −0.1600、`c08-s2-retreat-r2` −0.1598），但第二步 600 个动作内
+   没完成放置。把抽屉保住并不自动换来放置成功；把碗放好也不自动保住抽屉。
+5. **`action_retreat` 有可指名的接触证据**：第二步第 20–27 个动作，右手指/右手
+   压到 `wooden_cabinet_1_g22/g24`，穿透 0.17–0.97 mm，与抽屉开始退回同一时刻。
+   `robot_state_restore` 的首次移动没有测得接触，其大回退发生在更晚的动作上。
+6. 因此本轮**不能**宣称已解决 `0 → 8`，也**不能**据此排除场景分布变化或策略本身
+   在"抽屉开着"这一分布外的退化。按边界要求，下一阶段才做同一交接状态下的 Pi0.5 对照，
+   本轮不换模型、不改执行窗口，保持归因清晰。
+
+### 31.10 本轮缺口（如实列）
+
+| # | 缺口 | 影响 | 为什么没做 |
+| --- | --- | --- | --- |
+| 1 | 追踪只对首个 >0.1 mm 变化采一次接触 | `robot_state_restore` 的 ≥5 mm 回退那一刻没有接触证据 | 只读诊断，逐动作读接触需额外 RPC，会改变动作节奏 |
+| 2 | 常驻 OpenWAM 无按回合采样种子 | 重复回合不是独立样本，方差不能统计 | 服务端接口不支持，未改服务 |
+| 3 | 候选穿插检查只能报静态穿插 | 不能预测"臂后续会不会扫到抽屉" | 不是运动规划；如实标注为能力缺口 |
+| 4 | 6 回合追踪是诊断重复，不是验收矩阵 | 只用于回答"何时开始退"，不能并入成功率 | 避免把诊断跑动当成验收证据 |
+| 5 | 恢复模式让抽屉多推 4–6 mm（脱离动作） | 交接自身也动了场景一点点 | 要在无接触后才允许写入；这 4–6 mm 已计入 `detach_check` 并逐回合记录 |
+| 6 | `physical_continuity=false` | 该模式不能用于"连续物理组合"的验收 | 设计如此：它只回答归因问题 |
+
+### 31.11 本轮产物
+
+| 产物 | 路径 |
+| --- | --- |
+| 模式实现 | `engine/composite.py`（`Handoff` 双模式、脱离、稳定、记账）、`adapters/env_runtime/episode_service.py`（`robot_state_capture`/`robot_state_restore`/`robot_state_inspect`）、`adapters/env_client.py` |
+| 编排与诊断 | `engine/engine_service.py`（`/api/handoff`、初态捕获、`_watched_joints`、失败时保留 final verification）、`engine/openwam_rollout.py`（第二步追踪） |
+| 配置 | `config/engine.json`（`composite.handoff`）、`config/composite_state_restore_12_20261028.json`、`config/composite_state_restore_control_3_20261028.json`、`config/composite_restore_trace_6_20261028.json` |
+| 12 回合 | `records/acceptance/composite_state_restore_12_20261028.json` + `..._runs/`（12 份）、`..._summary.json`、`..._drawer.json` |
+| 单步对照 | `records/acceptance/composite_state_restore_control_3_20261028.json` |
+| 追踪诊断 | `records/acceptance/composite_restore_trace_6_20261028.json` + `..._runs/`（6 份）、`..._drawer.json` |
+| 探针 | `records/acceptance/composite_restore_probe*_20261028.json`（含写入校验与失败保留） |
+| stop | `records/acceptance/composite_stop_restore_20261028.json`（3 个同步点） |
+| 汇总脚本 | `scripts/summarize_composite_rounds.py`（按模式分组）、`scripts/summarize_drawer_regression.py`（首次接触动作号/geom/qpos 轨迹） |
+| 单测 | `tests/test_robot_state_restore_service.py`（13）、`tests/test_handoff_robot_state_restore.py`（18）、`tests/test_watch_joint_trace.py`（10）；`pytest tests` 共 **148 passed** |

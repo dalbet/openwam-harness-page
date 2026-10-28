@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "schema": "embodied_engine.rounds.v1",
+    "started_at": "2026-10-28T09:47:32",
+    "manifest": "config/composite_restore_probe_20261028.json",
+    "manifest_sha256": "3072966e4b973822c4fb90b1544fe7af1b8a8fffa2539cd611bb4833670467ac",
+    "seed": 0,
+    "engine": "http://127.0.0.1:14800",
+    "agent_model": "Qwen3.5-9B",
+    "agent_mode": "semantic_router",
+    "action_model": "OpenWAM-Alpha-Sim-LIBERO",
+    "inference_mode": "sync_step",
+    "catalog": {
+      "schema": "embodied_engine.task_catalog.v2",
+      "version": "2026-10-27.1",
+      "sha256": "7eb62a5ddbf3a48fcf20885522cf182761bcd554549841703a49b536443ffecf",
+      "path": "/home/host/page-dmh/embodied_engine/config/tasks.json",
+      "suite": "libero_goal",
+      "libero_repo": "https://github.com/RLinf/LIBERO.git",
+      "libero_commit": "a8323074d93a09e32bd898630a70531b1f51bc77",
+      "libero_package_path": "/home/host/page-dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/libero/libero",
+      "tasks_info_sha256": "547286ceb6485e85aa1472c03466a613573982d92284d792c1ab63524b479382"
+    },
+    "rounds_total": 1,
+    "retry_policy": "no round is ever retried or skipped",
+    "handoff_modes": [
+      "robot_state_restore"
+    ],
+    "policy_randomness": {
+      "inference_mode": "sync_step",
+      "denoise_steps": 10,
+      "execute_horizon": 32,
+      "action_horizon": 32,
+      "sampling_seed": null,
+      "note": "no per-episode sampling seed is exposed by the resident OpenWAM server; action sampling draws from that process's ambient RNG, while the scene init is fixed by the env seed"
+    },
+    "finished_at": "2026-10-28T09:47:38",
+    "summary": {
+      "rounds": 1,
+      "mapping_ok": 0,
+      "native_success": 0,
+      "user_goal_success": 0,
+      "failed": 0,
+      "stopped": 0
+    }
+  },
+  "rows": [
+    {
+      "round": "probe-restore-s0-en",
+      "kind": "composite",
+      "task_id": 8,
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "mapping_ok": false,
+      "failure_code": "load_failed",
+      "failure_reason": "RuntimeError: env server exited with 1; see /home/host/page-dmh/embodied_engine/records/logs/env_libero_goal_task8.log"
+    }
+  ]
+}

@@ -1,0 +1,5612 @@
+{
+  "meta": {
+    "schema": "embodied_engine.rounds.v1",
+    "started_at": "2026-10-28T10:02:38",
+    "manifest": "config/composite_state_restore_12_20261028.json",
+    "manifest_sha256": "a4546d2ae914dd95536dc9b8fa923033fd6de3b4a35c5f930ec673ef89e08c06",
+    "seed": 0,
+    "engine": "http://127.0.0.1:14800",
+    "agent_model": "Qwen3.5-9B",
+    "agent_mode": "semantic_router",
+    "action_model": "OpenWAM-Alpha-Sim-LIBERO",
+    "inference_mode": "sync_step",
+    "catalog": {
+      "schema": "embodied_engine.task_catalog.v2",
+      "version": "2026-10-27.1",
+      "sha256": "7eb62a5ddbf3a48fcf20885522cf182761bcd554549841703a49b536443ffecf",
+      "path": "/home/host/page-dmh/embodied_engine/config/tasks.json",
+      "suite": "libero_goal",
+      "libero_repo": "https://github.com/RLinf/LIBERO.git",
+      "libero_commit": "a8323074d93a09e32bd898630a70531b1f51bc77",
+      "libero_package_path": "/home/host/page-dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/libero/libero",
+      "tasks_info_sha256": "547286ceb6485e85aa1472c03466a613573982d92284d792c1ab63524b479382"
+    },
+    "rounds_total": 12,
+    "retry_policy": "no round is ever retried or skipped",
+    "handoff_modes": [
+      "action_retreat",
+      "robot_state_restore"
+    ],
+    "policy_randomness": {
+      "inference_mode": "sync_step",
+      "denoise_steps": 10,
+      "execute_horizon": 32,
+      "action_horizon": 32,
+      "sampling_seed": null,
+      "note": "no per-episode sampling seed is exposed by the resident OpenWAM server; action sampling draws from that process's ambient RNG, while the scene init is fixed by the env seed"
+    },
+    "finished_at": "2026-10-28T10:40:15",
+    "summary": {
+      "rounds": 12,
+      "mapping_ok": 12,
+      "native_success": 5,
+      "user_goal_success": 0,
+      "failed": 12,
+      "stopped": 0
+    }
+  },
+  "rows": [
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8182,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": null,
+      "step_2_native": false,
+      "step_2_final_native": null,
+      "final_verification_read": false,
+      "native_goal_ever": false,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": false,
+      "native_goal_final": false,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 118,
+          "duration_s": 30.896,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.15006597412116757,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 119,
+            "confirm_samples": 2,
+            "sim_actions": 118,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": false,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 600,
+          "duration_s": 158.221,
+          "failure_code": "native_goal_not_reached",
+          "release_state": "unknown",
+          "release_source": "none",
+          "evidence": {
+            "ok": false,
+            "method": "native_libero_goal",
+            "native_goal": false,
+            "samples": 601,
+            "sim_actions": 600,
+            "limit": "max_steps",
+            "reason_code": "native_goal_not_reached",
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "action_retreat",
+      "handoff_mode_requested": "action_retreat",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": false,
+      "robot_teleport": false,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": null,
+      "restore": null,
+      "restore_verification": null,
+      "restore_candidate": null,
+      "restore_gripper_contacts": null,
+      "restore_scene_check": null,
+      "restore_eef_drift_m": null,
+      "action_accounting": {
+        "policy_actions": 718,
+        "handoff_retreat_actions": 31,
+        "handoff_detach_actions": 0,
+        "handoff_settle_actions": 0,
+        "handoff_actions": 31,
+        "finalizer_actions": 0,
+        "sim_actions_total": 749
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 2.3955,
+      "handoff_retreat_actions": 31,
+      "handoff_retreat_reason": "home_reached",
+      "handoff_retreat_converged": true,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-e52f83471e05",
+        "reset_s": 0.0037,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 31,
+      "scene_epoch_start": 2,
+      "scene_epoch_end": 2,
+      "execution_status": "failed",
+      "failure_code": "composite_step_2_failed",
+      "failure_reason": "composite step 2 (put_bowl_on_plate) did not reach its goal after 600 actions",
+      "episode_sim_actions": 749,
+      "duration_s": 195.56,
+      "timing": {
+        "planner_s": 0.83,
+        "execution_s": 189.133,
+        "release_s": 0.002,
+        "verification_s": 0.0,
+        "inference_s_sum": 32.801,
+        "env_step_s_sum": 49.383,
+        "snapshot_s_sum": 7.061,
+        "observe_s_sum": 31.563,
+        "convert_s_sum": 0.447,
+        "frame_s_sum": 0.02,
+        "plan_to_first_action_s": 0.689,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 2.397,
+        "total_s_engine": 195.56,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-100255-e4e68d",
+      "scene_epoch": 2,
+      "seed": 0,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-100255-e4e68d.json",
+      "round": "c08-s0-retreat-r1",
+      "handoff_mode_requested_by_runner": "action_retreat",
+      "handoff_mode_effective": "action_retreat",
+      "wall_s": 197.046,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-100255-e4e68d.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8121,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": null,
+      "step_2_native": false,
+      "step_2_final_native": null,
+      "final_verification_read": false,
+      "native_goal_ever": false,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": false,
+      "native_goal_final": false,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 132,
+          "duration_s": 34.532,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.1498530894901312,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 133,
+            "confirm_samples": 2,
+            "sim_actions": 132,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": false,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 600,
+          "duration_s": 156.902,
+          "failure_code": "native_goal_not_reached",
+          "release_state": "unknown",
+          "release_source": "none",
+          "evidence": {
+            "ok": false,
+            "method": "native_libero_goal",
+            "native_goal": false,
+            "samples": 601,
+            "sim_actions": 600,
+            "limit": "max_steps",
+            "reason_code": "native_goal_not_reached",
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "robot_state_restore",
+      "handoff_mode_requested": "robot_state_restore",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": true,
+      "robot_teleport": true,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": {
+        "ok": true,
+        "reason_code": null,
+        "reason": null,
+        "capture_id": "a407d4d7507b4d76a07ac2af1240bb6f:rs1",
+        "observation_id": "query-a407d4d7507b4d76a07ac2af1240bb6f:4:0:757",
+        "sim_action_count": 0,
+        "robot": {
+          "ok": true,
+          "capture_id": "a407d4d7507b4d76a07ac2af1240bb6f:rs1",
+          "capture": {
+            "capture_id": "a407d4d7507b4d76a07ac2af1240bb6f:rs1",
+            "qpos_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qvel_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qpos": [
+              0.007122857,
+              -0.168341009,
+              -0.006796039,
+              -2.43664051,
+              0.012306862,
+              2.219866616,
+              0.794961371,
+              0.039052562,
+              -0.039029991
+            ],
+            "joints": [
+              "robot0_joint1",
+              "robot0_joint2",
+              "robot0_joint3",
+              "robot0_joint4",
+              "robot0_joint5",
+              "robot0_joint6",
+              "robot0_joint7",
+              "gripper0_right_finger_joint1",
+              "gripper0_right_finger_joint2"
+            ],
+            "eef_pos": [
+              -0.206256,
+              0.001608,
+              1.179427
+            ],
+            "eef_quat": [
+              0.999659,
+              -0.008145,
+              -0.024243,
+              -0.005267
+            ],
+            "gripper_opening_m": 0.078079,
+            "non_robot_digest": "de5687f35ea4b783c06e7dcac69c4291",
+            "sim_time": 0.75,
+            "sim_action_count": 0,
+            "reason": "episode_init:ep-20261028-100615-a10094"
+          },
+          "state": {
+            "ok": true,
+            "code": "episode-service-robot-restore-1",
+            "robot": {
+              "prefixes": [
+                "robot0_",
+                "gripper0_right_"
+              ],
+              "joints": [
+                "robot0_joint1",
+                "robot0_joint2",
+                "robot0_joint3",
+                "robot0_joint4",
+                "robot0_joint5",
+                "robot0_joint6",
+                "robot0_joint7",
+                "gripper0_right_finger_joint1",
+                "gripper0_right_finger_joint2"
+              ],
+              "details": [
+                {
+                  "name": "robot0_joint1",
+                  "joint_id": 0,
+                  "type": 3,
+                  "qpos_adr": 0,
+                  "qpos_width": 1,
+                  "qvel_adr": 0,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint2",
+                  "joint_id": 1,
+                  "type": 3,
+                  "qpos_adr": 1,
+                  "qpos_width": 1,
+                  "qvel_adr": 1,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint3",
+                  "joint_id": 2,
+                  "type": 3,
+                  "qpos_adr": 2,
+                  "qpos_width": 1,
+                  "qvel_adr": 2,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint4",
+                  "joint_id": 3,
+                  "type": 3,
+                  "qpos_adr": 3,
+                  "qpos_width": 1,
+                  "qvel_adr": 3,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint5",
+                  "joint_id": 4,
+                  "type": 3,
+                  "qpos_adr": 4,
+                  "qpos_width": 1,
+                  "qvel_adr": 4,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint6",
+                  "joint_id": 5,
+                  "type": 3,
+                  "qpos_adr": 5,
+                  "qpos_width": 1,
+                  "qvel_adr": 5,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint7",
+                  "joint_id": 6,
+                  "type": 3,
+                  "qpos_adr": 6,
+                  "qpos_width": 1,
+                  "qvel_adr": 6,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint1",
+                  "joint_id": 7,
+                  "type": 2,
+                  "qpos_adr": 7,
+                  "qpos_width": 1,
+                  "qvel_adr": 7,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint2",
+                  "joint_id": 8,
+                  "type": 2,
+                  "qpos_adr": 8,
+                  "qpos_width": 1,
+                  "qvel_adr": 8,
+                  "dof_width": 1
+                }
+              ],
+              "qpos_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qvel_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qpos": [
+                0.007122857,
+                -0.168341009,
+                -0.006796039,
+                -2.43664051,
+                0.012306862,
+                2.219866616,
+                0.794961371,
+                0.039052562,
+                -0.039029991
+              ],
+              "qvel": [
+                -0.008321487,
+                -2e-09,
+                0.008007747,
+                -1.26e-07,
+                6.476e-05,
+                -1.051e-06,
+                -3.9149e-05,
+                0.000841064,
+                -0.000841535
+              ],
+              "actuator_ids": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "ctrl": [
+                -0.013627,
+                -19.551516,
+                0.104214,
+                18.190472,
+                0.091203,
+                2.085491,
+                -0.033673,
+                0.04,
+                -0.04
+              ],
+              "eef_pos": [
+                -0.206256,
+                0.001608,
+                1.179427
+              ],
+              "eef_quat": [
+                0.999659,
+                -0.008145,
+                -0.024243,
+                -0.005267
+              ],
+              "gripper_opening_m": 0.078079
+            },
+            "controller": [
+              {
+                "robot": "robot0_",
+                "composite": true,
+                "parts": {
+                  "right": {
+                    "type": "OperationalSpaceController",
+                    "goal_pos": [
+                      0.453744,
+                      0.001621,
+                      0.267426
+                    ],
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "goal_update_mode": "achieved",
+                    "interpolators": []
+                  },
+                  "right_gripper": {
+                    "type": "SimpleGripController",
+                    "goal_pos": null,
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": null,
+                    "goal_update_mode": null,
+                    "interpolators": []
+                  }
+                }
+              }
+            ],
+            "non_robot": {
+              "joints": {
+                "akita_black_bowl_1_joint0": [
+                  -0.097626028,
+                  -0.008583465,
+                  0.89840415,
+                  0.707106783,
+                  -2.7755e-05,
+                  3.335e-06,
+                  0.707106779
+                ],
+                "cream_cheese_1_joint0": [
+                  -0.046026291,
+                  0.134472709,
+                  0.908906955,
+                  -0.0,
+                  -0.0,
+                  0.0,
+                  1.0
+                ],
+                "wine_bottle_1_joint0": [
+                  -0.204232881,
+                  -0.061650896,
+                  0.898860954,
+                  1.1e-08,
+                  -1.2452e-05,
+                  7.78e-07,
+                  1.0
+                ],
+                "plate_1_joint0": [
+                  0.062073843,
+                  -0.00938209,
+                  0.902499834,
+                  0.707106809,
+                  -2.661e-05,
+                  1.2067e-05,
+                  0.707106753
+                ],
+                "wooden_cabinet_1_top_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_middle_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_bottom_level": [
+                  0.0
+                ],
+                "flat_stove_1_button": [
+                  0.0
+                ]
+              },
+              "free_bodies": {
+                "akita_black_bowl_1_joint0": {
+                  "pos": [
+                    -0.097626,
+                    -0.008583,
+                    0.898404
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.8e-05,
+                    3e-06,
+                    0.707107
+                  ]
+                },
+                "cream_cheese_1_joint0": {
+                  "pos": [
+                    -0.046026,
+                    0.134473,
+                    0.908907
+                  ],
+                  "quat": [
+                    -0.0,
+                    -0.0,
+                    0.0,
+                    1.0
+                  ]
+                },
+                "wine_bottle_1_joint0": {
+                  "pos": [
+                    -0.204233,
+                    -0.061651,
+                    0.898861
+                  ],
+                  "quat": [
+                    0.0,
+                    -1.2e-05,
+                    1e-06,
+                    1.0
+                  ]
+                },
+                "plate_1_joint0": {
+                  "pos": [
+                    0.062074,
+                    -0.009382,
+                    0.9025
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.7e-05,
+                    1.2e-05,
+                    0.707107
+                  ]
+                }
+              },
+              "digest": "de5687f35ea4b783c06e7dcac69c4291"
+            },
+            "contacts": {
+              "count": 37,
+              "listed": 37,
+              "robot_vs_nonrobot": [],
+              "gripper_vs_nonrobot": [],
+              "penetration_max_m": 0.0
+            },
+            "sim": {
+              "time": 0.75,
+              "nq": 41,
+              "nv": 37,
+              "nu": 9,
+              "na": 0,
+              "qpos_modified": false
+            }
+          },
+          "code": "episode-service-robot-restore-1"
+        },
+        "controller": null,
+        "nonrobot_digest": null
+      },
+      "restore": {
+        "available": true,
+        "applied": true,
+        "verified": true,
+        "capture_id": "a407d4d7507b4d76a07ac2af1240bb6f:rs1",
+        "reason_code": "",
+        "reason": "",
+        "settle_actions": 2,
+        "write_s": 0.023,
+        "settle_s": 0.1503
+      },
+      "restore_verification": {
+        "robot_qpos_error": 0.0,
+        "robot_qvel_abs_max": 0.0,
+        "non_robot_preserved": true,
+        "non_robot_digest_before": "d2074447b060197986b318b9e9870c73",
+        "non_robot_digest_after": "d2074447b060197986b318b9e9870c73",
+        "scene_time_unchanged": true
+      },
+      "restore_candidate": {
+        "checked": true,
+        "isolated_copy": true,
+        "method": "fresh mujoco.MjData on the same MjModel: current qpos plus the captured robot qpos, qvel zeroed, mj_forward, contact distances read there",
+        "penetration_max_m": 0.0,
+        "tol_m": 0.002,
+        "refused": false,
+        "robot_vs_nonrobot": [],
+        "contact_count": 37
+      },
+      "restore_gripper_contacts": [],
+      "restore_scene_check": {
+        "joints": {
+          "akita_black_bowl_1_joint0": {
+            "before": -0.097626,
+            "after": -0.097626,
+            "delta": 0.0
+          },
+          "cream_cheese_1_joint0": {
+            "before": -0.046026,
+            "after": -0.046026,
+            "delta": 0.0
+          },
+          "wine_bottle_1_joint0": {
+            "before": -0.204233,
+            "after": -0.204233,
+            "delta": 0.0
+          },
+          "plate_1_joint0": {
+            "before": 0.062074,
+            "after": 0.062074,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_top_level": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_middle_level": {
+            "before": -0.155232,
+            "after": -0.158652,
+            "delta": 0.00342
+          },
+          "wooden_cabinet_1_bottom_level": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          },
+          "flat_stove_1_button": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          }
+        },
+        "objects": {
+          "akita_black_bowl_1": {
+            "before": [
+              -0.097626,
+              -0.008583,
+              0.898404
+            ],
+            "after": [
+              -0.097626,
+              -0.008583,
+              0.898404
+            ],
+            "delta": 0.0
+          },
+          "cream_cheese_1": {
+            "before": [
+              -0.046026,
+              0.134473,
+              0.908907
+            ],
+            "after": [
+              -0.046026,
+              0.134473,
+              0.908907
+            ],
+            "delta": 0.0
+          },
+          "wine_bottle_1": {
+            "before": [
+              -0.204233,
+              -0.061651,
+              0.898861
+            ],
+            "after": [
+              -0.204233,
+              -0.061651,
+              0.898861
+            ],
+            "delta": 0.0
+          },
+          "plate_1": {
+            "before": [
+              0.062074,
+              -0.009382,
+              0.9025
+            ],
+            "after": [
+              0.062074,
+              -0.009382,
+              0.9025
+            ],
+            "delta": 0.0
+          }
+        },
+        "joint_max_delta": 0.00342,
+        "object_max_delta": 0.0,
+        "joint_tol": 0.01,
+        "object_tol": 0.005,
+        "preserved": true
+      },
+      "restore_eef_drift_m": 2.1e-05,
+      "action_accounting": {
+        "policy_actions": 732,
+        "handoff_retreat_actions": 0,
+        "handoff_detach_actions": 1,
+        "handoff_settle_actions": 2,
+        "handoff_actions": 3,
+        "finalizer_actions": 0,
+        "sim_actions_total": 735
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 0.3087,
+      "handoff_retreat_actions": null,
+      "handoff_retreat_reason": null,
+      "handoff_retreat_converged": null,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-5fc15a33ffe2",
+        "reset_s": 0.0034,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 3,
+      "scene_epoch_start": 4,
+      "scene_epoch_end": 4,
+      "execution_status": "failed",
+      "failure_code": "composite_step_2_failed",
+      "failure_reason": "composite step 2 (put_bowl_on_plate) did not reach its goal after 600 actions",
+      "episode_sim_actions": 735,
+      "duration_s": 195.727,
+      "timing": {
+        "planner_s": 0.825,
+        "execution_s": 191.451,
+        "release_s": 0.001,
+        "verification_s": 0.0,
+        "inference_s_sum": 33.412,
+        "env_step_s_sum": 49.607,
+        "snapshot_s_sum": 7.027,
+        "observe_s_sum": 31.916,
+        "convert_s_sum": 0.473,
+        "frame_s_sum": 0.02,
+        "plan_to_first_action_s": 0.685,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 0.311,
+        "total_s_engine": 195.727,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-100615-a10094",
+      "scene_epoch": 4,
+      "seed": 0,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-100615-a10094.json",
+      "round": "c08-s0-restore-r1",
+      "handoff_mode_requested_by_runner": "robot_state_restore",
+      "handoff_mode_effective": "robot_state_restore",
+      "wall_s": 197.138,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-100615-a10094.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8227,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": false,
+      "step_2_native": true,
+      "step_2_final_native": true,
+      "final_verification_read": true,
+      "native_goal_ever": true,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": false,
+          "native_current": true,
+          "native_ever": false,
+          "sim_actions": 125,
+          "duration_s": 32.681,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.15099060912372725,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 126,
+            "confirm_samples": 2,
+            "sim_actions": 125,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": true,
+          "ok_final": true,
+          "native_current": true,
+          "native_ever": true,
+          "sim_actions": 527,
+          "duration_s": 138.886,
+          "failure_code": null,
+          "release_state": "verified",
+          "release_source": "policy_chunk",
+          "evidence": {
+            "ok": true,
+            "method": "native_libero_goal",
+            "native_goal": true,
+            "samples": 528,
+            "sim_actions": 527,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "action_retreat",
+      "handoff_mode_requested": "action_retreat",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": false,
+      "robot_teleport": false,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": null,
+      "restore": null,
+      "restore_verification": null,
+      "restore_candidate": null,
+      "restore_gripper_contacts": null,
+      "restore_scene_check": null,
+      "restore_eef_drift_m": null,
+      "action_accounting": {
+        "policy_actions": 652,
+        "handoff_retreat_actions": 37,
+        "handoff_detach_actions": 0,
+        "handoff_settle_actions": 0,
+        "handoff_actions": 37,
+        "finalizer_actions": 0,
+        "sim_actions_total": 692
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 2.8414,
+      "handoff_retreat_actions": 37,
+      "handoff_retreat_reason": "home_reached",
+      "handoff_retreat_converged": true,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-80bc57624834",
+        "reset_s": 0.0037,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 37,
+      "scene_epoch_start": 6,
+      "scene_epoch_end": 6,
+      "execution_status": "failed",
+      "failure_code": "composite_final_verification_failed",
+      "failure_reason": "the composite's end state does not satisfy every step goal on fresh samples",
+      "episode_sim_actions": 692,
+      "duration_s": 178.655,
+      "timing": {
+        "planner_s": 0.834,
+        "execution_s": 171.582,
+        "release_s": 0.0,
+        "verification_s": 0.0,
+        "inference_s_sum": 30.054,
+        "env_step_s_sum": 44.568,
+        "snapshot_s_sum": 6.386,
+        "observe_s_sum": 28.774,
+        "convert_s_sum": 0.422,
+        "frame_s_sum": 0.018,
+        "plan_to_first_action_s": 0.68,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 2.843,
+        "total_s_engine": 178.655,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-100936-53c49e",
+      "scene_epoch": 6,
+      "seed": 0,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-100936-53c49e.json",
+      "round": "c08-s0-retreat-r2",
+      "handoff_mode_requested_by_runner": "action_retreat",
+      "handoff_mode_effective": "action_retreat",
+      "wall_s": 180.605,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-100936-53c49e.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8309,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": false,
+      "step_2_native": true,
+      "step_2_final_native": true,
+      "final_verification_read": true,
+      "native_goal_ever": true,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": false,
+          "native_current": true,
+          "native_ever": false,
+          "sim_actions": 127,
+          "duration_s": 32.793,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.15648331355062933,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 128,
+            "confirm_samples": 2,
+            "sim_actions": 127,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": true,
+          "ok_final": true,
+          "native_current": true,
+          "native_ever": true,
+          "sim_actions": 382,
+          "duration_s": 99.902,
+          "failure_code": null,
+          "release_state": "verified",
+          "release_source": "policy_chunk",
+          "evidence": {
+            "ok": true,
+            "method": "native_libero_goal",
+            "native_goal": true,
+            "samples": 383,
+            "sim_actions": 382,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "robot_state_restore",
+      "handoff_mode_requested": "robot_state_restore",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": true,
+      "robot_teleport": true,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": {
+        "ok": true,
+        "reason_code": null,
+        "reason": null,
+        "capture_id": "a407d4d7507b4d76a07ac2af1240bb6f:rs2",
+        "observation_id": "query-a407d4d7507b4d76a07ac2af1240bb6f:8:0:2198",
+        "sim_action_count": 0,
+        "robot": {
+          "ok": true,
+          "capture_id": "a407d4d7507b4d76a07ac2af1240bb6f:rs2",
+          "capture": {
+            "capture_id": "a407d4d7507b4d76a07ac2af1240bb6f:rs2",
+            "qpos_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qvel_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qpos": [
+              0.007122857,
+              -0.168341009,
+              -0.006796039,
+              -2.43664051,
+              0.012306862,
+              2.219866616,
+              0.794961371,
+              0.039052562,
+              -0.039029991
+            ],
+            "joints": [
+              "robot0_joint1",
+              "robot0_joint2",
+              "robot0_joint3",
+              "robot0_joint4",
+              "robot0_joint5",
+              "robot0_joint6",
+              "robot0_joint7",
+              "gripper0_right_finger_joint1",
+              "gripper0_right_finger_joint2"
+            ],
+            "eef_pos": [
+              -0.206256,
+              0.001608,
+              1.179427
+            ],
+            "eef_quat": [
+              0.999659,
+              -0.008145,
+              -0.024243,
+              -0.005267
+            ],
+            "gripper_opening_m": 0.078079,
+            "non_robot_digest": "de5687f35ea4b783c06e7dcac69c4291",
+            "sim_time": 0.75,
+            "sim_action_count": 0,
+            "reason": "episode_init:ep-20261028-101239-3f1b6e"
+          },
+          "state": {
+            "ok": true,
+            "code": "episode-service-robot-restore-1",
+            "robot": {
+              "prefixes": [
+                "robot0_",
+                "gripper0_right_"
+              ],
+              "joints": [
+                "robot0_joint1",
+                "robot0_joint2",
+                "robot0_joint3",
+                "robot0_joint4",
+                "robot0_joint5",
+                "robot0_joint6",
+                "robot0_joint7",
+                "gripper0_right_finger_joint1",
+                "gripper0_right_finger_joint2"
+              ],
+              "details": [
+                {
+                  "name": "robot0_joint1",
+                  "joint_id": 0,
+                  "type": 3,
+                  "qpos_adr": 0,
+                  "qpos_width": 1,
+                  "qvel_adr": 0,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint2",
+                  "joint_id": 1,
+                  "type": 3,
+                  "qpos_adr": 1,
+                  "qpos_width": 1,
+                  "qvel_adr": 1,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint3",
+                  "joint_id": 2,
+                  "type": 3,
+                  "qpos_adr": 2,
+                  "qpos_width": 1,
+                  "qvel_adr": 2,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint4",
+                  "joint_id": 3,
+                  "type": 3,
+                  "qpos_adr": 3,
+                  "qpos_width": 1,
+                  "qvel_adr": 3,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint5",
+                  "joint_id": 4,
+                  "type": 3,
+                  "qpos_adr": 4,
+                  "qpos_width": 1,
+                  "qvel_adr": 4,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint6",
+                  "joint_id": 5,
+                  "type": 3,
+                  "qpos_adr": 5,
+                  "qpos_width": 1,
+                  "qvel_adr": 5,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint7",
+                  "joint_id": 6,
+                  "type": 3,
+                  "qpos_adr": 6,
+                  "qpos_width": 1,
+                  "qvel_adr": 6,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint1",
+                  "joint_id": 7,
+                  "type": 2,
+                  "qpos_adr": 7,
+                  "qpos_width": 1,
+                  "qvel_adr": 7,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint2",
+                  "joint_id": 8,
+                  "type": 2,
+                  "qpos_adr": 8,
+                  "qpos_width": 1,
+                  "qvel_adr": 8,
+                  "dof_width": 1
+                }
+              ],
+              "qpos_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qvel_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qpos": [
+                0.007122857,
+                -0.168341009,
+                -0.006796039,
+                -2.43664051,
+                0.012306862,
+                2.219866616,
+                0.794961371,
+                0.039052562,
+                -0.039029991
+              ],
+              "qvel": [
+                -0.008321487,
+                -2e-09,
+                0.008007747,
+                -1.26e-07,
+                6.476e-05,
+                -1.051e-06,
+                -3.9149e-05,
+                0.000841064,
+                -0.000841535
+              ],
+              "actuator_ids": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "ctrl": [
+                -0.013627,
+                -19.551516,
+                0.104214,
+                18.190472,
+                0.091203,
+                2.085491,
+                -0.033673,
+                0.04,
+                -0.04
+              ],
+              "eef_pos": [
+                -0.206256,
+                0.001608,
+                1.179427
+              ],
+              "eef_quat": [
+                0.999659,
+                -0.008145,
+                -0.024243,
+                -0.005267
+              ],
+              "gripper_opening_m": 0.078079
+            },
+            "controller": [
+              {
+                "robot": "robot0_",
+                "composite": true,
+                "parts": {
+                  "right": {
+                    "type": "OperationalSpaceController",
+                    "goal_pos": [
+                      0.453744,
+                      0.001621,
+                      0.267426
+                    ],
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "goal_update_mode": "achieved",
+                    "interpolators": []
+                  },
+                  "right_gripper": {
+                    "type": "SimpleGripController",
+                    "goal_pos": null,
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": null,
+                    "goal_update_mode": null,
+                    "interpolators": []
+                  }
+                }
+              }
+            ],
+            "non_robot": {
+              "joints": {
+                "akita_black_bowl_1_joint0": [
+                  -0.097626028,
+                  -0.008583465,
+                  0.89840415,
+                  0.707106783,
+                  -2.7755e-05,
+                  3.335e-06,
+                  0.707106779
+                ],
+                "cream_cheese_1_joint0": [
+                  -0.046026291,
+                  0.134472709,
+                  0.908906955,
+                  -0.0,
+                  -0.0,
+                  0.0,
+                  1.0
+                ],
+                "wine_bottle_1_joint0": [
+                  -0.204232881,
+                  -0.061650896,
+                  0.898860954,
+                  1.1e-08,
+                  -1.2452e-05,
+                  7.78e-07,
+                  1.0
+                ],
+                "plate_1_joint0": [
+                  0.062073843,
+                  -0.00938209,
+                  0.902499834,
+                  0.707106809,
+                  -2.661e-05,
+                  1.2067e-05,
+                  0.707106753
+                ],
+                "wooden_cabinet_1_top_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_middle_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_bottom_level": [
+                  0.0
+                ],
+                "flat_stove_1_button": [
+                  0.0
+                ]
+              },
+              "free_bodies": {
+                "akita_black_bowl_1_joint0": {
+                  "pos": [
+                    -0.097626,
+                    -0.008583,
+                    0.898404
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.8e-05,
+                    3e-06,
+                    0.707107
+                  ]
+                },
+                "cream_cheese_1_joint0": {
+                  "pos": [
+                    -0.046026,
+                    0.134473,
+                    0.908907
+                  ],
+                  "quat": [
+                    -0.0,
+                    -0.0,
+                    0.0,
+                    1.0
+                  ]
+                },
+                "wine_bottle_1_joint0": {
+                  "pos": [
+                    -0.204233,
+                    -0.061651,
+                    0.898861
+                  ],
+                  "quat": [
+                    0.0,
+                    -1.2e-05,
+                    1e-06,
+                    1.0
+                  ]
+                },
+                "plate_1_joint0": {
+                  "pos": [
+                    0.062074,
+                    -0.009382,
+                    0.9025
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.7e-05,
+                    1.2e-05,
+                    0.707107
+                  ]
+                }
+              },
+              "digest": "de5687f35ea4b783c06e7dcac69c4291"
+            },
+            "contacts": {
+              "count": 37,
+              "listed": 37,
+              "robot_vs_nonrobot": [],
+              "gripper_vs_nonrobot": [],
+              "penetration_max_m": 0.0
+            },
+            "sim": {
+              "time": 0.75,
+              "nq": 41,
+              "nv": 37,
+              "nu": 9,
+              "na": 0,
+              "qpos_modified": false
+            }
+          },
+          "code": "episode-service-robot-restore-1"
+        },
+        "controller": null,
+        "nonrobot_digest": null
+      },
+      "restore": {
+        "available": true,
+        "applied": true,
+        "verified": true,
+        "capture_id": "a407d4d7507b4d76a07ac2af1240bb6f:rs2",
+        "reason_code": "",
+        "reason": "",
+        "settle_actions": 2,
+        "write_s": 0.0246,
+        "settle_s": 0.1622
+      },
+      "restore_verification": {
+        "robot_qpos_error": 0.0,
+        "robot_qvel_abs_max": 0.0,
+        "non_robot_preserved": true,
+        "non_robot_digest_before": "160ab3d24840c62d12d8a4145a825a90",
+        "non_robot_digest_after": "160ab3d24840c62d12d8a4145a825a90",
+        "scene_time_unchanged": true
+      },
+      "restore_candidate": {
+        "checked": true,
+        "isolated_copy": true,
+        "method": "fresh mujoco.MjData on the same MjModel: current qpos plus the captured robot qpos, qvel zeroed, mj_forward, contact distances read there",
+        "penetration_max_m": 0.0,
+        "tol_m": 0.002,
+        "refused": false,
+        "robot_vs_nonrobot": [],
+        "contact_count": 37
+      },
+      "restore_gripper_contacts": [],
+      "restore_scene_check": {
+        "joints": {
+          "akita_black_bowl_1_joint0": {
+            "before": -0.097626,
+            "after": -0.097626,
+            "delta": 0.0
+          },
+          "cream_cheese_1_joint0": {
+            "before": -0.046026,
+            "after": -0.046026,
+            "delta": 0.0
+          },
+          "wine_bottle_1_joint0": {
+            "before": -0.204233,
+            "after": -0.204233,
+            "delta": 0.0
+          },
+          "plate_1_joint0": {
+            "before": 0.062074,
+            "after": 0.062074,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_top_level": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_middle_level": {
+            "before": -0.160705,
+            "after": -0.159906,
+            "delta": 0.000799
+          },
+          "wooden_cabinet_1_bottom_level": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          },
+          "flat_stove_1_button": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          }
+        },
+        "objects": {
+          "akita_black_bowl_1": {
+            "before": [
+              -0.097626,
+              -0.008583,
+              0.898404
+            ],
+            "after": [
+              -0.097626,
+              -0.008583,
+              0.898404
+            ],
+            "delta": 0.0
+          },
+          "cream_cheese_1": {
+            "before": [
+              -0.046026,
+              0.134473,
+              0.908907
+            ],
+            "after": [
+              -0.046026,
+              0.134473,
+              0.908907
+            ],
+            "delta": 0.0
+          },
+          "wine_bottle_1": {
+            "before": [
+              -0.204233,
+              -0.061651,
+              0.898861
+            ],
+            "after": [
+              -0.204233,
+              -0.061651,
+              0.898861
+            ],
+            "delta": 0.0
+          },
+          "plate_1": {
+            "before": [
+              0.062074,
+              -0.009382,
+              0.9025
+            ],
+            "after": [
+              0.062074,
+              -0.009382,
+              0.9025
+            ],
+            "delta": 0.0
+          }
+        },
+        "joint_max_delta": 0.000799,
+        "object_max_delta": 0.0,
+        "joint_tol": 0.01,
+        "object_tol": 0.005,
+        "preserved": true
+      },
+      "restore_eef_drift_m": 2.1e-05,
+      "action_accounting": {
+        "policy_actions": 509,
+        "handoff_retreat_actions": 0,
+        "handoff_detach_actions": 1,
+        "handoff_settle_actions": 2,
+        "handoff_actions": 3,
+        "finalizer_actions": 0,
+        "sim_actions_total": 515
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 0.3218,
+      "handoff_retreat_actions": null,
+      "handoff_retreat_reason": null,
+      "handoff_retreat_converged": null,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-babd5256c00b",
+        "reset_s": 0.0032,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 3,
+      "scene_epoch_start": 8,
+      "scene_epoch_end": 8,
+      "execution_status": "failed",
+      "failure_code": "composite_final_verification_failed",
+      "failure_reason": "the composite's end state does not satisfy every step goal on fresh samples",
+      "episode_sim_actions": 515,
+      "duration_s": 137.331,
+      "timing": {
+        "planner_s": 0.843,
+        "execution_s": 132.707,
+        "release_s": 0.0,
+        "verification_s": 0.0,
+        "inference_s_sum": 23.193,
+        "env_step_s_sum": 34.417,
+        "snapshot_s_sum": 4.955,
+        "observe_s_sum": 22.001,
+        "convert_s_sum": 0.311,
+        "frame_s_sum": 0.013,
+        "plan_to_first_action_s": 0.68,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 0.324,
+        "total_s_engine": 137.331,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-101239-3f1b6e",
+      "scene_epoch": 8,
+      "seed": 0,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-101239-3f1b6e.json",
+      "round": "c08-s0-restore-r2",
+      "handoff_mode_requested_by_runner": "robot_state_restore",
+      "handoff_mode_effective": "robot_state_restore",
+      "wall_s": 138.497,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-101239-3f1b6e.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8074,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": null,
+      "step_2_native": false,
+      "step_2_final_native": null,
+      "final_verification_read": false,
+      "native_goal_ever": false,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": false,
+      "native_goal_final": false,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 122,
+          "duration_s": 31.992,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.15053343176613235,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 123,
+            "confirm_samples": 2,
+            "sim_actions": 122,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": false,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 600,
+          "duration_s": 157.141,
+          "failure_code": "native_goal_not_reached",
+          "release_state": "unknown",
+          "release_source": "none",
+          "evidence": {
+            "ok": false,
+            "method": "native_libero_goal",
+            "native_goal": false,
+            "samples": 601,
+            "sim_actions": 600,
+            "limit": "max_steps",
+            "reason_code": "native_goal_not_reached",
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "action_retreat",
+      "handoff_mode_requested": "action_retreat",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": false,
+      "robot_teleport": false,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": null,
+      "restore": null,
+      "restore_verification": null,
+      "restore_candidate": null,
+      "restore_gripper_contacts": null,
+      "restore_scene_check": null,
+      "restore_eef_drift_m": null,
+      "action_accounting": {
+        "policy_actions": 722,
+        "handoff_retreat_actions": 36,
+        "handoff_detach_actions": 0,
+        "handoff_settle_actions": 0,
+        "handoff_actions": 36,
+        "finalizer_actions": 0,
+        "sim_actions_total": 758
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 2.8696,
+      "handoff_retreat_actions": 36,
+      "handoff_retreat_reason": "home_reached",
+      "handoff_retreat_converged": true,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-6ee4dfe15617",
+        "reset_s": 0.0037,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 36,
+      "scene_epoch_start": 2,
+      "scene_epoch_end": 2,
+      "execution_status": "failed",
+      "failure_code": "composite_step_2_failed",
+      "failure_reason": "composite step 2 (put_bowl_on_plate) did not reach its goal after 600 actions",
+      "episode_sim_actions": 758,
+      "duration_s": 196.238,
+      "timing": {
+        "planner_s": 0.818,
+        "execution_s": 189.15,
+        "release_s": 0.001,
+        "verification_s": 0.0,
+        "inference_s_sum": 32.313,
+        "env_step_s_sum": 50.254,
+        "snapshot_s_sum": 7.021,
+        "observe_s_sum": 31.769,
+        "convert_s_sum": 0.475,
+        "frame_s_sum": 0.02,
+        "plan_to_first_action_s": 0.685,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 2.871,
+        "total_s_engine": 196.238,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-101515-d5c56d",
+      "scene_epoch": 2,
+      "seed": 1,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-101515-d5c56d.json",
+      "round": "c08-s1-retreat-r1",
+      "handoff_mode_requested_by_runner": "action_retreat",
+      "handoff_mode_effective": "action_retreat",
+      "wall_s": 198.213,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-101515-d5c56d.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8382,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": null,
+      "step_2_native": false,
+      "step_2_final_native": null,
+      "final_verification_read": false,
+      "native_goal_ever": false,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": false,
+      "native_goal_final": false,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 128,
+          "duration_s": 33.333,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.1533549804847111,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 129,
+            "confirm_samples": 2,
+            "sim_actions": 128,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": false,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 600,
+          "duration_s": 160.107,
+          "failure_code": "native_goal_not_reached",
+          "release_state": "unknown",
+          "release_source": "none",
+          "evidence": {
+            "ok": false,
+            "method": "native_libero_goal",
+            "native_goal": false,
+            "samples": 601,
+            "sim_actions": 600,
+            "limit": "max_steps",
+            "reason_code": "native_goal_not_reached",
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "robot_state_restore",
+      "handoff_mode_requested": "robot_state_restore",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": true,
+      "robot_teleport": true,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": {
+        "ok": true,
+        "reason_code": null,
+        "reason": null,
+        "capture_id": "0e4982bc254b441babb5bcc4c519d1ab:rs1",
+        "observation_id": "query-0e4982bc254b441babb5bcc4c519d1ab:4:0:766",
+        "sim_action_count": 0,
+        "robot": {
+          "ok": true,
+          "capture_id": "0e4982bc254b441babb5bcc4c519d1ab:rs1",
+          "capture": {
+            "capture_id": "0e4982bc254b441babb5bcc4c519d1ab:rs1",
+            "qpos_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qvel_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qpos": [
+              0.00763663,
+              -0.156940405,
+              0.004527758,
+              -2.402046374,
+              -0.015723706,
+              2.247037126,
+              0.775050537,
+              0.039027477,
+              -0.039055073
+            ],
+            "joints": [
+              "robot0_joint1",
+              "robot0_joint2",
+              "robot0_joint3",
+              "robot0_joint4",
+              "robot0_joint5",
+              "robot0_joint6",
+              "robot0_joint7",
+              "gripper0_right_finger_joint1",
+              "gripper0_right_finger_joint2"
+            ],
+            "eef_pos": [
+              -0.188051,
+              0.004048,
+              1.191382
+            ],
+            "eef_quat": [
+              0.999844,
+              0.016389,
+              0.000967,
+              0.006488
+            ],
+            "gripper_opening_m": 0.078079,
+            "non_robot_digest": "9fc37f18cca766fd30febedebc8ba3f5",
+            "sim_time": 0.75,
+            "sim_action_count": 0,
+            "reason": "episode_init:ep-20261028-101837-66b2ef"
+          },
+          "state": {
+            "ok": true,
+            "code": "episode-service-robot-restore-1",
+            "robot": {
+              "prefixes": [
+                "robot0_",
+                "gripper0_right_"
+              ],
+              "joints": [
+                "robot0_joint1",
+                "robot0_joint2",
+                "robot0_joint3",
+                "robot0_joint4",
+                "robot0_joint5",
+                "robot0_joint6",
+                "robot0_joint7",
+                "gripper0_right_finger_joint1",
+                "gripper0_right_finger_joint2"
+              ],
+              "details": [
+                {
+                  "name": "robot0_joint1",
+                  "joint_id": 0,
+                  "type": 3,
+                  "qpos_adr": 0,
+                  "qpos_width": 1,
+                  "qvel_adr": 0,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint2",
+                  "joint_id": 1,
+                  "type": 3,
+                  "qpos_adr": 1,
+                  "qpos_width": 1,
+                  "qvel_adr": 1,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint3",
+                  "joint_id": 2,
+                  "type": 3,
+                  "qpos_adr": 2,
+                  "qpos_width": 1,
+                  "qvel_adr": 2,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint4",
+                  "joint_id": 3,
+                  "type": 3,
+                  "qpos_adr": 3,
+                  "qpos_width": 1,
+                  "qvel_adr": 3,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint5",
+                  "joint_id": 4,
+                  "type": 3,
+                  "qpos_adr": 4,
+                  "qpos_width": 1,
+                  "qvel_adr": 4,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint6",
+                  "joint_id": 5,
+                  "type": 3,
+                  "qpos_adr": 5,
+                  "qpos_width": 1,
+                  "qvel_adr": 5,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint7",
+                  "joint_id": 6,
+                  "type": 3,
+                  "qpos_adr": 6,
+                  "qpos_width": 1,
+                  "qvel_adr": 6,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint1",
+                  "joint_id": 7,
+                  "type": 2,
+                  "qpos_adr": 7,
+                  "qpos_width": 1,
+                  "qvel_adr": 7,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint2",
+                  "joint_id": 8,
+                  "type": 2,
+                  "qpos_adr": 8,
+                  "qpos_width": 1,
+                  "qvel_adr": 8,
+                  "dof_width": 1
+                }
+              ],
+              "qpos_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qvel_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qpos": [
+                0.00763663,
+                -0.156940405,
+                0.004527758,
+                -2.402046374,
+                -0.015723706,
+                2.247037126,
+                0.775050537,
+                0.039027477,
+                -0.039055073
+              ],
+              "qvel": [
+                -0.00519835,
+                3.6e-08,
+                0.00477809,
+                -8e-08,
+                4.0816e-05,
+                8.78e-07,
+                -2.9079e-05,
+                0.000841154,
+                -0.000841446
+              ],
+              "actuator_ids": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "ctrl": [
+                -0.043337,
+                -20.174553,
+                0.073176,
+                18.464955,
+                0.050271,
+                2.199971,
+                -0.025039,
+                0.04,
+                -0.04
+              ],
+              "eef_pos": [
+                -0.188051,
+                0.004048,
+                1.191382
+              ],
+              "eef_quat": [
+                0.999844,
+                0.016389,
+                0.000967,
+                0.006488
+              ],
+              "gripper_opening_m": 0.078079
+            },
+            "controller": [
+              {
+                "robot": "robot0_",
+                "composite": true,
+                "parts": {
+                  "right": {
+                    "type": "OperationalSpaceController",
+                    "goal_pos": [
+                      0.471949,
+                      0.004061,
+                      0.279382
+                    ],
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "goal_update_mode": "achieved",
+                    "interpolators": []
+                  },
+                  "right_gripper": {
+                    "type": "SimpleGripController",
+                    "goal_pos": null,
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": null,
+                    "goal_update_mode": null,
+                    "interpolators": []
+                  }
+                }
+              }
+            ],
+            "non_robot": {
+              "joints": {
+                "akita_black_bowl_1_joint0": [
+                  -0.096428233,
+                  0.013748616,
+                  0.89840415,
+                  0.707106783,
+                  -2.7755e-05,
+                  3.335e-06,
+                  0.707106779
+                ],
+                "cream_cheese_1_joint0": [
+                  -0.040864172,
+                  0.121311721,
+                  0.908906955,
+                  -0.0,
+                  -0.0,
+                  0.0,
+                  1.0
+                ],
+                "wine_bottle_1_joint0": [
+                  -0.203175695,
+                  -0.053713766,
+                  0.898860954,
+                  1.1e-08,
+                  -1.2452e-05,
+                  7.78e-07,
+                  1.0
+                ],
+                "plate_1_joint0": [
+                  0.058727303,
+                  -0.034312446,
+                  0.902499834,
+                  0.707106809,
+                  -2.661e-05,
+                  1.2067e-05,
+                  0.707106753
+                ],
+                "wooden_cabinet_1_top_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_middle_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_bottom_level": [
+                  0.0
+                ],
+                "flat_stove_1_button": [
+                  0.0
+                ]
+              },
+              "free_bodies": {
+                "akita_black_bowl_1_joint0": {
+                  "pos": [
+                    -0.096428,
+                    0.013749,
+                    0.898404
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.8e-05,
+                    3e-06,
+                    0.707107
+                  ]
+                },
+                "cream_cheese_1_joint0": {
+                  "pos": [
+                    -0.040864,
+                    0.121312,
+                    0.908907
+                  ],
+                  "quat": [
+                    -0.0,
+                    -0.0,
+                    0.0,
+                    1.0
+                  ]
+                },
+                "wine_bottle_1_joint0": {
+                  "pos": [
+                    -0.203176,
+                    -0.053714,
+                    0.898861
+                  ],
+                  "quat": [
+                    0.0,
+                    -1.2e-05,
+                    1e-06,
+                    1.0
+                  ]
+                },
+                "plate_1_joint0": {
+                  "pos": [
+                    0.058727,
+                    -0.034312,
+                    0.9025
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.7e-05,
+                    1.2e-05,
+                    0.707107
+                  ]
+                }
+              },
+              "digest": "9fc37f18cca766fd30febedebc8ba3f5"
+            },
+            "contacts": {
+              "count": 37,
+              "listed": 37,
+              "robot_vs_nonrobot": [],
+              "gripper_vs_nonrobot": [],
+              "penetration_max_m": 0.0
+            },
+            "sim": {
+              "time": 0.75,
+              "nq": 41,
+              "nv": 37,
+              "nu": 9,
+              "na": 0,
+              "qpos_modified": false
+            }
+          },
+          "code": "episode-service-robot-restore-1"
+        },
+        "controller": null,
+        "nonrobot_digest": null
+      },
+      "restore": {
+        "available": true,
+        "applied": true,
+        "verified": true,
+        "capture_id": "0e4982bc254b441babb5bcc4c519d1ab:rs1",
+        "reason_code": "",
+        "reason": "",
+        "settle_actions": 2,
+        "write_s": 0.0244,
+        "settle_s": 0.1585
+      },
+      "restore_verification": {
+        "robot_qpos_error": 0.0,
+        "robot_qvel_abs_max": 0.0,
+        "non_robot_preserved": true,
+        "non_robot_digest_before": "4d538117a2e4e4f68609c40aadf687be",
+        "non_robot_digest_after": "4d538117a2e4e4f68609c40aadf687be",
+        "scene_time_unchanged": true
+      },
+      "restore_candidate": {
+        "checked": true,
+        "isolated_copy": true,
+        "method": "fresh mujoco.MjData on the same MjModel: current qpos plus the captured robot qpos, qvel zeroed, mj_forward, contact distances read there",
+        "penetration_max_m": 0.0,
+        "tol_m": 0.002,
+        "refused": false,
+        "robot_vs_nonrobot": [],
+        "contact_count": 37
+      },
+      "restore_gripper_contacts": [],
+      "restore_scene_check": {
+        "joints": {
+          "akita_black_bowl_1_joint0": {
+            "before": -0.096428,
+            "after": -0.096428,
+            "delta": 0.0
+          },
+          "cream_cheese_1_joint0": {
+            "before": -0.040864,
+            "after": -0.040864,
+            "delta": 0.0
+          },
+          "wine_bottle_1_joint0": {
+            "before": -0.203176,
+            "after": -0.203176,
+            "delta": 0.0
+          },
+          "plate_1_joint0": {
+            "before": 0.058727,
+            "after": 0.058727,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_top_level": {
+            "before": 0.001659,
+            "after": 0.001659,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_middle_level": {
+            "before": -0.157906,
+            "after": -0.160106,
+            "delta": 0.002199
+          },
+          "wooden_cabinet_1_bottom_level": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          },
+          "flat_stove_1_button": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          }
+        },
+        "objects": {
+          "akita_black_bowl_1": {
+            "before": [
+              -0.096428,
+              0.013749,
+              0.898404
+            ],
+            "after": [
+              -0.096428,
+              0.013749,
+              0.898404
+            ],
+            "delta": 0.0
+          },
+          "cream_cheese_1": {
+            "before": [
+              -0.040864,
+              0.121312,
+              0.908907
+            ],
+            "after": [
+              -0.040864,
+              0.121312,
+              0.908907
+            ],
+            "delta": 0.0
+          },
+          "wine_bottle_1": {
+            "before": [
+              -0.203176,
+              -0.053714,
+              0.898861
+            ],
+            "after": [
+              -0.203176,
+              -0.053714,
+              0.898861
+            ],
+            "delta": 0.0
+          },
+          "plate_1": {
+            "before": [
+              0.058727,
+              -0.034312,
+              0.9025
+            ],
+            "after": [
+              0.058727,
+              -0.034312,
+              0.9025
+            ],
+            "delta": 0.0
+          }
+        },
+        "joint_max_delta": 0.002199,
+        "object_max_delta": 0.0,
+        "joint_tol": 0.01,
+        "object_tol": 0.005,
+        "preserved": true
+      },
+      "restore_eef_drift_m": 2e-05,
+      "action_accounting": {
+        "policy_actions": 728,
+        "handoff_retreat_actions": 0,
+        "handoff_detach_actions": 1,
+        "handoff_settle_actions": 2,
+        "handoff_actions": 3,
+        "finalizer_actions": 0,
+        "sim_actions_total": 731
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 0.3246,
+      "handoff_retreat_actions": null,
+      "handoff_retreat_reason": null,
+      "handoff_retreat_converged": null,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-f91cdb4f7696",
+        "reset_s": 0.0032,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 3,
+      "scene_epoch_start": 4,
+      "scene_epoch_end": 4,
+      "execution_status": "failed",
+      "failure_code": "composite_step_2_failed",
+      "failure_reason": "composite step 2 (put_bowl_on_plate) did not reach its goal after 600 actions",
+      "episode_sim_actions": 731,
+      "duration_s": 197.892,
+      "timing": {
+        "planner_s": 0.85,
+        "execution_s": 193.457,
+        "release_s": 0.001,
+        "verification_s": 0.0,
+        "inference_s_sum": 32.804,
+        "env_step_s_sum": 52.51,
+        "snapshot_s_sum": 7.136,
+        "observe_s_sum": 32.023,
+        "convert_s_sum": 0.478,
+        "frame_s_sum": 0.019,
+        "plan_to_first_action_s": 0.671,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 0.327,
+        "total_s_engine": 197.892,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-101837-66b2ef",
+      "scene_epoch": 4,
+      "seed": 1,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-101837-66b2ef.json",
+      "round": "c08-s1-restore-r1",
+      "handoff_mode_requested_by_runner": "robot_state_restore",
+      "handoff_mode_effective": "robot_state_restore",
+      "wall_s": 199.94,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-101837-66b2ef.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8366,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": null,
+      "step_2_native": false,
+      "step_2_final_native": null,
+      "final_verification_read": false,
+      "native_goal_ever": false,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": false,
+      "native_goal_final": false,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 123,
+          "duration_s": 32.082,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.15162001180285123,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 124,
+            "confirm_samples": 2,
+            "sim_actions": 123,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": false,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 600,
+          "duration_s": 156.83,
+          "failure_code": "native_goal_not_reached",
+          "release_state": "unknown",
+          "release_source": "none",
+          "evidence": {
+            "ok": false,
+            "method": "native_libero_goal",
+            "native_goal": false,
+            "samples": 601,
+            "sim_actions": 600,
+            "limit": "max_steps",
+            "reason_code": "native_goal_not_reached",
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "action_retreat",
+      "handoff_mode_requested": "action_retreat",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": false,
+      "robot_teleport": false,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": null,
+      "restore": null,
+      "restore_verification": null,
+      "restore_candidate": null,
+      "restore_gripper_contacts": null,
+      "restore_scene_check": null,
+      "restore_eef_drift_m": null,
+      "action_accounting": {
+        "policy_actions": 723,
+        "handoff_retreat_actions": 37,
+        "handoff_detach_actions": 0,
+        "handoff_settle_actions": 0,
+        "handoff_actions": 37,
+        "finalizer_actions": 0,
+        "sim_actions_total": 760
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 2.9509,
+      "handoff_retreat_actions": 37,
+      "handoff_retreat_reason": "home_reached",
+      "handoff_retreat_converged": true,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-cdd521eadfe9",
+        "reset_s": 0.0036,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 37,
+      "scene_epoch_start": 6,
+      "scene_epoch_end": 6,
+      "execution_status": "failed",
+      "failure_code": "composite_step_2_failed",
+      "failure_reason": "composite step 2 (put_bowl_on_plate) did not reach its goal after 600 actions",
+      "episode_sim_actions": 760,
+      "duration_s": 195.789,
+      "timing": {
+        "planner_s": 0.848,
+        "execution_s": 188.928,
+        "release_s": 0.001,
+        "verification_s": 0.0,
+        "inference_s_sum": 32.421,
+        "env_step_s_sum": 49.829,
+        "snapshot_s_sum": 7.009,
+        "observe_s_sum": 31.723,
+        "convert_s_sum": 0.446,
+        "frame_s_sum": 0.019,
+        "plan_to_first_action_s": 0.678,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 2.952,
+        "total_s_engine": 195.789,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-102200-8235cb",
+      "scene_epoch": 6,
+      "seed": 1,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-102200-8235cb.json",
+      "round": "c08-s1-retreat-r2",
+      "handoff_mode_requested_by_runner": "action_retreat",
+      "handoff_mode_effective": "action_retreat",
+      "wall_s": 197.413,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-102200-8235cb.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8164,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": false,
+      "step_2_native": true,
+      "step_2_final_native": true,
+      "final_verification_read": true,
+      "native_goal_ever": true,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": false,
+          "native_current": true,
+          "native_ever": false,
+          "sim_actions": 134,
+          "duration_s": 35.179,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.1515950533372269,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 135,
+            "confirm_samples": 2,
+            "sim_actions": 134,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": true,
+          "ok_final": true,
+          "native_current": true,
+          "native_ever": true,
+          "sim_actions": 279,
+          "duration_s": 73.613,
+          "failure_code": null,
+          "release_state": "verified",
+          "release_source": "policy_chunk",
+          "evidence": {
+            "ok": true,
+            "method": "native_libero_goal",
+            "native_goal": true,
+            "samples": 280,
+            "sim_actions": 279,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "robot_state_restore",
+      "handoff_mode_requested": "robot_state_restore",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": true,
+      "robot_teleport": true,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": {
+        "ok": true,
+        "reason_code": null,
+        "reason": null,
+        "capture_id": "0e4982bc254b441babb5bcc4c519d1ab:rs2",
+        "observation_id": "query-0e4982bc254b441babb5bcc4c519d1ab:8:0:2271",
+        "sim_action_count": 0,
+        "robot": {
+          "ok": true,
+          "capture_id": "0e4982bc254b441babb5bcc4c519d1ab:rs2",
+          "capture": {
+            "capture_id": "0e4982bc254b441babb5bcc4c519d1ab:rs2",
+            "qpos_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qvel_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qpos": [
+              0.00763663,
+              -0.156940405,
+              0.004527758,
+              -2.402046374,
+              -0.015723706,
+              2.247037126,
+              0.775050537,
+              0.039027477,
+              -0.039055073
+            ],
+            "joints": [
+              "robot0_joint1",
+              "robot0_joint2",
+              "robot0_joint3",
+              "robot0_joint4",
+              "robot0_joint5",
+              "robot0_joint6",
+              "robot0_joint7",
+              "gripper0_right_finger_joint1",
+              "gripper0_right_finger_joint2"
+            ],
+            "eef_pos": [
+              -0.188051,
+              0.004048,
+              1.191382
+            ],
+            "eef_quat": [
+              0.999844,
+              0.016389,
+              0.000967,
+              0.006488
+            ],
+            "gripper_opening_m": 0.078079,
+            "non_robot_digest": "9fc37f18cca766fd30febedebc8ba3f5",
+            "sim_time": 0.75,
+            "sim_action_count": 0,
+            "reason": "episode_init:ep-20261028-102521-54e400"
+          },
+          "state": {
+            "ok": true,
+            "code": "episode-service-robot-restore-1",
+            "robot": {
+              "prefixes": [
+                "robot0_",
+                "gripper0_right_"
+              ],
+              "joints": [
+                "robot0_joint1",
+                "robot0_joint2",
+                "robot0_joint3",
+                "robot0_joint4",
+                "robot0_joint5",
+                "robot0_joint6",
+                "robot0_joint7",
+                "gripper0_right_finger_joint1",
+                "gripper0_right_finger_joint2"
+              ],
+              "details": [
+                {
+                  "name": "robot0_joint1",
+                  "joint_id": 0,
+                  "type": 3,
+                  "qpos_adr": 0,
+                  "qpos_width": 1,
+                  "qvel_adr": 0,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint2",
+                  "joint_id": 1,
+                  "type": 3,
+                  "qpos_adr": 1,
+                  "qpos_width": 1,
+                  "qvel_adr": 1,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint3",
+                  "joint_id": 2,
+                  "type": 3,
+                  "qpos_adr": 2,
+                  "qpos_width": 1,
+                  "qvel_adr": 2,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint4",
+                  "joint_id": 3,
+                  "type": 3,
+                  "qpos_adr": 3,
+                  "qpos_width": 1,
+                  "qvel_adr": 3,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint5",
+                  "joint_id": 4,
+                  "type": 3,
+                  "qpos_adr": 4,
+                  "qpos_width": 1,
+                  "qvel_adr": 4,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint6",
+                  "joint_id": 5,
+                  "type": 3,
+                  "qpos_adr": 5,
+                  "qpos_width": 1,
+                  "qvel_adr": 5,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint7",
+                  "joint_id": 6,
+                  "type": 3,
+                  "qpos_adr": 6,
+                  "qpos_width": 1,
+                  "qvel_adr": 6,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint1",
+                  "joint_id": 7,
+                  "type": 2,
+                  "qpos_adr": 7,
+                  "qpos_width": 1,
+                  "qvel_adr": 7,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint2",
+                  "joint_id": 8,
+                  "type": 2,
+                  "qpos_adr": 8,
+                  "qpos_width": 1,
+                  "qvel_adr": 8,
+                  "dof_width": 1
+                }
+              ],
+              "qpos_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qvel_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qpos": [
+                0.00763663,
+                -0.156940405,
+                0.004527758,
+                -2.402046374,
+                -0.015723706,
+                2.247037126,
+                0.775050537,
+                0.039027477,
+                -0.039055073
+              ],
+              "qvel": [
+                -0.00519835,
+                3.6e-08,
+                0.00477809,
+                -8e-08,
+                4.0816e-05,
+                8.78e-07,
+                -2.9079e-05,
+                0.000841154,
+                -0.000841446
+              ],
+              "actuator_ids": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "ctrl": [
+                -0.043337,
+                -20.174553,
+                0.073176,
+                18.464955,
+                0.050271,
+                2.199971,
+                -0.025039,
+                0.04,
+                -0.04
+              ],
+              "eef_pos": [
+                -0.188051,
+                0.004048,
+                1.191382
+              ],
+              "eef_quat": [
+                0.999844,
+                0.016389,
+                0.000967,
+                0.006488
+              ],
+              "gripper_opening_m": 0.078079
+            },
+            "controller": [
+              {
+                "robot": "robot0_",
+                "composite": true,
+                "parts": {
+                  "right": {
+                    "type": "OperationalSpaceController",
+                    "goal_pos": [
+                      0.471949,
+                      0.004061,
+                      0.279382
+                    ],
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "goal_update_mode": "achieved",
+                    "interpolators": []
+                  },
+                  "right_gripper": {
+                    "type": "SimpleGripController",
+                    "goal_pos": null,
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": null,
+                    "goal_update_mode": null,
+                    "interpolators": []
+                  }
+                }
+              }
+            ],
+            "non_robot": {
+              "joints": {
+                "akita_black_bowl_1_joint0": [
+                  -0.096428233,
+                  0.013748616,
+                  0.89840415,
+                  0.707106783,
+                  -2.7755e-05,
+                  3.335e-06,
+                  0.707106779
+                ],
+                "cream_cheese_1_joint0": [
+                  -0.040864172,
+                  0.121311721,
+                  0.908906955,
+                  -0.0,
+                  -0.0,
+                  0.0,
+                  1.0
+                ],
+                "wine_bottle_1_joint0": [
+                  -0.203175695,
+                  -0.053713766,
+                  0.898860954,
+                  1.1e-08,
+                  -1.2452e-05,
+                  7.78e-07,
+                  1.0
+                ],
+                "plate_1_joint0": [
+                  0.058727303,
+                  -0.034312446,
+                  0.902499834,
+                  0.707106809,
+                  -2.661e-05,
+                  1.2067e-05,
+                  0.707106753
+                ],
+                "wooden_cabinet_1_top_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_middle_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_bottom_level": [
+                  0.0
+                ],
+                "flat_stove_1_button": [
+                  0.0
+                ]
+              },
+              "free_bodies": {
+                "akita_black_bowl_1_joint0": {
+                  "pos": [
+                    -0.096428,
+                    0.013749,
+                    0.898404
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.8e-05,
+                    3e-06,
+                    0.707107
+                  ]
+                },
+                "cream_cheese_1_joint0": {
+                  "pos": [
+                    -0.040864,
+                    0.121312,
+                    0.908907
+                  ],
+                  "quat": [
+                    -0.0,
+                    -0.0,
+                    0.0,
+                    1.0
+                  ]
+                },
+                "wine_bottle_1_joint0": {
+                  "pos": [
+                    -0.203176,
+                    -0.053714,
+                    0.898861
+                  ],
+                  "quat": [
+                    0.0,
+                    -1.2e-05,
+                    1e-06,
+                    1.0
+                  ]
+                },
+                "plate_1_joint0": {
+                  "pos": [
+                    0.058727,
+                    -0.034312,
+                    0.9025
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.7e-05,
+                    1.2e-05,
+                    0.707107
+                  ]
+                }
+              },
+              "digest": "9fc37f18cca766fd30febedebc8ba3f5"
+            },
+            "contacts": {
+              "count": 37,
+              "listed": 37,
+              "robot_vs_nonrobot": [],
+              "gripper_vs_nonrobot": [],
+              "penetration_max_m": 0.0
+            },
+            "sim": {
+              "time": 0.75,
+              "nq": 41,
+              "nv": 37,
+              "nu": 9,
+              "na": 0,
+              "qpos_modified": false
+            }
+          },
+          "code": "episode-service-robot-restore-1"
+        },
+        "controller": null,
+        "nonrobot_digest": null
+      },
+      "restore": {
+        "available": true,
+        "applied": true,
+        "verified": true,
+        "capture_id": "0e4982bc254b441babb5bcc4c519d1ab:rs2",
+        "reason_code": "",
+        "reason": "",
+        "settle_actions": 2,
+        "write_s": 0.03,
+        "settle_s": 0.1527
+      },
+      "restore_verification": {
+        "robot_qpos_error": 0.0,
+        "robot_qvel_abs_max": 0.0,
+        "non_robot_preserved": true,
+        "non_robot_digest_before": "48a6a1759edd3aa046a020c6fd6e9a82",
+        "non_robot_digest_after": "48a6a1759edd3aa046a020c6fd6e9a82",
+        "scene_time_unchanged": true
+      },
+      "restore_candidate": {
+        "checked": true,
+        "isolated_copy": true,
+        "method": "fresh mujoco.MjData on the same MjModel: current qpos plus the captured robot qpos, qvel zeroed, mj_forward, contact distances read there",
+        "penetration_max_m": 0.0,
+        "tol_m": 0.002,
+        "refused": false,
+        "robot_vs_nonrobot": [],
+        "contact_count": 37
+      },
+      "restore_gripper_contacts": [],
+      "restore_scene_check": {
+        "joints": {
+          "akita_black_bowl_1_joint0": {
+            "before": -0.096428,
+            "after": -0.096428,
+            "delta": 0.0
+          },
+          "cream_cheese_1_joint0": {
+            "before": -0.040864,
+            "after": -0.040864,
+            "delta": 0.0
+          },
+          "wine_bottle_1_joint0": {
+            "before": -0.203176,
+            "after": -0.203176,
+            "delta": 0.0
+          },
+          "plate_1_joint0": {
+            "before": 0.058727,
+            "after": 0.058727,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_top_level": {
+            "before": 0.001503,
+            "after": 0.001503,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_middle_level": {
+            "before": -0.156176,
+            "after": -0.158513,
+            "delta": 0.002337
+          },
+          "wooden_cabinet_1_bottom_level": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          },
+          "flat_stove_1_button": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          }
+        },
+        "objects": {
+          "akita_black_bowl_1": {
+            "before": [
+              -0.096428,
+              0.013749,
+              0.898404
+            ],
+            "after": [
+              -0.096428,
+              0.013749,
+              0.898404
+            ],
+            "delta": 0.0
+          },
+          "cream_cheese_1": {
+            "before": [
+              -0.040864,
+              0.121312,
+              0.908907
+            ],
+            "after": [
+              -0.040864,
+              0.121312,
+              0.908907
+            ],
+            "delta": 0.0
+          },
+          "wine_bottle_1": {
+            "before": [
+              -0.203176,
+              -0.053714,
+              0.898861
+            ],
+            "after": [
+              -0.203176,
+              -0.053714,
+              0.898861
+            ],
+            "delta": 0.0
+          },
+          "plate_1": {
+            "before": [
+              0.058727,
+              -0.034312,
+              0.9025
+            ],
+            "after": [
+              0.058727,
+              -0.034312,
+              0.9025
+            ],
+            "delta": 0.0
+          }
+        },
+        "joint_max_delta": 0.002337,
+        "object_max_delta": 0.0,
+        "joint_tol": 0.01,
+        "object_tol": 0.005,
+        "preserved": true
+      },
+      "restore_eef_drift_m": 2e-05,
+      "action_accounting": {
+        "policy_actions": 413,
+        "handoff_retreat_actions": 0,
+        "handoff_detach_actions": 1,
+        "handoff_settle_actions": 2,
+        "handoff_actions": 3,
+        "finalizer_actions": 0,
+        "sim_actions_total": 419
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 0.3351,
+      "handoff_retreat_actions": null,
+      "handoff_retreat_reason": null,
+      "handoff_retreat_converged": null,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-e5b5f94cacd9",
+        "reset_s": 0.0032,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 3,
+      "scene_epoch_start": 8,
+      "scene_epoch_end": 8,
+      "execution_status": "failed",
+      "failure_code": "composite_final_verification_failed",
+      "failure_reason": "the composite's end state does not satisfy every step goal on fresh samples",
+      "episode_sim_actions": 419,
+      "duration_s": 113.374,
+      "timing": {
+        "planner_s": 0.826,
+        "execution_s": 108.803,
+        "release_s": 0.0,
+        "verification_s": 0.0,
+        "inference_s_sum": 18.893,
+        "env_step_s_sum": 28.909,
+        "snapshot_s_sum": 3.938,
+        "observe_s_sum": 18.08,
+        "convert_s_sum": 0.257,
+        "frame_s_sum": 0.011,
+        "plan_to_first_action_s": 0.671,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 0.337,
+        "total_s_engine": 113.374,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-102521-54e400",
+      "scene_epoch": 8,
+      "seed": 1,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-102521-54e400.json",
+      "round": "c08-s1-restore-r2",
+      "handoff_mode_requested_by_runner": "robot_state_restore",
+      "handoff_mode_effective": "robot_state_restore",
+      "wall_s": 114.799,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-102521-54e400.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8308,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": false,
+      "step_2_native": true,
+      "step_2_final_native": true,
+      "final_verification_read": true,
+      "native_goal_ever": true,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": false,
+          "native_current": true,
+          "native_ever": false,
+          "sim_actions": 129,
+          "duration_s": 34.05,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.1540786011329888,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 130,
+            "confirm_samples": 2,
+            "sim_actions": 129,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": true,
+          "ok_final": true,
+          "native_current": true,
+          "native_ever": true,
+          "sim_actions": 560,
+          "duration_s": 147.57,
+          "failure_code": null,
+          "release_state": "verified",
+          "release_source": "policy_chunk",
+          "evidence": {
+            "ok": true,
+            "method": "native_libero_goal",
+            "native_goal": true,
+            "samples": 561,
+            "sim_actions": 560,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "action_retreat",
+      "handoff_mode_requested": "action_retreat",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": false,
+      "robot_teleport": false,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": null,
+      "restore": null,
+      "restore_verification": null,
+      "restore_candidate": null,
+      "restore_gripper_contacts": null,
+      "restore_scene_check": null,
+      "restore_eef_drift_m": null,
+      "action_accounting": {
+        "policy_actions": 689,
+        "handoff_retreat_actions": 32,
+        "handoff_detach_actions": 0,
+        "handoff_settle_actions": 0,
+        "handoff_actions": 32,
+        "finalizer_actions": 0,
+        "sim_actions_total": 724
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 2.5629,
+      "handoff_retreat_actions": 32,
+      "handoff_retreat_reason": "home_reached",
+      "handoff_retreat_converged": true,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-3e9270a17255",
+        "reset_s": 0.0074,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 32,
+      "scene_epoch_start": 2,
+      "scene_epoch_end": 2,
+      "execution_status": "failed",
+      "failure_code": "composite_final_verification_failed",
+      "failure_reason": "the composite's end state does not satisfy every step goal on fresh samples",
+      "episode_sim_actions": 724,
+      "duration_s": 188.642,
+      "timing": {
+        "planner_s": 0.842,
+        "execution_s": 181.638,
+        "release_s": 0.0,
+        "verification_s": 0.0,
+        "inference_s_sum": 31.469,
+        "env_step_s_sum": 47.943,
+        "snapshot_s_sum": 6.534,
+        "observe_s_sum": 30.51,
+        "convert_s_sum": 0.438,
+        "frame_s_sum": 0.018,
+        "plan_to_first_action_s": 0.676,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 2.564,
+        "total_s_engine": 188.642,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-102732-42e424",
+      "scene_epoch": 2,
+      "seed": 2,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-102732-42e424.json",
+      "round": "c08-s2-retreat-r1",
+      "handoff_mode_requested_by_runner": "action_retreat",
+      "handoff_mode_effective": "action_retreat",
+      "wall_s": 190.257,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-102732-42e424.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.833,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": null,
+      "step_2_native": false,
+      "step_2_final_native": null,
+      "final_verification_read": false,
+      "native_goal_ever": false,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": false,
+      "native_goal_final": false,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 136,
+          "duration_s": 35.517,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.15260221028339022,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 137,
+            "confirm_samples": 2,
+            "sim_actions": 136,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": false,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 600,
+          "duration_s": 158.982,
+          "failure_code": "native_goal_not_reached",
+          "release_state": "unknown",
+          "release_source": "none",
+          "evidence": {
+            "ok": false,
+            "method": "native_libero_goal",
+            "native_goal": false,
+            "samples": 601,
+            "sim_actions": 600,
+            "limit": "max_steps",
+            "reason_code": "native_goal_not_reached",
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "robot_state_restore",
+      "handoff_mode_requested": "robot_state_restore",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": true,
+      "robot_teleport": true,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": {
+        "ok": true,
+        "reason_code": null,
+        "reason": null,
+        "capture_id": "439bc81c94f3435f847dac4fba04c45a:rs1",
+        "observation_id": "query-439bc81c94f3435f847dac4fba04c45a:4:0:732",
+        "sim_action_count": 0,
+        "robot": {
+          "ok": true,
+          "capture_id": "439bc81c94f3435f847dac4fba04c45a:rs1",
+          "capture": {
+            "capture_id": "439bc81c94f3435f847dac4fba04c45a:rs1",
+            "qpos_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qvel_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qpos": [
+              0.004767571,
+              -0.165209117,
+              0.00442655,
+              -2.445426486,
+              -0.008745434,
+              2.2244504,
+              0.780610004,
+              0.039033673,
+              -0.039048875
+            ],
+            "joints": [
+              "robot0_joint1",
+              "robot0_joint2",
+              "robot0_joint3",
+              "robot0_joint4",
+              "robot0_joint5",
+              "robot0_joint6",
+              "robot0_joint7",
+              "gripper0_right_finger_joint1",
+              "gripper0_right_finger_joint2"
+            ],
+            "eef_pos": [
+              -0.208983,
+              0.003124,
+              1.17464
+            ],
+            "eef_quat": [
+              0.999555,
+              0.00995,
+              -0.027874,
+              0.003813
+            ],
+            "gripper_opening_m": 0.078079,
+            "non_robot_digest": "54099b405e61335bf10a27aebedc7443",
+            "sim_time": 0.75,
+            "sim_action_count": 0,
+            "reason": "episode_init:ep-20261028-103046-694064"
+          },
+          "state": {
+            "ok": true,
+            "code": "episode-service-robot-restore-1",
+            "robot": {
+              "prefixes": [
+                "robot0_",
+                "gripper0_right_"
+              ],
+              "joints": [
+                "robot0_joint1",
+                "robot0_joint2",
+                "robot0_joint3",
+                "robot0_joint4",
+                "robot0_joint5",
+                "robot0_joint6",
+                "robot0_joint7",
+                "gripper0_right_finger_joint1",
+                "gripper0_right_finger_joint2"
+              ],
+              "details": [
+                {
+                  "name": "robot0_joint1",
+                  "joint_id": 0,
+                  "type": 3,
+                  "qpos_adr": 0,
+                  "qpos_width": 1,
+                  "qvel_adr": 0,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint2",
+                  "joint_id": 1,
+                  "type": 3,
+                  "qpos_adr": 1,
+                  "qpos_width": 1,
+                  "qvel_adr": 1,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint3",
+                  "joint_id": 2,
+                  "type": 3,
+                  "qpos_adr": 2,
+                  "qpos_width": 1,
+                  "qvel_adr": 2,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint4",
+                  "joint_id": 3,
+                  "type": 3,
+                  "qpos_adr": 3,
+                  "qpos_width": 1,
+                  "qvel_adr": 3,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint5",
+                  "joint_id": 4,
+                  "type": 3,
+                  "qpos_adr": 4,
+                  "qpos_width": 1,
+                  "qvel_adr": 4,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint6",
+                  "joint_id": 5,
+                  "type": 3,
+                  "qpos_adr": 5,
+                  "qpos_width": 1,
+                  "qvel_adr": 5,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint7",
+                  "joint_id": 6,
+                  "type": 3,
+                  "qpos_adr": 6,
+                  "qpos_width": 1,
+                  "qvel_adr": 6,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint1",
+                  "joint_id": 7,
+                  "type": 2,
+                  "qpos_adr": 7,
+                  "qpos_width": 1,
+                  "qvel_adr": 7,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint2",
+                  "joint_id": 8,
+                  "type": 2,
+                  "qpos_adr": 8,
+                  "qpos_width": 1,
+                  "qvel_adr": 8,
+                  "dof_width": 1
+                }
+              ],
+              "qpos_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qvel_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qpos": [
+                0.004767571,
+                -0.165209117,
+                0.00442655,
+                -2.445426486,
+                -0.008745434,
+                2.2244504,
+                0.780610004,
+                0.039033673,
+                -0.039048875
+              ],
+              "qvel": [
+                -0.000560953,
+                -3.7e-08,
+                4.1385e-05,
+                2.2e-08,
+                9.651e-06,
+                2.39e-07,
+                -1.7955e-05,
+                0.000841315,
+                -0.000841289
+              ],
+              "actuator_ids": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "ctrl": [
+                -0.09226,
+                -19.544363,
+                0.077554,
+                18.087396,
+                0.009521,
+                2.070296,
+                -0.015489,
+                0.04,
+                -0.04
+              ],
+              "eef_pos": [
+                -0.208983,
+                0.003124,
+                1.17464
+              ],
+              "eef_quat": [
+                0.999555,
+                0.00995,
+                -0.027874,
+                0.003813
+              ],
+              "gripper_opening_m": 0.078079
+            },
+            "controller": [
+              {
+                "robot": "robot0_",
+                "composite": true,
+                "parts": {
+                  "right": {
+                    "type": "OperationalSpaceController",
+                    "goal_pos": [
+                      0.451017,
+                      0.003136,
+                      0.26264
+                    ],
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "goal_update_mode": "achieved",
+                    "interpolators": []
+                  },
+                  "right_gripper": {
+                    "type": "SimpleGripController",
+                    "goal_pos": null,
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": null,
+                    "goal_update_mode": null,
+                    "interpolators": []
+                  }
+                }
+              }
+            ],
+            "non_robot": {
+              "joints": {
+                "akita_black_bowl_1_joint0": [
+                  -0.103282322,
+                  0.002252962,
+                  0.89840415,
+                  0.707106783,
+                  -2.7755e-05,
+                  3.335e-06,
+                  0.707106779
+                ],
+                "cream_cheese_1_joint0": [
+                  -0.066907832,
+                  0.118864032,
+                  0.908906955,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "wine_bottle_1_joint0": [
+                  -0.193373951,
+                  -0.036330819,
+                  0.898860954,
+                  1.1e-08,
+                  -1.2452e-05,
+                  7.78e-07,
+                  1.0
+                ],
+                "plate_1_joint0": [
+                  0.052456282,
+                  -0.012704871,
+                  0.902499834,
+                  0.707106809,
+                  -2.661e-05,
+                  1.2067e-05,
+                  0.707106753
+                ],
+                "wooden_cabinet_1_top_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_middle_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_bottom_level": [
+                  0.0
+                ],
+                "flat_stove_1_button": [
+                  0.0
+                ]
+              },
+              "free_bodies": {
+                "akita_black_bowl_1_joint0": {
+                  "pos": [
+                    -0.103282,
+                    0.002253,
+                    0.898404
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.8e-05,
+                    3e-06,
+                    0.707107
+                  ]
+                },
+                "cream_cheese_1_joint0": {
+                  "pos": [
+                    -0.066908,
+                    0.118864,
+                    0.908907
+                  ],
+                  "quat": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ]
+                },
+                "wine_bottle_1_joint0": {
+                  "pos": [
+                    -0.193374,
+                    -0.036331,
+                    0.898861
+                  ],
+                  "quat": [
+                    0.0,
+                    -1.2e-05,
+                    1e-06,
+                    1.0
+                  ]
+                },
+                "plate_1_joint0": {
+                  "pos": [
+                    0.052456,
+                    -0.012705,
+                    0.9025
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.7e-05,
+                    1.2e-05,
+                    0.707107
+                  ]
+                }
+              },
+              "digest": "54099b405e61335bf10a27aebedc7443"
+            },
+            "contacts": {
+              "count": 37,
+              "listed": 37,
+              "robot_vs_nonrobot": [],
+              "gripper_vs_nonrobot": [],
+              "penetration_max_m": 0.0
+            },
+            "sim": {
+              "time": 0.75,
+              "nq": 41,
+              "nv": 37,
+              "nu": 9,
+              "na": 0,
+              "qpos_modified": false
+            }
+          },
+          "code": "episode-service-robot-restore-1"
+        },
+        "controller": null,
+        "nonrobot_digest": null
+      },
+      "restore": {
+        "available": true,
+        "applied": true,
+        "verified": true,
+        "capture_id": "439bc81c94f3435f847dac4fba04c45a:rs1",
+        "reason_code": "",
+        "reason": "",
+        "settle_actions": 2,
+        "write_s": 0.0238,
+        "settle_s": 0.1526
+      },
+      "restore_verification": {
+        "robot_qpos_error": 0.0,
+        "robot_qvel_abs_max": 0.0,
+        "non_robot_preserved": true,
+        "non_robot_digest_before": "b5d1de3ebcd40e9be9eb08c7cde2868e",
+        "non_robot_digest_after": "b5d1de3ebcd40e9be9eb08c7cde2868e",
+        "scene_time_unchanged": true
+      },
+      "restore_candidate": {
+        "checked": true,
+        "isolated_copy": true,
+        "method": "fresh mujoco.MjData on the same MjModel: current qpos plus the captured robot qpos, qvel zeroed, mj_forward, contact distances read there",
+        "penetration_max_m": 0.0,
+        "tol_m": 0.002,
+        "refused": false,
+        "robot_vs_nonrobot": [],
+        "contact_count": 37
+      },
+      "restore_gripper_contacts": [],
+      "restore_scene_check": {
+        "joints": {
+          "akita_black_bowl_1_joint0": {
+            "before": -0.103282,
+            "after": -0.103282,
+            "delta": 0.0
+          },
+          "cream_cheese_1_joint0": {
+            "before": -0.066908,
+            "after": -0.066908,
+            "delta": 0.0
+          },
+          "wine_bottle_1_joint0": {
+            "before": -0.193374,
+            "after": -0.193374,
+            "delta": 0.0
+          },
+          "plate_1_joint0": {
+            "before": 0.052456,
+            "after": 0.052456,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_top_level": {
+            "before": 0.00148,
+            "after": 0.00148,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_middle_level": {
+            "before": -0.158692,
+            "after": -0.160074,
+            "delta": 0.001382
+          },
+          "wooden_cabinet_1_bottom_level": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          },
+          "flat_stove_1_button": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          }
+        },
+        "objects": {
+          "akita_black_bowl_1": {
+            "before": [
+              -0.103282,
+              0.002253,
+              0.898404
+            ],
+            "after": [
+              -0.103282,
+              0.002253,
+              0.898404
+            ],
+            "delta": 0.0
+          },
+          "cream_cheese_1": {
+            "before": [
+              -0.066908,
+              0.118864,
+              0.908907
+            ],
+            "after": [
+              -0.066908,
+              0.118864,
+              0.908907
+            ],
+            "delta": 0.0
+          },
+          "wine_bottle_1": {
+            "before": [
+              -0.193374,
+              -0.036331,
+              0.898861
+            ],
+            "after": [
+              -0.193374,
+              -0.036331,
+              0.898861
+            ],
+            "delta": 0.0
+          },
+          "plate_1": {
+            "before": [
+              0.052456,
+              -0.012705,
+              0.9025
+            ],
+            "after": [
+              0.052456,
+              -0.012705,
+              0.9025
+            ],
+            "delta": 0.0
+          }
+        },
+        "joint_max_delta": 0.001382,
+        "object_max_delta": 0.0,
+        "joint_tol": 0.01,
+        "object_tol": 0.005,
+        "preserved": true
+      },
+      "restore_eef_drift_m": 1.1e-05,
+      "action_accounting": {
+        "policy_actions": 736,
+        "handoff_retreat_actions": 0,
+        "handoff_detach_actions": 1,
+        "handoff_settle_actions": 2,
+        "handoff_actions": 3,
+        "finalizer_actions": 0,
+        "sim_actions_total": 739
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 0.3127,
+      "handoff_retreat_actions": null,
+      "handoff_retreat_reason": null,
+      "handoff_retreat_converged": null,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-08bb9434d2ec",
+        "reset_s": 0.0028,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 3,
+      "scene_epoch_start": 4,
+      "scene_epoch_end": 4,
+      "execution_status": "failed",
+      "failure_code": "composite_step_2_failed",
+      "failure_reason": "composite step 2 (put_bowl_on_plate) did not reach its goal after 600 actions",
+      "episode_sim_actions": 739,
+      "duration_s": 198.753,
+      "timing": {
+        "planner_s": 0.844,
+        "execution_s": 194.533,
+        "release_s": 0.001,
+        "verification_s": 0.0,
+        "inference_s_sum": 33.904,
+        "env_step_s_sum": 51.624,
+        "snapshot_s_sum": 7.122,
+        "observe_s_sum": 32.3,
+        "convert_s_sum": 0.484,
+        "frame_s_sum": 0.021,
+        "plan_to_first_action_s": 0.667,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 0.316,
+        "total_s_engine": 198.753,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-103046-694064",
+      "scene_epoch": 4,
+      "seed": 2,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-103046-694064.json",
+      "round": "c08-s2-restore-r1",
+      "handoff_mode_requested_by_runner": "robot_state_restore",
+      "handoff_mode_effective": "robot_state_restore",
+      "wall_s": 200.455,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-103046-694064.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8332,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": null,
+      "step_2_native": false,
+      "step_2_final_native": null,
+      "final_verification_read": false,
+      "native_goal_ever": false,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": false,
+      "native_goal_final": false,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 116,
+          "duration_s": 30.336,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.15540893054984833,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 117,
+            "confirm_samples": 2,
+            "sim_actions": 116,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": false,
+          "ok_final": null,
+          "native_current": false,
+          "native_ever": false,
+          "sim_actions": 600,
+          "duration_s": 157.294,
+          "failure_code": "native_goal_not_reached",
+          "release_state": "unknown",
+          "release_source": "none",
+          "evidence": {
+            "ok": false,
+            "method": "native_libero_goal",
+            "native_goal": false,
+            "samples": 601,
+            "sim_actions": 600,
+            "limit": "max_steps",
+            "reason_code": "native_goal_not_reached",
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "action_retreat",
+      "handoff_mode_requested": "action_retreat",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": false,
+      "robot_teleport": false,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": null,
+      "restore": null,
+      "restore_verification": null,
+      "restore_candidate": null,
+      "restore_gripper_contacts": null,
+      "restore_scene_check": null,
+      "restore_eef_drift_m": null,
+      "action_accounting": {
+        "policy_actions": 716,
+        "handoff_retreat_actions": 34,
+        "handoff_detach_actions": 0,
+        "handoff_settle_actions": 0,
+        "handoff_actions": 34,
+        "finalizer_actions": 0,
+        "sim_actions_total": 750
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 2.7196,
+      "handoff_retreat_actions": 34,
+      "handoff_retreat_reason": "home_reached",
+      "handoff_retreat_converged": true,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-9f7dfcfdcaef",
+        "reset_s": 0.0033,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 34,
+      "scene_epoch_start": 6,
+      "scene_epoch_end": 6,
+      "execution_status": "failed",
+      "failure_code": "composite_step_2_failed",
+      "failure_reason": "composite step 2 (put_bowl_on_plate) did not reach its goal after 600 actions",
+      "episode_sim_actions": 750,
+      "duration_s": 194.459,
+      "timing": {
+        "planner_s": 0.844,
+        "execution_s": 187.646,
+        "release_s": 0.001,
+        "verification_s": 0.0,
+        "inference_s_sum": 32.436,
+        "env_step_s_sum": 50.108,
+        "snapshot_s_sum": 6.853,
+        "observe_s_sum": 31.476,
+        "convert_s_sum": 0.453,
+        "frame_s_sum": 0.02,
+        "plan_to_first_action_s": 0.678,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 2.721,
+        "total_s_engine": 194.459,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-103410-357615",
+      "scene_epoch": 6,
+      "seed": 2,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-103410-357615.json",
+      "round": "c08-s2-retreat-r2",
+      "handoff_mode_requested_by_runner": "action_retreat",
+      "handoff_mode_effective": "action_retreat",
+      "wall_s": 195.585,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-103410-357615.json"
+    },
+    {
+      "kind": "composite",
+      "task_id": 8,
+      "load_task_id": 8,
+      "task_key": "open_middle_drawer,put_bowl_on_plate",
+      "lang": "en",
+      "user_instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "composite_keys": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "semantic_choice": [
+        "open_middle_drawer",
+        "put_bowl_on_plate"
+      ],
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8238,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "plan_step_prompts": [
+        "open the middle drawer of the cabinet",
+        "put the bowl on the plate"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": false,
+      "step_2_native": true,
+      "step_2_final_native": true,
+      "final_verification_read": true,
+      "native_goal_ever": true,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": false,
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": false,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 0,
+          "task_key": "open_middle_drawer",
+          "prompt": "open the middle drawer of the cabinet",
+          "goal_kind": "drawer_open",
+          "ok": true,
+          "ok_final": false,
+          "native_current": true,
+          "native_ever": false,
+          "sim_actions": 129,
+          "duration_s": 34.034,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:drawer_open",
+            "predicate": "drawer_open",
+            "target": "wooden_cabinet_1_middle_region",
+            "qpos": -0.14985130660704302,
+            "threshold": -0.14,
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 130,
+            "confirm_samples": 2,
+            "sim_actions": 129,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "open the middle drawer of the cabinet"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 8,
+          "task_key": "put_bowl_on_plate",
+          "prompt": "put the bowl on the plate",
+          "goal_kind": "native_goal",
+          "ok": true,
+          "ok_final": true,
+          "native_current": true,
+          "native_ever": true,
+          "sim_actions": 477,
+          "duration_s": 126.401,
+          "failure_code": null,
+          "release_state": "verified",
+          "release_source": "policy_chunk",
+          "evidence": {
+            "ok": true,
+            "method": "native_libero_goal",
+            "native_goal": true,
+            "samples": 478,
+            "sim_actions": 477,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "put the bowl on the plate"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "robot_state_restore",
+      "handoff_mode_requested": "robot_state_restore",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": true,
+      "robot_teleport": true,
+      "physical_continuity": false,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": {
+        "ok": true,
+        "reason_code": null,
+        "reason": null,
+        "capture_id": "439bc81c94f3435f847dac4fba04c45a:rs2",
+        "observation_id": "query-439bc81c94f3435f847dac4fba04c45a:8:0:2235",
+        "sim_action_count": 0,
+        "robot": {
+          "ok": true,
+          "capture_id": "439bc81c94f3435f847dac4fba04c45a:rs2",
+          "capture": {
+            "capture_id": "439bc81c94f3435f847dac4fba04c45a:rs2",
+            "qpos_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qvel_indexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "qpos": [
+              0.004767571,
+              -0.165209117,
+              0.00442655,
+              -2.445426486,
+              -0.008745434,
+              2.2244504,
+              0.780610004,
+              0.039033673,
+              -0.039048875
+            ],
+            "joints": [
+              "robot0_joint1",
+              "robot0_joint2",
+              "robot0_joint3",
+              "robot0_joint4",
+              "robot0_joint5",
+              "robot0_joint6",
+              "robot0_joint7",
+              "gripper0_right_finger_joint1",
+              "gripper0_right_finger_joint2"
+            ],
+            "eef_pos": [
+              -0.208983,
+              0.003124,
+              1.17464
+            ],
+            "eef_quat": [
+              0.999555,
+              0.00995,
+              -0.027874,
+              0.003813
+            ],
+            "gripper_opening_m": 0.078079,
+            "non_robot_digest": "54099b405e61335bf10a27aebedc7443",
+            "sim_time": 0.75,
+            "sim_action_count": 0,
+            "reason": "episode_init:ep-20261028-103729-86ed8e"
+          },
+          "state": {
+            "ok": true,
+            "code": "episode-service-robot-restore-1",
+            "robot": {
+              "prefixes": [
+                "robot0_",
+                "gripper0_right_"
+              ],
+              "joints": [
+                "robot0_joint1",
+                "robot0_joint2",
+                "robot0_joint3",
+                "robot0_joint4",
+                "robot0_joint5",
+                "robot0_joint6",
+                "robot0_joint7",
+                "gripper0_right_finger_joint1",
+                "gripper0_right_finger_joint2"
+              ],
+              "details": [
+                {
+                  "name": "robot0_joint1",
+                  "joint_id": 0,
+                  "type": 3,
+                  "qpos_adr": 0,
+                  "qpos_width": 1,
+                  "qvel_adr": 0,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint2",
+                  "joint_id": 1,
+                  "type": 3,
+                  "qpos_adr": 1,
+                  "qpos_width": 1,
+                  "qvel_adr": 1,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint3",
+                  "joint_id": 2,
+                  "type": 3,
+                  "qpos_adr": 2,
+                  "qpos_width": 1,
+                  "qvel_adr": 2,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint4",
+                  "joint_id": 3,
+                  "type": 3,
+                  "qpos_adr": 3,
+                  "qpos_width": 1,
+                  "qvel_adr": 3,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint5",
+                  "joint_id": 4,
+                  "type": 3,
+                  "qpos_adr": 4,
+                  "qpos_width": 1,
+                  "qvel_adr": 4,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint6",
+                  "joint_id": 5,
+                  "type": 3,
+                  "qpos_adr": 5,
+                  "qpos_width": 1,
+                  "qvel_adr": 5,
+                  "dof_width": 1
+                },
+                {
+                  "name": "robot0_joint7",
+                  "joint_id": 6,
+                  "type": 3,
+                  "qpos_adr": 6,
+                  "qpos_width": 1,
+                  "qvel_adr": 6,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint1",
+                  "joint_id": 7,
+                  "type": 2,
+                  "qpos_adr": 7,
+                  "qpos_width": 1,
+                  "qvel_adr": 7,
+                  "dof_width": 1
+                },
+                {
+                  "name": "gripper0_right_finger_joint2",
+                  "joint_id": 8,
+                  "type": 2,
+                  "qpos_adr": 8,
+                  "qpos_width": 1,
+                  "qvel_adr": 8,
+                  "dof_width": 1
+                }
+              ],
+              "qpos_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qvel_indexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "qpos": [
+                0.004767571,
+                -0.165209117,
+                0.00442655,
+                -2.445426486,
+                -0.008745434,
+                2.2244504,
+                0.780610004,
+                0.039033673,
+                -0.039048875
+              ],
+              "qvel": [
+                -0.000560953,
+                -3.7e-08,
+                4.1385e-05,
+                2.2e-08,
+                9.651e-06,
+                2.39e-07,
+                -1.7955e-05,
+                0.000841315,
+                -0.000841289
+              ],
+              "actuator_ids": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "ctrl": [
+                -0.09226,
+                -19.544363,
+                0.077554,
+                18.087396,
+                0.009521,
+                2.070296,
+                -0.015489,
+                0.04,
+                -0.04
+              ],
+              "eef_pos": [
+                -0.208983,
+                0.003124,
+                1.17464
+              ],
+              "eef_quat": [
+                0.999555,
+                0.00995,
+                -0.027874,
+                0.003813
+              ],
+              "gripper_opening_m": 0.078079
+            },
+            "controller": [
+              {
+                "robot": "robot0_",
+                "composite": true,
+                "parts": {
+                  "right": {
+                    "type": "OperationalSpaceController",
+                    "goal_pos": [
+                      0.451017,
+                      0.003136,
+                      0.26264
+                    ],
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "goal_update_mode": "achieved",
+                    "interpolators": []
+                  },
+                  "right_gripper": {
+                    "type": "SimpleGripController",
+                    "goal_pos": null,
+                    "goal_ori": null,
+                    "ori_ref": null,
+                    "relative_ori": null,
+                    "goal_update_mode": null,
+                    "interpolators": []
+                  }
+                }
+              }
+            ],
+            "non_robot": {
+              "joints": {
+                "akita_black_bowl_1_joint0": [
+                  -0.103282322,
+                  0.002252962,
+                  0.89840415,
+                  0.707106783,
+                  -2.7755e-05,
+                  3.335e-06,
+                  0.707106779
+                ],
+                "cream_cheese_1_joint0": [
+                  -0.066907832,
+                  0.118864032,
+                  0.908906955,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "wine_bottle_1_joint0": [
+                  -0.193373951,
+                  -0.036330819,
+                  0.898860954,
+                  1.1e-08,
+                  -1.2452e-05,
+                  7.78e-07,
+                  1.0
+                ],
+                "plate_1_joint0": [
+                  0.052456282,
+                  -0.012704871,
+                  0.902499834,
+                  0.707106809,
+                  -2.661e-05,
+                  1.2067e-05,
+                  0.707106753
+                ],
+                "wooden_cabinet_1_top_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_middle_level": [
+                  0.0
+                ],
+                "wooden_cabinet_1_bottom_level": [
+                  0.0
+                ],
+                "flat_stove_1_button": [
+                  0.0
+                ]
+              },
+              "free_bodies": {
+                "akita_black_bowl_1_joint0": {
+                  "pos": [
+                    -0.103282,
+                    0.002253,
+                    0.898404
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.8e-05,
+                    3e-06,
+                    0.707107
+                  ]
+                },
+                "cream_cheese_1_joint0": {
+                  "pos": [
+                    -0.066908,
+                    0.118864,
+                    0.908907
+                  ],
+                  "quat": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ]
+                },
+                "wine_bottle_1_joint0": {
+                  "pos": [
+                    -0.193374,
+                    -0.036331,
+                    0.898861
+                  ],
+                  "quat": [
+                    0.0,
+                    -1.2e-05,
+                    1e-06,
+                    1.0
+                  ]
+                },
+                "plate_1_joint0": {
+                  "pos": [
+                    0.052456,
+                    -0.012705,
+                    0.9025
+                  ],
+                  "quat": [
+                    0.707107,
+                    -2.7e-05,
+                    1.2e-05,
+                    0.707107
+                  ]
+                }
+              },
+              "digest": "54099b405e61335bf10a27aebedc7443"
+            },
+            "contacts": {
+              "count": 37,
+              "listed": 37,
+              "robot_vs_nonrobot": [],
+              "gripper_vs_nonrobot": [],
+              "penetration_max_m": 0.0
+            },
+            "sim": {
+              "time": 0.75,
+              "nq": 41,
+              "nv": 37,
+              "nu": 9,
+              "na": 0,
+              "qpos_modified": false
+            }
+          },
+          "code": "episode-service-robot-restore-1"
+        },
+        "controller": null,
+        "nonrobot_digest": null
+      },
+      "restore": {
+        "available": true,
+        "applied": true,
+        "verified": true,
+        "capture_id": "439bc81c94f3435f847dac4fba04c45a:rs2",
+        "reason_code": "",
+        "reason": "",
+        "settle_actions": 2,
+        "write_s": 0.0244,
+        "settle_s": 0.1577
+      },
+      "restore_verification": {
+        "robot_qpos_error": 0.0,
+        "robot_qvel_abs_max": 0.0,
+        "non_robot_preserved": true,
+        "non_robot_digest_before": "775f302aa9eb844a27a23ac53b06b328",
+        "non_robot_digest_after": "775f302aa9eb844a27a23ac53b06b328",
+        "scene_time_unchanged": true
+      },
+      "restore_candidate": {
+        "checked": true,
+        "isolated_copy": true,
+        "method": "fresh mujoco.MjData on the same MjModel: current qpos plus the captured robot qpos, qvel zeroed, mj_forward, contact distances read there",
+        "penetration_max_m": 0.0,
+        "tol_m": 0.002,
+        "refused": false,
+        "robot_vs_nonrobot": [],
+        "contact_count": 37
+      },
+      "restore_gripper_contacts": [],
+      "restore_scene_check": {
+        "joints": {
+          "akita_black_bowl_1_joint0": {
+            "before": -0.103282,
+            "after": -0.103282,
+            "delta": 0.0
+          },
+          "cream_cheese_1_joint0": {
+            "before": -0.066908,
+            "after": -0.066908,
+            "delta": 0.0
+          },
+          "wine_bottle_1_joint0": {
+            "before": -0.193374,
+            "after": -0.193374,
+            "delta": 0.0
+          },
+          "plate_1_joint0": {
+            "before": 0.052456,
+            "after": 0.052456,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_top_level": {
+            "before": 0.001528,
+            "after": 0.001528,
+            "delta": 0.0
+          },
+          "wooden_cabinet_1_middle_level": {
+            "before": -0.155254,
+            "after": -0.158679,
+            "delta": 0.003425
+          },
+          "wooden_cabinet_1_bottom_level": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          },
+          "flat_stove_1_button": {
+            "before": 0.0,
+            "after": 0.0,
+            "delta": 0.0
+          }
+        },
+        "objects": {
+          "akita_black_bowl_1": {
+            "before": [
+              -0.103282,
+              0.002253,
+              0.898404
+            ],
+            "after": [
+              -0.103282,
+              0.002253,
+              0.898404
+            ],
+            "delta": 0.0
+          },
+          "cream_cheese_1": {
+            "before": [
+              -0.066908,
+              0.118864,
+              0.908907
+            ],
+            "after": [
+              -0.066908,
+              0.118864,
+              0.908907
+            ],
+            "delta": 0.0
+          },
+          "wine_bottle_1": {
+            "before": [
+              -0.193374,
+              -0.036331,
+              0.898861
+            ],
+            "after": [
+              -0.193374,
+              -0.036331,
+              0.898861
+            ],
+            "delta": 0.0
+          },
+          "plate_1": {
+            "before": [
+              0.052456,
+              -0.012705,
+              0.9025
+            ],
+            "after": [
+              0.052456,
+              -0.012705,
+              0.9025
+            ],
+            "delta": 0.0
+          }
+        },
+        "joint_max_delta": 0.003425,
+        "object_max_delta": 0.0,
+        "joint_tol": 0.01,
+        "object_tol": 0.005,
+        "preserved": true
+      },
+      "restore_eef_drift_m": 1.1e-05,
+      "action_accounting": {
+        "policy_actions": 606,
+        "handoff_retreat_actions": 0,
+        "handoff_detach_actions": 1,
+        "handoff_settle_actions": 2,
+        "handoff_actions": 3,
+        "finalizer_actions": 0,
+        "sim_actions_total": 612
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 0.3284,
+      "handoff_retreat_actions": null,
+      "handoff_retreat_reason": null,
+      "handoff_retreat_converged": null,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-15d3c72df64c",
+        "reset_s": 0.0038,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 3,
+      "scene_epoch_start": 8,
+      "scene_epoch_end": 8,
+      "execution_status": "failed",
+      "failure_code": "composite_final_verification_failed",
+      "failure_reason": "the composite's end state does not satisfy every step goal on fresh samples",
+      "episode_sim_actions": 612,
+      "duration_s": 165.055,
+      "timing": {
+        "planner_s": 0.833,
+        "execution_s": 160.449,
+        "release_s": 0.0,
+        "verification_s": 0.0,
+        "inference_s_sum": 28.531,
+        "env_step_s_sum": 42.61,
+        "snapshot_s_sum": 5.849,
+        "observe_s_sum": 26.561,
+        "convert_s_sum": 0.373,
+        "frame_s_sum": 0.016,
+        "plan_to_first_action_s": 0.674,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 0.331,
+        "total_s_engine": 165.055,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap"
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261028-103729-86ed8e",
+      "scene_epoch": 8,
+      "seed": 2,
+      "record": "/home/host/page-dmh/embodied_engine/records/runs/ep-20261028-103729-86ed8e.json",
+      "round": "c08-s2-restore-r2",
+      "handoff_mode_requested_by_runner": "robot_state_restore",
+      "handoff_mode_effective": "robot_state_restore",
+      "wall_s": 166.091,
+      "phase": "failed",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_state_restore_12_20261028_runs/ep-20261028-103729-86ed8e.json"
+    }
+  ]
+}

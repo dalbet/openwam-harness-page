@@ -1,0 +1,18 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-10-28T17:20:00+08:00",
+  "note": "Single-init probe for the robot_state_restore handoff: one composite round on init seed 0 with the official English instruction, before any comparative matrix. Development probe, not part of the twelve-round acceptance set.",
+  "seed": 0,
+  "rounds": [
+    {
+      "round": "probe-restore-s0-en",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0,
+      "handoff_mode": "robot_state_restore"
+    }
+  ]
+}

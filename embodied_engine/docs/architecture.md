@@ -522,7 +522,6 @@ LIBERO 的 `terminated=True`、服务端的 `can_continue`、策略 chunk 的剩
 
 
 ### 9.7 实测结果（2026-10-27/28，6 回合冻结 + 补测）
-
 机制与能力的结论必须分开读：
 
 | 层面 | 结果 | 证据 |
@@ -550,9 +549,97 @@ LIBERO 的 `terminated=True`、服务端的 `can_continue`、策略 chunk 的剩
 只做了只读几何测量（`scripts/knob_reach_probe.py`），动态可达性标注 `not_tested`。
 
 ### 9.8 组合失败证据的字段（本轮新增，只读）
-
 - `composite_steps[i].failure_evidence.prior_steps_at_failure`：某一步失败时，用**同一份**
   失败快照复验此前各步的目标（`engine_predicate` 结果 + `qpos`）。没有它，
   "第二步没到"和"第二步把第一步拆了"在记录里长得一样。
 - 被 stop 打断的回合保留 `placement` 块（`attempted`/`extra_actions`/逐动作行）：
   finalizer 内部把 `Stopped` 写进块后由外层重新抛出，避免"释放半途被打断却记成 completed"。
+
+### 9.9 步间交接的两种模式（2026-10-28 新增）
+
+交接模式是**引擎运行时配置**（`composite.handoff.mode`），不是回合内可变项：
+
+| 模式 | 语义 | `physical_continuity` |
+| --- | --- | --- |
+| `action_retreat`（默认，原有） | 只发动作，把 EEF 闭环退离到 episode 初始位姿，物体与抽屉一个字节都不写 | true（动作连续） |
+| `robot_state_restore`（新增） | 保留场景，把机器人 9 个关节**直接写回**该回合初态；一次性状态写入，不是动作 | false（teleport） |
+
+- 读取入口：`GET /health` → `identity.engine.handoff`（`mode`/`default_mode`/`modes`/`options`）；
+  `POST /api/handoff {"mode": ...}` 只允许在**没有回合在跑**时切换（409 拒绝），
+  每个回合在 `_run_episode` 开头快照当前模式，记录里写的是真正生效的模式。
+- 回合记录：`composite.handoff_mode`、`composite.robot_state_restore`、
+  `composite.robot_teleport`、`composite.physical_continuity=false`、
+  `composite.robot_state_capture`、`composite.action_accounting.*`。
+
+**初态捕获**（`episode init`，`/api/reset` 稳定动作之后、第一个任务动作之前）：
+`env.robot_state_capture` 在 worker 进程里读 `robot.robot_joints` + `robot.gripper_joints`
+的模型地址（`jnt_qposadr`/`jnt_dofadr`/`jnt_type`），不写死切片；返回 qpos/qvel/EEF/
+夹爪/控制器段/非机器人 qpos 摘要/SHA256。捕获编号绑定 `service_instance_id`，
+env 进程重启后旧编号一律 `capture_unknown`，不会恢复一个没人读过的状态。
+
+**恢复顺序**（`composite.Handoff` → `env.robot_state_restore`）：
+
+1. 第一步目标必须已经成立（否则 `step_1_unverified`，不写任何状态）。
+2. 放置类步骤必须先有已测释放（`release_not_verified` 时不写）。
+3. 停止动作 → 等在途推理（`inflight_wait_s`）→ `inference.reset` 清缓冲。
+4. **测量式脱离**：`env.robot_state_inspect` 读手指与作用对象的真实接触；
+   有接触时用 ≤8 个开爪小步退离（`detach_*`），每一步重新测接触，
+   清不掉就 `gripper_contact_after_detach` 拒绝。抽屉步不能凭"任务类型"假定无接触。
+5. **候选构型碰撞检查**：`mujoco.MjData(model._model)` 独立副本上写入候选 qpos、
+   清 qvel、`mj_forward`，读接触穿透；超 `restore_penetration_tol_m` 就
+   `candidate_penetration` 拒绝。主环境不试写、不回滚。原始对象拿不到时返回
+   `raw_mujoco_unavailable`，本仓库因此**拒绝**恢复而不是宣称安全。
+6. 只写机器人 qpos 索引、清零对应 qvel，`sim.forward()`；随后逐部件
+   `update(force=True)` → `reset_goal()` → `composite_controller.reset()`，
+   否则 OSC 会用陈旧 `ref_pos` 把机械臂拉回旧目标（实测会导致 restore 后跳动）。
+7. 复读校验：`robot_qpos_error ≤ 1e-6`、`robot_qvel_abs_max ≤ 1e-9`、
+   非机器人 qpos 摘要**逐字节相等**、`sim.time` 不变。校验失败即 `not_ready`，
+   且在写后**不追加任何动作**。
+8. 已计数稳定动作（`settle_actions`，零位移 + 开爪的保持指令），每步记录 EEF/抽屉
+   qpos；稳定阶段用毫米级容差（`settle_scene_tol_m`/`settle_object_tol_m`）判定
+   "场景没被推动"，写入本身的精确性由第 7 步的摘要相等保证。
+9. 复验第一步目标 + 取新观测（`observation_id` 必须变），才允许第二步启动。
+
+**记账**：`action_accounting` 分开记 `policy_actions` / `handoff_detach_actions` /
+`handoff_settle_actions` / `handoff_retreat_actions` / `finalizer_actions` /
+`sim_actions_total`；`handoff.counts` 是同一回合的逐项来源。
+`robot_state_restore=true` 与 `robot_teleport=true` 同时写死，避免把"场景连续"
+误读成"物理连续"。
+
+**观测/缓存同步**：恢复后 `_post_process()` + `_update_observables(force=True)`
+刷新 worker 的观测缓存；模型侧缓冲由第 3 步的 `inference.reset` 清空。
+不做 `env.reset`/`load`/`set_init_state`，不回退仿真时间，不 `sim.step` 绕过计数。
+
+**能力缺口（如实标注）**：
+- 采样随机性：常驻 OpenWAM 服务不暴露按回合的采样种子（`denoise_steps=10`），
+  动作采样取该进程的环境 RNG；场景初态由 env seed 固定。重复回合只用于观察重复性。
+- 候选检查只能报穿透，不能报"未来是否会被臂扫到"；它不是运动规划。
+- `physical_continuity=false`：本模式不做物理连续的组合，只回答"机械臂状态是否是
+  第二步失败的主因"。
+
+### 9.10 第二步对前序目标关节的追踪（2026-10-28 新增，只读诊断）
+
+要回答"第二步是在第几个动作上把第一步打开的抽屉推回去"，光有回合末的
+`qpos` 不够：那只能说明回退了，不能说明什么时候开始退。所以第二步执行期间追踪
+**前序步骤目标关节**：
+
+- 关节名不写死。`_watched_joints()` 从前序步骤的 `completion` 里取 `drawer_open`
+  目标（例如 `wooden_cabinet_1_middle_region`），用 `completion.drawer_level()` +
+  `completion.drawer_joint()` 在当前快照的 `joints` 里解析出真实关节名；
+  owner 前缀对不上时按 `_<level>_level` 后缀回退，仍解析不到就**不追踪**（宁缺不猜）。
+- 追踪点接在**实际执行第二步的那个 runner** 上：组合的两步都走 `WholeTaskRunner`
+  （OpenWAM whole-task），所以追踪必须在 `engine/openwam_rollout.py` 里，
+  只有 `engine/skills.py` 的追踪在组合回合里永远不会触发（本轮已修）。
+- 只读：`_watch()` 复用该动作已经取回的 `snapshot["joints"]`，不发额外 RPC、
+  不改动作流；基线取第二步**第一个动作时**的值，也就是交接交出来的状态，
+  这样"回退"度量的是第二步自己推动了多少。
+- 首个超过 `1e-4 m` 的变化记一条 `watched_joint_moved` 日志，并读一次
+  `env.robot_state_inspect` 的接触，记录 `sim_action_count`（全回合动作号）、
+  `skill_sim_actions`（本步内动作号）、关节前后值、EEF、夹爪开度、
+  `robot_vs_nonrobot`/`gripper_vs_nonrobot` 的 geom 对与穿透深度。
+- 回合记录：`steps[*].watch_joints`、`steps[*].watch_baseline`、
+  `steps[*].watch_events`；`run_rounds.py` 把它们提到 `watch_joints`/`watch_events` 列。
+- 交接内部的动作行（`handoff.detach.steps[*]`、`handoff.restore.settle[*]`）里的
+  目标关节名同样由 `Handoff._goal_joint()` 现场解析，不写死层级或 owner，
+  字段是 `goal_joint`/`goal_joint_qpos`（旧字段 `drawer_qpos` 保留，值改为解析结果）。
+

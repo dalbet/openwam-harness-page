@@ -183,6 +183,47 @@ def run_case(args, spec: dict[str, Any]) -> dict[str, Any]:
             timeout_s=args.timeout,
             poll_s=0.02,
         )
+    elif kind in {"restore-before-write", "restore-after-write"}:
+        # Both stages are published by the handoff itself, so the stop lands
+        # where the case claims instead of after a guessed sleep:
+        #   ``policy_buffer_reset`` — the action barrier has just closed, the
+        #                             robot state has not been written yet;
+        #   ``handoff``/ready      — the write, the settle and the fresh read
+        #                             are all verified, step 2 has not run.
+        deadline = time.time() + args.timeout
+        status: dict[str, Any] = {}
+        hit = None
+        ended = None
+        while time.time() < deadline:
+            for row in tail.new_rows():
+                if episode_id and row.get("episode_id") != episode_id:
+                    continue
+                if kind == "restore-before-write" and row.get("stage") == "policy_buffer_reset":
+                    hit = row
+                    break
+                if (
+                    kind == "restore-after-write"
+                    and row.get("stage") == "handoff"
+                    and (row.get("row") or {}).get("status") == "ready"
+                ):
+                    hit = row
+                    break
+                if row.get("stage") in {"episode_end", "succeeded", "failed", "stopped"}:
+                    ended = row
+            if hit:
+                status = get(f"{engine}/api/status")
+                break
+            if ended is not None:
+                status = {
+                    "phase": "stage_not_reached",
+                    "detail": f"episode ended with stage {ended.get('stage')} before {kind}",
+                }
+                break
+            time.sleep(0.01)
+        if not hit and not status:
+            status = {"phase": "sync_timeout", "detail": f"no {kind} stage"}
+        else:
+            status = {**status, "trigger_row": hit}
     elif kind == "finalizer":
         deadline = time.time() + args.timeout
         status: dict[str, Any] = {}
@@ -256,6 +297,31 @@ def run_case(args, spec: dict[str, Any]) -> dict[str, Any]:
         and not after["advanced"]
         and record.get("execution_status") == "stopped"
     )
+
+    # ---- no leak: a fresh load must not inherit the stopped episode --------
+    leak: dict[str, Any] = {}
+    try:
+        reloaded = post(
+            f"{engine}/api/load",
+            {"task_id": int(spec.get("load_task_id", spec["task_id"])), "seed": int(spec["seed"]) + 7},
+            timeout=400,
+        )
+        fresh = get(f"{engine}/api/status")
+        leak = {
+            "load_status": reloaded.get("status"),
+            "sim_action_count_after_load": fresh.get("sim_action_count"),
+            "scene_epoch_after_load": fresh.get("scene_epoch"),
+            "episode_after_load": fresh.get("episode_id"),
+            "phase_after_load": fresh.get("phase"),
+            "last_result_after_load": fresh.get("last_result"),
+            "no_actions_left": int(fresh.get("sim_action_count") or 0) == 0,
+            "new_episode": str(fresh.get("episode_id")) != str(episode_id),
+        }
+        ok = ok and bool(leak["no_actions_left"] and leak["new_episode"])
+    except Exception as exc:  # noqa: BLE001 - reported, not hidden
+        leak = {"error": f"{type(exc).__name__}: {exc}"}
+        ok = False
+
     return {
         "case": spec["id"],
         "kind": kind,
@@ -277,6 +343,7 @@ def run_case(args, spec: dict[str, Any]) -> dict[str, Any]:
         "record_sim_actions": record.get("episode_sim_actions"),
         "scene_epoch": record.get("scene_epoch"),
         "journal_stages": sorted({str(row.get("stage")) for row in journal_rows}),
+        "leak_check": leak,
     }
 
 
@@ -286,6 +353,16 @@ def main() -> int:
     parser.add_argument("--out", default="records/acceptance/composite_stop_20261027.json")
     parser.add_argument("--timeout", type=float, default=600.0)
     parser.add_argument("--only", default="")
+    parser.add_argument(
+        "--handoff-mode",
+        default="",
+        help="switch the engine's step-handoff mode before the cases (action_retreat | robot_state_restore)",
+    )
+    parser.add_argument(
+        "--include-restore-cases",
+        action="store_true",
+        help="add the two robot_state_restore stages (before/after the state write)",
+    )
     parser.add_argument(
         "--finalizer-task",
         type=int,
@@ -341,6 +418,34 @@ def main() -> int:
             "instruction": "put the bowl on the stove",
         },
     ]
+    if args.include_restore_cases:
+        cases.extend(
+            [
+                {
+                    # The action barrier has just closed (policy buffer reset,
+                    # no request in flight); the robot state has not been
+                    # written yet. A stop here must wait for the barrier and
+                    # then leave no write behind.
+                    "id": "stop-restore-before-write",
+                    "kind": "restore-before-write",
+                    "task_id": 8,
+                    "load_task_id": 8,
+                    "seed": 0,
+                    "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+                },
+                {
+                    # Restore applied, verified, settled and re-read; step 2
+                    # has not issued an action yet. The ack may only come
+                    # after the write barrier, and nothing may resume.
+                    "id": "stop-restore-after-write",
+                    "kind": "restore-after-write",
+                    "task_id": 8,
+                    "load_task_id": 8,
+                    "seed": 0,
+                    "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+                },
+            ]
+        )
     if args.finalizer_task is not None:
         # Only the finalizer case is re-pointed: the stage exists only when the
         # policy fails to release on its own, so which task reaches it is a
@@ -354,11 +459,19 @@ def main() -> int:
     if args.only:
         wanted = {value.strip() for value in args.only.split(",")}
         cases = [case for case in cases if case["id"] in wanted]
+    mode_report: dict[str, Any] = {}
+    if args.handoff_mode:
+        mode_report = post(f"{args.engine}/api/handoff", {"mode": args.handoff_mode}, timeout=30)
+        print(f"[handoff] {json.dumps(mode_report, ensure_ascii=False)[:400]}", flush=True)
+        if mode_report.get("status") != "ok":
+            raise SystemExit(f"could not set handoff mode: {mode_report}")
 
     report = {
         "schema": "embodied_engine.composite_stop.v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "engine": args.engine,
+        "handoff_mode": args.handoff_mode or None,
+        "handoff_mode_reply": mode_report or None,
         "cases": [],
     }
     out = PROJECT / args.out

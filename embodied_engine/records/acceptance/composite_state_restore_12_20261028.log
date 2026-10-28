@@ -1,0 +1,25 @@
+[c08-s0-retreat-r1] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 0)
+  -> failed map=True native=False user=False actions=749 dur=195.56 fail=composite_step_2_failed
+[c08-s0-restore-r1] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 0)
+  -> failed map=True native=False user=False actions=735 dur=195.727 fail=composite_step_2_failed
+[c08-s0-retreat-r2] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 0)
+  -> failed map=True native=True user=False actions=692 dur=178.655 fail=composite_final_verification_failed
+[c08-s0-restore-r2] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 0)
+  -> failed map=True native=True user=False actions=515 dur=137.331 fail=composite_final_verification_failed
+[c08-s1-retreat-r1] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 1)
+  -> failed map=True native=False user=False actions=758 dur=196.238 fail=composite_step_2_failed
+[c08-s1-restore-r1] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 1)
+  -> failed map=True native=False user=False actions=731 dur=197.892 fail=composite_step_2_failed
+[c08-s1-retreat-r2] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 1)
+  -> failed map=True native=False user=False actions=760 dur=195.789 fail=composite_step_2_failed
+[c08-s1-restore-r2] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 1)
+  -> failed map=True native=True user=False actions=419 dur=113.374 fail=composite_final_verification_failed
+[c08-s2-retreat-r1] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 2)
+  -> failed map=True native=True user=False actions=724 dur=188.642 fail=composite_final_verification_failed
+[c08-s2-restore-r1] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 2)
+  -> failed map=True native=False user=False actions=739 dur=198.753 fail=composite_step_2_failed
+[c08-s2-retreat-r2] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 2)
+  -> failed map=True native=False user=False actions=750 dur=194.459 fail=composite_step_2_failed
+[c08-s2-restore-r2] task 8 en composite: Open the middle drawer of the cabinet, then put the bowl on the plate. (seed 2)
+  -> failed map=True native=True user=False actions=612 dur=165.055 fail=composite_final_verification_failed
+{"rounds": 12, "mapping_ok": 12, "native_success": 5, "user_goal_success": 0, "failed": 12, "stopped": 0}

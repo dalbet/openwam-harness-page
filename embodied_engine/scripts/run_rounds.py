@@ -8,6 +8,10 @@ columns that separate the four different things that can go wrong:
 
     language mapping | step goal | native goal | release / final relation
 
+A manifest entry may also name a ``handoff_mode``; the runner sets it through
+``/api/handoff`` before the load and records the mode the engine reports, so a
+round's handoff behaviour is never inferred from a config file edited later.
+
 A failed round is kept as-is. The raw episode record is copied next to the
 summary immediately after the round, before the next one starts, because
 ``records/runs`` rotation can delete it.
@@ -63,6 +67,39 @@ def wait_terminal(engine: str, timeout_s: float, poll_s: float = 1.0) -> dict[st
         time.sleep(poll_s)
     post(f"{engine}/api/stop", {"reason": "round_timeout"}, timeout=30)
     return {**last, "phase": "timeout"}
+
+
+def set_handoff(engine: str, spec: dict[str, Any]) -> dict[str, Any]:
+    """Point the engine at this round's handoff mode before the load.
+
+    Refused while an episode runs, so this is also a barrier: the mode a round
+    reports is the mode its handoff actually used.
+    """
+    mode = spec.get("handoff_mode")
+    if not mode:
+        return {}
+    reply = post(f"{engine}/api/handoff", {"mode": mode, "options": spec.get("handoff_options") or {}}, timeout=30)
+    if reply.get("status") != "ok":
+        raise RuntimeError(f"handoff mode {mode!r} was refused: {reply.get('error') or reply}")
+    return reply
+
+
+def policy_randomness(identity: dict[str, Any]) -> dict[str, Any]:
+    """What is and is not seeded in the action policy, stated for the record."""
+    inference = identity.get("inference") or {}
+    action = identity.get("action_model") or {}
+    openwam = action.get("openwam") or {}
+    return {
+        "inference_mode": inference.get("mode"),
+        "denoise_steps": openwam.get("denoise_steps") or action.get("denoise_steps"),
+        "execute_horizon": openwam.get("execute_horizon") or action.get("execute_horizon"),
+        "action_horizon": action.get("action_chunk"),
+        "sampling_seed": None,
+        "note": (
+            "no per-episode sampling seed is exposed by the resident OpenWAM server; action sampling "
+            "draws from that process's ambient RNG, while the scene init is fixed by the env seed"
+        ),
+    }
 
 
 def norm(text: Any) -> str:
@@ -185,7 +222,13 @@ def composite_row(record: dict[str, Any], spec: dict[str, Any], catalog: dict[st
     expected_official = [
         str((catalog_by_key(catalog).get(key) or {}).get("official_instruction") or "") for key in expected
     ]
-    prompts = [str((step or {}).get("prompt") or "") for step in steps]
+    # Prompts come from the plan, not from the executed steps: a handoff that
+    # refused before step 2 started must not look like a language failure.
+    plan_steps = list((record.get("plan") or {}).get("steps") or [])
+    prompts = [
+        str((step or {}).get("prompt") or "")
+        for step in (plan_steps or steps)
+    ]
     mapping_ok = bool(
         semantic.get("decision_status") == "ok"
         and keys == expected
@@ -247,9 +290,49 @@ def composite_row(record: dict[str, Any], spec: dict[str, Any], catalog: dict[st
         "user_goal_success": bool(record.get("user_goal_success")),
         "steps": step_rows,
         "handoff_status": handoff.get("status"),
+        "handoff_mode": composite.get("handoff_mode") or handoff.get("mode"),
+        "handoff_mode_requested": handoff.get("mode_requested"),
+        "handoff_mode_fallback": handoff.get("mode_fallback"),
+        "robot_state_restore": composite.get("robot_state_restore"),
+        "robot_teleport": composite.get("robot_teleport"),
+        "physical_continuity": composite.get("physical_continuity"),
+        "handoff_reason_code": handoff.get("reason_code"),
+        "handoff_reason": handoff.get("reason"),
+        "robot_state_capture": composite.get("robot_state_capture"),
+        "restore": handoff.get("restore") and {
+            key: handoff["restore"].get(key)
+            for key in (
+                "available",
+                "applied",
+                "verified",
+                "capture_id",
+                "reason_code",
+                "reason",
+                "settle_actions",
+                "write_s",
+                "settle_s",
+            )
+        },
+        "restore_verification": ((handoff.get("restore") or {}).get("write") or {}).get("verification"),
+        "restore_candidate": ((handoff.get("restore") or {}).get("write") or {}).get("candidate"),
+        "restore_gripper_contacts": ((handoff.get("restore") or {}).get("write") or {}).get("gripper_contacts"),
+        "restore_scene_check": handoff.get("scene_check"),
+        "restore_eef_drift_m": (handoff.get("post_restore") or {}).get("eef_drift_m"),
+        "action_accounting": composite.get("action_accounting"),
+        "watch_events": [
+            {"step_id": row.get("step_id"), "events": (row.get("watch_events") or [])[:3]}
+            for row in steps
+            if row.get("watch_events")
+        ],
+        "watch_joints": [
+            {"step_id": row.get("step_id"), "joints": row.get("watch_joints")}
+            for row in steps
+            if row.get("watch_joints")
+        ],
         "handoff_s": handoff.get("elapsed_s"),
         "handoff_retreat_actions": (handoff.get("retreat") or {}).get("actions"),
         "handoff_retreat_reason": (handoff.get("retreat") or {}).get("reason"),
+        "handoff_retreat_converged": (handoff.get("retreat") or {}).get("converged"),
         "handoff_buffer_reset": handoff.get("buffer_reset"),
         "handoff_scene_epoch_same": handoff.get("scene_epoch_same"),
         "handoff_actions_total": handoff.get("sim_actions"),
@@ -307,6 +390,8 @@ def main() -> int:
         "catalog": identity.get("catalog") or (identity.get("agent") or {}).get("routing", {}).get("catalog"),
         "rounds_total": len(rounds),
         "retry_policy": "no round is ever retried or skipped",
+        "handoff_modes": sorted({str(spec.get("handoff_mode") or "config_default") for spec in rounds}),
+        "policy_randomness": policy_randomness(identity),
     }
     rows: list[dict[str, Any]] = []
 
@@ -320,6 +405,24 @@ def main() -> int:
         round_seed = int(spec.get("seed", seed if seed is not None else 0))
         label = f"[{spec.get('round')}] task {spec['task_id']} {spec.get('lang')} {'composite' if is_composite else 'single'}"
         print(f"{label}: {spec['instruction']} (seed {round_seed})", flush=True)
+        handoff_reply: dict[str, Any] = {}
+        try:
+            handoff_reply = set_handoff(args.engine, spec)
+        except Exception as exc:  # noqa: BLE001 - a refused mode is a kept failure
+            rows.append(
+                {
+                    "round": spec.get("round"),
+                    "kind": "composite" if is_composite else "single",
+                    "task_id": spec["task_id"],
+                    "user_instruction": spec.get("instruction"),
+                    "handoff_mode": spec.get("handoff_mode"),
+                    "mapping_ok": False,
+                    "failure_code": "handoff_mode_refused",
+                    "failure_reason": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            flush()
+            continue
         loaded = post(
             f"{args.engine}/api/load",
             {"task_id": int(spec.get("load_task_id", spec["task_id"])), "seed": round_seed},
@@ -371,6 +474,8 @@ def main() -> int:
         )
         row["round"] = spec.get("round")
         row["seed"] = round_seed
+        row["handoff_mode_requested_by_runner"] = spec.get("handoff_mode")
+        row["handoff_mode_effective"] = (handoff_reply.get("options") or {}).get("mode") or spec.get("handoff_mode")
         row["wall_s"] = round(time.time() - started, 3)
         row["phase"] = status.get("phase")
         archive(out_path, row)

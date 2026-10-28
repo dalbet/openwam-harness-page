@@ -1,0 +1,8 @@
+[handoff] {"status": "ok", "mode": "robot_state_restore", "options": {"mode": "robot_state_restore", "retreat_m": 0.18, "retreat_step_m": 0.04, "retreat_max_actions": 60, "tolerance_m": 0.01, "retreat_rot_step_rad": 1.0, "rot_tolerance_rad": 0.05, "min_clear_m": 0.02, "reset_policy_buffer": true, "gripper_open_command": -1.0, "settle_actions": 2, "settle_tol_m": 0.01, "settle_tol_rot_rad": 0.05, "restore_pe
+[stop-step2] episode ep-20261028-113807-554a96 kind=step-2
+  -> PASS stop=stopped after=False step2=True
+[stop-restore-before-write] episode ep-20261028-113925-760695 kind=restore-before-write
+  -> PASS stop=stopped after=False step2=False
+[stop-restore-after-write] episode ep-20261028-114042-355091 kind=restore-after-write
+  -> PASS stop=stopped after=False step2=False
+{"cases": 3, "passed": 3, "out": "/home/host/page-dmh/embodied_engine/records/acceptance/composite_stop_restore_20261028.json"}

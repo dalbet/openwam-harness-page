@@ -7,6 +7,7 @@ records/*.pid
 records/logs/
 records/runs/
 records/run_journal.jsonl
+records/run_journal.jsonl.*
 records/episode_mode.json
 records/explore_summary.json
 

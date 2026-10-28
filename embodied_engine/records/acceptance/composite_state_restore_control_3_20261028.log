@@ -1,0 +1,7 @@
+[ctl-s0-task8] task 8 en single: put the bowl on the plate (seed 0)
+  -> completed map=False native=True user=True actions=99 dur=29.442 fail=None
+[ctl-s1-task8] task 8 en single: put the bowl on the plate (seed 1)
+  -> completed map=False native=True user=True actions=94 dur=28.362 fail=None
+[ctl-s2-task8] task 8 en single: put the bowl on the plate (seed 2)
+  -> completed map=False native=True user=True actions=90 dur=27.334 fail=None
+{"rounds": 3, "mapping_ok": 0, "native_success": 3, "user_goal_success": 3, "failed": 0, "stopped": 0}

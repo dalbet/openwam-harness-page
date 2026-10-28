@@ -178,6 +178,46 @@ def _scene_fingerprint(snapshot: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
 
+def _watched_joints(
+    steps: list[dict[str, Any]],
+    index: int,
+    snapshot: dict[str, Any],
+    task: dict[str, Any],
+) -> list[str]:
+    """Earlier steps' goal joints, so step N can be traced against them.
+
+    Read-only: a later step's action stream is unchanged. This is what lets a
+    report say *when* a previously achieved drawer goal started to regress.
+    """
+    names: list[str] = []
+    if index <= 0:
+        return names
+    joints = snapshot.get("joints") or {}
+    for prior in steps[:index]:
+        goal = composite.step_goal(prior) or {}
+        if goal.get("skill") != "open_drawer":
+            continue
+        target = goal.get("target_n")
+        try:
+            level = completion.drawer_level(target) or task.get("drawer_level")
+            name, _qpos = completion.drawer_joint(
+                snapshot, str(level), str(target) if target else None
+            )
+            if not name and level:
+                # The owner prefix of an earlier step's target can differ from
+                # the owner the scene actually reports; the level suffix is
+                # still enough to find the joint the earlier goal was about.
+                for candidate in joints:
+                    if str(candidate).endswith(f"_{level}_level"):
+                        name = str(candidate)
+                        break
+        except Exception:  # noqa: BLE001 - diagnostics only
+            name = None
+        if name and str(name) not in names:
+            names.append(str(name))
+    return names
+
+
 def _post_json(url: str, body: dict[str, Any], timeout_s: float) -> dict[str, Any]:
     data = json.dumps(body, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
@@ -585,7 +625,16 @@ class Engine:
                 "metrics": inference.get("metrics"),
             },
             "env": self.env.view(),
-            "engine": {"phase": self.phase, "detail": self.detail},
+            "engine": {
+                "phase": self.phase,
+                "detail": self.detail,
+                "handoff": {
+                    "mode": composite.handoff_mode(self.cfg),
+                    "default_mode": composite.DEFAULT_HANDOFF["mode"],
+                    "modes": list(composite.HANDOFF_MODES),
+                    "options": composite.handoff_options(self.cfg),
+                },
+            },
         }
         with self.lock:
             self.health_cache = {"at": now, "value": identity}
@@ -617,6 +666,44 @@ class Engine:
                 "metrics": self.metrics,
                 "identity": health,
             }
+
+    def set_handoff_mode(self, mode: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Switch the step-handoff mode for *subsequent* episodes.
+
+        The mode is runtime state of the engine, not of the episode: an episode
+        snapshots it at init (and captures the robot state there when the mode
+        needs it), so changing it mid-episode would make the record and the
+        behaviour disagree. Refuse that instead.
+        """
+        if mode not in composite.HANDOFF_MODES:
+            raise ValueError(
+                f"unknown handoff mode {mode!r}; expected one of {list(composite.HANDOFF_MODES)}"
+            )
+        with self.lock:
+            if self.rollout_thread is not None and self.rollout_thread.is_alive():
+                raise RuntimeError("cannot change the handoff mode while an episode is running")
+            block = dict(self.cfg.get("composite") or {})
+            handoff_block = dict(block.get("handoff") or {})
+            handoff_block["mode"] = mode
+            for key, value in (options or {}).items():
+                if key == "mode":
+                    continue
+                if key in composite.DEFAULT_HANDOFF:
+                    handoff_block[key] = value
+            block["handoff"] = handoff_block
+            self.cfg["composite"] = block
+            self.health_cache = {"at": 0.0, "value": {}}
+            effective = composite.handoff_options(self.cfg)
+        records.append_journal(
+            {
+                "t": time.time(),
+                "stage": "handoff_mode_set",
+                "episode_id": self.episode_id,
+                "mode": mode,
+                "options": effective,
+            }
+        )
+        return {"status": "ok", "mode": mode, "options": effective}
 
     def _set_phase(self, phase: str, detail: str, **extra: Any) -> None:
         with self.lock:
@@ -917,6 +1004,7 @@ class Engine:
         stop_event: threading.Event,
         goal: dict[str, Any] | None = None,
         max_steps: int | None = None,
+        watch_joints: list[str] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         """Run one whole-task policy rollout; returns (record, obs, snapshot).
 
@@ -948,6 +1036,7 @@ class Engine:
             goal=goal,
             goal_confirm_samples=int(composite_opts["goal_confirm_samples"]),
             step_ref=str(step.get("step_id") or "step"),
+            watch_joints=watch_joints,
         )
         result = runner.run()
         return result, runner.obs, runner.snapshot
@@ -1102,6 +1191,41 @@ class Engine:
         baseline = snapshot
         initial_scene = _scene_fingerprint(snapshot)
         initial_state = _state_fingerprint(snapshot)
+        handoff_mode = composite.handoff_mode(self.cfg)
+        handoff_options = composite.handoff_options(self.cfg)
+        robot_state_capture: dict = {}
+        robot_state_capture_error = ""
+        if handoff_mode == "robot_state_restore":
+            # The episode's own initial robot state, not ``robot.init_qpos``: this is
+            # read after the settle steps of reset, immediately before the first
+            # task action, and stays inside the env service process.
+            try:
+                robot_state_capture = env.robot_state_capture(
+                    f"episode_init:{episode_id}"
+                )
+            except Exception as exc:  # noqa: BLE001 - captured in the record
+                robot_state_capture_error = f"{type(exc).__name__}: {exc}"
+                robot_state_capture = {
+                    "ok": False,
+                    "reason_code": "capture_rpc_failed",
+                    "reason": robot_state_capture_error,
+                }
+            records.append_journal(
+                {
+                    "event": "robot_state_capture",
+                    "episode_id": episode_id,
+                    "init_seed": self.seed,
+                    "handoff_mode": handoff_mode,
+                    "ok": bool(robot_state_capture.get("ok")),
+                    "capture_id": robot_state_capture.get("capture_id"),
+                    "reason_code": robot_state_capture.get("reason_code"),
+                    "reason": robot_state_capture.get("reason"),
+                    "observation_id": snapshot.get("observation_id"),
+                    "sim_action_count": snapshot.get("sim_action_count"),
+                    "robot": robot_state_capture.get("robot"),
+                    "nonrobot_digest": robot_state_capture.get("nonrobot_digest"),
+                }
+            )
         token = self.inference.reset(f"episode:{episode_id}")
         with self.lock:
             self.scene_epoch = snapshot.get("scene_epoch")
@@ -1257,6 +1381,10 @@ class Engine:
                         for step in steps
                     },
                     "handoff_records": [],
+                    "handoff_mode": handoff_mode,
+                    "handoff_options": handoff_options,
+                    "robot_state_capture": robot_state_capture,
+                    "robot_state_capture_error": robot_state_capture_error,
                 }
                 # The episode's initial wrist orientation, read before any
                 # action: the handoff restores it so step 2 starts from a pose
@@ -1350,6 +1478,7 @@ class Engine:
                         episode_id=episode_id,
                         stop_event=stop_event,
                         goal=step_goal,
+                        watch_joints=_watched_joints(steps, index, snapshot, task),
                         max_steps=(
                             composite.step_budget(int(step.get("step_index") or 1), self.cfg)
                             if composite_state.get("enabled")
@@ -1560,6 +1689,8 @@ class Engine:
                             task=task,
                             home_eef=home_eef,
                             home_quat=composite_state.get("home_quat"),
+                            robot_state=composite_state.get("robot_state_capture") or {},
+                            prior_step=(step_results[-1] if step_results else None),
                             journal=lambda stage, row: records.append_journal(
                                 {"t": time.time(), "stage": stage, "episode_id": episode_id, "row": row}
                             ),
@@ -1619,6 +1750,7 @@ class Engine:
                     index += 1
                     retries = 0
                     continue
+                watch_joints = _watched_joints(steps, index, snapshot, task)
                 runner = SkillRunner(
                     env=env,
                     inference=self.inference,
@@ -1639,6 +1771,7 @@ class Engine:
                     chunk_budget_hard=self._budget_hard(step["skill"]),
                     frame_sink=self._set_frames,
                     home_eef=home_eef,
+                    watch_joints=watch_joints,
                 )
                 try:
                     result = runner.run()
@@ -2065,7 +2198,15 @@ class Engine:
                 "message": exc.message,
                 "evidence": exc.evidence,
             }
-            final_verification = {}
+            # A failed *final* verification still measured every step: keep
+            # those samples so the record shows which goal regressed instead of
+            # reporting "never checked".
+            failed_steps = (exc.evidence or {}).get("steps")
+            final_verification = (
+                {"ok": False, "samples": len(failed_steps), "steps": failed_steps}
+                if isinstance(failed_steps, list) and failed_steps
+                else {}
+            )
         except Exception as exc:
             execution_status = "failed"
             failure = {
@@ -2152,6 +2293,58 @@ class Engine:
                     - int(composite_state.get("sim_action_count_start") or 0)
                 ),
                 "budgets": composite_state.get("budgets"),
+                "handoff_mode": composite_state.get("handoff_mode"),
+                "handoff_options": composite_state.get("handoff_options"),
+                "handoff_mode_default": composite.DEFAULT_HANDOFF["mode"],
+                "robot_state_restore": bool(handoff.get("robot_state_restore")),
+                "robot_teleport": bool(handoff.get("robot_teleport")),
+                "physical_continuity": False,
+                "robot_state_capture": (
+                    {
+                        key: (composite_state.get("robot_state_capture") or {}).get(key)
+                        for key in (
+                            "ok",
+                            "reason_code",
+                            "reason",
+                            "capture_id",
+                            "observation_id",
+                            "sim_action_count",
+                            "robot",
+                            "controller",
+                            "nonrobot_digest",
+                        )
+                    }
+                    if composite_state.get("robot_state_capture")
+                    else None
+                ),
+                "robot_state_capture_error": composite_state.get("robot_state_capture_error") or None,
+                "action_accounting": {
+                    "policy_actions": sum(int(row.get("sim_actions") or 0) for row in step_results),
+                    "handoff_retreat_actions": sum(
+                        int(((row.get("counts") or {}).get("retreat_actions")) or 0)
+                        for row in (composite_state.get("handoff_records") or [])
+                    ),
+                    "handoff_detach_actions": sum(
+                        int(((row.get("counts") or {}).get("detach_actions")) or 0)
+                        for row in (composite_state.get("handoff_records") or [])
+                    ),
+                    "handoff_settle_actions": sum(
+                        int(((row.get("counts") or {}).get("settle_actions")) or 0)
+                        for row in (composite_state.get("handoff_records") or [])
+                    ),
+                    "handoff_actions": sum(
+                        int(row.get("sim_actions") or 0)
+                        for row in (composite_state.get("handoff_records") or [])
+                    ),
+                    "finalizer_actions": sum(
+                        int(((row.get("placement") or {}).get("extra_actions")) or 0)
+                        for row in step_results
+                    ),
+                    "sim_actions_total": (
+                        int(final_snapshot.get("sim_action_count") or 0)
+                        - int(composite_state.get("sim_action_count_start") or 0)
+                    ),
+                },
                 "handoff": handoff,
                 "steps": step_rows,
                 "step_1_ok": step_1_ok,
@@ -2478,6 +2671,21 @@ async def metrics(request: web.Request) -> web.Response:
     )
 
 
+async def handoff(request: web.Request) -> web.Response:
+    body = await _json_body(request)
+    try:
+        out = await asyncio.to_thread(
+            _engine().set_handoff_mode,
+            str(body.get("mode") or ""),
+            body.get("options") or {},
+        )
+        return web.json_response(out)
+    except ValueError as exc:
+        return web.json_response({"status": "bad_request", "error": str(exc)}, status=400)
+    except RuntimeError as exc:
+        return web.json_response({"status": "conflict", "error": str(exc)}, status=409)
+
+
 async def _json_body(request: web.Request) -> dict[str, Any]:
     try:
         body = await request.json()
@@ -2496,6 +2704,7 @@ def make_app() -> web.Application:
     app.router.add_post("/api/run", run)
     app.router.add_post("/api/stop", stop)
     app.router.add_post("/api/reset", reset)
+    app.router.add_post("/api/handoff", handoff)
     app.router.add_get("/api/frame", frame)
     return app
 

@@ -51,6 +51,28 @@ class EnvClient:
     def raw_obs(self) -> dict[str, Any]:
         return self._rpc.call("env.raw_obs", timeout_s=60)
 
+    def robot_state_capture(self, reason: str = "episode_init") -> dict[str, Any]:
+        """Freeze the robot's own state inside the env service.
+
+        Returns the stamped evidence row: the robot joint spans, its
+        controllers, the untouched non-robot digest, and the capture id a
+        later restore must name. Nothing is written.
+        """
+        return self._rpc.call("env.robot_state_capture", (str(reason),), timeout_s=60)
+
+    def robot_state_restore(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Restore one captured robot state; the scene is not touched.
+
+        ``sim_action_count`` does not move: this is a state write, not an
+        action. Settle actions, if any, are ordinary ``step`` calls made by
+        the caller and are counted separately.
+        """
+        return self._rpc.call("env.robot_state_restore", (dict(request),), timeout_s=120)
+
+    def robot_state_inspect(self) -> dict[str, Any]:
+        """Read the robot state plus its contact list; nothing is written."""
+        return self._rpc.call("env.robot_state_inspect", timeout_s=60)
+
     def render_camera(
         self, camera_name: str, height: int, width: int, depth: bool = False
     ):

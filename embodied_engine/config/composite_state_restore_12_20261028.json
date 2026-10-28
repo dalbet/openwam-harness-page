@@ -1,0 +1,134 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-10-28T18:05:00+08:00",
+  "note": "Frozen twelve-round comparison for the step-handoff question. Three LIBERO init indices (0, 1, 2), one official English instruction for every round so language cannot explain a difference, two handoff modes (action_retreat, robot_state_restore), two runs each, interleaved mode-by-mode inside each init. Every round loads task 8 at that init and never resets, reloads, mutates the BDDL or teleports an object inside the episode. Rounds are never retried or skipped; failures stay. The two runs per cell are repeatability, not independent inits: all rounds of one init start from the same frozen scene. Same code path as the earlier six-round acceptance; the modes differ only in how the arm is handed over.",
+  "seed": 0,
+  "policy_randomness": {
+    "denoise_steps": 10,
+    "execute_horizon": 32,
+    "sampling_seed": null,
+    "note": "the resident OpenWAM server exposes no per-episode sampling seed, so action sampling draws from its ambient RNG; the scene init is fixed by the env seed"
+  },
+  "rounds": [
+    {
+      "round": "c08-s0-retreat-r1",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "c08-s0-restore-r1",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0,
+      "handoff_mode": "robot_state_restore"
+    },
+    {
+      "round": "c08-s0-retreat-r2",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "c08-s0-restore-r2",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0,
+      "handoff_mode": "robot_state_restore"
+    },
+    {
+      "round": "c08-s1-retreat-r1",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 1,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "c08-s1-restore-r1",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 1,
+      "handoff_mode": "robot_state_restore"
+    },
+    {
+      "round": "c08-s1-retreat-r2",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 1,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "c08-s1-restore-r2",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 1,
+      "handoff_mode": "robot_state_restore"
+    },
+    {
+      "round": "c08-s2-retreat-r1",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 2,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "c08-s2-restore-r1",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 2,
+      "handoff_mode": "robot_state_restore"
+    },
+    {
+      "round": "c08-s2-retreat-r2",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 2,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "c08-s2-restore-r2",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 2,
+      "handoff_mode": "robot_state_restore"
+    }
+  ]
+}

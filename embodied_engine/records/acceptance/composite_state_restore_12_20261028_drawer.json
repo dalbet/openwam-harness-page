@@ -1,0 +1,415 @@
+{
+  "schema": "embodied_engine.drawer_regression.v1",
+  "source": "records/acceptance/composite_state_restore_12_20261028.json",
+  "note": "First-movement is the first action after which the earlier step's drawer joint moved by more than 0.1 mm from the value the handoff handed over; the contact read at that instant names the geom pair. first_move_5mm is the first action after which it moved by at least 5 mm.",
+  "rounds": [
+    {
+      "episode_id": "ep-20261028-100255-e4e68d",
+      "handoff_mode": "action_retreat",
+      "seed": 0,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.15006597412116757,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.09435058420196997,
+      "end_source": "prior_step_state_at_failure",
+      "regression_mm": 55.7,
+      "step_2": {
+        "sim_actions": 600,
+        "duration_s": null,
+        "ok": false,
+        "stop_reason": "budget"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 601,
+        "start": [
+          -0.0976,
+          -0.0086,
+          0.8984
+        ],
+        "min_z": 0.8956,
+        "end": [
+          0.0359,
+          0.0345,
+          0.9139
+        ]
+      },
+      "round": "c08-s0-retreat-r1"
+    },
+    {
+      "episode_id": "ep-20261028-100615-a10094",
+      "handoff_mode": "robot_state_restore",
+      "seed": 0,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.1498530894901312,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.07740346229612148,
+      "end_source": "prior_step_state_at_failure",
+      "regression_mm": 72.4,
+      "step_2": {
+        "sim_actions": 600,
+        "duration_s": null,
+        "ok": false,
+        "stop_reason": "budget"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 601,
+        "start": [
+          -0.0976,
+          -0.0086,
+          0.8984
+        ],
+        "min_z": 0.8963,
+        "end": [
+          -0.0594,
+          0.0626,
+          0.8984
+        ]
+      },
+      "round": "c08-s0-restore-r1"
+    },
+    {
+      "episode_id": "ep-20261028-100936-53c49e",
+      "handoff_mode": "action_retreat",
+      "seed": 0,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.15099060912372725,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.06915192508041114,
+      "end_source": "final_verification_samples",
+      "regression_mm": 81.8,
+      "step_2": {
+        "sim_actions": 527,
+        "duration_s": null,
+        "ok": true,
+        "stop_reason": "policy_release"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 528,
+        "start": [
+          -0.0976,
+          -0.0086,
+          0.8984
+        ],
+        "min_z": 0.898,
+        "end": [
+          0.0596,
+          0.0168,
+          0.9089
+        ]
+      },
+      "round": "c08-s0-retreat-r2"
+    },
+    {
+      "episode_id": "ep-20261028-101239-3f1b6e",
+      "handoff_mode": "robot_state_restore",
+      "seed": 0,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.15648331355062933,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.0808414570498317,
+      "end_source": "final_verification_samples",
+      "regression_mm": 75.6,
+      "step_2": {
+        "sim_actions": 382,
+        "duration_s": null,
+        "ok": true,
+        "stop_reason": "policy_release"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 383,
+        "start": [
+          -0.0976,
+          -0.0086,
+          0.8984
+        ],
+        "min_z": 0.8971,
+        "end": [
+          0.0546,
+          0.0156,
+          0.909
+        ]
+      },
+      "round": "c08-s0-restore-r2"
+    },
+    {
+      "episode_id": "ep-20261028-101515-d5c56d",
+      "handoff_mode": "action_retreat",
+      "seed": 1,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.15053343176613235,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.1599991249938794,
+      "end_source": "prior_step_state_at_failure",
+      "regression_mm": -9.5,
+      "step_2": {
+        "sim_actions": 600,
+        "duration_s": null,
+        "ok": false,
+        "stop_reason": "budget"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 601,
+        "start": [
+          -0.0964,
+          0.0137,
+          0.8984
+        ],
+        "min_z": 0.8984,
+        "end": [
+          -0.0964,
+          0.0137,
+          0.8984
+        ]
+      },
+      "round": "c08-s1-retreat-r1"
+    },
+    {
+      "episode_id": "ep-20261028-101837-66b2ef",
+      "handoff_mode": "robot_state_restore",
+      "seed": 1,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.1533549804847111,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": 0.0015986138420809087,
+      "end_source": "prior_step_state_at_failure",
+      "regression_mm": 155.0,
+      "step_2": {
+        "sim_actions": 600,
+        "duration_s": null,
+        "ok": false,
+        "stop_reason": "budget"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 601,
+        "start": [
+          -0.0964,
+          0.0137,
+          0.8984
+        ],
+        "min_z": 0.8984,
+        "end": [
+          0.0523,
+          -0.0963,
+          0.9206
+        ]
+      },
+      "round": "c08-s1-restore-r1"
+    },
+    {
+      "episode_id": "ep-20261028-102200-8235cb",
+      "handoff_mode": "action_retreat",
+      "seed": 1,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.15162001180285123,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.13750971248443325,
+      "end_source": "prior_step_state_at_failure",
+      "regression_mm": 14.1,
+      "step_2": {
+        "sim_actions": 600,
+        "duration_s": null,
+        "ok": false,
+        "stop_reason": "budget"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 601,
+        "start": [
+          -0.0964,
+          0.0137,
+          0.8984
+        ],
+        "min_z": 0.8984,
+        "end": [
+          -0.0964,
+          0.0137,
+          0.8984
+        ]
+      },
+      "round": "c08-s1-retreat-r2"
+    },
+    {
+      "episode_id": "ep-20261028-102521-54e400",
+      "handoff_mode": "robot_state_restore",
+      "seed": 1,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.1515950533372269,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.06997757106233912,
+      "end_source": "final_verification_samples",
+      "regression_mm": 81.6,
+      "step_2": {
+        "sim_actions": 279,
+        "duration_s": null,
+        "ok": true,
+        "stop_reason": "policy_release"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 280,
+        "start": [
+          -0.0964,
+          0.0137,
+          0.8984
+        ],
+        "min_z": 0.8984,
+        "end": [
+          0.0596,
+          -0.0215,
+          0.9069
+        ]
+      },
+      "round": "c08-s1-restore-r2"
+    },
+    {
+      "episode_id": "ep-20261028-102732-42e424",
+      "handoff_mode": "action_retreat",
+      "seed": 2,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.1540786011329888,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.08294717066944257,
+      "end_source": "final_verification_samples",
+      "regression_mm": 71.1,
+      "step_2": {
+        "sim_actions": 560,
+        "duration_s": null,
+        "ok": true,
+        "stop_reason": "policy_release"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 561,
+        "start": [
+          -0.1033,
+          0.0023,
+          0.8984
+        ],
+        "min_z": 0.8984,
+        "end": [
+          0.0439,
+          -0.0181,
+          0.9066
+        ]
+      },
+      "round": "c08-s2-retreat-r1"
+    },
+    {
+      "episode_id": "ep-20261028-103046-694064",
+      "handoff_mode": "robot_state_restore",
+      "seed": 2,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.15260221028339022,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.06185563231625547,
+      "end_source": "prior_step_state_at_failure",
+      "regression_mm": 90.7,
+      "step_2": {
+        "sim_actions": 600,
+        "duration_s": null,
+        "ok": false,
+        "stop_reason": "budget"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 601,
+        "start": [
+          -0.1033,
+          0.0023,
+          0.8984
+        ],
+        "min_z": 0.8982,
+        "end": [
+          0.0539,
+          -0.0848,
+          0.9401
+        ]
+      },
+      "round": "c08-s2-restore-r1"
+    },
+    {
+      "episode_id": "ep-20261028-103410-357615",
+      "handoff_mode": "action_retreat",
+      "seed": 2,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.15540893054984833,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.1598376487924128,
+      "end_source": "prior_step_state_at_failure",
+      "regression_mm": -4.4,
+      "step_2": {
+        "sim_actions": 600,
+        "duration_s": null,
+        "ok": false,
+        "stop_reason": "budget"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 601,
+        "start": [
+          -0.1033,
+          0.0023,
+          0.8984
+        ],
+        "min_z": 0.8963,
+        "end": [
+          -0.1027,
+          0.0524,
+          0.8984
+        ]
+      },
+      "round": "c08-s2-retreat-r2"
+    },
+    {
+      "episode_id": "ep-20261028-103729-86ed8e",
+      "handoff_mode": "robot_state_restore",
+      "seed": 2,
+      "drawer_joint": "wooden_cabinet_1_middle_level",
+      "handoff_qpos": -0.14985130660704302,
+      "first_move": null,
+      "first_move_5mm": null,
+      "end_qpos": -0.07605049366588912,
+      "end_source": "final_verification_samples",
+      "regression_mm": 73.8,
+      "step_2": {
+        "sim_actions": 477,
+        "duration_s": null,
+        "ok": true,
+        "stop_reason": "policy_release"
+      },
+      "step2_baseline_qpos": null,
+      "object_trajectory": {
+        "samples": 478,
+        "start": [
+          -0.1033,
+          0.0023,
+          0.8984
+        ],
+        "min_z": 0.8984,
+        "end": [
+          0.0493,
+          0.0017,
+          0.9072
+        ]
+      },
+      "round": "c08-s2-restore-r2"
+    }
+  ]
+}

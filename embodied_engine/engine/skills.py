@@ -85,6 +85,7 @@ class SkillRunner:
         chunk_budget_hard: int | None = None,
         frame_sink: Callable[[dict[str, Any], dict[str, Any]], None] | None = None,
         home_eef: Any = None,
+        watch_joints: list[str] | None = None,
     ):
         self.env = env
         self.inference = inference
@@ -104,6 +105,12 @@ class SkillRunner:
         self.budget_extensions = 0
         self.frame_sink = frame_sink
         self.home_eef = _vec(home_eef)
+        # Earlier steps' goal joints. Read-only diagnostic: it answers "at which
+        # action of step 2 did the drawer start moving back", without touching
+        # the action stream.
+        self.watch_joints = [str(name) for name in (watch_joints or [])]
+        self.watch_baseline: dict[str, float] = {}
+        self.watch_events: list[dict[str, Any]] = []
         self.rehome: dict[str, Any] | None = None
         self.attempt = int(step.get("attempt") or 1)
         self.object_name = step.get("object_n")
@@ -190,9 +197,11 @@ class SkillRunner:
         self.env_step_s += time.perf_counter() - started
         self.sim_actions += 1
         state = self._observe(obs)
+        watched = self._watch(state)
         self.action_trace.append(
             {"n": self.sim_actions, "a": pair, "eef": (self.snapshot.get("sim") or {}).get("eef_pos"),
-             "grip": (self.snapshot.get("sim") or {}).get("gripper_opening_m")}
+             "grip": (self.snapshot.get("sim") or {}).get("gripper_opening_m"),
+             "watched": watched}
         )
         if self.frame_sink is not None and (self.sim_actions % 2 == 0 or state.get("ready")):
             self.frame_sink(self.obs, self.snapshot)
@@ -201,6 +210,65 @@ class SkillRunner:
         if state.get("ready"):
             self._discard_prefetch("skill_ready_boundary")
         return state
+
+    def _watch(self, state: dict[str, Any]) -> dict[str, Any] | None:
+        """Record the earlier goal joints and the first time one starts moving.
+
+        The first movement gets one contact read, so a runner can name the geom
+        pair that touched the drawer instead of inferring it.
+        """
+        if not self.watch_joints:
+            return None
+        joints = self.snapshot.get("joints") or {}
+        now = {
+            name: joints.get(name)
+            for name in self.watch_joints
+            if isinstance(joints.get(name), (int, float))
+        }
+        if not now:
+            return None
+        if not self.watch_baseline:
+            self.watch_baseline = {name: float(value) for name, value in now.items()}
+        moved = [
+            name
+            for name, value in now.items()
+            if abs(float(value) - float(self.watch_baseline.get(name, value))) > 1e-4
+        ]
+        if moved and not self.watch_events:
+            event = {
+                "sim_action_count": self.snapshot.get("sim_action_count"),
+                "skill_sim_actions": self.sim_actions,
+                "observation_id": self.snapshot.get("observation_id"),
+                "joint": moved[0],
+                "before": round(float(self.watch_baseline.get(moved[0], 0.0)), 6),
+                "now": round(float(now[moved[0]]), 6),
+                "delta": round(float(now[moved[0]]) - float(self.watch_baseline.get(moved[0], 0.0)), 6),
+                "eef_pos": (self.snapshot.get("sim") or {}).get("eef_pos"),
+                "gripper_opening_m": (self.snapshot.get("sim") or {}).get("gripper_opening_m"),
+                "contacts": self._contact_probe(),
+            }
+            self.watch_events.append(event)
+            self.journal("watched_joint_moved", {**event, "step_id": self.step.get("step_id")})
+        return {name: round(float(value), 6) for name, value in now.items()}
+
+    def _contact_probe(self) -> dict[str, Any] | None:
+        reader = getattr(self.env, "robot_state_inspect", None)
+        if not callable(reader):
+            return None
+        try:
+            row = reader()
+        except Exception as exc:  # noqa: BLE001 - diagnostics only
+            return {"error": f"{type(exc).__name__}: {exc}"}
+        if not isinstance(row, dict) or not row.get("ok"):
+            return {"error": row.get("reason_code") if isinstance(row, dict) else "no_reply"}
+        state = (row.get("robot") or {}).get("state") or {}
+        contacts = state.get("contacts") or {}
+        return {
+            "count": contacts.get("count"),
+            "robot_vs_nonrobot": (contacts.get("robot_vs_nonrobot") or [])[:8],
+            "gripper_vs_nonrobot": (contacts.get("gripper_vs_nonrobot") or [])[:8],
+            "penetration_max_m": contacts.get("penetration_max_m"),
+        }
 
     def _track_held(self, state: dict[str, Any]) -> None:
         opening = ((self.snapshot.get("sim") or {}).get("gripper_opening_m"))
@@ -498,6 +566,9 @@ class SkillRunner:
             "chunks": self.chunks,
             "observations": self.observations,
             "action_trace": self.action_trace,
+            "watch_joints": self.watch_joints,
+            "watch_baseline": self.watch_baseline,
+            "watch_events": self.watch_events,
         }
 
     def _goto_home(self) -> dict[str, Any]:

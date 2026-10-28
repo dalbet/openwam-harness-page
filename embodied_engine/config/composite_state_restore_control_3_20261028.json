@@ -1,0 +1,32 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-10-28T18:05:00+08:00",
+  "note": "Single-step control for the same three inits: task 8 alone, same code, same official English instruction, no composite and therefore no handoff. It separates 'step 2 cannot do the placement from a fresh scene' from 'step 2 cannot do it after step 1'.",
+  "seed": 0,
+  "rounds": [
+    {
+      "round": "ctl-s0-task8",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "put the bowl on the plate",
+      "seed": 0
+    },
+    {
+      "round": "ctl-s1-task8",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "put the bowl on the plate",
+      "seed": 1
+    },
+    {
+      "round": "ctl-s2-task8",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "put the bowl on the plate",
+      "seed": 2
+    }
+  ]
+}

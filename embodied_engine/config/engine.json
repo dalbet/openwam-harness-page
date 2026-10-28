@@ -149,6 +149,7 @@
    "2": 600
   },
   "handoff": {
+   "mode": "action_retreat",
    "retreat_m": 0.18,
    "retreat_step_m": 0.04,
    "retreat_max_actions": 60,
@@ -157,7 +158,17 @@
    "reset_policy_buffer": true,
    "gripper_open_command": -1.0,
    "retreat_rot_step_rad": 1.0,
-   "rot_tolerance_rad": 0.05
+   "rot_tolerance_rad": 0.05,
+   "settle_actions": 2,
+   "settle_tol_m": 0.01,
+   "settle_tol_rot_rad": 0.05,
+   "settle_scene_tol_m": 0.01,
+   "settle_object_tol_m": 0.005,
+   "detach_from_contact": true,
+   "detach_max_actions": 8,
+   "detach_step_m": 0.04,
+   "restore_penetration_tol_m": 0.002,
+   "inflight_wait_s": 10.0
   },
   "note": "Same-scene two-step execution. Pairs are listed explicitly: recognized-but-unlisted pairs are refused, not attempted."
  }

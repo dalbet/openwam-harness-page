@@ -1,0 +1,75 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-10-28T18:20:00+08:00",
+  "diagnostic_only": true,
+  "note": "Tracing diagnostics for requirement 'if the new mode still fails, record the step-2 action index of the first drawer contact, the contact geom pair, the drawer qpos change and the object trajectory'. Same three inits and the same two handoff modes as the frozen matrix, one round per cell, interleaved, with per-action tracing of the earlier step's goal joint enabled. These rounds answer 'when does the drawer start to regress', not 'what is the success rate': they are repeats of the frozen matrix's first run under a new ambient policy RNG, so they are reported separately and are never merged into the acceptance matrix.",
+  "seed": 0,
+  "policy_randomness": {
+    "denoise_steps": 10,
+    "execute_horizon": 32,
+    "sampling_seed": null,
+    "note": "the resident OpenWAM server exposes no per-episode sampling seed, so action sampling draws from its ambient RNG; the scene init is fixed by the env seed"
+  },
+  "rounds": [
+    {
+      "round": "tr-s0-retreat",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "tr-s0-restore",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 0,
+      "handoff_mode": "robot_state_restore"
+    },
+    {
+      "round": "tr-s1-retreat",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 1,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "tr-s1-restore",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 1,
+      "handoff_mode": "robot_state_restore"
+    },
+    {
+      "round": "tr-s2-retreat",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 2,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "tr-s2-restore",
+      "task_id": 8,
+      "load_task_id": 8,
+      "lang": "en",
+      "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+      "expected_keys": ["open_middle_drawer", "put_bowl_on_plate"],
+      "seed": 2,
+      "handoff_mode": "robot_state_restore"
+    }
+  ]
+}

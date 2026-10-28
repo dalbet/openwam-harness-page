@@ -118,6 +118,7 @@ class WholeTaskRunner:
         goal: dict[str, Any] | None = None,
         goal_confirm_samples: int = 2,
         step_ref: str | None = None,
+        watch_joints: list[str] | None = None,
     ):
         self.env = env
         self.inference = inference
@@ -149,6 +150,16 @@ class WholeTaskRunner:
         self.step_goal_latched = False
         self._goal_facts: dict[str, Any] | None = None
         self._last_window_facts: dict[str, Any] = {}
+
+        # ---- earlier steps' goal joints (diagnostics only) ------------------
+        # Step N traces the joints a previous step had to achieve, so a report
+        # can say *when* that earlier goal started to regress. Reads the
+        # snapshot that was already taken for this action; it never issues an
+        # extra environment call and never changes the action stream.
+        self.watch_joints: list[str] = [str(name) for name in (watch_joints or [])]
+        self.watch_baseline: dict[str, float] = {}
+        self.watch_events: list[dict[str, Any]] = []
+        self._last_watched: dict[str, Any] | None = None
 
         self.prompt = str(step.get("prompt") or task.get("instruction") or "")
         self.sim_actions = 0
@@ -228,7 +239,71 @@ class WholeTaskRunner:
         self._last_window_facts = self._window_observe(snap)
         if self.goal is not None:
             self._goal_facts = self._observe_step_goal(snap)
+        self._last_watched = self._watch(snap)
         return snap
+
+    # ---- earlier steps' goals (diagnostics only) -------------------------
+
+    def _watch(self, snap: dict[str, Any]) -> dict[str, Any] | None:
+        """Record the first action after which an earlier goal joint moved.
+
+        The baseline is the joint value at this step's first action, i.e. the
+        state the handoff handed over. One contact read is taken at detection
+        so the report can name the geom pair that touched the drawer.
+        """
+        if not self.watch_joints:
+            return None
+        joints = snap.get("joints") or {}
+        now = {
+            name: joints.get(name)
+            for name in self.watch_joints
+            if isinstance(joints.get(name), (int, float))
+        }
+        if not now:
+            return None
+        if not self.watch_baseline:
+            self.watch_baseline = {name: float(value) for name, value in now.items()}
+        moved = [
+            name
+            for name, value in now.items()
+            if abs(float(value) - float(self.watch_baseline.get(name, value))) > 1e-4
+        ]
+        if moved and not self.watch_events:
+            name = moved[0]
+            event = {
+                "sim_action_count": snap.get("sim_action_count"),
+                "skill_sim_actions": self.sim_actions,
+                "observation_id": snap.get("observation_id"),
+                "joint": name,
+                "before": round(float(self.watch_baseline.get(name, 0.0)), 6),
+                "now": round(float(now[name]), 6),
+                "delta": round(float(now[name]) - float(self.watch_baseline.get(name, 0.0)), 6),
+                "eef_pos": (snap.get("sim") or {}).get("eef_pos"),
+                "gripper_opening_m": (snap.get("sim") or {}).get("gripper_opening_m"),
+                "contacts": self._watch_contact_probe(),
+            }
+            self.watch_events.append(event)
+            self.journal("watched_joint_moved", {**event, "step_id": self.step_ref})
+        return {name: round(float(value), 6) for name, value in now.items()}
+
+    def _watch_contact_probe(self) -> dict[str, Any] | None:
+        reader = getattr(self.env, "robot_state_inspect", None)
+        if not callable(reader):
+            return None
+        try:
+            row = reader()
+        except Exception as exc:  # noqa: BLE001 - diagnostics only
+            return {"error": f"{type(exc).__name__}: {exc}"}
+        if not isinstance(row, dict) or not row.get("ok"):
+            return {"error": row.get("reason_code") if isinstance(row, dict) else "no_reply"}
+        state = (row.get("robot") or {}).get("state") or {}
+        contacts = state.get("contacts") or {}
+        return {
+            "count": contacts.get("count"),
+            "robot_vs_nonrobot": (contacts.get("robot_vs_nonrobot") or [])[:8],
+            "gripper_vs_nonrobot": (contacts.get("gripper_vs_nonrobot") or [])[:8],
+            "penetration_max_m": contacts.get("penetration_max_m"),
+        }
 
     # ---- step goal (composite early step) --------------------------------
 
@@ -696,6 +771,7 @@ class WholeTaskRunner:
                         "a10": [round(float(v), 4) for v in raw_action],
                         "eef": (snap.get("sim") or {}).get("eef_pos"),
                         "grip": (snap.get("sim") or {}).get("gripper_opening_m"),
+                        "watched": self._last_watched,
                     }
                 )
                 self.obs = obs
@@ -827,6 +903,9 @@ class WholeTaskRunner:
             "inference_rows": self.inference_rows,
             "observations": self.observations,
             "action_trace": self.action_trace,
+            "watch_joints": self.watch_joints,
+            "watch_baseline": self.watch_baseline,
+            "watch_events": self.watch_events,
             "final_state": state,
         }
 

@@ -169,8 +169,12 @@ class HandoffTest(unittest.TestCase):
         )
         self.assertLessEqual(block["retreat"]["actions"], 12)
         self.assertEqual(block["retreat"]["reason"], "bounded_actions_exhausted")
-        # The drawer is still open, so the handoff may still start step 2.
-        self.assertEqual(block["status"], "ready")
+        self.assertFalse(block["retreat"]["converged"])
+        # Running out of budget is not convergence: the drawer is still open,
+        # but step 2 would start from an unverified pose, so this is not ready.
+        self.assertTrue(block["post_retreat"]["goal"]["ok"])
+        self.assertEqual(block["status"], "not_ready")
+        self.assertEqual(block["reason_code"], "retreat_not_converged")
 
     def test_scene_epoch_change_blocks_the_handoff(self):
         env = FakeEnv(drawer_snapshot(eef=(3.0, 3.0, 3.0)), epoch_change=True)
@@ -179,7 +183,7 @@ class HandoffTest(unittest.TestCase):
         )
         self.assertFalse(block["scene_epoch_same"])
         self.assertEqual(block["status"], "not_ready")
-        self.assertEqual(block["reason_code"], "handoff_not_ready")
+        self.assertEqual(block["reason_code"], "retreat_not_converged")
 
     def test_retreat_that_closes_the_drawer_blocks_the_handoff(self):
         env = FakeEnv(drawer_snapshot(), close_drawer=True)
@@ -292,7 +296,7 @@ class OrientationRetreatTest(unittest.TestCase):
             "composite": {
                 "handoff": {
                     "retreat_step_m": 0.04,
-                    "retreat_max_actions": 60,
+                    "retreat_max_actions": 120,
                     "tolerance_m": 0.01,
                     "retreat_rot_step_rad": 1.0,
                     "rot_tolerance_rad": 0.05,
@@ -335,7 +339,7 @@ class OrientationRetreatTest(unittest.TestCase):
         for action in env.actions:
             magnitude = sum(float(v) ** 2 for v in action[3:6]) ** 0.5
             self.assertLessEqual(magnitude, 1.0001)
-        self.assertLessEqual(block["retreat"]["actions"], 60)
+        self.assertLessEqual(block["retreat"]["actions"], 120)
 
     def test_missing_orientation_keeps_the_position_only_retreat(self):
         env = FakeEnv(drawer_snapshot(eef=(0.0, -0.20, 1.04)))
