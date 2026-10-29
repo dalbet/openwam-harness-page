@@ -983,6 +983,8 @@ def _joint_qpos_map(model) -> list[dict[str, Any]]:
                 "type": joint_type,
                 "adr": int(getattr(model, "jnt_qposadr")[joint_id]),
                 "width": JOINT_QPOS_WIDTH.get(joint_type, 1),
+                "dof_adr": int(getattr(model, "jnt_dofadr")[joint_id]),
+                "dof_width": JOINT_DOF_WIDTH.get(joint_type, 1),
                 "body": _model_body_name(model, int(getattr(model, "jnt_bodyid")[joint_id])),
             }
         )
@@ -992,12 +994,20 @@ def _joint_qpos_map(model) -> list[dict[str, Any]]:
 def _nonrobot_state(model, data, robot_qpos: set[int]) -> dict[str, Any]:
     rows: dict[str, Any] = {}
     free_bodies: dict[str, Any] = {}
+    # Velocities are recorded but deliberately kept *out* of the digest: the
+    # restore check compares the scene byte-for-byte, and folding a velocity
+    # into the digest would make that comparison depend on what the sim
+    # happened to be doing at the moment of the read.
+    speeds: dict[str, Any] = {}
     digest = hashlib.sha256()
     for row in _joint_qpos_map(model):
         if row["adr"] in robot_qpos:
             continue
         values = [round(float(data.qpos[row["adr"] + k]), 9) for k in range(row["width"])]
         rows[row["name"]] = values
+        speeds[row["name"]] = [
+            round(float(data.qvel[row["dof_adr"] + k]), 9) for k in range(row["dof_width"])
+        ]
         digest.update(f"{row['name']}:{values}".encode("utf-8"))
         if row["type"] == 0:
             try:
@@ -1008,7 +1018,7 @@ def _nonrobot_state(model, data, robot_qpos: set[int]) -> dict[str, Any]:
                 digest.update(f"{row['name']}@{pos}{quat}".encode("utf-8"))
             except Exception:
                 pass
-    return {"joints": rows, "free_bodies": free_bodies, "digest": digest.hexdigest()[:32]}
+    return {"joints": rows, "qvel": speeds, "free_bodies": free_bodies, "digest": digest.hexdigest()[:32]}
 
 
 def _contact_rows(model, data, prefixes: dict[str, list[str]], limit: int = 64) -> list[dict[str, Any]]:

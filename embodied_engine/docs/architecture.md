@@ -611,8 +611,12 @@ env 进程重启后旧编号一律 `capture_unknown`，不会恢复一个没人�
 不做 `env.reset`/`load`/`set_init_state`，不回退仿真时间，不 `sim.step` 绕过计数。
 
 **能力缺口（如实标注）**：
-- 采样随机性：常驻 OpenWAM 服务不暴露按回合的采样种子（`denoise_steps=10`），
-  动作采样取该进程的环境 RNG；场景初态由 env seed 固定。重复回合只用于观察重复性。
+- 采样随机性：动作噪声由 `torch.Generator(device).manual_seed(seed)` 生成，`seed` 缺省 42
+  （`openwam/deploy/engine.py` 的 `conditions.get("seed", 42)`、
+  `openwam/model/architectures/base.py` 的 `generate(seed=42)`），推理路径上**没有**别的随机源。
+  所以相同 `(obs, prompt)` 必然给出相同动作，重复回合的差异只来自观测不同，不是采样抖动。
+  代价是常驻服务**没有**按回合/按请求改种子的入口：重复回合仍然不能当独立样本，
+  也没法用"换种子"来估计策略方差。详见 `acceptance_report.md` §32.7。
 - 候选检查只能报穿透，不能报"未来是否会被臂扫到"；它不是运动规划。
 - `physical_continuity=false`：本模式不做物理连续的组合，只回答"机械臂状态是否是
   第二步失败的主因"。
@@ -643,3 +647,15 @@ env 进程重启后旧编号一律 `capture_unknown`，不会恢复一个没人�
   目标关节名同样由 `Handoff._goal_joint()` 现场解析，不写死层级或 owner，
   字段是 `goal_joint`/`goal_joint_qpos`（旧字段 `drawer_qpos` 保留，值改为解析结果）。
 
+**符号约定（2026-10-29 补充，两处口径不同）**：
+
+- `watch_events[*].delta` 是**有符号**的（`now - baseline`）：抽屉更接近 0 为正（关回），
+  更负为负（继续拉开）。`summarize_drawer_regression.py` 的
+  `first_close_5mm`/`first_open_5mm` 也按这个符号分方向，`first_move_5mm` 方向无关。
+- `detach_check.joints[*].delta` 是**绝对值**（`abs(after - before)`），方向另存
+  `delta_signed`（2026-10-29 新增，追加字段，旧的 `delta` 语义不变）。
+  跨表比较时先统一符号，否则会把"继续拉开"读成"关回"。
+
+**非机器人关节速度（2026-10-29 补充）**：`_nonrobot_state` 现在同时返回 `joints`（qpos）与
+`qvel`（按关节名），后者**不参与** `digest`，所以"恢复后非机器人 qpos 逐字节相等"
+这条验收口径不变。用途是区分"抽屉是带着速度过去的"和"抽屉是被推的"。

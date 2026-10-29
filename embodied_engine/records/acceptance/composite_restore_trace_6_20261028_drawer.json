@@ -1,7 +1,7 @@
 {
   "schema": "embodied_engine.drawer_regression.v1",
   "source": "records/acceptance/composite_restore_trace_6_20261028.json",
-  "note": "First-movement is the first action after which the earlier step's drawer joint moved by more than 0.1 mm from the value the handoff handed over; the contact read at that instant names the geom pair. first_move_5mm is the first action after which it moved by at least 5 mm.",
+  "note": "Three baselines are reported separately and never mixed: handoff_qpos is the joint at the end of step 1 (before the handoff), step2_baseline_qpos is the value step 2 started from (watch_baseline, else the handoff's post-reset read), end_qpos is the episode end. total_regression_mm = end - handoff_qpos (the figure the earlier tables printed); step2_regression_mm = end - step2_baseline_qpos. LIBERO's drawer qpos rises towards 0 when closed, so a positive delta is a push back in (regression) and a negative delta is the drawer being pulled further out. first_move_5mm is direction-agnostic; first_close_5mm / first_open_5mm pin the direction.",
   "rounds": [
     {
       "episode_id": "ep-20261028-111225-a91298",
@@ -50,8 +50,21 @@
         "stop_reason": "budget"
       },
       "step2_baseline_qpos": -0.151773,
+      "step2_baseline_source": "watch_baseline",
       "handoff_to_step2_mm": -0.3,
       "regression_from_baseline_mm": 11.2,
+      "step2_regression_mm": 11.2,
+      "total_regression_mm": 10.9,
+      "first_open_5mm": {
+        "skill_sim_actions": 25,
+        "qpos": -0.156786,
+        "delta_mm": -5.0
+      },
+      "first_close_5mm": {
+        "skill_sim_actions": 78,
+        "qpos": -0.145584,
+        "delta_mm": 6.2
+      },
       "drawer_trace": [
         {
           "n": 1,
@@ -336,8 +349,16 @@
         "stop_reason": "budget"
       },
       "step2_baseline_qpos": -0.159458,
+      "step2_baseline_source": "watch_baseline",
       "handoff_to_step2_mm": -8.9,
       "regression_from_baseline_mm": 64.5,
+      "step2_regression_mm": 64.5,
+      "total_regression_mm": 55.6,
+      "first_close_5mm": {
+        "skill_sim_actions": 28,
+        "qpos": -0.153496,
+        "delta_mm": 6.0
+      },
       "drawer_trace": [
         {
           "n": 1,
@@ -628,8 +649,16 @@
         "stop_reason": "budget"
       },
       "step2_baseline_qpos": -0.156722,
+      "step2_baseline_source": "watch_baseline",
       "handoff_to_step2_mm": -8.7,
       "regression_from_baseline_mm": -3.3,
+      "step2_regression_mm": -3.3,
+      "total_regression_mm": -11.9,
+      "first_close_5mm": {
+        "skill_sim_actions": 170,
+        "qpos": -0.15127,
+        "delta_mm": 5.5
+      },
       "drawer_trace": [
         {
           "n": 1,
@@ -914,8 +943,16 @@
         "stop_reason": "budget"
       },
       "step2_baseline_qpos": -0.157586,
+      "step2_baseline_source": "watch_baseline",
       "handoff_to_step2_mm": -7.2,
       "regression_from_baseline_mm": -2.4,
+      "step2_regression_mm": -2.4,
+      "total_regression_mm": -9.6,
+      "first_close_5mm": {
+        "skill_sim_actions": 174,
+        "qpos": -0.151878,
+        "delta_mm": 5.7
+      },
       "drawer_trace": [
         {
           "n": 1,
@@ -1206,8 +1243,16 @@
         "stop_reason": "budget"
       },
       "step2_baseline_qpos": -0.159944,
+      "step2_baseline_source": "watch_baseline",
       "handoff_to_step2_mm": -9.4,
       "regression_from_baseline_mm": 96.8,
+      "step2_regression_mm": 96.8,
+      "total_regression_mm": 87.4,
+      "first_close_5mm": {
+        "skill_sim_actions": 113,
+        "qpos": -0.154686,
+        "delta_mm": 5.3
+      },
       "drawer_trace": [
         {
           "n": 1,
@@ -1492,8 +1537,16 @@
         "stop_reason": "budget"
       },
       "step2_baseline_qpos": -0.160002,
+      "step2_baseline_source": "watch_baseline",
       "handoff_to_step2_mm": -5.0,
       "regression_from_baseline_mm": 52.0,
+      "step2_regression_mm": 52.0,
+      "total_regression_mm": 46.9,
+      "first_close_5mm": {
+        "skill_sim_actions": 95,
+        "qpos": -0.15495,
+        "delta_mm": 5.1
+      },
       "drawer_trace": [
         {
           "n": 1,

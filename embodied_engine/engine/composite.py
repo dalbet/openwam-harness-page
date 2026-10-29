@@ -382,7 +382,16 @@ class Handoff:
                 continue
             delta = abs(float(after) - float(before))
             worst = max(worst, delta)
-            joints[name] = {"before": round(float(before), 6), "after": round(float(after), 6), "delta": round(delta, 6)}
+            joints[name] = {
+                "before": round(float(before), 6),
+                "after": round(float(after), 6),
+                # ``delta`` stays a magnitude so existing rows keep their
+                # meaning; ``delta_signed`` carries the direction a slide joint
+                # needs (a drawer that opened and one that closed by the same
+                # amount both report delta=0.005).
+                "delta": round(delta, 6),
+                "delta_signed": round(float(after) - float(before), 6),
+            }
         objects: dict[str, Any] = {}
         pre_objects = (pre.get("sim") or {}).get("objects") or {}
         post_objects = (post.get("sim") or {}).get("objects") or {}

@@ -51,6 +51,27 @@ def _baseline_qpos(record: dict[str, Any], joint: str | None) -> float | None:
     return None
 
 
+def _handoff_post_qpos(record: dict[str, Any], step2: dict[str, Any] | None, joint: str | None) -> float | None:
+    """The joint value step 2 actually started from, after the handoff.
+
+    Two sources, in this order: the runner's own pre-action baseline (only
+    recorded when joint watching was on) and the handoff's post-reset read
+    (recorded every round). The handoff can move the scene by itself -- the
+    detach action and the settle actions are real physics -- so this is not the
+    same number as the value at the end of step 1.
+    """
+    if step2 is not None and joint:
+        baseline = (step2.get("watch_baseline") or {}).get(joint)
+        if baseline is not None:
+            return float(baseline)
+    handoff = ((record.get("composite") or {}).get("handoff") or {})
+    for block in ("post_reset", "post_retreat"):
+        goal = ((handoff.get(block) or {}).get("goal") or {})
+        if goal.get("qpos") is not None:
+            return float(goal["qpos"])
+    return None
+
+
 def _end_qpos(record: dict[str, Any], joint: str | None) -> tuple[float | None, str | None]:
     evidence = record.get("failure_evidence") or {}
     for row in evidence.get("steps") or []:
@@ -111,12 +132,20 @@ def trace(record: dict[str, Any]) -> dict[str, Any]:
         "ok": step2.get("ok"),
         "stop_reason": step2.get("stop_reason"),
     }
-    baseline_step2 = (step2.get("watch_baseline") or {}).get(joint) if joint else None
+    baseline_step2 = _handoff_post_qpos(record, step2, joint)
     out["step2_baseline_qpos"] = None if baseline_step2 is None else round(float(baseline_step2), 6)
+    out["step2_baseline_source"] = (
+        None
+        if baseline_step2 is None
+        else ("watch_baseline" if (step2.get("watch_baseline") or {}).get(joint) is not None else "handoff_post_reset")
+    )
     if baseline_step2 is not None:
-        # What the handoff itself moved (detach + settle + retreat) is separate
-        # from what step 2 moved; both are reported so neither is attributed to
-        # the other.
+        # Three baselines, never mixed: step-1 end -> handoff end is what the
+        # handoff itself moved (detach + settle + retreat, real physics);
+        # handoff end -> episode end is what step 2 moved. Sign convention is
+        # LIBERO's own: qpos rises towards 0 (closed), so a positive delta
+        # means the drawer was pushed back in, a negative delta means it was
+        # pulled further out.
         if out["handoff_qpos"] is not None:
             out["handoff_to_step2_mm"] = round(
                 (float(baseline_step2) - float(out["handoff_qpos"])) * 1000.0, 1
@@ -125,6 +154,10 @@ def trace(record: dict[str, Any]) -> dict[str, Any]:
             out["regression_from_baseline_mm"] = round(
                 (float(end) - float(baseline_step2)) * 1000.0, 1
             )
+            out["step2_regression_mm"] = out["regression_from_baseline_mm"]
+    if end is not None and out["handoff_qpos"] is not None:
+        # The number the earlier tables printed: first-step end -> episode end.
+        out["total_regression_mm"] = out["regression_mm"]
     events = step2.get("watch_events") or []
     if events:
         event = dict(events[0])
@@ -147,12 +180,28 @@ def trace(record: dict[str, Any]) -> dict[str, Any]:
             watched = (row.get("watched") or {}).get(joint)
             if watched is None:
                 continue
-            if abs(float(watched) - float(baseline)) >= 0.005:
+            delta = (float(watched) - float(baseline)) * 1000.0
+            if abs(delta) >= 5.0 and out["first_move_5mm"] is None:
+                # Direction-agnostic: this is "the joint clearly moved by 5 mm",
+                # which can be the drawer being pulled FURTHER OUT as well.
                 out["first_move_5mm"] = {
                     "skill_sim_actions": row.get("n"),
                     "qpos": round(float(watched), 6),
-                    "delta_mm": round((float(watched) - float(baseline)) * 1000.0, 1),
+                    "delta_mm": round(delta, 1),
                 }
+            if delta >= 5.0 and out.get("first_close_5mm") is None:
+                out["first_close_5mm"] = {
+                    "skill_sim_actions": row.get("n"),
+                    "qpos": round(float(watched), 6),
+                    "delta_mm": round(delta, 1),
+                }
+            if delta <= -5.0 and out.get("first_open_5mm") is None:
+                out["first_open_5mm"] = {
+                    "skill_sim_actions": row.get("n"),
+                    "qpos": round(float(watched), 6),
+                    "delta_mm": round(delta, 1),
+                }
+            if out.get("first_move_5mm") and out.get("first_close_5mm") and out.get("first_open_5mm"):
                 break
         # the whole trace, thinned to every 25th action, for the report
         thin = []
@@ -207,10 +256,14 @@ def main() -> int:
         "schema": "embodied_engine.drawer_regression.v1",
         "source": args.rounds,
         "note": (
-            "First-movement is the first action after which the earlier step's drawer joint "
-            "moved by more than 0.1 mm from the value the handoff handed over; the contact "
-            "read at that instant names the geom pair. first_move_5mm is the first action "
-            "after which it moved by at least 5 mm."
+            "Three baselines are reported separately and never mixed: handoff_qpos is the joint "
+            "at the end of step 1 (before the handoff), step2_baseline_qpos is the value step 2 "
+            "started from (watch_baseline, else the handoff's post-reset read), end_qpos is the "
+            "episode end. total_regression_mm = end - handoff_qpos (the figure the earlier tables "
+            "printed); step2_regression_mm = end - step2_baseline_qpos. LIBERO's drawer qpos rises "
+            "towards 0 when closed, so a positive delta is a push back in (regression) and a "
+            "negative delta is the drawer being pulled further out. first_move_5mm is "
+            "direction-agnostic; first_close_5mm / first_open_5mm pin the direction."
         ),
         "rounds": rows,
     }

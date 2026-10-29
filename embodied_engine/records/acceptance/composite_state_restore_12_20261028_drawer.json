@@ -1,7 +1,7 @@
 {
   "schema": "embodied_engine.drawer_regression.v1",
   "source": "records/acceptance/composite_state_restore_12_20261028.json",
-  "note": "First-movement is the first action after which the earlier step's drawer joint moved by more than 0.1 mm from the value the handoff handed over; the contact read at that instant names the geom pair. first_move_5mm is the first action after which it moved by at least 5 mm.",
+  "note": "Three baselines are reported separately and never mixed: handoff_qpos is the joint at the end of step 1 (before the handoff), step2_baseline_qpos is the value step 2 started from (watch_baseline, else the handoff's post-reset read), end_qpos is the episode end. total_regression_mm = end - handoff_qpos (the figure the earlier tables printed); step2_regression_mm = end - step2_baseline_qpos. LIBERO's drawer qpos rises towards 0 when closed, so a positive delta is a push back in (regression) and a negative delta is the drawer being pulled further out. first_move_5mm is direction-agnostic; first_close_5mm / first_open_5mm pin the direction.",
   "rounds": [
     {
       "episode_id": "ep-20261028-100255-e4e68d",
@@ -20,7 +20,12 @@
         "ok": false,
         "stop_reason": "budget"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.151655,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": -1.6,
+      "regression_from_baseline_mm": 57.3,
+      "step2_regression_mm": 57.3,
+      "total_regression_mm": 55.7,
       "object_trajectory": {
         "samples": 601,
         "start": [
@@ -54,7 +59,12 @@
         "ok": false,
         "stop_reason": "budget"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.158652,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": -8.8,
+      "regression_from_baseline_mm": 81.2,
+      "step2_regression_mm": 81.2,
+      "total_regression_mm": 72.4,
       "object_trajectory": {
         "samples": 601,
         "start": [
@@ -88,7 +98,12 @@
         "ok": true,
         "stop_reason": "policy_release"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.159966,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": -9.0,
+      "regression_from_baseline_mm": 90.8,
+      "step2_regression_mm": 90.8,
+      "total_regression_mm": 81.8,
       "object_trajectory": {
         "samples": 528,
         "start": [
@@ -122,7 +137,12 @@
         "ok": true,
         "stop_reason": "policy_release"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.159906,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": -3.4,
+      "regression_from_baseline_mm": 79.1,
+      "step2_regression_mm": 79.1,
+      "total_regression_mm": 75.6,
       "object_trajectory": {
         "samples": 383,
         "start": [
@@ -156,7 +176,12 @@
         "ok": false,
         "stop_reason": "budget"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.154082,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": -3.5,
+      "regression_from_baseline_mm": -5.9,
+      "step2_regression_mm": -5.9,
+      "total_regression_mm": -9.5,
       "object_trajectory": {
         "samples": 601,
         "start": [
@@ -190,7 +215,12 @@
         "ok": false,
         "stop_reason": "budget"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.160106,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": -6.8,
+      "regression_from_baseline_mm": 161.7,
+      "step2_regression_mm": 161.7,
+      "total_regression_mm": 155.0,
       "object_trajectory": {
         "samples": 601,
         "start": [
@@ -224,7 +254,12 @@
         "ok": false,
         "stop_reason": "budget"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.146692,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": 4.9,
+      "regression_from_baseline_mm": 9.2,
+      "step2_regression_mm": 9.2,
+      "total_regression_mm": 14.1,
       "object_trajectory": {
         "samples": 601,
         "start": [
@@ -258,7 +293,12 @@
         "ok": true,
         "stop_reason": "policy_release"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.158513,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": -6.9,
+      "regression_from_baseline_mm": 88.5,
+      "step2_regression_mm": 88.5,
+      "total_regression_mm": 81.6,
       "object_trajectory": {
         "samples": 280,
         "start": [
@@ -292,7 +332,12 @@
         "ok": true,
         "stop_reason": "policy_release"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.159731,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": -5.7,
+      "regression_from_baseline_mm": 76.8,
+      "step2_regression_mm": 76.8,
+      "total_regression_mm": 71.1,
       "object_trajectory": {
         "samples": 561,
         "start": [
@@ -326,7 +371,12 @@
         "ok": false,
         "stop_reason": "budget"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.160074,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": -7.5,
+      "regression_from_baseline_mm": 98.2,
+      "step2_regression_mm": 98.2,
+      "total_regression_mm": 90.7,
       "object_trajectory": {
         "samples": 601,
         "start": [
@@ -360,7 +410,12 @@
         "ok": false,
         "stop_reason": "budget"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.149133,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": 6.3,
+      "regression_from_baseline_mm": -10.7,
+      "step2_regression_mm": -10.7,
+      "total_regression_mm": -4.4,
       "object_trajectory": {
         "samples": 601,
         "start": [
@@ -394,7 +449,12 @@
         "ok": true,
         "stop_reason": "policy_release"
       },
-      "step2_baseline_qpos": null,
+      "step2_baseline_qpos": -0.158679,
+      "step2_baseline_source": "handoff_post_reset",
+      "handoff_to_step2_mm": -8.8,
+      "regression_from_baseline_mm": 82.6,
+      "step2_regression_mm": 82.6,
+      "total_regression_mm": 73.8,
       "object_trajectory": {
         "samples": 478,
         "start": [
