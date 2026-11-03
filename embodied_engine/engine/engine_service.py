@@ -534,6 +534,7 @@ class Engine:
         self.failure_code = ""
         self.last_result: dict[str, Any] = {}
         self.last_stop: dict[str, Any] = {}
+        self.episode_started_ts: float | None = None
         self.plan: dict[str, Any] | None = None
         # Bumped on every lifecycle transition (load/reset/stop/new rollout). A
         # planner response that was in flight across one of those transitions
@@ -543,6 +544,15 @@ class Engine:
         self.steps_done: list[dict[str, Any]] = []
         self.latest_frames: dict[str, Any] = {}
         self.frame_seq = 0
+        # Encoded JPEGs keyed by (frame_seq, view): a repeated request for a
+        # frame already seen is served from memory instead of being re-encoded.
+        self.frame_jpeg: dict[str, tuple] = {}
+        # Why frames did (not) land — the page bug "one frame per whole task"
+        # is a frame-source question, so the counters are exposed in /status.
+        self.frame_stats: dict[str, Any] = {
+            "written": 0, "skipped": 0, "cleared": 0,
+            "last_skip": "", "last_src": "", "last_clear": "",
+        }
         self.health_cache: dict[str, Any] = {"at": 0.0, "value": {}}
         self.metrics = {
             "episodes_started": 0,
@@ -586,6 +596,16 @@ class Engine:
                 "control_frequency_hz": action_cfg["control_frequency_hz"],
                 "counterpart": infer_ident.get("counterpart"),
                 "server": infer_ident.get("server"),
+                # Which upstream generation server the router is actually
+                # using, and which arm it was started as. The page compares
+                # this against the arm the user selected, so a stale selection
+                # can never be shown as the running backend.
+                "server_url": infer_ident.get("server_url"),
+                "serving_arm": infer_ident.get("arm"),
+                "precision": (
+                    infer_ident.get("precision_requested")
+                    or ((infer_ident.get("server") or {}).get("detail") or {}).get("precision")
+                ),
                 "openwam": {**action_cfg.get("openwam", {}), **openwam_row},
             }
         else:
@@ -657,6 +677,21 @@ class Engine:
                 "scene_epoch": self.scene_epoch,
                 "sim_action_count": self.sim_action_count,
                 "frame_seq": self.frame_seq,
+                "frame_ts": (self.latest_frames or {}).get("frame_ts"),
+                "frame_age_s": (
+                    None
+                    if (self.latest_frames or {}).get("frame_ts") is None
+                    else round(time.time() - float(self.latest_frames["frame_ts"]), 3)
+                ),
+                "frame_src": (self.latest_frames or {}).get("frame_src"),
+                "frame_episode_id": (self.latest_frames or {}).get("episode_id"),
+                "frame_scene_epoch": (self.latest_frames or {}).get("scene_epoch"),
+                "frame_stats": dict(self.frame_stats),
+                "episode_started_ts": self.episode_started_ts,
+                "episode_elapsed_s": (
+                    None if not self.episode_started_ts
+                    else round(time.time() - float(self.episode_started_ts), 2)
+                ),
                 "failure_reason": self.failure_reason,
                 "failure_code": self.failure_code,
                 "last_result": self.last_result,
@@ -716,32 +751,79 @@ class Engine:
         )
 
     def _set_frames(self, obs: dict[str, Any], snapshot: dict[str, Any]) -> None:
-        if not isinstance(obs, dict) or obs.get("main_images") is None:
+        """Publish the frame the control loop already holds.
+
+        Called from the rollout loop with the observation ``env.step`` just
+        returned (``main_images`` / ``wrist_images``) and from the read-only
+        probe paths with a raw ``env.raw_obs`` (``agentview_image`` /
+        ``robot0_eye_in_hand_image``). Both are accepted: the page needs a
+        frame per control step, and neither path steps the simulator or
+        renders again. No frame is ever fetched inside this method.
+        """
+        if not isinstance(obs, dict):
+            with self.lock:
+                self.frame_stats["skipped"] += 1
+                self.frame_stats["last_skip"] = "obs_not_dict"
+            return
+        agent = obs.get("main_images")
+        wrist = obs.get("wrist_images")
+        source = "model_obs"
+        if agent is None:
+            agent = obs.get("agentview_image")
+            wrist = obs.get("robot0_eye_in_hand_image")
+            source = "raw_obs"
+        if agent is None:
+            with self.lock:
+                self.frame_stats["skipped"] += 1
+                self.frame_stats["last_skip"] = "no_image_key"
             return
         with self.lock:
             self.latest_frames = {
-                "agent": np.asarray(obs["main_images"], dtype=np.uint8),
-                "wrist": np.asarray(obs.get("wrist_images"), dtype=np.uint8) if obs.get("wrist_images") is not None else None,
+                "agent": np.asarray(agent, dtype=np.uint8),
+                "wrist": np.asarray(wrist, dtype=np.uint8) if wrist is not None else None,
                 "sim_action_count": snapshot.get("sim_action_count"),
                 "observation_id": snapshot.get("observation_id"),
                 "scene_epoch": snapshot.get("scene_epoch"),
                 "episode_id": self.episode_id,
                 "frame_seq": self.frame_seq + 1,
+                "frame_ts": time.time(),
+                "frame_src": source,
             }
             self.frame_seq += 1
+            self.frame_stats["written"] += 1
+            self.frame_stats["last_src"] = source
             self.sim_action_count = int(snapshot.get("sim_action_count") or 0)
 
+    def _clear_frames(self, reason: str) -> None:
+        """Drop frames from the previous episode so the page cannot show them."""
+        with self.lock:
+            self.latest_frames = {}
+            self.frame_jpeg.clear()
+            self.frame_stats["cleared"] += 1
+            self.frame_stats["last_clear"] = reason
+
     def frame(self, view: str) -> bytes:
+        key = "agent" if view in {"agent", "agentview", "main"} else "wrist"
         with self.lock:
             row = dict(self.latest_frames)
-        key = "agent" if view in {"agent", "agentview", "main"} else "wrist"
+            seq = row.get("frame_seq")
+            cached = self.frame_jpeg.get(key)
+            if cached is not None and cached[0] == seq:
+                return cached[1]
         arr = row.get(key)
         if arr is None:
             raise KeyError(view)
         image = Image.fromarray(np.asarray(arr, dtype=np.uint8))
         buf = io.BytesIO()
         image.save(buf, format="JPEG", quality=90, subsampling=2)
-        return buf.getvalue()
+        data = buf.getvalue()
+        with self.lock:
+            # Keyed by frame_seq: a repeated request for the same frame is
+            # served from here, so a slow client never makes the engine
+            # re-encode (and never touches the control loop).
+            if self.latest_frames.get("frame_seq") == seq:
+                self.frame_jpeg[key] = (seq, data)
+        return data
 
     # ---- scene / lifecycle ----
 
@@ -751,6 +833,9 @@ class Engine:
         with self.run_lock:
             if self.phase in {"planning", "running", "recovering", "stopping"}:
                 raise RuntimeError("cannot load while an episode is active")
+            # A scene change must not leave the previous episode's last frame
+            # on the page while the new environment is still starting.
+            self._clear_frames("load")
             self._set_phase(
                 "loading",
                 f"starting LIBERO {self.cfg['env']['suite']} task {task_id} seed {wanted_seed}",
@@ -800,6 +885,7 @@ class Engine:
         if self.task_id is None:
             return {"status": "ok", "phase": "ready", "detail": "no scene loaded"}
         with self.run_lock:
+            self._clear_frames("reset")
             env = self.env.ensure(self.task_id, self.seed)
             obs = env.reset()
             snap = env.state_snapshot()
@@ -911,6 +997,7 @@ class Engine:
         if needs_load:
             # ``load`` takes the same lock; call it after releasing it here.
             self.load(task_id, int(seed) if seed is not None else self.seed)
+        self._clear_frames("run_start")
         with self.lock:
             self.stop_event = threading.Event()
             self.episode_id = f"ep-{time.strftime('%Y%m%d-%H%M%S', time.localtime())}-{uuid.uuid4().hex[:6]}"
@@ -923,6 +1010,7 @@ class Engine:
             self.steps_done = []
             self.last_result = {}
             self.metrics["episodes_started"] += 1
+            self.episode_started_ts = time.time()
             self.run_id = self._next_run_id(task_id)
             self.planner_generation += 1
             planner_generation = self.planner_generation
@@ -2519,6 +2607,13 @@ class Engine:
                 "initial_scene_fingerprint": record.get("initial_scene_fingerprint"),
                 "initial_state_fingerprint": record.get("initial_state_fingerprint"),
                 "timing": record["timing"],
+                # Generation statistics of *this* episode (client latency and
+                # server latency per chunk) so the page can show real numbers
+                # instead of a remembered average.
+                "action_backend": record.get("action_backend"),
+                "generation": (
+                    (((record.get("steps") or [{}])[0].get("chunk_stats") or {}).get("generation")) or None
+                ),
                 "record": str(path),
             }
             if execution_status == "completed":

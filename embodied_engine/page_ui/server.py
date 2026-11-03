@@ -31,6 +31,7 @@ if str(PROJECT) not in sys.path:
     sys.path.insert(0, str(PROJECT))
 
 from common import config  # noqa: E402
+from page_ui.arms import ArmSwitcher, ArmTable  # noqa: E402
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -45,7 +46,10 @@ logging.basicConfig(
 log = logging.getLogger("page")
 
 CFG = config.engine_config()
-ENGINE = config.service_url("engine")
+# ``ENGINE_URL`` lets the same page source run against an isolated engine (the
+# integration acceptance stack) without editing the project config, and without
+# any chance of a demo page driving the production engine by accident.
+ENGINE = (os.environ.get("ENGINE_URL") or config.service_url("engine")).rstrip("/")
 POLL_S = 0.25
 ACTIVE_PHASES = {"planning", "running", "recovering", "verifying", "stopping"}
 TERMINAL_PHASES = {"succeeded", "failed", "stopped"}
@@ -112,6 +116,12 @@ def identity_message(status: dict) -> dict:
         "agent_router": agent.get("routing") or {},
         "action_model": action.get("name") or "unavailable",
         "action_backend": action.get("backend"),
+        "action_checkpoint": action.get("checkpoint"),
+        "action_server_url": action.get("server_url"),
+        "action_precision": action.get("precision"),
+        "serving_arm": action.get("serving_arm"),
+        "action_horizon": action.get("action_chunk"),
+        "execute_horizon": action.get("execute_horizon"),
         "world_model": openwam.get("name") or "not configured",
         "world_model_status": openwam.get("integration") or "unavailable",
         "inference_mode": inference.get("mode") or "unknown",
@@ -123,8 +133,59 @@ def identity_message(status: dict) -> dict:
     }
 
 
+def metrics_message(status: dict) -> dict:
+    """This episode's own numbers, straight from the engine's status.
+
+    Nothing here is remembered from an earlier run: a value is present only
+    while the engine has the record for the current (or just-finished) episode,
+    and the page labels the difference between "live" and "this episode".
+    """
+    plan = status.get("plan") or {}
+    last = status.get("last_result") or {}
+    timing = last.get("timing") or {}
+    gen = last.get("generation") or {}
+    server = gen.get("server_latency_ms") or {}
+    client = gen.get("client_inference_s") or {}
+    action = (status.get("identity") or {}).get("action_model") or {}
+    return {
+        "type": "metrics",
+        "phase": status.get("phase"),
+        "task_id": status.get("task_id"),
+        "episode_id": status.get("episode_id"),
+        "sim_actions": status.get("sim_action_count"),
+        "episode_started_ts": status.get("episode_started_ts"),
+        # planner_s comes from this episode's record when it has one; the
+        # live plan block only carries total_s while the episode is running.
+        "planner_s": timing.get("planner_s", plan.get("latency_s") or plan.get("total_s")),
+        "planner_source": plan.get("source"),
+        "first_action_s": timing.get("plan_to_first_action_s"),
+        "execution_s": timing.get("execution_s"),
+        "verification_s": timing.get("verification_s"),
+        "inference_wait_s": timing.get("inference_s_sum"),
+        "env_step_s": timing.get("env_step_s_sum"),
+        "duration_s": last.get("duration_s"),
+        "executed_actions": last.get("sim_action_count"),
+        "success": last.get("success"),
+        "generation": {
+            "n": server.get("n"),
+            "server_median_ms": server.get("median"),
+            "server_p95_ms": server.get("p95"),
+            "client_median_s": client.get("median"),
+            "client_p95_s": client.get("p95"),
+        },
+        "action_backend": action.get("backend"),
+        "action_server_url": action.get("server_url"),
+        "action_precision": action.get("precision"),
+        "serving_arm": action.get("serving_arm"),
+        "frame_seq": status.get("frame_seq"),
+        "frame_ts": status.get("frame_ts"),
+    }
+
+
 class Client:
-    MAX_Q = 3
+    # The connect burst (identity, scenes, arm, metrics) alone is four
+    # messages; frames are still dropped-oldest above this bound.
+    MAX_Q = 12
 
     def __init__(self, ws: web.WebSocketResponse):
         self.ws = ws
@@ -188,6 +249,16 @@ class Hub:
         for client in self._snapshot():
             client.enqueue_frame(data)
 
+    async def close(self) -> None:
+        """Close every client socket so shutdown does not wait on a browser."""
+        for client in self._snapshot():
+            try:
+                await client.ws.close()
+            except Exception:  # noqa: BLE001 - shutdown must not raise
+                pass
+        async with self._lock:
+            self.clients.clear()
+
 
 class Monitor:
     """Single poller: engine status -> page text/binary frames."""
@@ -200,6 +271,8 @@ class Monitor:
         self.last_episode: str | None = None
         self.last_announced: set[str] = set()
         self.last_error_at = 0.0
+        self.last_metrics: str | None = None
+        self.last_arm: str | None = None
 
     async def run(self) -> None:
         while True:
@@ -228,6 +301,26 @@ class Monitor:
         if key != self.last_identity:
             self.last_identity = key
             await self.hub.text(identity)
+
+        if ARM is not None:
+            arm_state = ARM.state(status)
+            arm_key = json.dumps(
+                {k: arm_state[k] for k in ("selected", "actual", "verified", "switching", "status", "phase", "busy", "error", "detail")},
+                sort_keys=True,
+            )
+            if arm_key != self.last_arm:
+                self.last_arm = arm_key
+                await self.hub.text(arm_state)
+
+        metrics = metrics_message(status)
+        metrics_key = json.dumps(
+            {k: v for k, v in metrics.items() if k not in ("frame_seq", "frame_ts")},
+            sort_keys=True,
+            default=str,
+        )
+        if metrics_key != self.last_metrics:
+            self.last_metrics = metrics_key
+            await self.hub.text(metrics)
 
         if phase != self.last_phase:
             cls = "good" if phase == "succeeded" else "bad" if phase in {"failed"} else "warn" if phase in ACTIVE_PHASES else ""
@@ -277,6 +370,11 @@ class Monitor:
             "wh": 0,
             "sim_action_count": status.get("sim_action_count"),
             "scene_epoch": status.get("scene_epoch"),
+            # Capture time and age of this frame, so the page can tell a live
+            # frame from a retained one instead of assuming HTTP 200 == live.
+            "fts": status.get("frame_ts"),
+            "age_s": status.get("frame_age_s"),
+            "frame_src": status.get("frame_src"),
         }
         await self.hub.frame(build_frame_bytes(hdr, agent_jpg, wrist_jpg))
         self.last_frame_key = frame_key
@@ -298,6 +396,8 @@ class Monitor:
 HUB: Hub | None = None
 MONITOR: Monitor | None = None
 LOAD_LOCK = asyncio.Lock()
+ARM: ArmSwitcher | None = None
+ARM_SELECTED: str | None = None
 
 
 async def refresh_scenes() -> list[dict]:
@@ -319,6 +419,8 @@ async def refresh_scenes() -> list[dict]:
 
 async def do_load(scene_id: str) -> dict:
     global CURRENT_TASK
+    if ARM is not None and ARM.switching is not None:
+        return {"status": "error", "error": f"方案切换中（{ARM.switching}），请等待完成后再加载场景"}
     row = TASK_BY_SCENE.get(scene_id)
     if row is None:
         await refresh_scenes()
@@ -333,6 +435,8 @@ async def do_load(scene_id: str) -> dict:
 
 
 async def do_start(instruction: str) -> dict:
+    if ARM is not None and ARM.switching is not None:
+        return {"status": "error", "error": f"方案切换中（{ARM.switching}），请等待完成后再开始"}
     if CURRENT_TASK is None:
         return {"status": "error", "error": "load a scene first"}
     body = {"task_id": int(CURRENT_TASK["task_id"])}
@@ -362,8 +466,12 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     client.sender_task = asyncio.create_task(client.sender())
     await HUB.add(client)
     try:
-        client.enqueue_text(identity_message(await engine_get("/api/status", timeout=10)))
+        initial = await engine_get("/api/status", timeout=10)
+        client.enqueue_text(identity_message(initial))
         client.enqueue_text({"type": "scenes", "scenes": SCENES})
+        if ARM is not None:
+            client.enqueue_text(ARM.state(initial, ARM_SELECTED))
+        client.enqueue_text(metrics_message(initial))
     except Exception as exc:
         client.enqueue_text({"type": "state", "phase": "引擎不可达", "detail": str(exc), "cls": "bad"})
     try:
@@ -384,8 +492,42 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 
 
 async def handle_msg(msg: dict, client: Client) -> None:
+    global ARM_SELECTED
     kind = msg.get("type")
-    if kind == "get_scenes":
+    if kind == "get_arms":
+        if ARM is None:
+            client.enqueue_text({"type": "arm_state", "enabled": False, "error": "arm switching is disabled"})
+            return
+        try:
+            status = await engine_get("/api/status", timeout=10)
+        except Exception as exc:  # noqa: BLE001
+            client.enqueue_text({"type": "state", "phase": "引擎不可达", "detail": str(exc), "cls": "bad"})
+            return
+        client.enqueue_text(ARM.state(status, ARM_SELECTED))
+    elif kind == "set_arm":
+        if ARM is None:
+            client.enqueue_text({"type": "arm_state", "enabled": False, "error": "arm switching is disabled"})
+            return
+        arm = str(msg.get("arm") or "").strip()
+        # Front-end and back-end both gate: a switch during load/run is refused
+        # here even if a stale page still sends it.
+        try:
+            async with LOAD_LOCK:
+                status = await engine_get("/api/status", timeout=10)
+                out = await ARM.switch(arm, status)
+                ARM_SELECTED = arm if out.get("status") == "ok" else ARM_SELECTED
+                if out.get("status") == "ok":
+                    await HUB.text({"type": "state", "phase": "方案已就绪", "detail": f"{arm} 已校验", "cls": "good"})
+                else:
+                    # kind="arm" keeps this out of the episode's failure field:
+                    # a refused switch is not the task failing.
+                    await HUB.text(
+                        {"type": "state", "phase": "方案切换失败", "kind": "arm",
+                         "detail": out.get("error") or "", "cls": "bad"}
+                    )
+        except Exception as exc:  # noqa: BLE001
+            await HUB.text({"type": "state", "phase": "方案切换失败", "detail": f"{type(exc).__name__}: {exc}", "cls": "bad"})
+    elif kind == "get_scenes":
         try:
             client.enqueue_text({"type": "scenes", "scenes": await refresh_scenes()})
         except Exception as exc:
@@ -442,7 +584,14 @@ async def handle_msg(msg: dict, client: Client) -> None:
 async def health(request: web.Request) -> web.Response:
     try:
         status = await engine_get("/api/status", timeout=8)
-        return web.json_response({"status": "ok", "page": "page_ui", "engine_phase": status.get("phase"), "engine": ENGINE})
+        payload = {"status": "ok", "page": "page_ui", "engine_phase": status.get("phase"), "engine": ENGINE}
+        if ARM is not None:
+            payload["arms"] = {
+                "enabled": ARM.table.enabled,
+                "selected": ARM_SELECTED,
+                **{k: ARM.table.match(status)[k] for k in ("actual", "verified", "actual_backend", "actual_server_url")},
+            }
+        return web.json_response(payload)
     except Exception as exc:
         return web.json_response({"status": "degraded", "page": "page_ui", "engine": ENGINE, "error": str(exc)})
 
@@ -452,10 +601,19 @@ async def index(request: web.Request) -> web.StreamResponse:
 
 
 async def on_startup(app: web.Application) -> None:
-    global SESSION, HUB, MONITOR
+    global SESSION, HUB, MONITOR, ARM
     SESSION = ClientSession(trust_env=False)
     HUB = Hub()
     MONITOR = Monitor(HUB)
+    table = ArmTable(os.environ.get("PAGE_ARMS"))
+    ARM = ArmSwitcher(
+        table,
+        engine_get=engine_get,
+        broadcast=HUB.text,
+        log=lambda line: log.info("%s", line),
+    )
+    if not table.enabled:
+        log.warning("arm switching disabled: %s", table.error)
     try:
         await refresh_scenes()
     except Exception as exc:
@@ -467,6 +625,8 @@ async def on_cleanup(app: web.Application) -> None:
     task = app.get("monitor_task")
     if task:
         task.cancel()
+    if HUB is not None:
+        await HUB.close()
     if SESSION:
         await SESSION.close()
 
@@ -487,7 +647,9 @@ def main() -> None:
     host = os.environ.get("PAGE_HOST", page["host"])
     port = int(os.environ.get("PAGE_PORT", page["port"]))
     log.info("starting page bridge on %s:%d engine=%s", host, port, ENGINE)
-    web.run_app(make_app(), host=host, port=port, access_log=None)
+    # A stopped page must not linger because a browser still holds a WebSocket:
+    # clients are closed in on_cleanup and the shutdown wait is short.
+    web.run_app(make_app(), host=host, port=port, access_log=None, shutdown_timeout=3.0)
 
 
 if __name__ == "__main__":

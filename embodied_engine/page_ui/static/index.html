@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Page · Qwen + OpenWAM</title>
+<title>Page · 世界模型 + VLA 三层引擎</title>
 <style>
   :root { --bg:#0f1115; --panel:#171a21; --ink:#e6e8eb; --dim:#8b93a1; --accent:#4f8cff; --good:#3ec47e; --bad:#e0563a; --warn:#e0b53a; }
   * { box-sizing:border-box; }
@@ -27,25 +27,28 @@
   .view { position:relative; background:#000; border:1px solid #2a2f3a; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; }
   .view canvas { width:100%; height:100%; object-fit:contain; image-rendering:auto; }
   .view .tag { position:absolute; left:8px; top:6px; background:rgba(0,0,0,.45); color:var(--ink); font-size:11px; padding:2px 7px; border-radius:4px; }
-  .view .placeholder { color:var(--dim); font-size:12px; }
+  .view .placeholder { position:absolute; color:var(--dim); font-size:12px; text-align:center; padding:0 12px; }
   #status { font-size:13px; min-height:20px; color:var(--dim); }
   #status .phase { color:var(--ink); }
   #status .good { color:var(--good); } #status .bad { color:var(--bad); } #status .warn { color:var(--warn); }
-  #identity { display:flex; flex-wrap:wrap; gap:4px 16px; background:var(--panel); border:1px solid #2a2f3a; border-radius:8px; padding:6px 9px; font-size:11px; color:var(--dim); }
-  #identity b { color:var(--ink); font-weight:500; }
-  #identity .bad { color:var(--bad); }
-  #understanding { display:flex; flex-wrap:wrap; gap:4px 16px; background:var(--panel); border:1px solid #2a2f3a; border-radius:8px; padding:6px 9px; font-size:11px; color:var(--dim); }
-  #understanding b { color:var(--ink); font-weight:500; }
-  #understanding .bad { color:var(--bad); }
-  #understanding .good { color:var(--good); }
-  .hint { color:var(--dim); font-size:11px; }
+  .strip { display:flex; flex-wrap:wrap; gap:4px 16px; background:var(--panel); border:1px solid #2a2f3a; border-radius:8px; padding:6px 9px; font-size:11px; color:var(--dim); }
+  .strip b { color:var(--ink); font-weight:500; }
+  .strip .bad { color:var(--bad); } .strip .good { color:var(--good); } .strip .warn { color:var(--warn); }
+  details { background:var(--panel); border:1px solid #2a2f3a; border-radius:8px; padding:4px 9px; font-size:11px; color:var(--dim); }
+  details summary { cursor:pointer; }
+  #log { max-height:130px; overflow:auto; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; margin:6px 0 2px; }
   @media (max-width:680px){ #views{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>Page · Qwen + OpenWAM</h1>
+    <h1>Page · 三层具身引擎</h1>
+    <div class="ctrl" id="arm-ctrl" style="display:none;">
+      <label for="arm">方案</label>
+      <select id="arm"></select>
+      <button id="armBtn" class="primary">切换方案</button>
+    </div>
     <div class="ctrl">
       <label for="scene">场景</label>
       <select id="scene"></select>
@@ -60,26 +63,41 @@
       <button id="reset" disabled>重置</button>
     </div>
   </header>
-  <div id="identity">
+  <div id="identity" class="strip">
+    <span>方案: <b id="id-arm">—</b></span>
+    <span>实际后端: <b id="id-serving">—</b></span>
     <span>Agent: <b id="id-agent">—</b></span>
-    <span>Router: <b id="id-agent-mode">—</b></span>
     <span>Action: <b id="id-action">—</b></span>
     <span>World: <b id="id-world">—</b></span>
     <span>Inference: <b id="id-inference">—</b></span>
     <span>Phase: <b id="id-phase">—</b></span>
     <span id="id-failure-wrap" style="display:none;">Failure: <b id="id-failure" class="bad"></b></span>
   </div>
-  <div id="understanding">
+  <div id="understanding" class="strip">
     <span>原文: <b id="id-raw">—</b></span>
     <span>理解: <b id="id-choice">—</b></span>
     <span>标准任务: <b id="id-standard">—</b></span>
     <span id="id-switch-wrap" style="display:none;">需要切换: <b id="id-switch" class="bad"></b></span>
+  </div>
+  <div id="metrics" class="strip">
+    <span>当前任务: <b id="m-task">—</b></span>
+    <span>进度: <b id="m-progress">—</b></span>
+    <span>规划: <b id="m-plan">—</b></span>
+    <span>首动作等待: <b id="m-first">—</b></span>
+    <span>生成: <b id="m-gen">—</b></span>
+    <span>推理累计: <b id="m-infer">—</b></span>
+    <span>任务耗时: <b id="m-dur">—</b></span>
+    <span>帧: <b id="m-frame">—</b></span>
   </div>
   <div id="views">
     <div class="view"><span class="tag">Agent</span><canvas id="agent"></canvas><span class="placeholder" id="ph-agent">未加载场景</span></div>
     <div class="view"><span class="tag">Wrist</span><canvas id="wrist"></canvas><span class="placeholder" id="ph-wrist">未加载场景</span></div>
   </div>
   <div id="status"><span class="phase">就绪</span></div>
+  <details id="logbox">
+    <summary>运行日志（展开）</summary>
+    <div id="log"></div>
+  </details>
 </div>
 <script src="static/app.js"></script>
 </body>

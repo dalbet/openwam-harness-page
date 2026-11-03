@@ -1,0 +1,46 @@
+{
+  "schema": "page-ui-arms/1",
+  "note": [
+    "页面可选的三种已验收方案。这份文件只描述『方案 - 后端 - 生成服务』的对应关系，",
+    "以及切换时调用的生命周期命令；页面本身不调用任何 GPU 脚本，也不拼造计划。",
+    "启用条件：启动 page_ui 时设置 PAGE_ARMS=/abs/path/to/this/file，否则页面不显示方案选择。",
+    "端口属于隔离演示栈（agent 14571 / inference 14621 / engine 14821 / env 14591 /",
+    "OpenWAM 14541 / OpenPI 14552 / FlashRT 14551）；生产端口 14510/14520/8001/14600/14700/14800",
+    "以及生产页面 14900 不在本文件内，也不会被切换脚本触碰。"
+  ],
+  "switch_cmd": [
+    "bash",
+    "/home/host/flashrt-exp/pi05_round/tools/arm_switch.sh",
+    "{arm}"
+  ],
+  "verify_timeout_s": 300,
+  "arms": {
+    "S0": {
+      "label": "S0 · OpenWAM + 候选C",
+      "policy": "OpenWAM-Alpha-Sim-LIBERO 候选C（denoise 10 / horizon 32 / compile）",
+      "backend": "openwam",
+      "server_url": "http://127.0.0.1:14541",
+      "precision": "bf16",
+      "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO/checkpoint_step_10690.safetensors",
+      "gpu_note": "单独占用约 24 GiB，需要先释放两个 pi0.5 生成服务"
+    },
+    "S1": {
+      "label": "S1 · π0.5 原始后端 (OpenPi)",
+      "policy": "π0.5 LIBERO-130 SFT，openpi eager，10 步去噪 / 生成 10 执行 5",
+      "backend": "pi05",
+      "server_url": "http://127.0.0.1:14552",
+      "precision": "fp32+bf16(selected params)",
+      "checkpoint": "/home/host/flashrt-store/models/pi05-libero-pytorch@6222623f635769bfc73c9472e29fab9b7fd8e027",
+      "gpu_note": "约 8 GiB，可与 FlashRT 同时常驻"
+    },
+    "S2": {
+      "label": "S2 · π0.5 + FlashRT BF16",
+      "policy": "同一 π0.5 检查点，FlashRT CUDA Graph + PromptRuntime，BF16",
+      "backend": "pi05",
+      "server_url": "http://127.0.0.1:14551",
+      "precision": "bf16",
+      "checkpoint": "/home/host/flashrt-store/models/pi05-libero-pytorch@6222623f635769bfc73c9472e29fab9b7fd8e027",
+      "gpu_note": "约 15 GiB，可与 OpenPi 同时常驻"
+    }
+  }
+}
