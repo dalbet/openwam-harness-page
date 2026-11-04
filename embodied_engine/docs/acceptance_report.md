@@ -2809,3 +2809,20 @@ t=61.1s  phase=verifying   1/3 done    | 2/3 done    | 3/3 done
 - 复现单个组合回合：
   `python3 tools/composite_round.py --mode screen --load-task <末步 task> --keys k1,k2[,k3] --inits 0,1,2`；
   验收用 `--mode accept --instruction "…"`（走 Qwen）。
+
+### 34.13 高层意图：实测未通过，专用明确指令
+
+按"先支持明确指令、稳定后再支持高层意图"的顺序，明确指令已验收（5/6、4/6），
+高层意图**只做了单回合探针，结果不算通过**，因此交付里只用明确指令。
+
+| 语言 | 输入 | Qwen 输出 | 实际执行 | 结论 |
+| --- | --- | --- | --- | --- |
+| en | `help me get ready to heat up the cream cheese` | 单个 `turn_on_stove` | 单任务 task 7，81 动作，`completed` | **降级成最后一步**，没有做前两步 |
+| zh | `帮我准备加热奶酪` | `unsupported` / `outside_catalog` | 0 动作，失败 | 直接拒，**不是**被规划成三步 |
+
+- 两个回合都**没有**输出有序 key 列表，所以"高层意图 → 三步"这条链没有被验证；
+  报告里不把它写成可用能力。
+- 页面上可以给"奶酪加热准备"这个**流程名**，但触发它的必须是明确指令；
+  目录里没有的能力（搅拌、拆包装、融化检测）不会被编出来，这一点两个语言都成立
+  （zh 直接 `outside_catalog`，en 只映射到已有的 `turn_on_stove`）。
+- 原回合：`probe_highlevel_en_20261104/`、`probe_highlevel_zh_20261104/`（主清单已列）。
