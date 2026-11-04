@@ -1,0 +1,343 @@
+{
+ "schema": "flashrt_openwam.r2_poc_acceptance.v1",
+ "generated_at": "2026-10-31T23:30:00+08:00",
+ "verdict": "R2_POC_NO_GAIN",
+ "verdict_reason": "切片实现正确（cos 0.99999958、动作段 max_abs 0.03125=bf16 粒度），但正确语义下 FA2 切片慢 60%，整模型 A/B 0.9482x；注意力仅占生成 device 时间 4.80/215.2 ms（2.2%）、墙钟 1.6%，加速上限远低于 10% 门槛。",
+ "scope": {
+  "closed_loop": false,
+  "planner_changed": false,
+  "steps_changed": false,
+  "action_window_changed": false,
+  "control_rate_changed": false
+ },
+ "environment": {
+  "python": "3.10.12",
+  "torch": "2.7.1+cu128",
+  "cuda": "12.8",
+  "gpu": "RTX 5090 SM120 (GPU0)",
+  "checkpoint": "OpenWAM-Alpha-Sim-LIBERO/checkpoint_step_10690.safetensors",
+  "compile_enabled": false,
+  "denoise_steps": 10,
+  "shift": 5.0,
+  "seed": 42,
+  "inference_horizon": 32,
+  "attention_impl_env": "WAM_ATTENTION_IMPL unset (auto-detect)"
+ },
+ "isolation": {
+  "root": "/home/host/flashrt-exp",
+  "openwam_port": 14521,
+  "env_ports": [
+   14571,
+   14572,
+   14573
+  ],
+  "gpu": 0,
+  "page_dmh_head": "33f18148d27654f7223e925248fe9b26b23410e4",
+  "openwam_head": "4d7f642b841913ea3c176010b692b1de3d5ef180",
+  "untouched": [
+   "GPU2 live OpenWAM",
+   "GPU1 Pi0.5",
+   "GPU3 vLLM",
+   "ports 14510/14520/14561",
+   "main config/engine.json",
+   "FlashRT in-place build"
+  ],
+  "gpu0_after_cleanup_mib": 5,
+  "residual_processes": 0
+ },
+ "c1": {
+  "conclusion": "torch.compile NOT active (pure eager)",
+  "evidence": {
+   "cfg_compile_enabled": false,
+   "arch": "DualSystemSelfAttnArchitecture",
+   "wan_blocks_compile_enabled": false,
+   "dynamo_counters": {},
+   "first_predict_s": 1.981,
+   "compile_worker_origin": "torch._inductor.config import (51 import events), --workers=32 pool, parent = this process",
+   "compile_worker_processes_total": 67,
+   "note": "总进程数含其他长期运行的 python 实例，不能据 worker 数判断编译状态"
+  }
+ },
+ "c2": {
+  "conclusion": "strict nesting holds; recv_s is a residual, send_s only socket write",
+  "historical_records": 73379,
+  "historical_nesting_violations": 0,
+  "isolated_ws_requests": 70,
+  "isolated_nesting_violations": 0,
+  "generation": {
+   "n": 3,
+   "client_median_ms": 504.379,
+   "server_median_ms": 482.58,
+   "overhead_median_ms": 21.715
+  },
+  "dequeue": {
+   "n": 67,
+   "client_median_ms": 37.443,
+   "server_median_ms": 15.5,
+   "overhead_median_ms": 21.905,
+   "dumps_median_ms": 1.023
+  },
+  "server_side_clock": "time.monotonic() inside predict()",
+  "gpu_timing": "CUDA Event + torch.cuda.synchronize()",
+  "unattributed_ms": 170,
+  "flag": "请求级绝对时延标记为条件可信（同进程 312 ms vs WS 482 ms，仅归因 36.4 ms 预处理 + 21.7 ms RPC）"
+ },
+ "frozen_observations": {
+  "count": 9,
+  "tasks": [
+   1,
+   3,
+   8
+  ],
+  "phases": [
+   "p0",
+   "p1",
+   "p2"
+  ],
+  "action_chunk_shape": [
+   32,
+   10
+  ],
+  "chunk_steps": 32,
+  "action_dim": 10,
+  "source": "三个独立 LIBERO 环境服务的真实相机 + 真实 EEF10 proprio，沿用 build_openwam_obs 契约",
+  "per_obs_median_ms": {
+   "task1_p0": 449.05,
+   "task1_p1": 317.57,
+   "task1_p2": 302.08,
+   "task3_p0": 402.24,
+   "task3_p1": 303.48,
+   "task3_p2": 303.01,
+   "task8_p0": 303.38,
+   "task8_p1": 303.53,
+   "task8_p2": 302.16
+  },
+  "regime_note": "9 观测中 7 个稳态 302-305 ms；task1_p0 449.1 / task3_p0 402.2 落入慢档（同为 120 joint/gen、4 recompute/6 skip）"
+ },
+ "baseline_generation": {
+  "true_generations_total": 552,
+  "perf_30gen_median_ms": 292.95,
+  "steady_obs_median_ms_range": [
+   301.9,
+   305.6
+  ],
+  "dit_cache": {
+   "recompute_per_gen": 4,
+   "skip_per_gen": 6,
+   "threshold": 0.99,
+   "max_skips": 3,
+   "unchanged_under_fa2": true
+  },
+  "repeatability": "同一观测连续生成动作段逐位相同（9/9 sdpa_repeat_bitwise_equal=true）",
+  "in_process_predict": {
+   "generation_ms": 312.0,
+   "dequeue_ms": 4.6
+  },
+  "obs_preprocess_ms": {
+   "median": 36.38,
+   "n_cams": 4
+  }
+ },
+ "attention_coverage": {
+  "wam_attention_impl_scope": "openwam/model/action_backbone/components.py:372 get_attention_fn() —— 仅 ActionDiT；主视频 DiT 走 openwam/model/video_backbone/wan/shared/core/attention/attention.py",
+  "joint_self_attention": {
+   "shape": [
+    1,
+    24,
+    392,
+    128
+   ],
+   "dtype": "bfloat16",
+   "head_dim": 128,
+   "seq": "Sv=360 + Sa=32",
+   "mask": "bool (392,392), mutual + first_frame_causal, true_frac=0.7876, rows 0..119 只见 cols 0..119",
+   "calls_per_generation": 120,
+   "masked_392_sdpa_per_generation": 44
+  },
+  "baseline_kernel": "fmha_cutlassF_bf16_aligned_64x128_rf_sm80(PyTorchMemEffAttention::AttentionKernel<cutlass::bfloat16_t, cutlass::arch::Sm80, true, 64, 128, 128, true, true>::Params)",
+  "kernel_launches_per_generation": 240,
+  "attention_device_ms_per_generation": 4.798,
+  "total_device_ms_per_generation": 215.16,
+  "attention_share_of_device": 0.0223,
+  "top_device_ops_ms_per_gen": {
+   "aten::_efficient_attention_forward": 4.823666666666667,
+   "fmha_cutlassF_bf16_aligned_64x128_rf_sm80(PyTorchMemEffAtten": 4.797666666666667,
+   "aten::mul": 3.244666666666667,
+   "aten::copy_": 3.1323333333333334
+  }
+ },
+ "flashrt_build": {
+  "artifact": "build/libflashrt_fa2_slice.so",
+  "source": "read-only snapshot /home/host/flashrt-store/page_engine/FlashRT/csrc",
+  "in_place_rebuild": false,
+  "cuda_arch": "compute_120/sm_120",
+  "flags": [
+   "--expt-relaxed-constexpr",
+   "--expt-extended-lambda",
+   "--cudart none"
+  ],
+  "constraints": [
+   "FA2 入口无 mask 参数",
+   "要求 seqlen_q == seqlen_k（否则数值损坏/NaN）",
+   "固定 head_dim=128 bf16 sm80 路径"
+  ]
+ },
+ "slice_correctness": {
+  "max_abs": 0.03125,
+  "cosine": 0.99999958,
+  "finite": true,
+  "action_segment": {
+   "worst_max_abs": 0.03125,
+   "max_abs_per_obs": [
+    0.0078125,
+    0.0078125,
+    0.03125,
+    0.0078125,
+    0.0078125,
+    0.0078125,
+    0.0078125,
+    0.0078125,
+    0.01171875
+   ],
+   "mean_abs_range": [
+    0.0006341218249872327,
+    0.00119609828107059
+   ],
+   "bitwise_equal": false,
+   "units": "反归一化物理量（米/弧度/无量纲夹爪）",
+   "control_equivalence_claimed": false
+  }
+ },
+ "slice_performance": {
+  "per_call_median_ms": {
+   "baseline_masked_sdpa": 0.0814,
+   "split_unmasked_sdpa": 0.1262,
+   "unmasked_sdpa_full": 0.0478,
+   "fa2_split": 0.1299,
+   "fa2_single_unmasked_full": 0.0553
+  },
+  "per_generation_ms": {
+   "baseline_masked_sdpa": 9.77,
+   "split_unmasked_sdpa": 15.14,
+   "unmasked_sdpa_full": 5.74,
+   "fa2_split": 15.59,
+   "fa2_single_unmasked_full": 6.64
+  },
+  "verdict": "正确语义（split）下 FA2 15.59 ms vs baseline 9.77 ms = 慢 60%；单次无 mask FA2 6.64 ms 更快但语义错误"
+ },
+ "end_to_end_ab": {
+  "design": "same process, same GPU, alternating blocks, 3 blocks x 50 true generations per arm",
+  "pooled": {
+   "sdpa": {
+    "n": 150,
+    "median_ms": 295.18,
+    "mean_ms": 316.13,
+    "p95_ms": 381.43,
+    "min_ms": 291.56,
+    "max_ms": 458.21,
+    "stdev_ms": 37.43
+   },
+   "fa2": {
+    "n": 150,
+    "median_ms": 311.32,
+    "mean_ms": 313.7,
+    "p95_ms": 325.65,
+    "min_ms": 308.22,
+    "max_ms": 435.56,
+    "stdev_ms": 12.94
+   },
+   "split_sdpa": {
+    "n": 150,
+    "median_ms": 304.71,
+    "mean_ms": 319.54,
+    "p95_ms": 379.06,
+    "min_ms": 302.45,
+    "max_ms": 466.25,
+    "stdev_ms": 31.18
+   }
+  },
+  "block_medians": {
+   "sdpa": [
+    295.54,
+    366.05,
+    292.94
+   ],
+   "fa2": [
+    312.24,
+    311.57,
+    309.76
+   ],
+   "split_sdpa": [
+    303.77,
+    305.05,
+    377.19
+   ]
+  },
+  "block_sums_ms": {
+   "sdpa": 47419.3,
+   "fa2": 47054.3,
+   "split_sdpa": 47931.5
+  },
+  "steady_only_median_ms": {
+   "sdpa": 295.04,
+   "fa2": 311.32,
+   "split_sdpa": 304.78
+  },
+  "speedup_vs_baseline_median": {
+   "sdpa": 1.0,
+   "fa2": 0.9482,
+   "split_sdpa": 0.9687
+  },
+  "same_regime_check": {
+   "baseline_fastest_block_ms": 292.94,
+   "fa2_fastest_block_ms": 309.76,
+   "delta_pct": -5.42
+  },
+  "verdict": "no gain; FA2 never beats baseline in any like-for-like comparison"
+ },
+ "attribution": {
+  "slice_pct_of_generation": -59.6,
+  "generation_pct_change": -5.47,
+  "attention_ceiling_pct_of_generation": 1.59,
+  "attention_ceiling_pct_of_request": 0.99,
+  "target_threshold_pct": 10.0,
+  "target_reached": false
+ },
+ "threats": [
+  "档位双峰未解释：~302 ms vs ~440-490 ms，慢档时钟 2887/3090 MHz（排除 DVFS），A/B 中出现整块 50 次落入慢档；所有绝对时延仅同进程同块可比",
+  "请求级 170 ms 差异未归因（进程内 predict 312 ms vs WS 482 ms）",
+  "SDPA 形状直方图与 profiler 内核计数口径不同（133 vs 240 / 生成），总耗时以 profiler 为准",
+  "perf_task1_p0_30gen.json 未保存逐次样本（仅聚合计数），分布以 9 观测扫描与 A/B 逐次样本为准",
+  "离线回放，未做 60 回合闭环，不代表闭环成功率"
+ ],
+ "evidence": {
+  "root": "/home/host/flashrt-exp",
+  "manifest": "records/manifest.json",
+  "files": {
+   "ab_generation.json": "f0516a0844732a5e917a10575e46e5133a015ca07a2af57b759c0aff93166ae2",
+   "baseline_sweep.json": "f9448152bfe327834c0fa30c0393e059814e6475bdb05617d354ce7d60d1361c",
+   "bench_attention_fa2.json": "d0c0aa6a1864a9a7083d5c6c88facaf3dac0616f3d2893adf09a2330e4dfd153",
+   "bench_attention.json": "e411ea08cc14e70080e6870ab91fa20e5bfb1d4118111dddae593539640bf6f5",
+   "c1_compile_state_false.json": "97d88e4a2baabd5d92670b8817bdbf7ac94db71b0e00ad244c2761a5eb788bfd",
+   "c2_ws_timing_clean.json": "fef920d3a64ef9ea8516e8cbef4138d0de05eb9b322dace005abb625f3761963",
+   "preprocess_bench.json": "9b65efa3f5a3b23a7c19de73f6fa3f710f7b1db5229dd5c58f2d2cc70c14ad81",
+   "profile_task1_p0.json": "c38f0afdb61e8a1dc369a5c678a4264c83d44d848520d93f9b242f543dfae85f",
+   "idle_clock_probe.json": "cc7dd141677a85e53788545fa7047f0a62b5f034e92cc017803e6f6bbb89b33c",
+   "perf_task1_p0_30gen.json": "4a13c10f71a86f1084c61a970eb51ac67d3ebbdfb6b33f1baeaf3cfcdc382aaa"
+  }
+ },
+ "changed_files": [
+  "embodied_engine/docs/audits/2026-10-31-flashrt-openwam-r2-poc.md",
+  "embodied_engine/records/acceptance/2026-10-31-flashrt-openwam-r2-poc.json"
+ ],
+ "cleanup": {
+  "commands": [
+   "kill $(cat /home/host/flashrt-exp/pids/openwam_iso_14521.pid)",
+   "pkill -f 'libero_env_server.py --transport http --host 127.0.0.1 --port 1457'"
+  ],
+  "verified": {
+   "gpu0_mib": 5,
+   "residual_processes": 0
+  }
+ }
+}

@@ -1,0 +1,217 @@
+{
+ "schema": "flashrt_exp.acceptance.v1",
+ "date": "2026-11-02",
+ "scope": "OpenWAM 候选 B（inductor + emulate_precision_casts + CUDA Graph）在 libero_goal/task1 的单任务闭环验收：闭环可执行性、行为退化、生成加速到任务收益的转化。固定任务计划下的动作执行闭环，不含自然语言规划全链路，不含 FlashRT 切片",
+ "verdict": "CLOSED_LOOP_PRELIM_PASSED",
+ "verdict_scope": "10 个数据集初始化 x 2 模式 = 20 个正式回合；本轮样本未观察到行为退化，不构成统计意义上的成功率非劣结论",
+ "repo": {
+  "path": "/home/host/page-dmh",
+  "head": "33f18148d27654f7223e925248fe9b26b23410e4",
+  "source_tree_modified": false,
+  "main_config_modified": false,
+  "main_config_sha256_prefix": "9235ad363fc96d33"
+ },
+ "task": {
+  "task_id": 1,
+  "suite": "libero_goal",
+  "key": "put_bowl_on_stove",
+  "bddl": "put_the_bowl_on_the_stove.bddl",
+  "instruction": "put the bowl on the stove",
+  "kind": "pick_place",
+  "objects": ["akita_black_bowl_1", "flat_stove_1"],
+  "targets": ["flat_stove_1_cook_region"],
+  "max_steps": 600,
+  "plan_frozen": true,
+  "plan_sha_prefix": "068d66aae4b0ad82",
+  "plan_calls": 26,
+  "planner_in_loop": false,
+  "planner_note": "隔离计划 stub 返回固定计划；未请求生产 planner，规划延迟不在结论内"
+ },
+ "isolation": {
+  "experiment_gpu": {
+   "index": 0,
+   "memory_before_mib": 2,
+   "memory_peak_mib": 25383,
+   "memory_after_mib": 5
+  },
+  "isolated_copy": "/home/host/flashrt-exp/closed_loop/embodied_engine",
+  "isolated_ports": {
+   "openwam": 14521,
+   "inference": 14601,
+   "engine": 14801,
+   "agent_plan_stub": 14701,
+   "env": 14571
+  },
+  "config_diff_vs_production": [
+   "services.engine.port",
+   "services.inference.port",
+   "services.agent.port",
+   "services.env.port",
+   "services.openwam.port",
+   "action_model.openwam.server_url",
+   "action_model.openwam.server_port",
+   "action_model.openwam.gpu_index",
+   "env.cuda_device",
+   "services.page_ui.port"
+  ],
+  "config_diff_note": "除上列端口/设备外，engine.json 其余键逐字节相同（max_steps/generate_horizon/execute_horizon/denoise_steps/control_frequency_hz/post_goal/finalizer/bf16/归一化均未改动）",
+  "production_deps_upgraded": false,
+  "system_packages_installed": false,
+  "prod_untouched_at_end": [
+   {"role": "OpenWAM", "pid": 1380923, "gpu": 2, "port": 14520, "memory_mib": 24778, "state_at_end": "原进程运行中，未重启"},
+   {"role": "Pi0.5", "pid": 2784215, "gpu": 1, "port": 14510, "memory_mib": 7174, "state_at_end": "原进程运行中"},
+   {"role": "vLLM EngineCore", "pid": 2843863, "gpu": 3, "memory_mib": 23078, "state_at_end": "原进程运行中"},
+   {"role": "inference", "pid": 3900284, "port": 14600, "state_at_end": "原进程运行中"},
+   {"role": "agent", "pid": 3904106, "port": 14700, "state_at_end": "原进程运行中"},
+   {"role": "page_ui", "pid": 2784912, "port": 14900, "state_at_end": "原进程运行中"}
+  ]
+ },
+ "modes": {
+  "A_eager": {
+   "launch": "scripts/deploy.py --compile-enabled false (CUDA_VISIBLE_DEVICES=0, port 14521)",
+   "torch_compile": false,
+   "cudagraph": false
+  },
+  "B_candidate": {
+   "launch": "tools/closed_loop_serve.py --compile-enabled true optimization.compile.self_attn.torch_mode=reduce-overhead optimization.compile.wan_blocks.enabled=false",
+   "env": {
+    "TORCHINDUCTOR_EMULATE_PRECISION_CASTS": "1",
+    "C_INCLUDE_PATH": "/home/host/.local/share/uv/python/cpython-3.10.22-linux-x86_64-gnu/include/python3.10"
+   },
+   "wan_blocks_compile_enabled": false,
+   "extra_optimizations": false
+  }
+ },
+ "gates_candidate_B": {
+  "compiled_loop_alive": true,
+  "wan_blocks_compile_disabled": true,
+  "cudagraph_records": 1,
+  "cudagraph_warmups": 1,
+  "cudagraph_replays": 130,
+  "cudagraph_replays_expected": "4 x 33 generations = 132（130 为 5s 落盘周期与进程结束的尾巴）",
+  "eager_fallbacks": 1,
+  "eager_fallbacks_note": "进程级计数为 1、非 0；落盘不带时点。正式回合内为 0 的判定依据：运行日志无 falling back to eager，且 33 次生成时延全在编译档(约215ms)、无 eager 档(约425ms)离群点",
+  "recompile_events": 0,
+  "shape_bucket_explosion": false,
+  "counter_source": "raw/cudagraph_B_final.json (pid 188895, 10 个正式回合)",
+  "inference_path_instrumented": false
+ },
+ "warmup_and_cold_start": {
+  "excluded_from_timing": true,
+  "episodes": 3,
+  "model_load_s": {"A": 112, "B": 115},
+  "B_first_generation_ms": {"cold_inductor_cache": 85851.8, "warm_inductor_cache": 16187.4},
+  "warmup_episode_wall_s": {"A": [29.5, 30.2], "B": [111.9, 44.1]}
+ },
+ "denominators": {
+  "planned_episodes": 20,
+  "timed_episodes": 20,
+  "distinct_inits": 10,
+  "pairs": 10,
+  "order_balance": {"AB": 5, "BA": 5},
+  "warmup_excluded": 3,
+  "video_supplementary_episodes": 3,
+  "videos": 2,
+  "init_selection": "seed = init_id in [0,9] -> LIBERO pruned_init rid = prefix + seed % 50（共 50 个初始化）"
+ },
+ "results": {
+  "success_matrix": {"both": 10, "only_A": 0, "only_B": 0, "neither": 0},
+  "success_rate": {"A": "10/10", "B": "10/10"},
+  "failures": {"A": 0, "B": 0},
+  "unknown_terminal_states": 0,
+  "timeouts": 0,
+  "backend_runtime_errors": 0,
+  "engine_recovery_or_replan": {"A": 0, "B": 0},
+  "generation_latency_ms_median": {"A": 429.1, "B": 215.7, "paired_ratio_median": 0.512, "paired_ratio_range": [0.449, 0.528]},
+  "cache_dequeue_latency_ms_median": {"A": 15.40, "B": 14.60},
+  "chunk_generations": {"A": 33, "B": 30},
+  "cache_hits": {"A": 1011, "B": 915},
+  "wall_time_s": {"A_mean": 30.91, "B_mean": 28.08, "paired_delta_median": -0.867, "paired_delta_mean": -2.822, "paired_ratio_median": 0.9714, "paired_delta_median_excluding_init4": -0.879},
+  "model_wait_s": {"A_mean": 14.45, "B_mean": 12.42, "paired_delta_median": -0.595},
+  "sim_actions": {"A_mean": 117.9, "B_mean": 105.9, "paired_delta_median": 0},
+  "control_hz": {"A_mean": 3.92, "B_mean": 3.96},
+  "generation_share_of_wall": {"A": 0.046, "B": 0.023},
+  "model_wait_share_of_wall": {"A": 0.467, "B": 0.442},
+  "translation_note": "生成时间只占回合墙钟 2.3%-4.6%，单次生成 -48.9% 的上限收益约 0.7 s/回合；实测模型等待 -0.60 s、墙钟 -0.87 s，与上限同量级。init4 的 -21.7 s 来自轨迹分叉（216 vs 120 步），不计为加速收益",
+  "regime_note": "闭环绝对时延 425/216 ms 高于上一轮台架 294/167 ms：台架工具显式 torch.set_num_threads(8)，deploy 服务端为默认线程池且 GPU0 上另有 EGL 渲染上下文。相对收益方向与量级一致（-43.3% vs -48.9%）；本轮未对两个因素做归因实验，配对比较不受影响"
+ },
+ "behavior": {
+  "grasp_observed": {"A": "10/10", "B": "10/10"},
+  "min_gripper_opening_m_range": [0.001, 0.011],
+  "release_state_verified": {"A": "10/10", "B": "10/10"},
+  "placement_verified": {"A": "10/10", "B": "10/10"},
+  "policy_owned_release": {"A": 5, "B": 6},
+  "execution_finalizer_release": {"A": 5, "B": 4},
+  "chunk_exhausted_stops": {"A": 5, "B": 4},
+  "chunk_exhausted_note": "原生目标命中时本块仅剩 <=1 个动作，释放窗口无动作，由既有执行层收尾器完成释放；两组同等出现，非候选 B 引入",
+  "premature_open_events": 0,
+  "never_released": 0,
+  "action_interval_median_s": {"A": 0.24, "B": 0.25},
+  "action_interval_p95_s": {"A": 0.26, "B": 0.26},
+  "buffer_cross_episode_reuse": false,
+  "reset_between_episodes": "POST /api/reset -> Engine.stop + env.reset + InferenceClient.reset（清模型侧动作缓冲）",
+  "thresholds_changed": false
+ },
+ "start_state_equivalence": {
+  "initial_scene_fingerprint_equal_pairs": "10/10",
+  "initial_state_fingerprint_equal_pairs": "10/10",
+  "fingerprint_covers": ["对象位姿", "全部关节角", "EEF 位姿", "夹爪开度"],
+  "pixel_equality_checked": false,
+  "pixel_equality_withdrawn_reason": "/api/frame 返回引擎缓存帧，_set_frames 在 obs.main_images 为空时不更新，load 后可能取到上一回合余帧；该指标已作废，不用它下结论"
+ },
+ "fairness": {
+  "cpu_probe": {"tool": "tools/bg_cpu_monitor.py", "samples": 62574, "median_ms": 8.89, "fastest_ms": 8.83, "bands_ms": [8.78, 11.37, 16.96, 26.24], "scale": 1.0057},
+  "timed_episodes_in_fastest_band": 20,
+  "pairs_in_same_band": 10,
+  "cross_band_samples": 0,
+  "forced_band_waiting": false
+ },
+ "artifacts": {
+  "report": "embodied_engine/docs/audits/2026-11-02-openwam-closed-loop-task1.md",
+  "raw_root": "/home/host/flashrt-exp/closed_loop",
+  "episode_records": "closed_loop/raw/records/*.json (26)",
+  "session_rows": ["closed_loop/raw/session_S1.jsonl", "closed_loop/raw/session_S2a.jsonl", "closed_loop/raw/session_S2b.jsonl", "closed_loop/raw/session_S3.jsonl", "closed_loop/raw/session_video_A.jsonl", "closed_loop/raw/session_video_B.jsonl"],
+  "summary": "closed_loop/raw/closed_loop_summary.json",
+  "plan_calls": "closed_loop/raw/plan_calls.jsonl",
+  "cudagraph_counter": "closed_loop/raw/cudagraph_B_final.json",
+  "cpu_probe_log": "closed_loop/raw/bg_speedo.jsonl",
+  "server_command_ledger": "closed_loop/raw/openwam_cmd.jsonl",
+  "isolated_engine_journal": "closed_loop/raw/isolated_run_journal.jsonl",
+  "logs": "closed_loop/logs/*.log",
+  "videos": ["closed_loop/videos/VID_A_init0.mp4", "closed_loop/videos/VID_B_init0.mp4"],
+  "tools": ["closed_loop/tools/arm.sh", "closed_loop/tools/plan_stub.py", "closed_loop/tools/closed_loop_serve.py", "closed_loop/tools/run_episodes.py", "closed_loop/tools/analyze.py"]
+ },
+ "operational_incidents": [
+  {
+   "id": "prod-engine-kill-14800",
+   "when": "2026-11-02 09:0x（全部 20 个正式回合与视频完成之后、清理实验进程时）",
+   "what": "清理用 pkill -f 模式过宽，第二个分支同时命中生产引擎 :14800（pid 3456863），导致其退出；生产 env 服务 :14561 随之停止",
+   "root_cause": "清理时用进程名模糊匹配而不是 PID+cmdline+端口三元确认",
+   "impact": "生产引擎进程内状态（已加载场景、last_result、metrics）清空，下次使用需重新装载场景（约 16 s）；无数据丢失，无模型服务影响",
+   "recovery": "按 scripts/restart_engine.sh 同款命令重启，新 pid 347662，:14800/health 正常，records/engine_service.pid 已更新；POST /api/load task1/seed0 于 16.6 s 内成功，:14561 恢复，phase=ready",
+   "affects_this_verdict": false,
+   "affects_measurements": false
+  }
+ ],
+ "limitations": [
+  "10 个初始化 x 2 模式属初步行为验证；全成功、零失败事件，不能宣称统计意义上的控制等价或成功率非劣",
+  "仅覆盖 task1，未扩展到其他单任务或组合任务",
+  "GPU0 同时承载模型与 EGL 渲染，与生产模型/渲染分卡放置不同；绝对时延不可直接外推",
+  "未做线程数与 GPU 邻居的归因实验",
+  "未验证 execute_horizon 变化、多客户端并发、decode_video=true、真实 planner 延迟参与等条件",
+  "A 组第一会话与 B 组主会话的进程日志在重启时被截断覆盖；权威证据为逐回合 run record 与 cudagraph 计数快照，arm.sh 已改为按会话保留日志",
+  "初始像素观测未独立哈希"
+ ],
+ "recommendations": [
+  "可将候选 B 扩展到其他单任务的行为验证（每任务 10 init x 2 模式）",
+  "不建议以'任务明显变快'立项目前形态：生成只占墙钟 2.3%-4.6%，单任务墙钟中位收益约 -2.9%；若目标是压缩完成时间，应量化每动作固定开销（观测构造~0.12 s/动作、服务间传输~0.10 s/动作）",
+  "释放窗口、动作预算、成功判定阈值保持不变；chunk_exhausted 在两组同等出现，收尾器行为一致",
+  "生产仍运行 eager（--compile-enabled false），本轮未切换任何生产服务"
+ ],
+ "claims_not_made": [
+  "不宣称候选 B 提升成功率或控制等价",
+  "不把本轮收益记为 FlashRT 内核收益",
+  "不宣称闭环绝对时延等于台架时延",
+  "不宣称自然语言到完成任务的全链路性能"
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "run_id": "page-demo-20261104-003906",
+ "pid": 2308748,
+ "pgid": 2308748,
+ "started_at": "2026-11-04T00:39:07",
+ "start_epoch": 1793752746.941,
+ "cmdline": "/home/host/page-dmh/openwam_harness/envs/rpent/bin/python /home/host/page-dmh/embodied_engine/page_ui/server.py",
+ "cwd": "/home/host/flashrt-exp/pi05_round/raw/rounds/20261104_stage_handoff",
+ "ppid": 2308741,
+ "port": 14901,
+ "engine": "http://127.0.0.1:14821",
+ "arms": "/home/host/page-dmh/embodied_engine/config/arms.json",
+ "project_root": "/home/host/page-dmh/embodied_engine",
+ "log": "/home/host/page-dmh/embodied_engine/page_ui/logs/page_demo_page-demo-20261104-003906.log",
+ "role": "page_ui demo (isolated); production page 14900 is not this process"
+}

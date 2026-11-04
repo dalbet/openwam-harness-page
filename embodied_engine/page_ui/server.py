@@ -156,9 +156,11 @@ def metrics_message(status: dict) -> dict:
         "episode_started_ts": status.get("episode_started_ts"),
         # planner_s comes from this episode's record when it has one; the
         # live plan block only carries total_s while the episode is running.
-        "planner_s": timing.get("planner_s", plan.get("latency_s") or plan.get("total_s")),
+        # A placeholder 0.0 in the record means "never measured" (the episode
+        # ended before that point); it is reported as missing, not as 0 ms.
+        "planner_s": timing.get("planner_s") or plan.get("latency_s") or plan.get("total_s") or None,
         "planner_source": plan.get("source"),
-        "first_action_s": timing.get("plan_to_first_action_s"),
+        "first_action_s": timing.get("plan_to_first_action_s") or None,
         "execution_s": timing.get("execution_s"),
         "verification_s": timing.get("verification_s"),
         "inference_wait_s": timing.get("inference_s_sum"),
@@ -385,6 +387,9 @@ class Monitor:
                 {
                     "type": "ended",
                     "episode_id": eid,
+                    # The terminal phase travels with the event so the page can
+                    # tell "stopped by the user" apart from "failed".
+                    "phase": phase,
                     "success": phase == "succeeded",
                     "reason": reason,
                     "failure_code": status.get("failure_code"),
@@ -533,6 +538,24 @@ async def handle_msg(msg: dict, client: Client) -> None:
         except Exception as exc:
             client.enqueue_text({"type": "state", "phase": "引擎不可达", "detail": str(exc), "cls": "bad"})
     elif kind == "load":
+        # A second load while one is running would either start a second env
+        # process or silently swap the scene out from under the first caller.
+        # The button is disabled during that window; this is the backend gate
+        # for a stale tab, and the refusal is shown, not swallowed.
+        busy_phase = ""
+        if LOAD_LOCK.locked():
+            busy_phase = "loading"
+        else:
+            try:
+                busy_phase = str((await engine_get("/api/status", timeout=8)).get("phase") or "")
+            except Exception:
+                busy_phase = ""
+        if busy_phase == "loading" or busy_phase in ACTIVE_PHASES:
+            await HUB.text(
+                {"type": "state", "phase": "拒绝加载",
+                 "detail": f"正在{busy_phase}，请等待本轮结束或先停止", "cls": "bad"}
+            )
+            return
         await HUB.text({"type": "state", "phase": "加载中", "detail": str(msg.get("scene") or ""), "cls": "warn"})
         try:
             out = await do_load(str(msg.get("scene") or ""))
@@ -614,6 +637,14 @@ async def on_startup(app: web.Application) -> None:
     )
     if not table.enabled:
         log.warning("arm switching disabled: %s", table.error)
+    else:
+        # Start from what the stack is actually serving, not from a remembered
+        # choice: after a page restart the selector must agree with the engine.
+        global ARM_SELECTED
+        try:
+            ARM_SELECTED = table.match(await engine_get("/api/status", timeout=10)).get("actual")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("initial arm read failed: %s", exc)
     try:
         await refresh_scenes()
     except Exception as exc:

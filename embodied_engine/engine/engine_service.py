@@ -43,6 +43,7 @@ from engine import composite  # noqa: E402
 from engine import finalize  # noqa: E402
 from engine.inference_client import InferenceClient  # noqa: E402
 from engine.openwam_rollout import WholeTaskRunner  # noqa: E402
+from engine.pi05_rollout import Pi05WholeTaskRunner  # noqa: E402
 from engine.skills import SkillFailure, SkillRunner, Stopped  # noqa: E402
 
 
@@ -813,11 +814,21 @@ class Engine:
         arr = row.get(key)
         if arr is None:
             raise KeyError(view)
+        # Publish cost is measured here, not in the control loop: this method
+        # runs on the HTTP thread that serves the page, so its time is part of
+        # the episode's wall clock but not of any action's timing row.
+        encode_started = time.perf_counter()
         image = Image.fromarray(np.asarray(arr, dtype=np.uint8))
         buf = io.BytesIO()
         image.save(buf, format="JPEG", quality=90, subsampling=2)
         data = buf.getvalue()
+        encode_s = time.perf_counter() - encode_started
         with self.lock:
+            self.frame_stats["encode_n"] = int(self.frame_stats.get("encode_n") or 0) + 1
+            self.frame_stats["encode_s"] = round(
+                float(self.frame_stats.get("encode_s") or 0.0) + encode_s, 4
+            )
+            self.frame_stats["encode_last_s"] = round(encode_s, 5)
             # Keyed by frame_seq: a repeated request for the same frame is
             # served from here, so a slow client never makes the engine
             # re-encode (and never touches the control loop).
@@ -1102,7 +1113,20 @@ class Engine:
         """
         openwam = self.cfg["action_model"]["openwam"]
         composite_opts = composite.options(self.cfg)
-        runner = WholeTaskRunner(
+        backend = self._action_backend()
+        # The rollout loop, verification, release and record shape are shared;
+        # only the observation/action/generation seams differ. Choosing the
+        # class here keeps the two models' contracts from bleeding into each
+        # other (an 8-D proprio in OpenWAM or EEF10 in pi05 both fail loudly).
+        runner_cls = Pi05WholeTaskRunner if backend == "pi05" else WholeTaskRunner
+        pi05_cfg = dict(self.cfg["action_model"].get("pi05") or {})
+        extra = (
+            {"execute_horizon": int(pi05_cfg.get("execute_horizon") or 5),
+             "generate_horizon": int(pi05_cfg.get("generate_horizon") or 10)}
+            if runner_cls is Pi05WholeTaskRunner
+            else {}
+        )
+        runner = runner_cls(
             env=env,
             inference=self.inference,
             token=token,
@@ -1116,8 +1140,8 @@ class Engine:
             journal=lambda stage, row: records.append_journal(
                 {"t": time.time(), "stage": stage, "episode_id": episode_id, "row": row}
             ),
-            max_steps=int(max_steps or openwam.get("max_steps") or 600),
-            timeout_s=float(openwam.get("timeout_s") or 300),
+            max_steps=int(max_steps or (pi05_cfg if runner_cls is Pi05WholeTaskRunner else openwam).get("max_steps") or 600),
+            timeout_s=float((pi05_cfg if runner_cls is Pi05WholeTaskRunner else openwam).get("timeout_s") or 300),
             gpu_index=openwam.get("gpu_index"),
             frame_sink=self._set_frames,
             post_goal=dict(openwam.get("post_goal") or {}),
@@ -1125,6 +1149,7 @@ class Engine:
             goal_confirm_samples=int(composite_opts["goal_confirm_samples"]),
             step_ref=str(step.get("step_id") or "step"),
             watch_joints=watch_joints,
+            **extra,
         )
         result = runner.run()
         return result, runner.obs, runner.snapshot
@@ -1257,6 +1282,7 @@ class Engine:
         started = time.time()
         started_iso = _now_iso()
         recovery_log: list[dict[str, Any]] = []
+        init_started = time.perf_counter()
         try:
             env, obs, snapshot = self._prepare_env(int(task["task_id"]))
         except Exception as exc:  # noqa: BLE001 - must always reach a terminal state
@@ -1277,6 +1303,11 @@ class Engine:
                 }
             return
         baseline = snapshot
+        # Scene load/reset is *inside* the episode wall clock (the engine resets
+        # the env before every episode even when the scene was already loaded),
+        # but it used to be outside every timing bucket. Measure it so the
+        # decomposition adds up instead of leaving a silent gap.
+        episode_init_s = time.perf_counter() - init_started
         initial_scene = _scene_fingerprint(snapshot)
         initial_state = _state_fingerprint(snapshot)
         handoff_mode = composite.handoff_mode(self.cfg)
@@ -1320,6 +1351,7 @@ class Engine:
             self.sim_action_count = int(snapshot.get("sim_action_count") or 0)
         self._set_frames(obs, snapshot)
         timing = {
+            "episode_init_s": round(episode_init_s, 3),
             "planner_s": 0.0,
             "execution_s": 0.0,
             "release_s": 0.0,
@@ -1444,7 +1476,14 @@ class Engine:
                     "openwam backend requires exactly one whole_task step",
                     {"backend": backend, "planned_skills": planned},
                 )
-            if not composite_plan and backend != "openwam" and "whole_task" in planned:
+            if not composite_plan and backend == "pi05" and planned != ["whole_task"]:
+                raise SkillFailure(
+                    "plan_backend_mismatch",
+                    "pi05 backend requires exactly one whole_task step",
+                    {"backend": backend, "planned_skills": planned},
+                )
+            if (not composite_plan and backend not in ("openwam", "pi05")
+                    and "whole_task" in planned):
                 raise SkillFailure(
                     "plan_backend_mismatch",
                     f"{backend} backend cannot execute whole_task",
@@ -2552,7 +2591,16 @@ class Engine:
             "env": self.env.view(),
             "page": {"ui": "page_ui (restored old Page, backend bridge)", "human_confirmation": False},
         }
+        # Record assembly (including the cached health/identity read) is part of
+        # the episode wall clock; it is measured here so the decomposition can
+        # name it instead of calling it "unexplained". The JSON write itself is
+        # reported in the journal row below.
+        record_timing = record.get("timing")
+        if isinstance(record_timing, dict):
+            record_timing["record_assemble_s"] = round(time.time() - ended, 3)
+        write_started = time.perf_counter()
         path = records.write_run(record)
+        write_s = round(time.perf_counter() - write_started, 4)
         records.append_journal(
             {
                 "t": ended,
@@ -2563,6 +2611,7 @@ class Engine:
                 "native": record["native_task_success"],
                 "user_goal": record["user_goal_success"],
                 "duration_s": record["duration_s"],
+                "record_write_s": write_s,
                 "record": str(path),
             }
         )

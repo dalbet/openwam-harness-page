@@ -1,0 +1,1241 @@
+{
+ "schema": "flashrt_exp.acceptance.v1",
+ "date": "2026-11-02",
+ "scope": "OpenWAM 引擎执行侧优化：torch.compile(inductor) + CUDA Graph；不含 FlashRT 切片，不含闭环与成功率",
+ "verdict": "EXECUTION_OPT_PASSED",
+ "repo": {
+  "path": "/home/host/page-dmh",
+  "head": "33f18148d27654f7223e925248fe9b26b23410e4",
+  "source_tree_modified": false
+ },
+ "isolation": {
+  "experiment_gpu": {
+   "index": 0,
+   "memory_before_mib": 2,
+   "memory_after_mib": 2,
+   "persistence_mode": "off"
+  },
+  "prod_untouched": [
+   {
+    "role": "OpenWAM",
+    "pid": 1380923,
+    "gpu": 2,
+    "port": 14520,
+    "memory_mib": 24768,
+    "state_at_end": "LISTEN 已核验"
+   },
+   {
+    "role": "Pi0.5",
+    "pid": 2784215,
+    "gpu": 1,
+    "port": 14510,
+    "memory_mib": 7164,
+    "state_at_end": "LISTEN 已核验"
+   },
+   {
+    "role": "vLLM EngineCore",
+    "pid": 2843863,
+    "gpu": 3,
+    "memory_mib": 22098,
+    "state_at_end": "运行中已核验"
+   }
+  ],
+  "isolated_copy": "/home/host/flashrt-exp/src/openwam_iso",
+  "isolated_copy_source_modified": false,
+  "compile_cache_dirs": [
+   "/home/host/flashrt-exp/cache/inductor_A",
+   "/home/host/flashrt-exp/cache/inductor_Aemul",
+   "/home/host/flashrt-exp/cache/inductor_B"
+  ],
+  "system_packages_installed": false,
+  "production_deps_upgraded": false
+ },
+ "model_contract": {
+  "ckpt": "checkpoint_step_10690.safetensors",
+  "dtype": "bf16",
+  "denoise_steps": 10,
+  "seed": 42,
+  "action_chunk": [
+   32,
+   10
+  ],
+  "inference_horizon": 32,
+  "decode_video": false,
+  "normalize_mode": "min-max",
+  "dit_cache": {
+   "cosine_threshold": 0.99,
+   "max_consecutive_skips": 3,
+   "trajectory_all_obs": "1100010001",
+   "recompute_per_gen": 4,
+   "skip_per_gen": 6,
+   "identical_to_eager": true,
+   "per_obs_trajectories": {
+    "task1_p0": "1100010001",
+    "task1_p1": "1100010001",
+    "task1_p2": "1100010001",
+    "task3_p0": "1100010001",
+    "task3_p1": "1100010001",
+    "task3_p2": "1100010001",
+    "task8_p0": "1100010001",
+    "task8_p1": "1100010001",
+    "task8_p2": "1100010001"
+   }
+  },
+  "unchanged": true
+ },
+ "compile_boundary": {
+  "entry": "DualSystemSelfAttnArchitecture.apply_compile_optimizations",
+  "compiled_region": "DualSystemMoTDriver.run_joint_loop(vstate, astate) —— 30 层 MoT 联合循环",
+  "invocations_per_generation": 4,
+  "dynamic": false,
+  "covered": [
+   "video DiT block loop",
+   "action cross-attn per layer",
+   "joint self-attention"
+  ],
+  "not_covered": [
+   "obs/prompt preprocessing",
+   "first-frame VAE encode",
+   "initial noise sampling",
+   "DiTVelocityCache.should_recompute 分支",
+   "extract_prediction/finalize",
+   "unnormalize",
+   "SyncInferenceExecutor 动作块缓存",
+   "WebSocket 协议"
+  ],
+  "extra_compile_trap": "仅 --compile-enabled true 会额外对 30 个 wan block 各自 lazy 编译；本轮显式关闭",
+  "graph_breaks": 0,
+  "unique_graphs": 1,
+  "recompiles": 0
+ },
+ "blockers_found": [
+  {
+   "id": "missing_python_headers",
+   "symptom": "gcc: Python.h: No such file or directory -> Triton launcher 编译失败",
+   "effect": "apply_compile_optimizations 吞掉异常并回退 eager；首轮“候选”数字与 eager 完全一致（301.3 vs 301.2 ms）",
+   "resolution": "C_INCLUDE_PATH 指向 uv 自带 CPython 3.10 头文件（构建期只读引用，未安装系统包）",
+   "gate_added": "所有验收运行要求 fallbacks_total == 0"
+  },
+  {
+   "id": "own_counter_signature_bug",
+   "symptom": "自建 cudagraph 计数器签名不匹配，被入口 try/except 吞掉",
+   "effect": "一轮 300 次生成全部退化为 eager（fallbacks_total=111）",
+   "resolution": "修正签名并加入回退计数；该轮数据整份作废，未进入任何结论"
+  }
+ ],
+ "candidates": {
+  "A_compile_default": {
+   "compile_mode": "default",
+   "emulate_precision_casts": false,
+   "cuda_graph": false,
+   "median_ms_indicative": 177.9,
+   "correctness": "FAILED",
+   "reason": "夹爪维回传命令最大差 0.1094 > 0.05 预声明容差（task8_p2）",
+   "perf_gate_run": false
+  },
+  "A_prime_compile_emul": {
+   "compile_mode": "default",
+   "emulate_precision_casts": true,
+   "cuda_graph": false,
+   "median_ms_indicative": 177.9,
+   "correctness": "PASSED",
+   "perf_gate_run": false,
+   "note": "仅单次抽样，非配对基准；被 B 支配（同编译模式，B 多一层图重放）"
+  },
+  "B_compile_emul_graph": {
+   "compile_mode": "reduce-overhead",
+   "emulate_precision_casts": true,
+   "cuda_graph": true,
+   "correctness": "PASSED",
+   "perf_gate_run": true,
+   "recommended": true
+  },
+  "C_manual_cuda_graph": {
+   "implemented": false,
+   "reason": "自动图模式已被证明真实生效（records=1, replays=610），规则不允许",
+   "records": 1,
+   "replays": 610
+  }
+ },
+ "cudagraph_evidence": {
+  "method": "TORCH_LOGS=cudagraphs 日志 + 运行期对 CUDAGraphTreeManager.record_function / CUDAGraphNode.run_graph 挂钩计数",
+  "records": 1,
+  "replays_run1": 610,
+  "replays_run2": 610,
+  "warmups": 1,
+  "shape_buckets": 1,
+  "skip_reasons": [],
+  "eager_fallbacks": 1,
+  "log_excerpt": [
+   "recording cudagraph tree for graph without symints",
+   "Running warmup of function 0",
+   "Recording function 0 of graph recording id 0"
+  ],
+  "log_file": "/home/host/flashrt-exp/records/logs/candB_torchlogs.log"
+ },
+ "correctness": {
+  "reference": "未改动的 eager 后端路径，同进程内切换（不复制模型）",
+  "compared": "完整 (32, 10) 动作段；判定作用在 native_eef10_to_libero7d 之后的 7 维回传命令",
+  "tolerance_predeclared": {
+   "pos_abs": 0.02,
+   "rot_abs": 0.02,
+   "gripper_abs": 0.05,
+   "pos_physical": "1.0 mm @ 0.05 m/unit",
+   "rot_physical": "0.01 rad = 0.57 deg @ 0.5 rad/unit",
+   "gripper_physical": "5% 全行程",
+   "semantic": [
+    "缓存决策轨迹必须相同",
+    "夹爪不得出现符号翻转"
+   ]
+  },
+  "tolerance_relaxed_after_measurement": false,
+  "criterion_fix": "原先把原始 EEF10 的 clip 元素集合当硬判据，已改为回传命令（被 clip 抹平的中间量不作判据）；三个数值容差未动",
+  "obs_count": 9,
+  "per_obs_d7": {
+   "task1_p0": {
+    "pos": 0.005493,
+    "rot": 0.007816,
+    "grip": 0.007812,
+    "raw_eef10_max": 0.007812,
+    "cache": "1100010001",
+    "pass": true
+   },
+   "task1_p1": {
+    "pos": 0.007324,
+    "rot": 0.00407,
+    "grip": 0.007812,
+    "raw_eef10_max": 0.007812,
+    "cache": "1100010001",
+    "pass": true
+   },
+   "task1_p2": {
+    "pos": 0.007324,
+    "rot": 0.007736,
+    "grip": 0.035156,
+    "raw_eef10_max": 0.035156,
+    "cache": "1100010001",
+    "pass": true
+   },
+   "task3_p0": {
+    "pos": 0.007324,
+    "rot": 0.00392,
+    "grip": 0.007812,
+    "raw_eef10_max": 0.007812,
+    "cache": "1100010001",
+    "pass": true
+   },
+   "task3_p1": {
+    "pos": 0.009155,
+    "rot": 0.00407,
+    "grip": 0.007812,
+    "raw_eef10_max": 0.009155,
+    "cache": "1100010001",
+    "pass": true
+   },
+   "task3_p2": {
+    "pos": 0.007324,
+    "rot": 0.003948,
+    "grip": 0.003906,
+    "raw_eef10_max": 0.007812,
+    "cache": "1100010001",
+    "pass": true
+   },
+   "task8_p0": {
+    "pos": 0.007324,
+    "rot": 0.003936,
+    "grip": 0.007812,
+    "raw_eef10_max": 0.007812,
+    "cache": "1100010001",
+    "pass": true
+   },
+   "task8_p1": {
+    "pos": 0.007324,
+    "rot": 0.00777,
+    "grip": 0.007812,
+    "raw_eef10_max": 0.007812,
+    "cache": "1100010001",
+    "pass": true
+   },
+   "task8_p2": {
+    "pos": 0.007324,
+    "rot": 0.004248,
+    "grip": 0.015625,
+    "raw_eef10_max": 0.015625,
+    "cache": "1100010001",
+    "pass": true
+   }
+  },
+  "worst": {
+   "pos": 0.009155,
+   "rot": 0.007816,
+   "grip": 0.035156
+  },
+  "all_pass": true,
+  "cache_trajectory_equal_all": true,
+  "gripper_sign_flips_total": 0,
+  "deterministic_both_arms": true,
+  "returned_array_overwritten": [],
+  "back_to_eager_bitwise_equal": {
+   "task1_p0": true,
+   "task3_p0": true,
+   "task8_p0": true
+  },
+  "distinct_outputs_over_9_obs": 9,
+  "reset_reproduces": true,
+  "input_switch_ok": true,
+  "fallbacks_detected": 0,
+  "compile_first_s": 14.31,
+  "edges": {
+   "first_candidate_generation": {
+    "pos": 0.00732421875,
+    "rot": 0.0077361129224300385,
+    "grip": 0.03515625,
+    "max": 0.03515625
+   },
+   "first_candidate_pass": true,
+   "repeat_stable": true,
+   "prompt_switch_changes_action": true,
+   "obs_switch_changes_action": true,
+   "edge_switch_vs_eager": {
+    "prompt2": {
+     "pos": 0.00732421875,
+     "rot": 0.0040104025101754814,
+     "grip": 0.15625,
+     "max": 0.15625
+    },
+    "obs_b": {
+     "pos": 0.00732421875,
+     "rot": 0.007804265478625894,
+     "grip": 0.0078125,
+     "max": 0.0078125
+    }
+   },
+   "reset_reproduces": true,
+   "back_to_eager_equals_ref": true,
+   "all_pass": true
+  },
+  "candidate_a_failure": {
+   "obs": "task8_p2",
+   "dim": "回传 7 维夹爪（原 EEF10 dim9）",
+   "max_abs": 0.109375,
+   "tolerance": 0.05,
+   "passed": false,
+   "detail_file": "records/raw/exec_opt_correct_A.json"
+  }
+ },
+ "numerics": {
+  "localization": {
+   "aot_eager_vs_eager": {
+    "bitwise_all": true,
+    "max_abs": 0.0,
+    "conclusion": "dynamo 追踪语义无误；差异纯来自 inductor 代码生成"
+   },
+   "eager_bf16_reduction_knob": {
+    "bitwise_all": true,
+    "max_abs": 0.0
+   },
+   "sdpa_backend_swap": {
+    "mem": {
+     "max_abs": 0.0,
+     "bitwise_all": true
+    }
+   },
+   "inductor_default_vs_eager": {
+    "max_abs": 0.109375,
+    "gripper_max": 0.109375
+   }
+  },
+  "emulate_precision_casts": {
+   "env": "TORCHINDUCTOR_EMULATE_PRECISION_CASTS=1",
+   "why": "官方说明：inductor 缺省省略 bf16 下降-上升对（更接近 fp64 参考），该开关保留它们以复现 eager 数值口径",
+   "effect_on_gripper_max": {
+    "without": 0.109375,
+    "with": 0.03515625
+   }
+  }
+ },
+ "performance": {
+  "run1": {
+   "seed": 20261102,
+   "blocks": 3,
+   "pairs_per_block": 50,
+   "measurement_clean": true,
+   "fallbacks_total": 0,
+   "eager": {
+    "n": 150,
+    "median": 294.15,
+    "mean": 295.18,
+    "p95": 295.94,
+    "min": 290.41,
+    "max": 375.52
+   },
+   "cand": {
+    "n": 150,
+    "median": 166.93,
+    "mean": 166.87,
+    "p95": 167.69,
+    "min": 165.78,
+    "max": 168.24
+   },
+   "cpu_process": {
+    "eager": {
+     "n": 150,
+     "median": 422.12,
+     "mean": 422.86,
+     "p95": 426.2,
+     "min": 397.79,
+     "max": 508.33
+    },
+    "cand": {
+     "n": 150,
+     "median": 294.81,
+     "mean": 294.1,
+     "p95": 296.14,
+     "min": 269.73,
+     "max": 299.92
+    }
+   },
+   "dev_span": {
+    "eager": {
+     "n": 150,
+     "median": 294.11,
+     "mean": 295.13,
+     "p95": 295.9,
+     "min": 290.37,
+     "max": 375.42
+    },
+    "cand": {
+     "n": 150,
+     "median": 166.88,
+     "mean": 166.83,
+     "p95": 167.65,
+     "min": 165.74,
+     "max": 168.2
+    }
+   },
+   "paired_same_band": {
+    "n": 150,
+    "ratio_median": 0.5671,
+    "ratio_p95": 0.5722,
+    "delta_median_ms": -127.28,
+    "delta_mean_ms": -128.31
+   },
+   "paired_cross_band": null,
+   "paired_all": {
+    "n": 150,
+    "ratio_median": 0.5671,
+    "ratio_p95": 0.5722,
+    "delta_median_ms": -127.28,
+    "delta_mean_ms": -128.31
+   },
+   "cpu_band_centers_ms": [
+    8.78,
+    11.37,
+    16.96,
+    26.24
+   ],
+   "cpu_state_values_ms": [
+    8.78,
+    8.8,
+    8.81,
+    8.82,
+    8.83,
+    8.84,
+    8.85,
+    8.86,
+    8.87,
+    8.88,
+    8.89,
+    8.9,
+    8.91,
+    8.92,
+    8.93,
+    8.94,
+    8.95,
+    8.96,
+    8.97,
+    8.98,
+    8.99,
+    9.0,
+    9.01,
+    9.02,
+    9.03,
+    9.04,
+    9.05,
+    9.06,
+    9.07,
+    9.08,
+    9.1,
+    9.11,
+    9.12,
+    9.15,
+    9.16,
+    9.17,
+    9.18,
+    9.19,
+    9.23,
+    9.25,
+    9.27,
+    9.31,
+    9.33,
+    9.43,
+    9.52,
+    9.98,
+    10.3,
+    11.33,
+    11.34,
+    11.35,
+    11.36,
+    11.38,
+    11.39,
+    11.4,
+    11.41,
+    11.42,
+    11.43,
+    11.44,
+    11.45,
+    11.46,
+    11.47,
+    11.48,
+    11.49,
+    11.5,
+    11.51,
+    11.52,
+    11.53,
+    11.54,
+    11.55,
+    11.56,
+    11.57,
+    11.58,
+    11.59,
+    11.6,
+    11.62,
+    11.63,
+    11.65,
+    11.66,
+    11.67,
+    11.69,
+    11.71,
+    11.76,
+    11.79,
+    11.89,
+    12.08,
+    13.78,
+    14.17,
+    14.81,
+    22.08
+   ],
+   "cpu_state_samples": 1892,
+   "level_table": {
+    "8.78": {
+     "n_eager": 126,
+     "n_cand": 126,
+     "eager": {
+      "n": 126,
+      "median": 294.19,
+      "mean": 294.05,
+      "p95": 295.51,
+      "min": 290.41,
+      "max": 296.59
+     },
+     "cand": {
+      "n": 126,
+      "median": 167.0,
+      "mean": 166.98,
+      "p95": 167.75,
+      "min": 166.16,
+      "max": 168.24
+     },
+     "paired": {
+      "n": 126,
+      "ratio_median": 0.5674,
+      "ratio_p95": 0.5726,
+      "delta_median_ms": -127.22,
+      "delta_mean_ms": -127.07
+     }
+    },
+    "11.37": {
+     "n_eager": 24,
+     "n_cand": 24,
+     "eager": {
+      "n": 24,
+      "median": 294.11,
+      "mean": 301.09,
+      "p95": 338.2,
+      "min": 293.0,
+      "max": 375.52
+     },
+     "cand": {
+      "n": 24,
+      "median": 166.19,
+      "mean": 166.27,
+      "p95": 166.85,
+      "min": 165.78,
+      "max": 167.59
+     },
+     "paired": {
+      "n": 24,
+      "ratio_median": 0.5655,
+      "ratio_p95": 0.5671,
+      "delta_median_ms": -127.88,
+      "delta_mean_ms": -134.82
+     }
+    }
+   },
+   "warmup_compile_capture_s": 18.15,
+   "mem_after_warmup": {
+    "allocated_mib": 23693.8,
+    "reserved_mib": 24232.0,
+    "max_allocated_mib": 23933.5,
+    "device_total_mib": 32109.0
+   },
+   "cudagraph_runtime": {
+    "installed": true,
+    "warmups": 1,
+    "records": 1,
+    "replays": 610,
+    "eager_fallbacks": 1
+   },
+   "compile_metrics_final": {
+    "dynamo_frames": 0,
+    "dynamo_unique_graphs": 1,
+    "dynamo_compiled_total": 0,
+    "dynamo_graph_break": 0,
+    "dynamo_graph_break_top": {},
+    "inductor_generated_kernels": 0,
+    "inductor_cudagraph_skips": {}
+   }
+  },
+  "run2": {
+   "seed": 991,
+   "blocks": 3,
+   "pairs_per_block": 50,
+   "measurement_clean": true,
+   "fallbacks_total": 0,
+   "eager": {
+    "n": 150,
+    "median": 294.01,
+    "mean": 293.91,
+    "p95": 296.02,
+    "min": 290.0,
+    "max": 336.19
+   },
+   "cand": {
+    "n": 150,
+    "median": 166.89,
+    "mean": 167.35,
+    "p95": 167.62,
+    "min": 165.97,
+    "max": 208.2
+   },
+   "cpu_process": {
+    "eager": {
+     "n": 150,
+     "median": 414.63,
+     "mean": 414.03,
+     "p95": 417.04,
+     "min": 402.86,
+     "max": 459.77
+    },
+    "cand": {
+     "n": 150,
+     "median": 287.7,
+     "mean": 287.4,
+     "p95": 289.23,
+     "min": 269.84,
+     "max": 331.02
+    }
+   },
+   "dev_span": {
+    "eager": {
+     "n": 150,
+     "median": 293.98,
+     "mean": 293.86,
+     "p95": 295.98,
+     "min": 289.96,
+     "max": 336.15
+    },
+    "cand": {
+     "n": 150,
+     "median": 166.86,
+     "mean": 167.31,
+     "p95": 167.58,
+     "min": 165.92,
+     "max": 208.15
+    }
+   },
+   "paired_same_band": {
+    "n": 149,
+    "ratio_median": 0.5677,
+    "ratio_p95": 0.5743,
+    "delta_median_ms": -127.16,
+    "delta_mean_ms": -126.55
+   },
+   "paired_cross_band": {
+    "n": 1,
+    "ratio_median": 0.5668,
+    "ratio_p95": 0.5668,
+    "delta_median_ms": -126.96,
+    "delta_mean_ms": -126.96
+   },
+   "paired_all": {
+    "n": 150,
+    "ratio_median": 0.5676,
+    "ratio_p95": 0.5743,
+    "delta_median_ms": -127.15,
+    "delta_mean_ms": -126.55
+   },
+   "cpu_band_centers_ms": [
+    8.81,
+    11.41,
+    17.02,
+    26.33
+   ],
+   "cpu_state_values_ms": [
+    8.81,
+    8.82,
+    8.83,
+    8.84,
+    8.85,
+    8.86,
+    8.87,
+    8.88,
+    8.89,
+    8.9,
+    8.91,
+    8.92,
+    8.93,
+    8.94,
+    8.95,
+    8.96,
+    8.97,
+    8.98,
+    8.99,
+    9.0,
+    9.01,
+    9.02,
+    9.03,
+    9.04,
+    9.05,
+    9.06,
+    9.07,
+    9.08,
+    9.09,
+    9.1,
+    9.12,
+    9.13,
+    9.17,
+    9.18,
+    9.3,
+    9.34,
+    9.85,
+    10.07,
+    10.44,
+    11.15,
+    11.34,
+    11.35,
+    11.36,
+    11.37,
+    11.38,
+    11.39,
+    11.4,
+    11.41,
+    11.42,
+    11.43,
+    11.44,
+    11.45,
+    11.46,
+    11.47,
+    11.48,
+    11.49,
+    11.5,
+    11.51,
+    11.52,
+    11.53,
+    11.54,
+    11.55,
+    11.56,
+    11.57,
+    11.58,
+    11.59,
+    11.61,
+    11.71,
+    13.79,
+    15.24,
+    21.93
+   ],
+   "cpu_state_samples": 1890,
+   "level_table": {
+    "8.81": {
+     "n_eager": 126,
+     "n_cand": 126,
+     "eager": {
+      "n": 126,
+      "median": 293.79,
+      "mean": 293.4,
+      "p95": 295.8,
+      "min": 290.0,
+      "max": 297.25
+     },
+     "cand": {
+      "n": 126,
+      "median": 166.91,
+      "mean": 166.89,
+      "p95": 167.48,
+      "min": 166.2,
+      "max": 168.04
+     },
+     "paired": {
+      "n": 126,
+      "ratio_median": 0.5684,
+      "ratio_p95": 0.5742,
+      "delta_median_ms": -126.89,
+      "delta_mean_ms": -126.51
+     }
+    },
+    "11.41": {
+     "n_eager": 24,
+     "n_cand": 23,
+     "eager": {
+      "n": 24,
+      "median": 294.52,
+      "mean": 296.59,
+      "p95": 298.35,
+      "min": 293.06,
+      "max": 336.19
+     },
+     "cand": {
+      "n": 23,
+      "median": 166.46,
+      "mean": 169.94,
+      "p95": 199.58,
+      "min": 165.97,
+      "max": 208.2
+     },
+     "paired": {
+      "n": 23,
+      "ratio_median": 0.5651,
+      "ratio_p95": 0.6692,
+      "delta_median_ms": -127.93,
+      "delta_mean_ms": -126.8
+     }
+    },
+    "17.02": {
+     "n_eager": 0,
+     "n_cand": 1,
+     "eager": null,
+     "cand": {
+      "n": 1,
+      "median": 166.1,
+      "mean": 166.1,
+      "p95": 166.1,
+      "min": 166.1,
+      "max": 166.1
+     },
+     "paired": null
+    }
+   },
+   "warmup_compile_capture_s": 17.01,
+   "mem_after_warmup": {
+    "allocated_mib": 23693.8,
+    "reserved_mib": 24232.0,
+    "max_allocated_mib": 23933.5,
+    "device_total_mib": 32109.0
+   },
+   "cudagraph_runtime": {
+    "installed": true,
+    "warmups": 1,
+    "records": 1,
+    "replays": 610,
+    "eager_fallbacks": 1
+   },
+   "compile_metrics_final": {
+    "dynamo_frames": 0,
+    "dynamo_unique_graphs": 1,
+    "dynamo_compiled_total": 0,
+    "dynamo_graph_break": 0,
+    "dynamo_graph_break_top": {},
+    "inductor_generated_kernels": 0,
+    "inductor_cudagraph_skips": {}
+   }
+  },
+  "ws_roundtrip": {
+   "n_pairs": 30,
+   "eager": {
+    "n": 30,
+    "median": 307.56,
+    "mean": 308.04,
+    "p95": 310.88,
+    "min": 305.23,
+    "max": 313.96
+   },
+   "cand": {
+    "n": 30,
+    "median": 174.24,
+    "mean": 175.91,
+    "p95": 178.55,
+    "min": 173.34,
+    "max": 215.27
+   },
+   "ratio_median_of_pairs": 0.5665,
+   "server_generate_ms": {
+    "eager": 301.2,
+    "cand": 167.8
+   },
+   "server_preprocess_ms": {
+    "eager": 4.7,
+    "cand": 4.8
+   },
+   "server_dump_send_ms": {
+    "eager": 0.09,
+    "cand": 0.11
+   }
+  },
+  "profiler": {
+   "gens_each": 2,
+   "eager": {
+    "cpu_events_per_gen": 113532.0,
+    "kernels_per_gen": 19672.0,
+    "gpu_busy_ms_per_gen": 161.22,
+    "stream_span_ms_per_gen": 600.32,
+    "gpu_busy_pct": 26.9
+   },
+   "cand": {
+    "cpu_events_per_gen": 5288.5,
+    "kernels_per_gen": 7571.0,
+    "gpu_busy_ms_per_gen": 144.67,
+    "stream_span_ms_per_gen": 198.9,
+    "gpu_busy_pct": 72.7
+   },
+   "cpu_events_delta_pct": -95.3,
+   "kernels_delta_pct": -61.5,
+   "cudagraph_replays_during_profile": 8,
+   "note": "profiler 仅用于代表请求，主数字来自无 profiler 的配对运行"
+  },
+  "cpu_state_coverage": {
+   "method": "进程外独立速度计（绑核 100、固定工作量、1 Hz），按上一轮量化档位 {8.78,11.37,16.96,26.24} 取 log 最近邻分档",
+   "covered_band_centers_ms": [
+    8.78,
+    11.37
+   ],
+   "covered_level_values_ms": {
+    "run1": [
+     8.78,
+     8.8,
+     8.81,
+     8.82,
+     8.83,
+     8.84,
+     8.85,
+     8.86,
+     8.87,
+     8.88,
+     8.89,
+     8.9,
+     8.91,
+     8.92,
+     8.93,
+     8.94,
+     8.95,
+     8.96,
+     8.97,
+     8.98,
+     8.99,
+     9.0,
+     9.01,
+     9.02,
+     9.03,
+     9.04,
+     9.05,
+     9.06,
+     9.07,
+     9.08,
+     9.1,
+     9.11,
+     9.12,
+     9.15,
+     9.16,
+     9.17,
+     9.18,
+     9.19,
+     9.23,
+     9.25,
+     9.27,
+     9.31,
+     9.33,
+     9.43,
+     9.52,
+     9.98,
+     10.3,
+     11.33,
+     11.34,
+     11.35,
+     11.36,
+     11.38,
+     11.39,
+     11.4,
+     11.41,
+     11.42,
+     11.43,
+     11.44,
+     11.45,
+     11.46,
+     11.47,
+     11.48,
+     11.49,
+     11.5,
+     11.51,
+     11.52,
+     11.53,
+     11.54,
+     11.55,
+     11.56,
+     11.57,
+     11.58,
+     11.59,
+     11.6,
+     11.62,
+     11.63,
+     11.65,
+     11.66,
+     11.67,
+     11.69,
+     11.71,
+     11.76,
+     11.79,
+     11.89,
+     12.08,
+     13.78,
+     14.17,
+     14.81,
+     22.08
+    ],
+    "run2": [
+     8.81,
+     8.82,
+     8.83,
+     8.84,
+     8.85,
+     8.86,
+     8.87,
+     8.88,
+     8.89,
+     8.9,
+     8.91,
+     8.92,
+     8.93,
+     8.94,
+     8.95,
+     8.96,
+     8.97,
+     8.98,
+     8.99,
+     9.0,
+     9.01,
+     9.02,
+     9.03,
+     9.04,
+     9.05,
+     9.06,
+     9.07,
+     9.08,
+     9.09,
+     9.1,
+     9.12,
+     9.13,
+     9.17,
+     9.18,
+     9.3,
+     9.34,
+     9.85,
+     10.07,
+     10.44,
+     11.15,
+     11.34,
+     11.35,
+     11.36,
+     11.37,
+     11.38,
+     11.39,
+     11.4,
+     11.41,
+     11.42,
+     11.43,
+     11.44,
+     11.45,
+     11.46,
+     11.47,
+     11.48,
+     11.49,
+     11.5,
+     11.51,
+     11.52,
+     11.53,
+     11.54,
+     11.55,
+     11.56,
+     11.57,
+     11.58,
+     11.59,
+     11.61,
+     11.71,
+     13.79,
+     15.24,
+     21.93
+    ]
+   },
+   "not_covered": "慢档 16.96 / 26.24 ms（对应上一轮 435-490 ms 区间）在两个测量窗口内未出现，故无慢档结论",
+   "observed_eager_median_by_band_ms": {
+    "8.78": 294.19,
+    "11.37": 294.11
+   },
+   "note": "本轮 8.78 与 11.37 两档的 eager 中位几乎相同，未复现上一轮档位→时延传导",
+   "paired_cross_band": null
+  }
+ },
+ "resources": {
+  "model_load_s": [
+   106.4,
+   122.0
+  ],
+  "first_generation_cold_cache_s": {
+   "A": 77.7,
+   "B": 14.31
+  },
+  "first_generation_warm_cache_s": [
+   13.7,
+   14.8,
+   17.0,
+   18.9
+  ],
+  "capture": {
+   "graphs": 1,
+   "records": 1
+  },
+  "memory_mib": {
+   "allocated_before": 23681.4,
+   "allocated_after": 23693.8,
+   "reserved_before": 23868.0,
+   "reserved_after": 24232.0,
+   "peak": 23933.5,
+   "device_total": 32109
+  },
+  "extra_allocated_mib": 12.4,
+  "extra_reserved_mib": 364.0
+ },
+ "deploy_config": {
+  "verified": true,
+  "verification_file": "records/raw/exec_opt_configcheck_B.json",
+  "args": [
+   "--compile-enabled true",
+   "optimization.compile.self_attn.torch_mode=reduce-overhead",
+   "optimization.compile.wan_blocks.enabled=false"
+  ],
+  "env": {
+   "TORCHINDUCTOR_EMULATE_PRECISION_CASTS": "1",
+   "C_INCLUDE_PATH": "/home/host/.local/share/uv/python/cpython-3.10.22-linux-x86_64-gnu/include/python3.10",
+   "TORCHINDUCTOR_CACHE_DIR": "/home/host/flashrt-exp/cache/inductor_B",
+   "TRITON_CACHE_DIR": "/home/host/flashrt-exp/cache/triton_B"
+  },
+  "observed": {
+   "compiled_loop_present": true,
+   "wan_blocks_compile_enabled": false,
+   "cudagraph_records": 1,
+   "cudagraph_replays": 78,
+   "gen_median_ms": 171.34,
+   "gen_p95_ms": 214.1,
+   "worst_d7": {
+    "d7_pos": 0.0091552734375,
+    "d7_rot": 0.007815663702785969,
+    "d7_gripper": 0.03515625
+   },
+   "actions_vs_saved_eager_ref": {
+    "task1_p0": {
+     "d7_pos": 0.0054931640625,
+     "d7_rot": 0.007815663702785969,
+     "d7_gripper": 0.0078125
+    },
+    "task1_p1": {
+     "d7_pos": 0.00732421875,
+     "d7_rot": 0.004069879651069641,
+     "d7_gripper": 0.0078125
+    },
+    "task1_p2": {
+     "d7_pos": 0.00732421875,
+     "d7_rot": 0.0077361129224300385,
+     "d7_gripper": 0.03515625
+    },
+    "task3_p0": {
+     "d7_pos": 0.00732421875,
+     "d7_rot": 0.003920312039554119,
+     "d7_gripper": 0.0078125
+    },
+    "task3_p1": {
+     "d7_pos": 0.0091552734375,
+     "d7_rot": 0.0040703724371269345,
+     "d7_gripper": 0.0078125
+    },
+    "task3_p2": {
+     "d7_pos": 0.00732421875,
+     "d7_rot": 0.0039479415863752365,
+     "d7_gripper": 0.00390625
+    },
+    "task8_p0": {
+     "d7_pos": 0.00732421875,
+     "d7_rot": 0.003936495631933212,
+     "d7_gripper": 0.0078125
+    },
+    "task8_p1": {
+     "d7_pos": 0.00732421875,
+     "d7_rot": 0.0077703967690467834,
+     "d7_gripper": 0.0078125
+    },
+    "task8_p2": {
+     "d7_pos": 0.00732421875,
+     "d7_rot": 0.00424807146191597,
+     "d7_gripper": 0.015625
+    }
+   }
+  },
+  "rollback": "去掉后三条参数（--compile-enabled false），并 unset TORCHINDUCTOR_EMULATE_PRECISION_CASTS"
+ },
+ "closed_loop_recommended": true,
+ "closed_loop_preconditions": [
+  "≥10% 完整生成时延下降（实测配对中位 -43.3%，跨 2 进程 3 block 稳定）",
+  "动作在回传 7D 命令上 9/9 观测通过预声明容差",
+  "缓存决策轨迹与 eager 完全一致",
+  "部署配置路径已独立验证（compiled_loop + 图重放 + 动作一致）"
+ ],
+ "not_claimed": [
+  "未做闭环、成功率、量化",
+  "未覆盖慢档（17.0 / 26.2 ms 速度计档）",
+  "未评估 wan_blocks 逐块编译组合 / max-autotune",
+  "未主张任何 FlashRT 收益",
+  "decode_video=false 不计入收益"
+ ],
+ "artifacts": {
+  "report": "/home/host/page-dmh/embodied_engine/docs/audits/2026-11-02-openwam-torch-compile-and-cuda-graph.md",
+  "report_sha256": "22dd77cc3105af34004ee930589694ee8d2b5c7e1efbdea6e49b63b9d01de421",
+  "experiment_root": "/home/host/flashrt-exp",
+  "raw_dir": "/home/host/flashrt-exp/records/raw",
+  "manifest": "/home/host/flashrt-exp/records/manifest.json",
+  "key_files": [
+   "records/raw/exec_opt_correct_B.json",
+   "records/raw/exec_opt_chunks_B.npz",
+   "records/raw/exec_opt_correct_A.json",
+   "records/raw/exec_opt_correct_Aemul.json",
+   "records/raw/exec_opt_localize_A.json",
+   "records/raw/exec_opt_envelope_A.json",
+   "records/raw/exec_opt_perf_B_run1.json",
+   "records/raw/exec_opt_perf_B_run2.json",
+   "records/raw/bg_speedo_run1.jsonl",
+   "records/raw/bg_speedo_run2.jsonl",
+   "records/raw/exec_opt_ws_B.json",
+   "records/raw/ws_server_stages_B.jsonl",
+   "records/raw/exec_opt_profile_B.json",
+   "records/raw/exec_opt_edges_B.json",
+   "records/raw/exec_opt_configcheck_B.json",
+   "records/logs/candB_torchlogs.log"
+  ]
+ }
+}

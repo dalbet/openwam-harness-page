@@ -230,13 +230,23 @@ def _qwen_plan(instruction: str, task: dict, snapshot: dict, body: dict) -> dict
 
 
 def _skills_for(backend: str | None) -> dict:
-    """Restrict the skill catalog to what the selected backend can execute."""
+    """Restrict the skill catalog to what the selected backend can execute.
+
+    "whole_task" used to be OpenWAM's alone.  Pi0.5 now has a whole-task runner
+    of its own (``engine/pi05_rollout.Pi05WholeTaskRunner``), so the capability
+    is declared per backend in ``action_model.<backend>.whole_task`` instead of
+    being hardcoded to the OpenWAM name.  A backend that declares it gets the
+    whole_task-only catalog, exactly as OpenWAM does, so the plan shape cannot
+    silently fall back to short skills when the rollout is whole-task.
+    """
     catalog = config.skill_config()
     rows = list(catalog.get("skills") or [])
-    name = str(backend or config.engine_config()["action_model"].get("backend") or "pi05").lower()
-    wanted = "whole_task" if name == "openwam" else None
-    if wanted:
-        rows = [row for row in rows if row.get("name") == wanted]
+    action = config.engine_config()["action_model"]
+    name = str(backend or action.get("backend") or "pi05").lower()
+    section = action.get(name) if isinstance(action.get(name), dict) else {}
+    whole = bool((section or {}).get("whole_task", name == "openwam"))
+    if whole:
+        rows = [row for row in rows if row.get("name") == "whole_task"]
     else:
         rows = [row for row in rows if row.get("name") != "whole_task"]
     return {**catalog, "skills": rows}

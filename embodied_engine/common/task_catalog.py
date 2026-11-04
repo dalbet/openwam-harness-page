@@ -19,12 +19,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-CATALOG_PATH = PROJECT_ROOT / "config" / "tasks.json"
+# Same opt-in override as ``common.config``: the isolated acceptance stack
+# reads the project's own task table through a separate config directory, and
+# the table remains the single source of truth for UI, Agent and engine.
+CONFIG_DIR = Path(os.environ.get("EMBODIED_CONFIG_DIR") or PROJECT_ROOT / "config")
+CATALOG_PATH = CONFIG_DIR / "tasks.json"
 
 
 @lru_cache(maxsize=1)

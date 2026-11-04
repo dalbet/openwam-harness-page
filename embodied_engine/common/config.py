@@ -7,14 +7,19 @@ The task table lives in ``config/tasks.json`` and is read through
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from common import task_catalog
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-CONFIG_DIR = PROJECT_ROOT / "config"
-RECORDS_DIR = PROJECT_ROOT / "records"
+# The isolated acceptance stack (demo page -> experiment ports) must not share
+# the production config or write into the production record directory. Both
+# overrides are opt-in: with neither variable set the paths are exactly the
+# ones this project has always used, so production start-up is unchanged.
+CONFIG_DIR = Path(os.environ.get("EMBODIED_CONFIG_DIR") or PROJECT_ROOT / "config")
+RECORDS_DIR = Path(os.environ.get("EMBODIED_RECORDS_DIR") or PROJECT_ROOT / "records")
 RUNS_DIR = RECORDS_DIR / "runs"
 LOGS_DIR = RECORDS_DIR / "logs"
 

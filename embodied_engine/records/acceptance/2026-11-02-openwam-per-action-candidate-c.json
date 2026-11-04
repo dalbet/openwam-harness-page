@@ -1,0 +1,542 @@
+{
+ "schema": "flashrt_exp.acceptance.v1",
+ "date": "2026-11-02",
+ "round": "per_action_fixed_overhead",
+ "scope": "OpenWAM 候选 C（候选 B + 缓存出队跳过未使用的模型图像构造/编码/传输/预处理）在 libero_goal/task1 的 10 初始化 x 2 臂闭环对照。引擎数据路径优化，不计入 FlashRT 内核收益",
+ "verdict": "PER_ACTION_OPT_PRELIM_PASSED",
+ "verdict_scope": "10 对配对，双方成功 10/10；收益为同轨迹下的每动作固定开销下降，不含轨迹趋短带来的时间；样本量不构成其他任务的统计结论",
+ "baseline": "candidate_B (inductor reduce-overhead + emulate_precision_casts + CUDA Graph replay)",
+ "repo": {
+  "path": "/home/host/page-dmh",
+  "head": "33f18148d27654f7223e925248fe9b26b23410e4",
+  "source_tree_modified": false,
+  "main_config_modified": false
+ },
+ "task": {
+  "task_id": 1,
+  "suite": "libero_goal",
+  "key": "put_bowl_on_stove",
+  "instruction": "put the bowl on the stove",
+  "max_steps": 600,
+  "plan_frozen": true,
+  "planner_in_loop": false
+ },
+ "isolation": {
+  "gpu": 0,
+  "ports": {
+   "policy": 14531,
+   "env": 14581,
+   "inference": 14611,
+   "engine": 14811,
+   "plan_stub": 14711
+  },
+  "workdir": "/home/host/flashrt-exp/per_action",
+  "production_untouched": true,
+  "kill_policy": "no pkill -f / killall / fuzzy match; every start/stop by recorded PID+PGID with /proc cmdline verification",
+  "run_ids": [
+   "PA-B1",
+   "PA-C1",
+   "PA-B2",
+   "PA-C2",
+   "PA-B3",
+   "PA-C3",
+   "PA-B4",
+   "PA-C4",
+   "PA-B5",
+   "PA-C5",
+   "PA-B6",
+   "PA-C6"
+  ],
+  "ledgers": [
+   "raw/process_ledger.jsonl",
+   "raw/arm_switch_ledger.jsonl"
+  ]
+ },
+ "modes": {
+  "B": "OPENWAM_CACHED_STEP_FASTPATH=0, PER_ACTION_SKIP_CACHED_IMAGES=0",
+  "C": "OPENWAM_CACHED_STEP_FASTPATH=1, PER_ACTION_SKIP_CACHED_IMAGES=1"
+ },
+ "unchanged": [
+  "checkpoint",
+  "bf16",
+  "compile config",
+  "emulate_precision_casts",
+  "denoise_steps=10",
+  "seed",
+  "shift",
+  "velocity cache",
+  "32/32 execute horizon",
+  "20Hz control contract",
+  "action conversion",
+  "step budget",
+  "release window",
+  "success criteria"
+ ],
+ "gates": {
+  "semantic_replay": {
+   "pass": true,
+   "action_diffs": 0,
+   "actions_sha256_b": "6abd88aef0f7de56",
+   "actions_sha256_c": "6abd88aef0f7de56",
+   "images_sent_b": 40,
+   "images_sent_c": 2,
+   "gen_obs_digest_at_generation": [
+    "938f0031ac37ed6f",
+    "11521b85fab3f91f"
+   ],
+   "note": "40 步固定观测序列，覆盖 chunk 边界 step 0/32；输出逐位一致，未使用任何编译容差"
+  },
+  "desync_recovery": {
+   "pass": true,
+   "image_retries": 1,
+   "bitwise_equal_to_reference": true,
+   "errors": 0
+  },
+  "cuda_graph_formal_phase": {
+   "pass": true,
+   "b_formal_episodes": 11,
+   "c_formal_episodes": 10,
+   "run_eager_delta_per_formal_episode": 0,
+   "silent_eager": 0,
+   "replays_delta_per_episode": 12,
+   "compile_stage": "warmup episode only (run_eager +1, warmups 1, records 1)",
+   "note": "阶段屏障计数，非采样；两对短闭环单独记录于 trace_B_PA-B1/C_PA-C1/B_PA-B2/C_PA-C2"
+  },
+  "no_hidden_retry": {
+   "pass": true,
+   "c_server_image_retries": 0,
+   "c_server_errors": 0,
+   "note": "C 臂所有正式回合服务端 image_retries=0，省略图像从未触发服务端需要图像的路径"
+  }
+ },
+ "denominators": {
+  "planned_pairs": 10,
+  "timed_pairs": 10,
+  "timed_episodes_per_arm": 10,
+  "warmup_episodes": 11,
+  "warmup_excluded": true,
+  "order_balance": {
+   "B_then_C": 5,
+   "C_then_B": 5
+  },
+  "wall_metric": "record.duration_s（完整任务耗时，含首动作、释放与验证）",
+  "engine_window_metric": "openwam.wall.total_s（控制循环窗口），用于阶段记账"
+ },
+ "results": {
+  "success_matrix": {
+   "both": 10,
+   "only_B": 0,
+   "only_C": 0,
+   "neither": 0
+  },
+  "success_rate": {
+   "B": "10/10",
+   "C": "10/10"
+  },
+  "failures": 0,
+  "unknown_terminal_states": 0,
+  "timeouts": 0,
+  "backend_runtime_errors": 0,
+  "wall_s": {
+   "B_mean": 28.4865,
+   "C_mean": 18.3769,
+   "paired_delta_median": -10.245,
+   "paired_delta_mean": -10.11,
+   "paired_delta_median_pct": -35.4,
+   "paired_delta_range": [
+    -10.947,
+    -8.858
+   ],
+   "equal_step_pairs_delta_median": -10.341,
+   "equal_step_pairs": [
+    0,
+    3,
+    6,
+    8,
+    9
+   ]
+  },
+  "per_action_cache_dequeue_s": {
+   "B": 0.11464,
+   "C": 0.00159,
+   "decomposition": {
+    "cache_encode_s": {
+     "B_per_action": 0.08297,
+     "C_per_action": 0.0
+    },
+    "cache_send_s": {
+     "B_per_action": 0.00997,
+     "C_per_action": 0.00022
+    },
+    "cache_server_s": {
+     "B_per_action": 0.01565,
+     "C_per_action": 3e-05
+    },
+    "cache_client_s": {
+     "B_per_action": 0.03146,
+     "C_per_action": 0.00142
+    },
+    "cache_engine_s": {
+     "B_per_action": 0.11464,
+     "C_per_action": 0.00159
+    }
+   }
+  },
+  "per_action_total_s": {
+   "B": 0.2532,
+   "C": 0.14
+  },
+  "wall_clock_cadence_hz": {
+   "B": 3.851,
+   "C": 6.639,
+   "note": "仅墙钟节奏；20Hz 契约未改"
+  },
+  "generation_s_per_episode": {
+   "B": 0.9669,
+   "C": 0.9652,
+   "generations_per_episode": 3,
+   "note": "生成时间保持不变"
+  },
+  "phase_accounting_s_per_episode": {
+   "B": {
+    "observe": 4.2172,
+    "inference_wall": 12.6846,
+    "convert": 0.0631,
+    "env_step": 6.5917,
+    "snapshot": 0.8911,
+    "frame": 0.0002,
+    "wall": 24.4846,
+    "unattributed": 0.0367
+   },
+   "C": {
+    "observe": 4.2275,
+    "inference_wall": 2.3309,
+    "convert": 0.0606,
+    "env_step": 6.6536,
+    "snapshot": 0.8867,
+    "frame": 0.0004,
+    "wall": 14.2217,
+    "unattributed": 0.0622
+   }
+  },
+  "untouched_paths_s_per_episode": {
+   "B": {
+    "snapshot_s": {
+     "mean": 0.8911,
+     "per_action_mean": 0.00867
+    },
+    "frame_s": {
+     "mean": 0.0002,
+     "per_action_mean": 0.0
+    },
+    "convert_s": {
+     "mean": 0.0631,
+     "per_action_mean": 0.00061
+    },
+    "observe_s": {
+     "mean": 4.2172,
+     "per_action_mean": 0.04108
+    },
+    "env_step_s": {
+     "mean": 6.5917,
+     "per_action_mean": 0.06417
+    }
+   },
+   "C": {
+    "snapshot_s": {
+     "mean": 0.8867,
+     "per_action_mean": 0.00846
+    },
+    "frame_s": {
+     "mean": 0.0004,
+     "per_action_mean": 0.0
+    },
+    "convert_s": {
+     "mean": 0.0606,
+     "per_action_mean": 0.00058
+    },
+    "observe_s": {
+     "mean": 4.2275,
+     "per_action_mean": 0.04035
+    },
+    "env_step_s": {
+     "mean": 6.6536,
+     "per_action_mean": 0.06352
+    }
+   }
+  },
+  "pairs": [
+   {
+    "init": 0,
+    "wall_b": 27.91,
+    "wall_c": 17.883,
+    "wall_delta_s": -10.027,
+    "sim_actions_b": 98,
+    "sim_actions_c": 98,
+    "stop_b": "policy_release",
+    "stop_c": "policy_release",
+    "gens_b": 3,
+    "gens_c": 3,
+    "cache_encode_b": 7.6391,
+    "cache_encode_c": 0.0
+   },
+   {
+    "init": 1,
+    "wall_b": 27.303,
+    "wall_c": 17.115,
+    "wall_delta_s": -10.188,
+    "sim_actions_b": 95,
+    "sim_actions_c": 94,
+    "stop_b": "policy_release",
+    "stop_c": "policy_release",
+    "gens_b": 3,
+    "gens_c": 3,
+    "cache_encode_b": 7.3848,
+    "cache_encode_c": 0.0
+   },
+   {
+    "init": 2,
+    "wall_b": 27.027,
+    "wall_c": 17.437,
+    "wall_delta_s": -9.59,
+    "sim_actions_b": 93,
+    "sim_actions_c": 95,
+    "stop_b": "policy_release",
+    "stop_c": "policy_release",
+    "gens_b": 3,
+    "gens_c": 3,
+    "cache_encode_b": 7.2594,
+    "cache_encode_c": 0.0
+   },
+   {
+    "init": 3,
+    "wall_b": 28.313,
+    "wall_c": 17.663,
+    "wall_delta_s": -10.65,
+    "sim_actions_b": 98,
+    "sim_actions_c": 98,
+    "stop_b": "policy_release",
+    "stop_c": "policy_release",
+    "gens_b": 3,
+    "gens_c": 3,
+    "cache_encode_b": 7.6534,
+    "cache_encode_c": 0.0
+   },
+   {
+    "init": 4,
+    "wall_b": 27.411,
+    "wall_c": 17.731,
+    "wall_delta_s": -9.68,
+    "sim_actions_b": 95,
+    "sim_actions_c": 98,
+    "stop_b": "policy_release",
+    "stop_c": "policy_release",
+    "gens_b": 3,
+    "gens_c": 3,
+    "cache_encode_b": 7.3685,
+    "cache_encode_c": 0.0
+   },
+   {
+    "init": 5,
+    "wall_b": 28.498,
+    "wall_c": 19.64,
+    "wall_delta_s": -8.858,
+    "sim_actions_b": 99,
+    "sim_actions_c": 120,
+    "stop_b": "policy_release",
+    "stop_c": "chunk_exhausted",
+    "gens_b": 3,
+    "gens_c": 3,
+    "cache_encode_b": 7.7533,
+    "cache_encode_c": 0.0
+   },
+   {
+    "init": 6,
+    "wall_b": 30.273,
+    "wall_c": 19.761,
+    "wall_delta_s": -10.512,
+    "sim_actions_b": 120,
+    "sim_actions_c": 120,
+    "stop_b": "chunk_exhausted",
+    "stop_c": "chunk_exhausted",
+    "gens_b": 3,
+    "gens_c": 3,
+    "cache_encode_b": 7.7353,
+    "cache_encode_c": 0.0
+   },
+   {
+    "init": 7,
+    "wall_b": 28.425,
+    "wall_c": 17.478,
+    "wall_delta_s": -10.947,
+    "sim_actions_b": 98,
+    "sim_actions_c": 95,
+    "stop_b": "policy_release",
+    "stop_c": "policy_release",
+    "gens_b": 3,
+    "gens_c": 3,
+    "cache_encode_b": 7.6291,
+    "cache_encode_c": 0.0
+   },
+   {
+    "init": 8,
+    "wall_b": 29.879,
+    "wall_c": 19.538,
+    "wall_delta_s": -10.341,
+    "sim_actions_b": 120,
+    "sim_actions_c": 120,
+    "stop_b": "chunk_exhausted",
+    "stop_c": "chunk_exhausted",
+    "gens_b": 3,
+    "gens_c": 3,
+    "cache_encode_b": 7.6048,
+    "cache_encode_c": 0.0
+   },
+   {
+    "init": 9,
+    "wall_b": 29.826,
+    "wall_c": 19.523,
+    "wall_delta_s": -10.303,
+    "sim_actions_b": 120,
+    "sim_actions_c": 120,
+    "stop_b": "chunk_exhausted",
+    "stop_c": "chunk_exhausted",
+    "gens_b": 3,
+    "gens_c": 3,
+    "cache_encode_b": 7.7196,
+    "cache_encode_c": 0.0
+   }
+  ]
+ },
+ "errata": {
+  "does_not_overwrite": "docs/audits/2026-11-02-openwam-closed-loop-task1.md 与 records/acceptance/2026-11-02-openwam-closed-loop-task1.json 保持原样",
+  "errata_file": "records/acceptance/2026-11-02-openwam-closed-loop-task1-errata.json",
+  "items": [
+   {
+    "id": "E1",
+    "claim": "每回合真实生成时间 = 生成次数 x 生成中位（A 1.42s / B 0.65s）",
+    "corrected": "逐请求累计 A 1.7365s / B 0.9385s（10 回合口径）",
+    "impact": "生成时间降幅由约 -54% 修正为 -46.0%，绝对值从 0.77s 修正为 0.798s/回合"
+   },
+   {
+    "id": "E2",
+    "claim": "0.49 x 0.65 = 0.7s/回合",
+    "corrected": "0.489 x 0.65 = 0.318s（分母用错）；正确分母应为优化前 A：0.489 x 1.7365 = 0.849s，或实测累计差 0.798s",
+    "impact": "结论方向不变，算式不自洽"
+   },
+   {
+    "id": "E3",
+    "claim": "每回合缓存出队时间 A 1.56s / B 1.33s（中位 x 次数）",
+    "corrected": "引擎层累计 A 11.479s / B 10.314s；服务端层 A 1.690s / B 1.346s",
+    "impact": "缓存出队被低估约 8 倍，差额是客户端 PNG 编码 7.6s/回合；这正是候选 C 消除的部分"
+   },
+   {
+    "id": "E4",
+    "claim": "每动作固定开销约 0.25s，其中服务端到推理服务往返+序列化约 0.10s",
+    "corrected": "B 每动作缓存出队引擎层 0.1146s（编码 0.0830 + send 0.0100 + 服务端 0.0157 + 其它），每动作总计 0.2532s",
+    "impact": "定性正确，分项归属需按引擎层/客户端层/服务端层三层给出口径"
+   }
+  ]
+ },
+ "incidents": [
+  {
+   "id": "I1",
+   "kind": "backend_runtime_error",
+   "arm": "C",
+   "init": 5,
+   "attempt": 1,
+   "detail": "failure_code=engine_error, URLError [Errno 111] Connection refused, sim_actions=0",
+   "cause": "engine 自己拉起的 env 子进程在 load 阶段尚未就绪；发生在任何 predict 之前",
+   "disposition": "原样保留记录；该 init 使用其后成功的重跑参与配对",
+   "record": "raw/records/PA-C3a_C_init5_ep-20261102-122931-2d9201.json"
+  },
+  {
+   "id": "I2",
+   "kind": "trajectory_divergence",
+   "arm": "C",
+   "init": 5,
+   "detail": "B 99 步 policy_release；C 120 步 chunk_exhausted，两者均判定成功",
+   "disposition": "单列；剥离 21 步后差值为 -12.98s"
+  },
+  {
+   "id": "I3",
+   "kind": "environment_nondeterminism",
+   "arm": "B",
+   "init": 1,
+   "detail": "同臂、同 init、同场景/状态指纹的两次正式回合，第 1 步动作即不同（eef 差 1e-4）",
+   "disposition": "证明闭环内 1-3 步差异来自 LIBERO 重置浮点非确定性，与 C 无关"
+  },
+  {
+   "id": "I4",
+   "kind": "duplicate_execution",
+   "arm": "B/C",
+   "detail": "5 条重复 session 行：驱动重复启动 2 条、判决实验 2 条、engine 在 inference 重启期间自动重放 2 条",
+   "disposition": "全部列于 pa_analysis.json duplicate_runs，未删除任何原始记录；配对只用驱动发起的成功回合"
+  }
+ ],
+ "limitations": [
+  "只覆盖缓存出队路径（31/32 步）；生成步仍走完整路径",
+  "build_openwam_obs(images=False) 的旋转/resize 跳过已生效，但观测构造 4.22s/回合 主要是 env.raw_obs()，该项无可测收益",
+  "单客户端、单 PolicyServer 形态；多客户端并发未测",
+  "只测 task1；未做多任务铺开",
+  "C 视频回合含冷启动编译，不能用于性能对比"
+ ],
+ "claims_not_made": [
+  "不宣称其他任务的收益幅度",
+  "不宣称 FlashRT 内核收益",
+  "不宣称生产可切换",
+  "不宣称统计意义上的成功率非劣",
+  "不宣称省下的 10.35s 来自网络或模型"
+ ],
+ "artifacts": {
+  "audit": "docs/audits/2026-11-02-openwam-per-action-candidate-c.md",
+  "per_request": "/home/host/flashrt-exp/per_action/raw/pa_per_request.jsonl",
+  "analysis": "/home/host/flashrt-exp/per_action/raw/pa_analysis.json",
+  "summary": "/home/host/flashrt-exp/per_action/raw/pa_summary.json",
+  "errata_raw": "/home/host/flashrt-exp/per_action/raw/errata_old_round.json",
+  "validation": "/home/host/flashrt-exp/per_action/raw/validation_c.json",
+  "video_b": "/home/host/flashrt-exp/per_action/raw/videos/PA-VID-B_B_init3.mp4",
+  "video_c": "/home/host/flashrt-exp/per_action/raw/videos/PA-VID-C_C_init3.mp4",
+  "trace_dirs": "/home/host/flashrt-exp/per_action/raw/trace_{B,C}_PA-*",
+  "manifest": "/home/host/page-dmh/embodied_engine/records/acceptance/2026-11-02-openwam-per-action-candidate-c.manifest.json",
+  "cleanup": "/home/host/flashrt-exp/per_action/raw/cleanup.json"
+ },
+ "recovery": {
+  "current_arm_at_report": "C (PA-C6)",
+  "stopped": [
+   {
+    "service": "policy",
+    "pid": 737597
+   },
+   {
+    "service": "inference",
+    "pid": 739407
+   },
+   {
+    "service": "stub",
+    "pid": 389741
+   }
+  ],
+  "retained": [
+   {
+    "service": "engine",
+    "pid": 390164,
+    "reason": "stack.sh guard refused: engine cmdline carries no port token, so the per_action+port+pid check cannot pass",
+    "action": "left running untouched; guard deliberately not bypassed"
+   },
+   {
+    "service": "env (engine child)",
+    "pid": 730208,
+    "reason": "subprocess of the retained engine"
+   }
+  ],
+  "restart": {
+   "policy_B": "PER_ACTION_RUN_ID=<id> bash tools/stack.sh start policy B",
+   "policy_C": "PER_ACTION_RUN_ID=<id> bash tools/stack.sh start policy C",
+   "inference": "PER_ACTION_RUN_ID=<id> bash tools/stack.sh start inference <B|C>",
+   "arm_switch": "python tools/arm_switch.py <B|C> <new_run_id>  (stops the previous pair by recorded pid/pgid, then starts and probes)"
+  },
+  "cleanup_file": "/home/host/flashrt-exp/per_action/raw/cleanup.json",
+  "note": "no pkill / killall / fuzzy match was used at any point; nothing outside the recorded pid/pgid was signalled"
+ }
+}

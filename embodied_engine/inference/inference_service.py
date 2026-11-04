@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 import threading
 import time
@@ -44,22 +45,42 @@ def _build_backend():
     path never silently falls back to Pi0.5 (or the other way round).
     """
     action = config.engine_config()["action_model"]
-    name = str(action.get("backend") or "").strip().lower()
+    # The experiment picks the arm through the environment so switching
+    # S0/S1/S2 never means editing a config file that both arms share.
+    name = str(os.environ.get("ACTION_BACKEND") or action.get("backend") or "").strip().lower()
     if name == "pi05":
-        from models.pi05_backend import Pi05Backend
+        from models.pi05_chunk_backend import Pi05ChunkBackend
 
-        return name, Pi05Backend(config.service_url("pi05"))
+        row = dict(action.get("pi05") or {})
+        return name, Pi05ChunkBackend(
+            str(os.environ.get("PI05_GEN_URL") or row.get("server_url") or config.service_url("pi05")),
+            execute_horizon=int(row.get("execute_horizon") or 5),
+            timeout_s=float(row.get("timeout_s") or 120),
+        )
     if name == "openwam":
         from models.openwam_backend import OpenWAMBackend
 
         row = action["openwam"]
+        # The config points at the production OpenWAM deployment (port 14520).
+        # This round must never talk to it, so the experiment supplies its own
+        # arm-C server through the environment and the URL is recorded in the
+        # identity rather than inferred.
+        url = str(os.environ.get("OPENWAM_GEN_URL") or row["server_url"])
         return name, OpenWAMBackend(
-            str(row["server_url"]),
+            url,
             timeout_s=float(row.get("timeout_s") or 300),
             generate_horizon=int(row.get("generate_horizon") or 0) or None,
             execute_horizon=int(row.get("execute_horizon") or 0) or None,
         )
     raise RuntimeError(f"unknown action_model.backend={name!r}; expected 'pi05' or 'openwam'")
+
+
+def _pi05_service_url() -> str:
+    """``services.pi05`` when the deployment declares one, else empty."""
+    try:
+        return config.service_url("pi05")
+    except KeyError:
+        return ""
 
 
 class InferenceEngine:
@@ -347,15 +368,22 @@ class InferenceEngine:
             "execute_horizon": int(openwam["execute_horizon"]),
             "denoise_steps": int(openwam["denoise_steps"]),
         }
+        pi05_block = dict(cfg.get("pi05") or {})
         pi05_spec = {
             "backend": "pi05",
-            "name": cfg["name"],
-            "checkpoint": cfg["checkpoint"],
-            "revision": cfg["revision"],
-            "action_chunk": int(cfg["action_chunk"]),
-            "action_dim": int(cfg["action_dim"]),
+            "name": pi05_block.get("name") or cfg.get("name"),
+            "checkpoint": pi05_block.get("checkpoint") or cfg.get("checkpoint"),
+            "revision": pi05_block.get("revision") or cfg.get("revision"),
+            "action_chunk": int(pi05_block.get("execute_horizon") or cfg.get("action_chunk") or 5),
+            "action_dim": int(pi05_block.get("action_dim") or cfg.get("action_dim") or 7),
+            "action_space": pi05_block.get("action_space"),
+            "action_horizon": int(pi05_block.get("generate_horizon") or 10),
+            "execute_horizon": int(pi05_block.get("execute_horizon") or 5),
+            "denoise_steps": int(pi05_block.get("denoise_steps") or 10),
             "control_frequency_hz": cfg["control_frequency_hz"],
-            "server_url": config.service_url("pi05"),
+            "server_url": getattr(self.backend, "base_url", None) or _pi05_service_url(),
+            "precision_requested": os.environ.get("PI05_PRECISION"),
+            "arm": os.environ.get("PI05_ARM"),
         }
         if backend == "openwam":
             server_health = self.backend.health()
@@ -534,12 +562,16 @@ def main() -> None:
     args = parser.parse_args()
     service = config.engine_config()["services"]["inference"]
     port = args.port or int(service["port"])
-    ENGINE = InferenceEngine(config.service_url("pi05"))
+    # ``pi05`` may be absent from a deployment whose pi0.5 server is supplied by
+    # environment (the isolated demo stack keeps production :14510 out of its
+    # config entirely). The URL is only used for the log line; the backend reads
+    # its own target from PI05_GEN_URL / the ``pi05`` config block.
+    ENGINE = InferenceEngine(_pi05_service_url() or "")
     action = config.engine_config()["action_model"]
     if ENGINE.backend_name == "openwam":
         target = f"openwam server {action['openwam']['server_url']}"
     else:
-        target = f"pi05 {config.service_url('pi05')}"
+        target = f"pi05 {getattr(ENGINE.backend, 'base_url', '')}"
     print(
         f"[inference] backend={ENGINE.backend_name} on {service['host']}:{port} -> {target}; mode={ENGINE.mode()}",
         flush=True,

@@ -197,8 +197,13 @@ function renderFrameMeta(){
   if (!m) { mFrame.textContent = "—"; return; }
   const seq = m.frame_seq;
   const age = m.frame_ts ? Math.max(0, Date.now() / 1000 - Number(m.frame_ts)) : null;
-  mFrame.textContent = (seq === null || seq === undefined)
-    ? "—" : `#${seq} · ${fmtMs(age === null ? null : age * 1000)} 前${framesOverwritten ? ` · 覆盖 ${framesOverwritten}` : ""}`;
+  if (seq === null || seq === undefined){ mFrame.textContent = "—"; return; }
+  // An old frame number with an old timestamp is not a live picture: say so
+  // instead of presenting the last retained frame as current.
+  const stale = age !== null && age > 3 && !BUSY_PHASES.has(m.phase || "");
+  mFrame.textContent = stale
+    ? `#${seq} · 等待新帧（${fmtMs(age * 1000)} 前）`
+    : `#${seq} · ${fmtMs(age === null ? null : age * 1000)} 前${framesOverwritten ? ` · 覆盖 ${framesOverwritten}` : ""}`;
 }
 
 // ---- WebSocket ----
@@ -325,20 +330,24 @@ function handleBinary(ab){
   else if (!pending || !pending.hdr.term){ if (pending) framesOverwritten += 1; pending = frame; }
 }
 
-function showResult(success, reason){
+function showResult(success, reason, phase){
   terminalReached = true;
   localBusy = false;
-  setStatus(success ? "完成" : "失败", reason || "", success ? "good" : "bad");
+  // A user stop is not a task failure: the rollout ended because it was asked
+  // to, and the episode's own numbers stay readable instead of a red "失败".
+  const stopped = phase === "stopped";
+  setStatus(stopped ? "已停止" : (success ? "完成" : "失败"), reason || "",
+            stopped ? "warn" : (success ? "good" : "bad"));
   startBtn.disabled = false; restartBtn.disabled = false; loadBtn.disabled = false;
   stopBtn.disabled = true; resetBtn.disabled = false;
-  if (!success && reason){ idFailureWrap.style.display = ""; idFailure.textContent = reason; }
+  if (!success && !stopped && reason){ idFailureWrap.style.display = ""; idFailure.textContent = reason; }
   endedFallback = null;
 }
 
 function tick(){
   requestAnimationFrame(tick);
   if (endedFallback && !pending && !decoding && performance.now() - (endedFallback._at || (endedFallback._at = performance.now())) > 1500){
-    showResult(!!endedFallback.success, endedFallback.reason);
+    showResult(!!endedFallback.success, endedFallback.reason, endedFallback.phase);
     return;
   }
   if (decoding || !pending) return;

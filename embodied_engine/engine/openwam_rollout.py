@@ -503,6 +503,28 @@ class WholeTaskRunner:
                 self._last_opening = max(self._last_opening, float(opening))
         return row
 
+    def _raw_gripper(self, raw_action) -> tuple[str, float | None]:
+        """Where the policy's *native* gripper command lives, per model.
+
+        OpenWAM emits a 10-D EEF action whose gripper is slot 9; Pi0.5 emits the
+        7-D OSC command whose gripper is slot 6.  Reading slot 9 unconditionally
+        is exactly the kind of silent OpenWAM assumption that must not leak into
+        the Pi0.5 path, so the slot is a seam instead of a literal.
+        """
+        value = np.asarray(raw_action, dtype=np.float64).reshape(-1)
+        if value.shape[0] <= 9:
+            return "grip_cmd_raw", None
+        return "grip_cmd10", float(value[9])
+
+    def _to_action7(self, raw_action) -> np.ndarray:
+        """Model-specific action adapter.
+
+        OpenWAM emits native EEF10 and needs the 6-D/rotation conversion; a
+        backend whose native action already is the 7-D LIBERO command may
+        override this and change nothing else in the rollout.
+        """
+        return native_eef10_to_libero7d(raw_action)
+
     def _observe_model_input(self) -> dict[str, Any]:
         started = time.perf_counter()
         raw = self.env.raw_obs()
@@ -662,7 +684,7 @@ class WholeTaskRunner:
 
                 raw_action = row["actions"][0]
                 convert_started = time.perf_counter()
-                action7 = native_eef10_to_libero7d(raw_action)
+                action7 = self._to_action7(raw_action)
                 convert_s = time.perf_counter() - convert_started
                 self.convert_s += convert_s
 
@@ -708,12 +730,13 @@ class WholeTaskRunner:
                     self.buffer_remaining = None
                 if in_window:
                     facts = self._last_window_facts or {}
+                    grip_key, grip_value = self._raw_gripper(raw_action)
                     self.window_rows.append(
                         {
                             "n": self.sim_actions,
                             "window_n": self.window_used,
                             "grip_cmd7": round(float(action7[6]), 4),
-                            "grip_cmd10": round(float(raw_action[9]), 4),
+                            grip_key: None if grip_value is None else round(grip_value, 4),
                             "gripper_opening_m": facts.get("gripper_opening_m"),
                             "separation_m": facts.get("separation_m"),
                             "object_gap_m": facts.get("object_gap_m"),
