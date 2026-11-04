@@ -26,6 +26,7 @@ from common.composite_plan import (  # noqa: F401 - re-exported for the engine
     completion_for,
     options,
     release_required,
+    repair_options,
     step_budget,
     step_goal,
     support,
@@ -233,7 +234,9 @@ class Handoff:
             # not travel there, so a later reader cannot call this continuous.
             "robot_state_restore": restore_mode,
             "robot_teleport": restore_mode,
-            "physical_continuity": False,
+            # action_retreat moves the arm back with real actions: the scene
+            # and the arm both stay continuous. Only a state restore teleports.
+            "physical_continuity": not restore_mode,
             "scene_objects_preserved": None,
             "options": {
                 key: self.opts[key]
@@ -452,11 +455,23 @@ class Handoff:
 
         # ---- release: only for a step whose own kind requires it ----------
         if block["requires_release"]:
+            placement = (self.prior_step or {}).get("placement") or {}
+            release_ok = bool(placement.get("placement_verified") or placement.get("release_verified"))
             block["release"] = {
                 "required": True,
-                "executed": False,
+                "executed": release_ok,
+                "verified": release_ok,
+                "evidence_source": placement.get("evidence_source"),
                 "reason": "release for a held object is owned by the step's finalizer path",
             }
+            if not release_ok:
+                return self._not_ready(
+                    block,
+                    started,
+                    pre,
+                    "release_not_verified",
+                    "the finished step's release was not verified; the handoff would move a gripped object",
+                )
         else:
             block["release"] = {
                 "required": False,
@@ -1098,6 +1113,7 @@ __all__ = [
     "handoff_options",
     "options",
     "release_required",
+    "repair_options",
     "state_check",
     "step_budget",
     "step_goal",

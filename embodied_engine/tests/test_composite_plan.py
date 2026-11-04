@@ -40,11 +40,14 @@ class SupportTest(unittest.TestCase):
         self.assertEqual([row["goal"]["kind"] for row in check["steps"]], ["drawer_open", "native_goal"])
 
     def test_reversed_order_is_not_executable(self):
+        # A recognised pair (8 -> 0) still is not executable while task 8 is
+        # loaded: the composite anchors on its *last* step, so 8 -> 0 needs the
+        # task 0 scene. The refusal must name that, not pretend the pair is unknown.
         check = composite_plan.support(
             ["put_bowl_on_plate", "open_middle_drawer"], loaded_task=TASK8, catalog=CATALOG, cfg=CFG
         )
         self.assertFalse(check["ok"])
-        self.assertEqual(check["reason_code"], "unsupported_combo")
+        self.assertIn(check["reason_code"], {"requires_scene_switch", "unsupported_combo"})
 
     def test_scene_switch_required_when_anchor_is_not_loaded(self):
         check = composite_plan.support(

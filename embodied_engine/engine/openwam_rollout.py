@@ -193,9 +193,15 @@ class WholeTaskRunner:
         self.release_confirm_samples = max(1, int(cfg.get("release_confirm_samples") or 2))
         self.detach_probe_m = float(cfg.get("detach_probe_m") or 0.03)
         self.object_motion_tol_m = float(cfg.get("object_motion_tol_m") or 0.005)
-        self.object_name = (task.get("objects") or [None])[0]
         objects = task.get("objects") or []
         targets = task.get("targets") or []
+        # Only a placement task holds an object that must be released. A
+        # drawer/stove task also lists objects+targets, but its relation
+        # ("open"/"turn_on") is not a placement: treating it as one made the
+        # window report ``relation_unconfirmed`` and refuse the action chunk
+        # even though the native goal was already true.
+        self.placement_task = str(task.get("kind") or "") in {"pick_place", "composite"}
+        self.object_name = (objects[0] if objects else None) if self.placement_task else None
         self.relation_step = (
             {
                 "skill": "pick_place",
@@ -203,7 +209,7 @@ class WholeTaskRunner:
                 "target_n": targets[0],
                 "relation": (task.get("semantics") or {}).get("relation") or "on",
             }
-            if objects and targets
+            if self.placement_task and objects and targets
             else None
         )
         self.window_relation_lost = False
@@ -418,6 +424,12 @@ class WholeTaskRunner:
         chunk the policy produced from a pre-goal observation.
         """
         if self.window_started_at is None:
+            if self.relation_step is None:
+                # No held object to release (drawer/stove task): the native
+                # goal *is* the whole goal, and post-goal policy actions could
+                # undo it (e.g. push a drawer closed again).
+                self.stop_reason = "native_goal"
+                return "break"
             if self.window_actions <= 0:
                 self.stop_reason = "native_goal"
                 return "break"

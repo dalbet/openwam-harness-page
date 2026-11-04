@@ -303,6 +303,7 @@ def assemble_plan(
     snapshot: dict[str, Any],
     skills: dict[str, Any],
     loaded_task: dict[str, Any] | None = None,
+    plan_source: str = "qwen3.5-9b-semantic-router",
 ) -> dict[str, Any]:
     """Turn a catalog choice into a plan, after checks.
 
@@ -342,6 +343,7 @@ def assemble_plan(
             loaded_task=loaded,
             instruction=instruction,
             cfg=config.engine_config(),
+            plan_source=plan_source,
         )
         errors = composite_plan.validate_plan(
             plan, catalog=catalog, loaded_task=loaded, cfg=config.engine_config()
@@ -405,7 +407,7 @@ def assemble_plan(
         task=task,
         snapshot=snapshot,
         skills=skills,
-        plan_source="qwen3.5-9b-semantic-router",
+        plan_source=plan_source,
     )
     if errors:
         return {

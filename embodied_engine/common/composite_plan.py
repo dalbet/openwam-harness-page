@@ -42,6 +42,31 @@ def step_budget(step_index: int, cfg: dict[str, Any] | None = None) -> int:
     return int(options(cfg)["step_max_steps"].get(str(step_index), 600))
 
 
+DEFAULT_REPAIR = {
+    "enabled": False,
+    "max_calls": 1,
+    "max_steps": 240,
+    "timeout_s": 60.0,
+    "require_final_step_released": True,
+}
+
+
+def repair_options(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Frozen budget for the one bounded final-goal repair of an episode.
+
+    Off by default: the no-repair baseline and the repair-mode results must
+    never be mixed in one statistic.
+    """
+    block = dict((cfg or {}).get("composite") or {}).get("repair") or {}
+    merged = {**DEFAULT_REPAIR, **{k: v for k, v in dict(block).items()}}
+    merged["enabled"] = bool(merged.get("enabled"))
+    merged["max_calls"] = 1  # one repair call per episode, never recursive
+    merged["max_steps"] = int(merged.get("max_steps") or DEFAULT_REPAIR["max_steps"])
+    merged["timeout_s"] = float(merged.get("timeout_s") or DEFAULT_REPAIR["timeout_s"])
+    merged["require_final_step_released"] = bool(merged.get("require_final_step_released", True))
+    return merged
+
+
 def completion_for(task: dict[str, Any], *, is_anchor: bool) -> dict[str, Any]:
     """How this step's own goal is judged.
 
@@ -306,6 +331,7 @@ __all__ = [
     "completion_for",
     "options",
     "release_required",
+    "repair_options",
     "step_budget",
     "step_goal",
     "support",

@@ -573,7 +573,9 @@ class RetreatReadyTest(unittest.TestCase):
         self.assertEqual(block["reason_code"], "retreat_not_converged")
         self.assertFalse(block["robot_state_restore"])
         self.assertFalse(block["robot_teleport"])
-        self.assertFalse(block["physical_continuity"])
+        # action_retreat moves the arm with real actions, so the episode stays
+        # physically continuous even when the bounded retreat did not converge.
+        self.assertTrue(block["physical_continuity"])
 
     def test_converged_retreat_is_ready(self):
         env = RestoreFakeEnv(drawer_snapshot(eef=[0.02, -0.29, 1.09]))

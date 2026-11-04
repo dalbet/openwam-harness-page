@@ -63,6 +63,7 @@ class PlacementFinalizer:
         journal: Callable[[str, dict[str, Any]], None] | None = None,
         frame_sink: Callable[[dict[str, Any], dict[str, Any]], None] | None = None,
         reset_policy: Callable[[str], str] | None = None,
+        candidate_check: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     ):
         self.env = env
         self.task = task
@@ -72,6 +73,12 @@ class PlacementFinalizer:
         self.journal = journal or (lambda _stage, _row: None)
         self.frame_sink = frame_sink
         self.reset_policy = reset_policy
+        # An early composite step's goal is an engine predicate, not the loaded
+        # scene's native flag (that belongs to the anchor task). When supplied,
+        # this callback decides whether the state is a release candidate.
+        self.candidate_check = candidate_check
+        self.last_obs: dict[str, Any] | None = None
+        self.last_snapshot: dict[str, Any] | None = None
 
         finalizer_cfg = dict((post_goal_cfg or {}).get("finalizer") or {})
         self.release_steps = int(finalizer_cfg.get("release_steps") or execution_cfg.get("release_steps") or 8)
@@ -112,7 +119,9 @@ class PlacementFinalizer:
         obs, _reward, term, trunc, info = self.env.step(action)
         self.actions += 1
         self._last_obs = obs
+        self.last_obs = obs
         snap = self.env.state_snapshot()
+        self.last_snapshot = snap
         if self.frame_sink is not None:
             try:
                 self.frame_sink(obs, snap)
@@ -152,6 +161,28 @@ class PlacementFinalizer:
         }
 
     # ---- verdicts ----
+
+    def _candidate(self, snapshot: dict[str, Any]) -> dict[str, Any]:
+        """Whether this state is the release candidate for this step.
+
+        The anchor step uses the loaded scene's native goal. An early composite
+        step passes its own engine predicate instead, because the native flag of
+        a scene it does not own is not its goal.
+        """
+        if self.candidate_check is None:
+            return {"ok": bool(snapshot.get("native_goal")), "source": "native_libero_goal"}
+        try:
+            state = self.candidate_check(snapshot) or {}
+        except Exception as exc:  # noqa: BLE001 - a failed read is not a candidate
+            return {"ok": False, "source": "engine_predicate", "error": f"{type(exc).__name__}: {exc}"}
+        return {
+            "ok": bool(state.get("ok")),
+            "source": "engine_predicate",
+            "predicate": state.get("predicate"),
+            "qpos": state.get("qpos"),
+            "threshold": state.get("threshold"),
+            "relation_ok": (state.get("relation") or {}).get("ok") if isinstance(state.get("relation"), dict) else None,
+        }
 
     def _base_block(self, *, required: bool = True) -> dict[str, Any]:
         return {
@@ -208,9 +239,12 @@ class PlacementFinalizer:
     def run(self, snapshot: dict[str, Any]) -> dict[str, Any]:
         block = self._base_block()
         block["native_goal"] = bool(snapshot.get("native_goal"))
+        candidate = self._candidate(snapshot)
+        block["candidate"] = candidate
         start_relation = self._relation_ok(snapshot, self.relation_step, self.task)
         block["precondition"] = {
             "native_goal": bool(snapshot.get("native_goal")),
+            "candidate": candidate,
             "relation_ok": start_relation["ok"],
             "relation": start_relation,
             "continuable": snapshot.get("continuable"),
@@ -224,7 +258,7 @@ class PlacementFinalizer:
             block["reason_code"] = "episode_not_continuable"
             block["execution_status"] = "unknown"
             return block
-        if not block["native_goal"] or not start_relation["ok"]:
+        if not candidate.get("ok") or not start_relation["ok"]:
             block["reason_code"] = "not_at_release_candidate"
             block["execution_status"] = "unknown"
             return block

@@ -140,6 +140,18 @@
    [
     "open_middle_drawer",
     "put_bowl_on_plate"
+   ],
+   [
+    "put_bowl_on_plate",
+    "open_middle_drawer"
+   ],
+   [
+    "turn_on_stove",
+    "put_bowl_on_plate"
+   ],
+   [
+    "put_bowl_on_stove",
+    "turn_on_stove"
    ]
   ],
   "max_steps": 2,
@@ -170,6 +182,14 @@
    "restore_penetration_tol_m": 0.002,
    "inflight_wait_s": 10.0
   },
-  "note": "Same-scene two-step execution. Pairs are listed explicitly: recognized-but-unlisted pairs are refused, not attempted."
+  "note": "Same-scene two-step execution. Pairs are listed explicitly: recognized-but-unlisted pairs are refused, not attempted. The composite anchors on the LAST step's BDDL; earlier steps are judged by engine predicates on the same episode.",
+  "repair": {
+   "enabled": false,
+   "max_calls": 1,
+   "max_steps": 400,
+   "timeout_s": 60.0,
+   "require_final_step_released": true,
+   "note": "Off by default: the no-repair baseline and the repair-mode runs must never be mixed. When enabled, at most one catalog repair task per episode, only if the anchor step reached its goal AND released and an earlier step goal was lost. 400 actions = 20 s at 20 Hz; the repair starts from the post-placement pose, not from home."
+  }
  }
 }

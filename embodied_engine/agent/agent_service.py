@@ -169,6 +169,84 @@ async def health(request: web.Request) -> web.Response:
     )
 
 
+def _structured_plan(keys: list[str], instruction: str, task: dict, snapshot: dict, body: dict) -> dict:
+    """Internal screening entry: an explicit ordered key list, no language step.
+
+    It is *not* a way to bypass the catalog: the same ``assemble_plan``
+    validation runs, the keys must be catalog keys, and a composite must be an
+    executable pair in the loaded scene. The plan is labelled
+    ``structured_keys`` so no record can mistake it for a Qwen decision.
+    """
+    started = time.perf_counter()
+    ordered = [str(key) for key in keys]
+    catalog = task_catalog.task_by_key()
+    if not ordered:
+        return {
+            "status": "planning_failed",
+            "reason_code": "empty_keys",
+            "reason": "structured_keys is empty",
+            "plan": None,
+        }
+    missing = [key for key in ordered if key not in catalog]
+    if missing:
+        return {
+            "status": "planning_failed",
+            "reason_code": "key_not_in_catalog",
+            "reason": f"unknown catalog keys: {missing}",
+            "plan": None,
+        }
+    decision: dict = {"status": "ok", "composite_keys": ordered if len(ordered) > 1 else None}
+    if len(ordered) == 1:
+        decision["task"] = catalog[ordered[0]]
+        decision["choice"] = ordered[0]
+    assembled = semantic_router.assemble_plan(
+        decision,
+        loaded_task_id=int(task["task_id"]),
+        instruction=instruction,
+        snapshot=snapshot,
+        skills=_skills_for(body.get("backend")),
+        loaded_task=task,
+        plan_source="structured_keys",
+    )
+    if assembled.get("status") == "ok" and isinstance(assembled.get("plan"), dict):
+        assembled["plan"]["structured_entry"] = True
+        assembled["plan"]["structured_keys"] = ordered
+    result = {
+        "agent_mode": "structured",
+        "plan_source": "structured_keys",
+        "understanding": {
+            "status": "ok" if assembled.get("status") == "ok" else assembled.get("status"),
+            "instruction": instruction,
+            "task_id": int(task["task_id"]),
+            "task_key": task.get("key"),
+            "mode": "combo" if len(ordered) > 1 else "single",
+            "composite_keys": ordered if len(ordered) > 1 else None,
+            "routing": {
+                "bypassed": True,
+                "reason": "structured screening entry: keys were supplied, not inferred",
+                "llm_called": False,
+            },
+            "plan_source": "structured_keys",
+        },
+        "attempts": [],
+        "errors": assembled.get("errors") or [],
+        "repairs": 0,
+    }
+    if assembled.get("status") != "ok" or not assembled.get("plan"):
+        result.update(
+            {
+                "status": assembled.get("status") or "planning_failed",
+                "reason_code": assembled.get("reason_code"),
+                "reason": assembled.get("reason") or "the structured plan failed its contract",
+                "plan": None,
+            }
+        )
+    else:
+        result.update({"status": "ok", "plan": assembled["plan"], "errors": [], "composite": assembled.get("composite")})
+    result["total_s"] = round(time.perf_counter() - started, 4)
+    return result
+
+
 def _qwen_plan(instruction: str, task: dict, snapshot: dict, body: dict) -> dict:
     """Route the user text, then assemble the official whole_task plan."""
     started = time.perf_counter()
@@ -255,6 +333,119 @@ def _skills_for(backend: str | None) -> dict:
 TRANSIENT_RETRY_CODES = {"chunk_budget_exhausted"}
 
 
+REPAIR_SYSTEM_PROMPT = """You are the Agent layer of a LIBERO-Goal robot system repairing a finished composite episode.
+The episode ran an ordered two-step plan in one scene. Its final step reached the loaded scene's native goal and released the object. At least one earlier step's goal no longer holds on a fresh state check.
+
+You do not see camera images. Your input is the plan, the fresh per-step state, the lost goals, and the catalog capabilities the engine has already validated as executable in this scene. Return exactly one JSON object and nothing else:
+{"decision": "repair" | "abort", "key": "<one catalog key from candidates, or null>", "reason": "one short sentence"}
+
+Rules:
+- Choose "repair" only when one listed capability plausibly restores a lost earlier goal without undoing the final step's placement.
+- "key" must be one of the candidate keys verbatim. Do not invent keys, objects, sites, or parameters.
+- Choose "abort" when no candidate can restore a lost goal, or when any candidate is likely to disturb the final placement.
+- You are choosing a task, not writing a trajectory. Do not output code, coordinates, or a step list.
+- Do not claim success: the engine verifies every final goal again after the repair.
+"""
+
+
+def _repair_decision(body: dict) -> dict:
+    """One compact structured repair choice from Qwen (no control code)."""
+    started = time.perf_counter()
+    candidates = [row for row in (body.get("candidates") or []) if isinstance(row, dict)]
+    keys = {str(row.get("key")) for row in candidates if row.get("key")}
+    payload = {
+        "instruction": body.get("instruction"),
+        "loaded_task_id": body.get("task_id"),
+        "plan_keys": (body.get("composite") or {}).get("keys"),
+        "steps_on_fresh_state": body.get("steps") or [],
+        "lost_goals": body.get("failed") or [],
+        "candidates": [
+            {
+                "key": row.get("key"),
+                "official_instruction": row.get("official_instruction"),
+                "goal_kind": row.get("goal_kind"),
+                "goal_met_now": row.get("goal_met_now"),
+            }
+            for row in candidates
+        ],
+    }
+    messages = [
+        {"role": "system", "content": REPAIR_SYSTEM_PROMPT},
+        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+    ]
+    attempts: list[dict] = []
+    errors: list[dict] = []
+    for index in range(2):
+        content, timing = planner.chat(messages, max_tokens=192)
+        attempts.append({"content": content, "timing": timing})
+        decision, key, errors = _parse_repair(content, keys)
+        if decision is not None:
+            result = {
+                "status": "ok",
+                "decision": decision,
+                "key": key,
+                "reason": _repair_reason(content),
+                "errors": [],
+                "attempts": attempts,
+                "policy": "qwen3.5-9b-semantic-router",
+                "total_s": round(time.perf_counter() - started, 4),
+            }
+            return result
+        if index == 0:
+            messages = messages + [
+                {"role": "assistant", "content": content},
+                {
+                    "role": "user",
+                    "content": 'Return exactly one JSON object: {"decision":"repair"|"abort","key":<candidate key or null>,"reason":"..."}',
+                },
+            ]
+    return {
+        "status": "planning_failed",
+        "decision": None,
+        "key": None,
+        "reason": errors[0].get("value") if errors else "invalid repair decision",
+        "reason_code": "repair_format_invalid",
+        "errors": errors,
+        "attempts": attempts,
+        "policy": "qwen3.5-9b-semantic-router",
+        "total_s": round(time.perf_counter() - started, 4),
+    }
+
+
+def _parse_repair(content: str, keys: set[str]) -> tuple[str | None, str | None, list[dict]]:
+    text = str(content or "").strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return None, None, [{"field": "repair", "code": "not_json", "value": text[:200]}]
+    try:
+        row = json.loads(text[start : end + 1])
+    except json.JSONDecodeError as exc:
+        return None, None, [{"field": "repair", "code": "invalid_json", "value": str(exc)}]
+    if not isinstance(row, dict):
+        return None, None, [{"field": "repair", "code": "not_object", "value": type(row).__name__}]
+    decision = str(row.get("decision") or "")
+    if decision == "abort":
+        return "abort", None, []
+    if decision != "repair":
+        return None, None, [{"field": "decision", "code": "unknown", "value": decision}]
+    key = str(row.get("key") or "")
+    if key not in keys:
+        return None, None, [{"field": "key", "code": "not_a_candidate", "value": key}]
+    return "repair", key, []
+
+
+def _repair_reason(content: str) -> str:
+    text = str(content or "").strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return ""
+    try:
+        row = json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
+        return ""
+    return str(row.get("reason") or "")[:300] if isinstance(row, dict) else ""
+
+
 def _bounded_transient_decision(body: dict) -> dict | None:
     """One bounded retry for a transient execution timeout.
 
@@ -300,7 +491,13 @@ async def plan(request: web.Request) -> web.Response:
         return web.json_response({"status": "bad_request", "error": "snapshot is required"}, status=400)
     started = time.perf_counter()
     try:
-        result = _qwen_plan(instruction, task, snapshot, body)
+        structured = body.get("structured_keys")
+        if isinstance(structured, list) and structured:
+            result = _structured_plan(
+                [str(key) for key in structured], instruction, task, snapshot, body
+            )
+        else:
+            result = _qwen_plan(instruction, task, snapshot, body)
     except Exception as exc:
         return web.json_response({"status": "error", "error": f"{type(exc).__name__}: {exc}"}, status=502)
     result["total_s"] = round(time.perf_counter() - started, 4)
@@ -352,11 +549,35 @@ async def recover(request: web.Request) -> web.Response:
     return web.json_response(result, status=status)
 
 
+async def repair(request: web.Request) -> web.Response:
+    """Bounded repair decision: one catalog key or abort."""
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"status": "bad_request", "error": "invalid JSON"}, status=400)
+    try:
+        config.task_for(int(body.get("task_id")))
+    except (KeyError, TypeError, ValueError) as exc:
+        return web.json_response({"status": "bad_request", "error": str(exc)}, status=400)
+    if not isinstance(body.get("snapshot"), dict):
+        return web.json_response({"status": "bad_request", "error": "snapshot is required"}, status=400)
+    if not isinstance(body.get("candidates"), list):
+        return web.json_response({"status": "bad_request", "error": "candidates is required"}, status=400)
+    try:
+        result = _repair_decision(body)
+    except Exception as exc:
+        return web.json_response({"status": "error", "error": f"{type(exc).__name__}: {exc}"}, status=502)
+    result["agent_mode"] = "qwen"
+    status = 200 if result.get("status") == "ok" else 422
+    return web.json_response(result, status=status)
+
+
 def make_app() -> web.Application:
     app = web.Application(client_max_size=8 * 1024 * 1024)
     app.router.add_get("/health", health)
     app.router.add_post("/plan", plan)
     app.router.add_post("/recover", recover)
+    app.router.add_post("/repair", repair)
     return app
 
 

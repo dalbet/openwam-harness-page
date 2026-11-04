@@ -997,7 +997,11 @@ class Engine:
         return best
 
     def start_run(
-        self, task_id: int, instruction: str | None, seed: int | None = None
+        self,
+        task_id: int,
+        instruction: str | None,
+        seed: int | None = None,
+        plan_keys: list[str] | None = None,
     ) -> dict[str, Any]:
         task = config.task_for(task_id)
         with self.run_lock:
@@ -1030,7 +1034,15 @@ class Engine:
         self._set_phase("running", "preparing episode")
         thread = threading.Thread(
             target=self._run_episode,
-            args=(task, self.instruction, episode_id, run_id, self.stop_event, planner_generation),
+            args=(
+                task,
+                self.instruction,
+                episode_id,
+                run_id,
+                self.stop_event,
+                planner_generation,
+                list(plan_keys or []) or None,
+            ),
             name=f"episode-{episode_id}",
             daemon=True,
         )
@@ -1104,6 +1116,7 @@ class Engine:
         goal: dict[str, Any] | None = None,
         max_steps: int | None = None,
         watch_joints: list[str] | None = None,
+        step_task: dict[str, Any] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         """Run one whole-task policy rollout; returns (record, obs, snapshot).
 
@@ -1144,7 +1157,7 @@ class Engine:
             timeout_s=float((pi05_cfg if runner_cls is Pi05WholeTaskRunner else openwam).get("timeout_s") or 300),
             gpu_index=openwam.get("gpu_index"),
             frame_sink=self._set_frames,
-            post_goal=dict(openwam.get("post_goal") or {}),
+            post_goal=self._post_goal_cfg(),
             goal=goal,
             goal_confirm_samples=int(composite_opts["goal_confirm_samples"]),
             step_ref=str(step.get("step_id") or "step"),
@@ -1152,7 +1165,491 @@ class Engine:
             **extra,
         )
         result = runner.run()
+        if goal is not None and step_task is not None and composite.release_required(step_task):
+            # An early composite step that places an object still owes a real
+            # release: its own predicate says "on the target", not "let go".
+            # The policy ended on that predicate, so the execution layer
+            # finishes the release/retreat/fresh-sample sequence here, before
+            # the handoff is allowed to move the arm.
+            placement, placement_obs, placement_snapshot = self._finish_predicate_placement(
+                env=env,
+                step=step,
+                step_task=step_task,
+                record=result,
+                snapshot=runner.snapshot,
+                episode_id=episode_id,
+                stop_event=stop_event,
+            )
+            result["placement"] = placement
+            if placement.get("reason_code") == "user_stop":
+                raise Stopped("stop requested during step placement finalizer")
+            return result, placement_obs, placement_snapshot
         return result, runner.obs, runner.snapshot
+
+    def _post_goal_cfg(self) -> dict[str, Any]:
+        """The post-goal window/finalizer block of the *active* backend.
+
+        Pi0.5 and OpenWAM have different action spaces, chunk lengths, and
+        measured release behaviour, so one backend's window must not silently
+        become the other's.
+        """
+        action = self.cfg["action_model"]
+        backend = self._action_backend()
+        openwam = dict(action.get("openwam") or {})
+        if backend == "pi05":
+            pi05_block = dict(action.get("pi05") or {})
+            declared = pi05_block.get("post_goal")
+            return dict(declared or openwam.get("post_goal") or {})
+        return dict(openwam.get("post_goal") or {})
+
+    def _finish_predicate_placement(
+        self,
+        *,
+        env: EnvClient,
+        step: dict[str, Any],
+        step_task: dict[str, Any],
+        record: dict[str, Any],
+        snapshot: dict[str, Any],
+        episode_id: str,
+        stop_event: threading.Event,
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        """Execution-layer release for a composite step judged by a predicate.
+
+        Same bounded sequence as the anchor's finalizer (release, retreat,
+        stability samples) but the precondition is this step's own engine
+        predicate and the relation binding comes from the step's catalog row.
+        Every action is tagged ``action_source="execution_finalizer"``.
+        """
+        relation_step = self._placement_step(step_task)
+        post_cfg = self._post_goal_cfg()
+        if relation_step is None:
+            return (
+                {
+                    "schema": "embodied_engine.composite.step.v1",
+                    "required": True,
+                    "attempted": False,
+                    "release_executed": False,
+                    "release_verified": False,
+                    "placement_verified": False,
+                    "retreat_status": "skipped",
+                    "execution_status": "failed",
+                    "evidence_source": "none",
+                    "policy_owned": False,
+                    "action_source": "none",
+                    "reason_code": "no_relation_binding",
+                    "note": "the step's catalog row has no object/target pair to verify",
+                },
+                record.get("obs") or {},
+                snapshot,
+            )
+        finalizer = finalize.PlacementFinalizer(
+            env=env,
+            task=step_task,
+            relation_step=relation_step,
+            execution_cfg=self.cfg["execution"],
+            post_goal_cfg=post_cfg,
+            stop_event=stop_event,
+            episode_id=episode_id,
+            journal=lambda stage, row: records.append_journal(
+                {"t": time.time(), "stage": stage, "episode_id": episode_id, "row": row}
+            ),
+            frame_sink=self._set_frames,
+            reset_policy=lambda reason: self.inference.reset(reason),
+            candidate_check=lambda snap: composite.state_check(snap, step, step_task),
+        )
+        block = finalizer.run(snapshot)
+        block["required"] = True
+        block["step_id"] = step.get("step_id")
+        block["step_task_key"] = step.get("step_task_key")
+        block["action_source"] = "execution_finalizer" if block.get("attempted") else "none"
+        block["policy_owned"] = False
+        block["policy_actions_used"] = int(record.get("sim_actions") or 0)
+        obs = finalizer.last_obs if finalizer.last_obs is not None else (record.get("obs") or {})
+        snap = finalizer.last_snapshot if finalizer.last_snapshot is not None else snapshot
+        return block, obs, snap
+
+    def _composite_handoff(
+        self,
+        *,
+        env: EnvClient,
+        episode_id: str,
+        step: dict[str, Any],
+        next_step: dict[str, Any],
+        snapshot: dict[str, Any],
+        catalog_by_key: dict[str, dict[str, Any]],
+        task: dict[str, Any],
+        home_eef: list[float] | None,
+        composite_state: dict[str, Any],
+        step_results: list[dict[str, Any]],
+        timing: dict[str, Any],
+        stop_event: threading.Event,
+        records,
+    ) -> tuple[dict[str, Any], dict[str, Any], str]:
+        """Bounded transition between two composite steps.
+
+        Shared by the executed step and the *skipped* step (one whose goal was
+        already true before it started): both must leave the arm in a known
+        pose, clear the policy buffer, and hand step 2 a fresh observation.
+        """
+        handoff_started = time.perf_counter()
+        # Named phase so an external observer (and the stop test) can
+        # synchronise on the handoff instead of guessing timing with sleeps.
+        self._set_phase(
+            "handoff",
+            f"step {step.get('step_id')}->{next_step.get('step_id')} "
+            f"{step.get('step_task_key')}->{next_step.get('step_task_key')}",
+        )
+        handoff = composite.Handoff(
+            env=env,
+            inference=self.inference,
+            stop_event=stop_event,
+            cfg=self.cfg,
+            episode_id=episode_id,
+            step=step,
+            step_task=catalog_by_key[step.get("step_task_key")],
+            task=task,
+            home_eef=home_eef,
+            home_quat=composite_state.get("home_quat"),
+            robot_state=composite_state.get("robot_state_capture") or {},
+            prior_step=(step_results[-1] if step_results else None),
+            journal=lambda stage, row: records.append_journal(
+                {"t": time.time(), "stage": stage, "episode_id": episode_id, "row": row}
+            ),
+            frame_sink=self._set_frames,
+        )
+        try:
+            handoff_block, handoff_obs, handoff_snapshot, token = handoff.run(snapshot)
+        except Stopped:
+            raise
+        except Exception as exc:  # noqa: BLE001 - report the stage, do not fake success
+            raise SkillFailure(
+                "composite_handoff_error",
+                f"handoff after step {step.get('step_index')} raised {type(exc).__name__}: {exc}",
+                {"traceback": traceback.format_exc()[-2000:]},
+            ) from exc
+        timing["handoff_s"] += time.perf_counter() - handoff_started
+        composite_state["handoff_records"].append(handoff_block)
+        composite_state["handoff"] = handoff_block
+        records.append_journal(
+            {
+                "t": time.time(),
+                "stage": "composite_handoff",
+                "episode_id": episode_id,
+                "status": handoff_block.get("status"),
+                "from_step": step.get("step_id"),
+                "to_step": next_step.get("step_id"),
+                "sim_actions": handoff_block.get("sim_actions"),
+            }
+        )
+        with self.lock:
+            self.steps_done = [s for s in step_results]
+        if handoff_block.get("status") != "ready":
+            raise SkillFailure(
+                "composite_handoff_failed",
+                (
+                    f"handoff after step {step.get('step_index')} is {handoff_block.get('status')}: "
+                    f"{handoff_block.get('reason')}"
+                ),
+                {"handoff": handoff_block, "next_step": next_step.get("step_id")},
+            )
+        records.append_journal(
+            {
+                "t": time.time(),
+                "stage": "composite_step_start",
+                "episode_id": episode_id,
+                "step_id": next_step.get("step_id"),
+                "task_id": next_step.get("step_task_id"),
+                "prompt": next_step.get("prompt"),
+                "observation_id": handoff_snapshot.get("observation_id"),
+                "scene_epoch": handoff_snapshot.get("scene_epoch"),
+                "token": token,
+            }
+        )
+        return handoff_obs, handoff_snapshot, token
+
+    # ---- bounded final-goal repair ---------------------------------------
+
+    def _composite_repair(
+        self,
+        *,
+        env: EnvClient,
+        task: dict[str, Any],
+        catalog_by_key: dict[str, dict[str, Any]],
+        step_results: list[dict[str, Any]],
+        final_steps: list[dict[str, Any]],
+        snapshot: dict[str, Any],
+        baseline: dict[str, Any],
+        composite_state: dict[str, Any],
+        episode_id: str,
+        stop_event: threading.Event,
+        timing: dict[str, Any],
+        token: str,
+    ) -> dict[str, Any]:
+        """At most one Qwen-chosen catalog task to restore a lost earlier goal.
+
+        Preconditions are checked in code, not asked of the model: this path is
+        only reachable when the *anchor* step (the loaded scene's own task) has
+        already succeeded and released, and an earlier step's predicate was
+        lost. The model then picks one catalog repair key or aborts; the engine
+        looks up that key's official instruction and executes it with the same
+        whole-task policy on the current state.
+        """
+        opts = composite.repair_options(self.cfg)
+        block: dict[str, Any] = {
+            "schema": "embodied_engine.composite.repair.v1",
+            "enabled": bool(opts["enabled"]),
+            "attempted": False,
+            "triggered_by": None,
+            "task_key": None,
+            "task_id": None,
+            "prompt": None,
+            "goal_kind": None,
+            "decision": None,
+            "decision_source": None,
+            "reason": None,
+            "status": "not_attempted",
+            "first_pass_success": False,
+            "repair_succeeded": False,
+            "final_all_goals_met": None,
+            "action_source": "none",
+            "policy_actions": 0,
+            "finalizer_actions": 0,
+            "budget": {
+                "max_calls": int(opts["max_calls"]),
+                "max_steps": int(opts["max_steps"]),
+                "timeout_s": float(opts["timeout_s"]),
+            },
+            "candidates": [],
+            "steps_before": [],
+        }
+        if not block["enabled"]:
+            block["reason"] = "repair is disabled in config"
+            return block
+
+        anchor = final_steps[-1] if final_steps else {}
+        failed = [row for row in final_steps[:-1] if not row.get("ok")]
+        block["steps_before"] = [
+            {
+                "step_id": row.get("step", {}).get("step_id"),
+                "task_key": row.get("step", {}).get("step_task_key"),
+                "goal_kind": row.get("step", {}).get("goal_kind"),
+                "ok": bool(row.get("ok")),
+                "reason_code": (row.get("verification") or {}).get("reason_code"),
+                "qpos": (row.get("verification") or {}).get("qpos"),
+            }
+            for row in final_steps
+        ]
+        if not anchor.get("ok"):
+            # The anchor failed: this is the policy's own trajectory, not a
+            # lost earlier goal. A repair task would hide the real failure.
+            block["reason"] = "the final step did not reach its own goal; repair is limited to lost earlier goals"
+            block["status"] = "ineligible_anchor_failed"
+            return block
+        if not failed:
+            block["reason"] = "no earlier step goal is lost"
+            block["status"] = "ineligible_nothing_lost"
+            return block
+        block["triggered_by"] = [
+            {
+                "step_id": row.get("step", {}).get("step_id"),
+                "task_key": row.get("step", {}).get("step_task_key"),
+                "goal_kind": row.get("step", {}).get("goal_kind"),
+                "reason_code": (row.get("verification") or {}).get("reason_code"),
+            }
+            for row in failed
+        ]
+        anchor_placement = dict((step_results[-1] or {}).get("placement") or {})
+        if opts["require_final_step_released"] and anchor_placement.get("required"):
+            if not anchor_placement.get("placement_verified"):
+                block["reason"] = "the final step's release is not verified; moving the arm could drag it"
+                block["status"] = "ineligible_release_unverified"
+                return block
+        block["anchor_release"] = {
+            "required": bool(anchor_placement.get("required")),
+            "placement_verified": bool(anchor_placement.get("placement_verified")),
+            "evidence_source": anchor_placement.get("evidence_source"),
+            "action_source": anchor_placement.get("action_source"),
+        }
+
+        # Structured candidate list: only catalog capabilities the engine can
+        # judge on this scene, with their current state. The model chooses a key.
+        candidates: list[dict[str, Any]] = []
+        for key, row in catalog_by_key.items():
+            goal_desc = composite.completion_for(row, is_anchor=False)
+            if goal_desc.get("kind") == "unsupported":
+                continue
+            support = task_catalog.scene_support(row, snapshot)
+            if not support.get("ok"):
+                continue
+            goal = composite.step_goal({"completion": goal_desc})
+            now = completion.goal_state(snapshot, goal or {}, row)
+            candidates.append(
+                {
+                    "key": key,
+                    "task_id": int(row["task_id"]),
+                    "kind": str(row.get("kind") or ""),
+                    "official_instruction": str(
+                        row.get("official_instruction") or row.get("instruction") or ""
+                    ),
+                    "goal_kind": goal_desc.get("kind"),
+                    "goal_met_now": bool(now.get("ok")),
+                    "scene_support": {"ok": True, "missing": []},
+                }
+            )
+        block["candidates"] = candidates
+        repairable = [row for row in candidates if not row["goal_met_now"]]
+        if not repairable:
+            block["reason"] = "no catalog capability can change the current state"
+            block["status"] = "ineligible_no_candidate"
+            return block
+
+        self._set_phase("repairing", "Qwen chooses one repair task for a lost earlier goal")
+        request_started = time.perf_counter()
+        try:
+            reply = _post_json(
+                f"{self.agent_url}/repair",
+                {
+                    "instruction": str(task.get("instruction") or ""),
+                    "task_id": int(task["task_id"]),
+                    "snapshot": snapshot,
+                    "composite": {"keys": composite_state.get("keys")},
+                    "steps": block["steps_before"],
+                    "failed": block["triggered_by"],
+                    "candidates": candidates,
+                    "backend": self._action_backend(),
+                },
+                timeout_s=90,
+            )
+        except Exception as exc:  # noqa: BLE001 - a failed decision is not a success
+            block["status"] = "decision_failed"
+            block["reason"] = f"{type(exc).__name__}: {exc}"
+            return block
+        block["decision_s"] = round(time.perf_counter() - request_started, 3)
+        block["decision_source"] = reply.get("policy") or "qwen"
+        block["decision"] = reply.get("decision")
+        block["reason"] = reply.get("reason")
+        block["decision_agent_s"] = reply.get("total_s")
+        records.append_journal(
+            {
+                "t": time.time(),
+                "stage": "composite_repair_decision",
+                "episode_id": episode_id,
+                "decision": block["decision"],
+                "task_key": reply.get("key"),
+                "reason": block["reason"],
+            }
+        )
+        if reply.get("status") != "ok" or block["decision"] != "repair":
+            block["status"] = "aborted_by_agent"
+            return block
+
+        key = str(reply.get("key") or "")
+        by_key = {row["key"]: row for row in candidates}
+        candidate = by_key.get(key)
+        if candidate is None:
+            block["status"] = "decision_invalid"
+            block["reason"] = f"the chosen key {key!r} is not an executable repair candidate"
+            return block
+        if candidate["goal_met_now"]:
+            block["status"] = "decision_invalid"
+            block["reason"] = f"{key} is already satisfied; it would not be a repair"
+            return block
+        repair_task = catalog_by_key[key]
+        goal_desc = composite.completion_for(repair_task, is_anchor=False)
+        block.update(
+            {
+                "task_key": key,
+                "task_id": candidate["task_id"],
+                "prompt": candidate["official_instruction"],
+                "goal_kind": candidate["goal_kind"],
+                "attempted": True,
+                "status": "executing",
+            }
+        )
+        repair_step = {
+            "skill": "whole_task",
+            "object_n": None,
+            "target_n": None,
+            "relation": "task",
+            "prompt": candidate["official_instruction"],
+            "step_id": "r1",
+            "step_index": 1,
+            "step_task_id": candidate["task_id"],
+            "step_task_key": key,
+            "goal_kind": candidate["goal_kind"],
+            "completion": goal_desc,
+            "action_source": "policy_repair",
+        }
+        # A repair is a new command on the current state: the buffer from the
+        # anchor's last chunk must not be consumed, and step 1 of the repair
+        # starts from a fresh observation.
+        token = self.inference.reset(f"repair:{episode_id}")
+        obs, snapshot = env.raw_obs(), env.state_snapshot()
+        self._set_frames(obs, snapshot)
+        block["start"] = {
+            "observation_id": snapshot.get("observation_id"),
+            "sim_action_count": snapshot.get("sim_action_count"),
+            "scene_epoch": snapshot.get("scene_epoch"),
+            "token": token,
+        }
+        repair_started = time.perf_counter()
+        try:
+            record, obs, snapshot = self._run_whole_task(
+                env=env,
+                obs=obs,
+                snapshot=snapshot,
+                step=repair_step,
+                task=task,
+                token=token,
+                episode_id=episode_id,
+                stop_event=stop_event,
+                goal=composite.step_goal(repair_step),
+                max_steps=int(opts["max_steps"]),
+                step_task=repair_task,
+            )
+        except Stopped:
+            raise
+        except Exception as exc:  # noqa: BLE001 - report, never fake success
+            block["status"] = "failed"
+            block["reason"] = f"{type(exc).__name__}: {exc}"
+            block["repair_s"] = round(time.perf_counter() - repair_started, 3)
+            return block
+        block["repair_s"] = round(time.perf_counter() - repair_started, 3)
+        timing["repair_s"] = float(timing.get("repair_s") or 0.0) + block["repair_s"]
+        placement = record.get("placement") or {}
+        block["policy_actions"] = int(record.get("sim_actions") or 0)
+        block["finalizer_actions"] = int(placement.get("extra_actions") or 0)
+        block["action_source"] = {
+            "policy": "policy_repair",
+            "finalizer": "execution_finalizer" if block["finalizer_actions"] else "none",
+        }
+        block["result"] = {
+            "ok": bool(record.get("ok")),
+            "verification": record.get("verification"),
+            "sim_actions": record.get("sim_actions"),
+            "chunks_used": record.get("chunks_used"),
+            "stop_reason": record.get("stop_reason"),
+            "placement": {
+                key_: placement.get(key_)
+                for key_ in (
+                    "required",
+                    "attempted",
+                    "release_executed",
+                    "release_verified",
+                    "placement_verified",
+                    "execution_status",
+                    "reason_code",
+                    "evidence_source",
+                )
+            },
+        }
+        block["status"] = "executed" if record.get("ok") else "repair_did_not_reach_goal"
+        block["repair_succeeded"] = bool(record.get("ok"))
+        block["episode_record"] = record
+        block["_obs"] = obs
+        block["_snapshot"] = snapshot
+        block["_token"] = token
+        return block
 
     # ---- placement completion -------------------------------------------
 
@@ -1191,8 +1688,7 @@ class Engine:
         """
         kind = str(task.get("kind") or "")
         required = kind in {"pick_place", "composite"}
-        openwam = self.cfg["action_model"]["openwam"]
-        post_cfg = dict(openwam.get("post_goal") or {})
+        post_cfg = self._post_goal_cfg()
         fin_cfg = dict(post_cfg.get("finalizer") or {})
         post = dict(record.get("post_goal") or {})
         native = bool((record.get("verification") or {}).get("ok"))
@@ -1278,6 +1774,7 @@ class Engine:
         run_id: int,
         stop_event: threading.Event,
         planner_generation: int,
+        plan_keys: list[str] | None = None,
     ) -> None:
         started = time.time()
         started_iso = _now_iso()
@@ -1368,6 +1865,7 @@ class Engine:
             "prefetch_inference_overlap_s_est": 0.0,
             "recovery_s": 0.0,
             "handoff_s": 0.0,
+            "repair_s": 0.0,
         }
         step_results: list[dict[str, Any]] = []
         attempt_digests: list[dict[str, Any]] = []
@@ -1396,6 +1894,10 @@ class Engine:
                     "snapshot": snapshot,
                     "attempts": [],
                     "backend": self._action_backend(),
+                    # Screening entry: an explicit ordered key list bypasses the
+                    # language router. It is validated by the same catalog and
+                    # composite contract, and recorded as a structured plan.
+                    "structured_keys": plan_keys,
                 },
                 timeout_s=180,
             )
@@ -1455,10 +1957,10 @@ class Engine:
             backend = self._action_backend()
             planned = [step.get("skill") for step in steps]
             if composite_plan:
-                if backend != "openwam":
+                if backend not in ("openwam", "pi05"):
                     raise SkillFailure(
                         "plan_backend_mismatch",
-                        "composite plans require the openwam whole-task backend",
+                        "composite plans require a whole-task backend (openwam or pi05)",
                         {"backend": backend},
                     )
                 composite_errors = composite.validate_plan(
@@ -1493,6 +1995,8 @@ class Engine:
                 composite_state = {
                     "enabled": True,
                     "keys": list((plan.get("composite") or {}).get("keys") or []),
+                    "plan_source": plan.get("plan_source"),
+                    "structured_entry": bool(plan_keys),
                     "anchor": {
                         "task_id": int(task["task_id"]),
                         "key": str(task.get("key")),
@@ -1501,6 +2005,9 @@ class Engine:
                     "scene_epoch_start": snapshot.get("scene_epoch"),
                     "sim_action_count_start": snapshot.get("sim_action_count"),
                     "step_ids": [str(step.get("step_id")) for step in steps],
+                    "first_pass_success": True,
+                    "repair": None,
+                    "repair_attempted": False,
                     "budgets": {
                         str(step.get("step_index")): composite.step_budget(
                             int(step.get("step_index") or 1), self.cfg
@@ -1543,6 +2050,82 @@ class Engine:
                 if stop_event.is_set():
                     raise Stopped("stop requested")
                 step = steps[index]
+                if composite_state.get("enabled"):
+                    # Precondition check on the *fresh* state before the step's
+                    # first action. A goal that already holds is recorded as
+                    # skipped, never as a capability the policy demonstrated.
+                    step_task_row = catalog_by_key.get(str(step.get("step_task_key"))) or {}
+                    try:
+                        pre_goal_state = composite.state_check(snapshot, step, task)
+                    except Exception as exc:  # noqa: BLE001 - never skip on a read error
+                        pre_goal_state = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+                    composite_state.setdefault("preconditions", {})[str(step.get("step_id"))] = pre_goal_state
+                    if pre_goal_state.get("ok"):
+                        skipped = {
+                            "step": step,
+                            "ok": True,
+                            "skipped": "goal_already_met_before_step",
+                            "verification": {
+                                "ok": True,
+                                "method": "engine_predicate_precondition",
+                                "predicate": pre_goal_state.get("predicate"),
+                                "note": "the step goal already held before this step issued an action",
+                            },
+                            "sim_actions": 0,
+                            "chunks_used": 0,
+                            "native_events": [],
+                            "timing": {"total_s": 0.0},
+                            "stop_reason": "goal_already_met",
+                            "placement": {
+                                "schema": "embodied_engine.composite.step.v1",
+                                "required": False,
+                                "attempted": False,
+                                "release_executed": False,
+                                "release_verified": None,
+                                "placement_verified": bool(pre_goal_state.get("ok")),
+                                "retreat_status": "not_applicable",
+                                "execution_status": "not_applicable",
+                                "evidence_source": "precondition_check",
+                                "policy_owned": False,
+                                "action_source": "none",
+                                "reason_code": None,
+                                "note": "goal was already true before the step; no action was issued",
+                            },
+                        }
+                        step_results.append(skipped)
+                        with self.lock:
+                            self.steps_done = [s for s in step_results]
+                        records.append_journal(
+                            {
+                                "t": time.time(),
+                                "stage": "composite_step_skipped",
+                                "episode_id": episode_id,
+                                "step_id": step.get("step_id"),
+                                "step_task_key": step.get("step_task_key"),
+                                "reason": "goal_already_met_before_step",
+                                "observation_id": snapshot.get("observation_id"),
+                                "sim_action_count": snapshot.get("sim_action_count"),
+                            }
+                        )
+                        if index + 1 < len(steps):
+                            obs, snapshot, token = self._composite_handoff(
+                                env=env,
+                                episode_id=episode_id,
+                                step=step,
+                                next_step=steps[index + 1],
+                                snapshot=snapshot,
+                                catalog_by_key=catalog_by_key,
+                                task=task,
+                                home_eef=home_eef,
+                                composite_state=composite_state,
+                                step_results=step_results,
+                                timing=timing,
+                                stop_event=stop_event,
+                                records=records,
+                            )
+                            self._set_frames(obs, snapshot)
+                        index += 1
+                        continue
                 pre_state = (
                     completion.goal_state(snapshot, step, task, snapshot)
                     if step.get("skill") == "open_drawer"
@@ -1611,6 +2194,11 @@ class Engine:
                             if composite_state.get("enabled")
                             else None
                         ),
+                        step_task=(
+                            catalog_by_key.get(str(step.get("step_task_key")))
+                            if composite_state.get("enabled")
+                            else None
+                        ),
                     )
                     timing["execution_s"] += time.perf_counter() - skill_started
                     timing["inference_s_sum"] += record["timing"]["inference_s_sum"]
@@ -1622,21 +2210,27 @@ class Engine:
                     if step_goal is not None:
                         # An engine-predicate step has no held object and no
                         # placement to finalize; forcing the placement finalizer
-                        # on it would be a different task.
-                        record["placement"] = {
-                            "schema": "embodied_engine.composite.step.v1",
-                            "required": False,
-                            "attempted": False,
-                            "release_executed": False,
-                            "release_verified": False,
-                            "placement_verified": False,
-                            "retreat_status": "handled_by_handoff",
-                            "execution_status": "not_applicable",
-                            "evidence_source": "engine_predicate",
-                            "policy_owned": True,
-                            "reason_code": None,
-                            "note": "this step's goal is an engine predicate; the placement finalizer is not applied",
-                        }
+                        # on it would be a different task. (A predicate step
+                        # that *places* an object already ran its own bounded
+                        # release finalizer and brought its block with it.)
+                        if not record.get("placement"):
+                            record["placement"] = {
+                                "schema": "embodied_engine.composite.step.v1",
+                                "required": False,
+                                "attempted": False,
+                                "release_executed": False,
+                                "release_verified": False,
+                                "placement_verified": False,
+                                "retreat_status": "handled_by_handoff",
+                                "execution_status": "not_applicable",
+                                "evidence_source": "engine_predicate",
+                                "policy_owned": True,
+                                "reason_code": None,
+                                "note": "this step's goal is an engine predicate; the placement finalizer is not applied",
+                            }
+                        placement = record["placement"]
+                        if stop_event.is_set() or (placement or {}).get("reason_code") == "user_stop":
+                            raise Stopped("stop requested during step placement finalizer")
                     else:
                         placement_started = time.perf_counter()
                         placement, obs, snapshot, token = self._finish_placement(
@@ -1687,6 +2281,10 @@ class Engine:
                             # A composite never retries a failed step inside the
                             # episode: the failure is reported at the stage it
                             # happened, with the actions it actually spent.
+                            # The ordered plan did not complete on its first
+                            # pass, so this is not a first-pass success even
+                            # though no repair was attempted.
+                            composite_state["first_pass_success"] = False
                             evidence = record.get("verification") or {}
                             # Which earlier steps' goals still hold on the very
                             # sample where this step gave up. Without it a
@@ -1796,84 +2394,22 @@ class Engine:
                         # policy buffer reset, then start the next step from
                         # that observation. No env reset, no scene reload.
                         next_step = steps[index + 1]
-                        handoff_started = time.perf_counter()
-                        # Named phase so an external observer (and the stop
-                        # test) can synchronise on the handoff instead of
-                        # guessing timing with sleeps.
-                        self._set_phase(
-                            "handoff",
-                            f"step {step.get('step_id')}->{next_step.get('step_id')} "
-                            f"{step.get('step_task_key')}->{next_step.get('step_task_key')}",
-                        )
-                        handoff = composite.Handoff(
+                        obs, snapshot, token = self._composite_handoff(
                             env=env,
-                            inference=self.inference,
-                            stop_event=stop_event,
-                            cfg=self.cfg,
                             episode_id=episode_id,
                             step=step,
-                            step_task=catalog_by_key[step.get("step_task_key")],
+                            next_step=next_step,
+                            snapshot=snapshot,
+                            catalog_by_key=catalog_by_key,
                             task=task,
                             home_eef=home_eef,
-                            home_quat=composite_state.get("home_quat"),
-                            robot_state=composite_state.get("robot_state_capture") or {},
-                            prior_step=(step_results[-1] if step_results else None),
-                            journal=lambda stage, row: records.append_journal(
-                                {"t": time.time(), "stage": stage, "episode_id": episode_id, "row": row}
-                            ),
-                            frame_sink=self._set_frames,
+                            composite_state=composite_state,
+                            step_results=step_results,
+                            timing=timing,
+                            stop_event=stop_event,
+                            records=records,
                         )
-                        try:
-                            handoff_block, handoff_obs, handoff_snapshot, token = handoff.run(snapshot)
-                        except Stopped:
-                            raise
-                        except Exception as exc:  # noqa: BLE001 - report the stage, do not fake success
-                            raise SkillFailure(
-                                "composite_handoff_error",
-                                f"handoff after step {step.get('step_index')} raised {type(exc).__name__}: {exc}",
-                                {"traceback": traceback.format_exc()[-2000:]},
-                            ) from exc
-                        timing["handoff_s"] += time.perf_counter() - handoff_started
-                        composite_state["handoff_records"].append(handoff_block)
-                        composite_state["handoff"] = handoff_block
-                        records.append_journal(
-                            {
-                                "t": time.time(),
-                                "stage": "composite_handoff",
-                                "episode_id": episode_id,
-                                "status": handoff_block.get("status"),
-                                "from_step": step.get("step_id"),
-                                "to_step": next_step.get("step_id"),
-                                "sim_actions": handoff_block.get("sim_actions"),
-                            }
-                        )
-                        with self.lock:
-                            self.steps_done = [s for s in step_results]
-                        if handoff_block.get("status") != "ready":
-                            raise SkillFailure(
-                                "composite_handoff_failed",
-                                (
-                                    f"handoff after step {step.get('step_index')} is {handoff_block.get('status')}: "
-                                    f"{handoff_block.get('reason')}"
-                                ),
-                                {"handoff": handoff_block, "next_step": next_step.get("step_id")},
-                            )
-                        obs = handoff_obs
-                        snapshot = handoff_snapshot
                         self._set_frames(obs, snapshot)
-                        records.append_journal(
-                            {
-                                "t": time.time(),
-                                "stage": "composite_step_start",
-                                "episode_id": episode_id,
-                                "step_id": next_step.get("step_id"),
-                                "task_id": next_step.get("step_task_id"),
-                                "prompt": next_step.get("prompt"),
-                                "observation_id": snapshot.get("observation_id"),
-                                "scene_epoch": snapshot.get("scene_epoch"),
-                                "token": token,
-                            }
-                        )
                     index += 1
                     retries = 0
                     continue
@@ -2241,7 +2777,82 @@ class Engine:
                         failed.append((position, step))
                 native_ever = native_ever or any(bool(s.get("native_goal")) for s in samples)
                 if all_ok:
+                    if composite_state.get("repair"):
+                        composite_state["repair"]["final_all_goals_met"] = True
                     break
+                if composite_state.get("enabled") and not composite_state.get("repair_attempted"):
+                    # One bounded repair, only when the anchor step succeeded
+                    # and an *earlier* goal was lost. The eligibility rules are
+                    # checked inside the engine; the model only picks the task.
+                    composite_state["first_pass_success"] = False
+                    try:
+                        repair_raw = self._composite_repair(
+                            env=env,
+                            task=task,
+                            catalog_by_key=catalog_by_key,
+                            step_results=step_results,
+                            final_steps=final_steps,
+                            snapshot=snapshot,
+                            baseline=baseline,
+                            composite_state=composite_state,
+                            episode_id=episode_id,
+                            stop_event=stop_event,
+                            timing=timing,
+                            token=token,
+                        )
+                    except Stopped:
+                        raise
+                    except Exception as exc:  # noqa: BLE001 - a repair bug is a failed repair
+                        repair_raw = {
+                            "status": "error",
+                            "attempted": False,
+                            "reason": f"{type(exc).__name__}: {exc}",
+                            "repair_succeeded": False,
+                        }
+                    composite_state["repair"] = {
+                        key: value for key, value in repair_raw.items() if not key.startswith("_")
+                    }
+                    repair_block = composite_state["repair"]
+                    # Only a repair that actually issued actions counts as an
+                    # attempt: a disabled/ineligible repair must not turn the
+                    # no-repair baseline into "repair attempted".
+                    composite_state["repair_attempted"] = bool(repair_block.get("attempted"))
+                    # The repair record is evidence whether it succeeded or not:
+                    # its action trace is what makes "the repair policy failed to
+                    # reach the handle" distinguishable from "the repair was
+                    # never really attempted". Archived before any failure raise.
+                    repair_record = repair_block.get("episode_record")
+                    if repair_record:
+                        composite_state["repair"]["record_summary"] = {
+                            "sim_actions": repair_record.get("sim_actions"),
+                            "chunks_used": repair_record.get("chunks_used"),
+                            "stop_reason": repair_record.get("stop_reason"),
+                            "ok": repair_record.get("ok"),
+                            "grasp": repair_record.get("grasp"),
+                            "watch_events": repair_record.get("watch_events"),
+                            "final_state": repair_record.get("final_state"),
+                        }
+                        composite_state["repair"]["episode"] = repair_record
+                        composite_state["repair"].pop("episode_record", None)
+                    if repair_block.get("status") != "executed":
+                        composite_state["repair"]["final_all_goals_met"] = False
+                        raise SkillFailure(
+                            "composite_final_verification_failed",
+                            "the composite's end state does not satisfy every step goal on fresh samples",
+                            {
+                                "steps": final_steps,
+                                "snapshot": snapshot,
+                                "repair": repair_block,
+                                "first_pass_success": False,
+                            },
+                        )
+                    obs = repair_raw.get("_obs")
+                    snapshot = repair_raw.get("_snapshot")
+                    token = repair_raw.get("_token") or token
+                    # The repair is not another plan step: the ordered key list
+                    # is unchanged and the repair row stays a separate event.
+                    self._set_frames(obs, snapshot)
+                    continue
                 repairable = [
                     (position, step)
                     for position, step in failed
@@ -2259,7 +2870,12 @@ class Engine:
                             if composite_state.get("enabled")
                             else "final cross-skill verification failed"
                         ),
-                        {"steps": final_steps, "snapshot": snapshot},
+                        {
+                            "steps": final_steps,
+                            "snapshot": snapshot,
+                            "repair": composite_state.get("repair"),
+                            "first_pass_success": composite_state.get("first_pass_success", True),
+                        },
                     )
                 verify_repairs += 1
                 position, step = repairable[0]
@@ -2425,7 +3041,7 @@ class Engine:
                 "handoff_mode_default": composite.DEFAULT_HANDOFF["mode"],
                 "robot_state_restore": bool(handoff.get("robot_state_restore")),
                 "robot_teleport": bool(handoff.get("robot_teleport")),
-                "physical_continuity": False,
+                "physical_continuity": bool(handoff.get("physical_continuity", False)),
                 "robot_state_capture": (
                     {
                         key: (composite_state.get("robot_state_capture") or {}).get(key)
@@ -2467,6 +3083,12 @@ class Engine:
                         int(((row.get("placement") or {}).get("extra_actions")) or 0)
                         for row in step_results
                     ),
+                    "repair_policy_actions": int(
+                        ((composite_state.get("repair") or {}).get("policy_actions")) or 0
+                    ),
+                    "repair_finalizer_actions": int(
+                        ((composite_state.get("repair") or {}).get("finalizer_actions")) or 0
+                    ),
                     "sim_actions_total": (
                         int(final_snapshot.get("sim_action_count") or 0)
                         - int(composite_state.get("sim_action_count_start") or 0)
@@ -2479,6 +3101,19 @@ class Engine:
                 "step_2_native": bool(step_2_native),
                 "step_2_final_native": step_2_final_native,
                 "final_verification_read": bool(final_verification),
+                "first_pass_success": bool(composite_state.get("first_pass_success", True)),
+                "repair_attempted": bool(composite_state.get("repair_attempted")),
+                "repair_task_key": ((composite_state.get("repair") or {}).get("task_key")),
+                "repair_succeeded": bool(((composite_state.get("repair") or {}).get("repair_succeeded"))),
+                "final_all_goals_met": (
+                    (composite_state.get("repair") or {}).get("final_all_goals_met")
+                    if composite_state.get("repair")
+                    # Strict: a step that was never verified (ok_final None,
+                    # e.g. the episode failed before the final check) is not
+                    # a met goal.
+                    else bool(step_rows) and all(row.get("ok_final") is True for row in step_rows)
+                ),
+                "repair": composite_state.get("repair"),
                 "step_2_native_samples": (anchor_row.get("evidence") or {}).get("samples"),
                 "step_2_release_verified": bool((step_2_native and anchor_row.get("release_state") == "verified")),
                 "combo_verified": bool(
@@ -2767,10 +3402,17 @@ async def run(request: web.Request) -> web.Response:
     body = await _json_body(request)
     try:
         seed = body.get("seed")
+        plan_keys = body.get("plan_keys")
+        if plan_keys is not None and not isinstance(plan_keys, list):
+            return web.json_response(
+                {"status": "bad_request", "error": "plan_keys must be a list of catalog keys"},
+                status=400,
+            )
         out = _engine().start_run(
             int(body.get("task_id")),
             body.get("instruction"),
             None if seed is None else int(seed),
+            [str(key) for key in plan_keys] if plan_keys else None,
         )
         return web.json_response(out)
     except KeyError as exc:
