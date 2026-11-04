@@ -164,7 +164,7 @@
    "mode": "action_retreat",
    "retreat_m": 0.18,
    "retreat_step_m": 0.04,
-   "retreat_max_actions": 60,
+   "retreat_max_actions": 90,
    "tolerance_m": 0.01,
    "min_clear_m": 0.02,
    "reset_policy_buffer": true,
@@ -180,7 +180,10 @@
    "detach_max_actions": 8,
    "detach_step_m": 0.04,
    "restore_penetration_tol_m": 0.002,
-   "inflight_wait_s": 10.0
+   "inflight_wait_s": 10.0,
+   "lift_clear_m": 0.12,
+   "lift_max_actions": 12,
+   "lift_step_m": 0.04
   },
   "note": "Same-scene two-step execution. Pairs are listed explicitly: recognized-but-unlisted pairs are refused, not attempted. The composite anchors on the LAST step's BDDL; earlier steps are judged by engine predicates on the same episode.",
   "repair": {

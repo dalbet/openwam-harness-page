@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -27,7 +28,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 PROJECT = Path(__file__).resolve().parents[1]
-JOURNAL = PROJECT / "records" / "run_journal.jsonl"
+# Respect the running stack's records directory (EMBODIED_RECORDS_DIR), not the
+# repo default: the acceptance stack keeps its journal under records_demo/.
+RECORDS = Path(os.environ.get("EMBODIED_RECORDS_DIR") or PROJECT / "records")
+JOURNAL = RECORDS / "run_journal.jsonl"
 TERMINAL = {"succeeded", "failed", "stopped"}
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -224,6 +228,82 @@ def run_case(args, spec: dict[str, Any]) -> dict[str, Any]:
             status = {"phase": "sync_timeout", "detail": f"no {kind} stage"}
         else:
             status = {**status, "trigger_row": hit}
+    elif kind == "repair":
+        # Synchronise on the engine's own repair decision row: the model has
+        # just chosen the repair task, the repair actions have not started yet.
+        deadline = time.time() + args.timeout
+        status: dict[str, Any] = {}
+        hit = None
+        ended = None
+        while time.time() < deadline:
+            for row in tail.new_rows():
+                if episode_id and row.get("episode_id") != episode_id:
+                    continue
+                if row.get("stage") == "composite_repair_decision":
+                    hit = row
+                    break
+                if row.get("stage") in {"episode_end", "succeeded", "failed", "stopped"}:
+                    ended = row
+            if hit:
+                status = get(f"{engine}/api/status")
+                break
+            if ended is not None:
+                status = {
+                    "phase": "stage_not_reached",
+                    "detail": (
+                        "episode ended with stage "
+                        f"{ended.get('stage')} before any repair decision"
+                    ),
+                }
+                break
+            time.sleep(0.01)
+        if not hit and not status:
+            status = {"phase": "sync_timeout", "detail": "no composite_repair_decision row"}
+        else:
+            status = {**status, "trigger_row": hit}
+    elif kind == "repair-actions":
+        # Wait for the repair's own start row, then let it issue a few real
+        # actions before stopping: this is a stop *inside* the repair's action
+        # loop, not just at the decision boundary.
+        deadline = time.time() + args.timeout
+        status: dict[str, Any] = {}
+        start_row = None
+        ended = None
+        while time.time() < deadline:
+            for row in tail.new_rows():
+                if episode_id and row.get("episode_id") != episode_id:
+                    continue
+                if row.get("stage") == "composite_repair_start":
+                    start_row = row
+                    break
+                if row.get("stage") in {"episode_end", "succeeded", "failed", "stopped"}:
+                    ended = row
+            if start_row:
+                break
+            if ended is not None:
+                status = {
+                    "phase": "stage_not_reached",
+                    "detail": (
+                        "episode ended with stage "
+                        f"{ended.get('stage')} before any repair action"
+                    ),
+                }
+                break
+            time.sleep(0.01)
+        if not start_row and not status:
+            status = {"phase": "sync_timeout", "detail": "no composite_repair_start row"}
+        elif start_row:
+            want = int(start_row.get("sim_action_count") or 0) + int(spec.get("min_actions", 24))
+            status = wait_for(
+                engine,
+                predicate=lambda row: (
+                    str(row.get("phase")) in {"running", "repairing", "verifying"}
+                    and int(row.get("sim_action_count") or 0) >= want
+                ),
+                timeout_s=args.timeout,
+                poll_s=0.02,
+            )
+            status = {**status, "trigger_row": start_row, "repair_actions_requested": want}
     elif kind == "finalizer":
         deadline = time.time() + args.timeout
         status: dict[str, Any] = {}
@@ -396,6 +476,41 @@ def main() -> int:
             "load_task_id": 8,
             "seed": 0,
             "min_actions": 20,
+            "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+        },
+        {
+            # The frozen acceptance pair (1 -> 7), stopped in its second step:
+            # the new predicate-step handoff has already run and the anchor
+            # (native goal) is mid-execution.
+            "id": "stop-step2-acceptance-pair",
+            "kind": "step-2",
+            "task_id": 7,
+            "load_task_id": 7,
+            "seed": 0,
+            "min_actions": 10,
+            "instruction": "put the bowl on the stove and turn on the stove",
+        },
+        {
+            # Stop *inside* the repair's action loop (the repair has already
+            # issued real actions): the ack must not be followed by more repair
+            # or finalizer actions, and the record must say stopped.
+            "id": "stop-repair-actions",
+            "kind": "repair-actions",
+            "task_id": 8,
+            "load_task_id": 8,
+            "seed": 0,
+            "min_actions": 24,
+            "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
+        },
+        {
+            # Stop while the bounded repair is running: the stop must be acked,
+            # no repair action may follow it, and the record must say stopped
+            # rather than completed.
+            "id": "stop-repair",
+            "kind": "repair",
+            "task_id": 8,
+            "load_task_id": 8,
+            "seed": 0,
             "instruction": "Open the middle drawer of the cabinet, then put the bowl on the plate.",
         },
         {

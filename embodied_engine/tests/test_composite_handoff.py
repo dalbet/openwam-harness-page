@@ -167,7 +167,10 @@ class HandoffTest(unittest.TestCase):
         block, _obs, _snapshot, _token = self._handoff(env, FakeInference(), home=(0.0, 0.0, 0.0)).run(
             env.state_snapshot()
         )
-        self.assertLessEqual(block["retreat"]["actions"], 12)
+        # ``actions`` includes the rotation-free lift phase, which has its own
+        # budget; the capped retreat is what remains after the lift.
+        lift_actions = int((block["retreat"].get("lift") or {}).get("actions") or 0)
+        self.assertLessEqual(block["retreat"]["actions"] - lift_actions, 12)
         self.assertEqual(block["retreat"]["reason"], "bounded_actions_exhausted")
         self.assertFalse(block["retreat"]["converged"])
         # Running out of budget is not convergence: the drawer is still open,
@@ -175,6 +178,20 @@ class HandoffTest(unittest.TestCase):
         self.assertTrue(block["post_retreat"]["goal"]["ok"])
         self.assertEqual(block["status"], "not_ready")
         self.assertEqual(block["reason_code"], "retreat_not_converged")
+
+    def test_lift_phase_is_pure_vertical_and_never_rotates(self):
+        env = FakeEnv(drawer_snapshot(eef=(0.0, -0.30, 0.80)))
+        block, _obs, _snapshot, _token = self._handoff(env, FakeInference()).run(env.state_snapshot())
+        lift = block["retreat"]["lift"]
+        self.assertTrue(lift["applied"])
+        self.assertGreaterEqual(lift["actions"], 1)
+        # The lift exists so the arm climbs clear before translating; if it
+        # rotated or moved sideways it would reproduce the drag it prevents.
+        for action in env.actions[: int(lift["actions"])]:
+            self.assertEqual(action[0], 0.0)
+            self.assertEqual(action[1], 0.0)
+            self.assertGreater(action[2], 0.0)
+            self.assertEqual(action[3:6], [0.0, 0.0, 0.0])
 
     def test_scene_epoch_change_blocks_the_handoff(self):
         env = FakeEnv(drawer_snapshot(eef=(3.0, 3.0, 3.0)), epoch_change=True)

@@ -119,7 +119,10 @@
 - 实际执行：每块取 5 个 7 维 LIBERO 动作（`[dx,dy,dz,dax,day,daz,gripper]`，世界系 OSC_POSE）
 - 观测：`main_images`（agentview）+ `wrist_images` + 8 维状态 + 任务文本
 
-`backend=pi05` 时，Agent 的技能目录为五个子技能，`whole_task` 不在目录内，行为与之前一致。
+`backend=pi05` 在本轮（2026-11-04）起**支持 `whole_task` 与同场景两步组合**：执行器是
+`WholeTaskRunner` + `Pi05ChunkBackend`（同步块），组合契约、交接与修复与 OpenWAM 共用
+同一份代码路径，差异只在后端动作空间与后目标窗口；§9.11 记录这部分。历史上"pi05 只有五个
+子技能"的描述只对 2026-10 阶段成立。
 
 ### 2.2 OpenWAM-Alpha-Sim-LIBERO（已接入执行链）
 
@@ -353,7 +356,8 @@ OpenWAM 启动记录写在 `records/openwam_server.json`（pid、commit、checkp
 | 同义指令映射（离线） | DONE | 回归集 101 例 + 新冻结集 100 例，映射 100%，中位 0.68 s，见验收报告 §17 |
 | 20 回合语言闭环（真实执行） | DONE（映射 20/20，原生 19/20） | 10 任务 × 1 英文改写 + 1 中文表达，指令运行前冻结；释放证据单列，见 §18 |
 | 放置收尾（释放 + 退离 + 验证） | DONE（最终 12 回合：11 原生，9 策略 + 2 执行层） | 见验收报告 §19；`policy_owned` 逐回合标注，不与"自主成功率"混算 |
-| 同场景两步组合 | **设计入口，未执行** | 可行性矩阵见验收报告 §21；不实现调度、不改路由输出 |
+| 同场景两步组合（OpenWAM 历史） | 历史基线 | 可行性矩阵见验收报告 §21；`0 → 8` 的六回合冻结验收与失败证据见 §23、§31 |
+| 同场景两步组合（Pi0.5） | **DONE（B/C/D 首次通过；A 需要修复且修复未成功）** | 四条有序对、谓词步释放终结、一次有界修复、stop/reset 隔离；数字见验收报告 §33 |
 
 验收与记录：
 
@@ -659,3 +663,149 @@ env 进程重启后旧编号一律 `capture_unknown`，不会恢复一个没人�
 **非机器人关节速度（2026-10-29 补充）**：`_nonrobot_state` 现在同时返回 `joints`（qpos）与
 `qvel`（按关节名），后者**不参与** `digest`，所以"恢复后非机器人 qpos 逐字节相等"
 这条验收口径不变。用途是区分"抽屉是带着速度过去的"和"抽屉是被推的"。
+
+## 10. Pi0.5 同场景两步组合基线（2026-11-04，真实执行）
+
+本节记录**当前模型层**（`backend=pi05`）的组合实现与契约。§9 里"0 → 8 已实现"的
+描述属于 OpenWAM 阶段，两者动作空间、后目标窗口与检查点不同，数字不可互换。
+
+### 10.1 当前模型与加速路径（实测身份，不是旧报告）
+
+| 项 | 值 | 来源 |
+| --- | --- | --- |
+| 推理服务 | `inference/inference_service.py`，`:14621`，`backend=pi05`，`mode=sync` | `/health` |
+| 检查点 | `/home/host/flashrt-store/models/pi05-libero-pytorch`（官方 PyTorch 转换） | `/health.identity` |
+| revision | `6222623f635769bfc73c9472e29fab9b7fd8e027` | 同上 |
+| 动作契约 | `libero7d`，`action_dim=7`，`action_horizon=10`，`execute_horizon=5`，`denoise_steps=10`，20 Hz | 同上 |
+| 加速 | FlashRT `flash_rt` BF16 前端（`Pi05TorchFrontendRtx` v0.2.0），arm **S2**，服务 `127.0.0.1:14551` | `/health.identity.server` |
+| 观测 | 主相机 + 腕相机各 224×224（rot180），8 维 LIBERO proprio | 回合 `pi05_contract` 行 |
+| Agent | Qwen3.5-9B（`:8001` vLLM），只做语义路由与修复决策 | `/health` |
+
+**"加速"只指 Pi0.5 前向走 FlashRT BF16 图（`precision_requested=bf16`，实测
+`calibrate_ms≈963`、`prompt_build_ms≈182`、`load_s≈7.2`）。vLLM 只服务 Qwen，
+没有加速 VLA；OpenWAM 的旧加速数字不能写进 Pi0.5 的结果。**
+
+### 10.2 契约（`common/composite_plan.py`）
+
+- `supported_pairs`（本轮冻结四条）：
+  `open_middle_drawer → put_bowl_on_plate`（A，0→8）、
+  `put_bowl_on_plate → open_middle_drawer`（B，8→0）、
+  `turn_on_stove → put_bowl_on_plate`（C，7→8）、
+  `put_bowl_on_stove → turn_on_stove`（D，1→7）。仓库默认配置列全四条；
+  识别到但未列出的有序对返回 `unsupported_combo`，不改顺序、不降级成单任务。
+- 锚定：组合以**最后一步**的 BDDL 为加载场景，所以 `loaded_task` 必须是最后一步的
+  `task_id`，否则 `requires_scene_switch`。开始前 `support()` 会检查；执行前
+  `validate_plan()` 再查一次。
+- 完成判定：最后一步用场景 `native_goal`；前面的步骤用引擎谓词
+  （`drawer_open`：抽屉关节 `qpos < -0.14` 连续 2 个新样本；`stove_button`；
+  `relation`：物体-目标）。第一步的原生标志照常记录，但**不作为它的目标**，
+  不会因为加载场景的 native 标志提前结束。
+- 预算：仓库默认 `1:240`、`2:600` 动作（20 Hz = 12 s / 30 s）；本轮筛查与验收
+  实际跑在 `config_demo_b900`（`1:240`、`2:900`，12 s / 45 s），记录里的 `budgets`
+  是运行时真值，不与仓库默认混算；`goal_confirm_samples=2`。
+
+### 10.3 执行路径（`engine/engine_service.py`）
+
+1. 组合只允许在全任务策略上执行（`whole_task`），不被拆成旧原子 SkillRunner；
+   计划里的 `backend` 与推理服务运行时 `backend` 不一致直接拒绝。
+2. 每一步发**该步的官方指令**（目录查表），带 `step_id`；动作、请求行、完成状态
+   按 `step_id` 隔离。
+3. **谓词步的放置终结**（`_finish_predicate_placement`）：早于锚定的放置步
+   以"自身谓词"作为释放候选（`PlacementFinalizer(candidate_check=...)`），
+   达到候选后执行有界释放（开爪 8 步）、有界退离（回初始 EEF，位置 0.01 m /
+   姿态 0.05 rad）、3 个新样本复验；每个动作标 `action_source=execution_finalizer`，
+   与策略动作分开记账。谓词已成立但策略尚未松手时，交接会被拒绝
+   （`release_not_verified`），不会带着被抓住的物体移动。
+4. **后目标窗口按后端与任务类型区分**（本轮修正）：Pi0.5 用
+   `window_actions=5`、`release_confirm_samples=2`；窗口只对**放置类**任务开启。
+   抽屉/炉灶类任务的 `objects/targets` 也非空，但关系是 `open`/`turn_on`，
+   以前被当成放置关系，窗口报 `relation_unconfirmed` 并停止；现在这类任务在
+   native 目标处直接结束（`stop_reason=native_goal`），不会在目标成立后再花
+   5 个动作（那 5 个动作可能把抽屉推回去）。
+5. 终局：回合结束后用**新的**仿真样本对每一步复验（`final_verification`），
+   再叠释放证据得到 `combo_verified`。终局复验是"所有目标"的检查，
+   不只看最后一步或 `native_ever`。
+
+### 10.4 步间交接（`engine/composite.py::Handoff`）
+
+默认 `action_retreat`（物理连续）。顺序固定，任一项不满足即 `not_ready`，不启动第二步：
+
+1. 本步目标仍成立（`state_check`）。
+2. 需要释放的步必须有释放证据：`placement_verified` 或 `release_verified`
+   （来自本步终结器或策略块），否则 `release_not_verified`。
+3. **先脱离接触，再旋转**（本轮修复的真实缺陷）：`_detach` 用
+   `robot_state_inspect` 实测"手指是否还接触非机器人几何"，必要时开爪、无旋转、
+   小步后退直到接触清零（`detach_max_actions=8`）；清不掉就拒绝交接。
+   7→8 就死在这里：退离把腕部从 33.3° 转到 1.6° 的同时手指仍贴着旋钮，
+   把旋钮拖回阈值下方（`retreat_lost_step_1_goal`）。
+4. **先垂直抬升，再平移**（本轮第二个修复）：抬升阶段纯 +Z、不旋转，
+   到 `lift_clear_m=0.12`（`lift_max_actions=12`）后进入常规退离。
+   8→0 在 init 1 曾把 60 个退离动作几乎全耗在原地（离起点 3 cm），
+   原因是低姿态直接横移被桌面/盘子挡住。
+5. **先平移到位，再原地回正**（本轮第三个修复）：位移与旋转分相，同一份预算
+   （`retreat_max_actions=90`）。OSC 对"同时大位移 + 大角度旋转"的响应明显更差：
+   C 的 init 1 曾用 60 个动作只走完 0.12 m / 16.8°。分段后 B/C 都在 45~70 个动作内
+   收敛到 0.005 m / 3° 内；A 的回正需要更多动作，因此上限由 60 提到 90。
+6. 退离后复查第一步目标（`retreat_preserved_goal`）与 `scene_epoch`。
+7. `inference.reset("handoff:<episode>:<step_id>")` 换 token，清策略缓冲与模型侧
+   缓冲；第二步用新 token 与新观测（`observation_id` 必须不同）。
+8. `physical_continuity`：`action_retreat` 为 **true**（机械臂是真走回去的），
+   `robot_state_restore` 才为 false（那是传送）。本轮修正了旧代码里恒为 false 的
+   硬件语义错误；`robot_teleport` 仍只对 restore 为 true。
+
+记录里 `handoff.retreat.actions` 含抬升动作，`handoff.retreat.lift` 单列抬升明细，
+`handoff.retreat.translate_phase_actions / rotate_phase_actions` 给出分相计数，
+`action_accounting.handoff_detach_actions` 与 `handoff_retreat_actions` 分开统计。
+
+### 10.5 一次有界的前序目标修复
+
+默认**关闭**（`composite.repair.enabled=false`）：无修复基线与修复模式不能混在一份统计里。
+
+启用后（验收配置：`enabled=true`、`max_calls=1`、`max_steps=400`、`timeout_s=60`）：
+
+1. 资格在代码里判，不交给模型：最后一步**已达到目标并释放**，且某个前序步目标
+   在终局复验中丢失。最后一步失败时不做修复（那会掩盖真实的轨迹失败）。
+2. 候选表由代码生成：目录里每个能力 + 其引擎谓词 + 当前是否已满足 + 场景支持。
+3. Qwen 只输出 `{"decision":"repair","key":...}` 或 `{"decision":"abort"}`；
+   指令由代码查目录官方指令，校验 key 在候选表内且当前未满足。
+4. 修复前 `inference.reset("repair:<episode>")` 换 token、取新观测；执行用同一条
+   全任务策略（预算 400 动作，不递归、不重试）。
+5. 修复后**重新复验全部终局目标**；只有全部成立才 `final_all_goals_met=true`。
+6. 记账分开：`action_accounting.policy_actions / handoff_actions / finalizer_actions /
+   repair_policy_actions / repair_finalizer_actions`；
+   `first_pass_success`、`repair_attempted`、`repair_task_key`、`repair_succeeded`、
+   `final_all_goals_met` 各自独立，修复动作不伪装成原两步计划的一部分
+   （计划 key 列表不变，修复是 `r1` 恢复事件）。
+7. 修复的完整子记录归档在 `composite.repair.episode`（含动作轨迹），
+   失败也保留。
+8. 修复**失败**时（`repair_did_not_reach_goal`）不能拿修复前的快照收尾：
+   本轮修正为取修复的最后观测、再走一遍终局复验循环，然后才判失败。
+   否则 `sim_actions_total` 会漏掉修复动作（A 的实测：修复真跑了 400 动作，
+   旧代码记成 1028，实际 1428）。
+
+### 10.6 stop / reset 隔离
+
+- 阶段名由引擎发布（`handoff`、`repairing`），停止测试按阶段同步，不靠 sleep 猜。
+- `/api/stop` 的 ack 带 `sim_at_request` / `sim_at_ack` / `in_flight_actions`；
+  ack 后仿真动作数必须不再增长。
+- stop 后 `/api/load` 必须得到新 episode、`sim_action_count=0`、无 `last_result` 泄漏。
+- 本轮最终代码实测：验收组合第二步 stop（201 动作处，`in_flight_actions=0`、
+  12 个样本全部停在 201）通过；修复决策阶段 stop（571 动作处）与修复动作阶段
+  stop（658 动作处）通过，见验收报告 §33.8。
+
+### 10.7 已知限制（写进结果，不隐藏）
+
+- **A（0→8）在交付代码上仍 0/2**：交接已稳定（90 / 82 动作收敛），第二步拿满
+  900 动作没到 native。历史诊断里它**能夹住碗**（`min_opening≈0.0016`）但送不到盘子；
+  唯一一次到达（交接第 2 代）把抽屉撞回关闭（`qpos≈-0.057`）。抽屉是否构成物理阻挡，
+  没有接触数据就不下结论。
+- **B（8→0）、C（7→8）在交付代码上各 2/2**：B 302/289 动作、C 240/243 动作。
+  两者的失败形态（退离原地打转、旋转拖倒旋钮）已被"脱离接触 + 抬升 + 平移/旋转分相"
+  依次修掉，每次修复都有对应的失败回合留档（`screen_*_final{,2,3}_20261104`）。
+- **修复机制真实跑通过一次但没救回 A**：Qwen 选 `open_middle_drawer`，400 动作只把
+  抽屉拉到 `qpos=-0.0954`（阈值 `-0.14`）。在交付代码上 A 的两次都没让第二步成功，
+  因而没有再次触发修复；`_composite_repair` 路径未变，证据仍有效。
+- **动作计数修正**：修复失败时也要取修复的最后观测再复验，否则
+  `sim_actions_total` 会漏掉修复动作（实测 1028 vs 真实 1428）。
+- **预算与裕度**：`retreat_max_actions=90`（实测 A 用满 90 / 82）；
+  7→8 第一步在 `qpos=0.5338`（阈值 0.5）成立，裕度只有 0.03，尚未加滞后带。

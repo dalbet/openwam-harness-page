@@ -2330,3 +2330,199 @@ watch_joints:{name:qpos}, watch_joints_qvel:{name:qvel}}`，在 env 侧用已经
 #### (6) 本轮不动的东西
 
 动作窗口（32）、Qwen/planner、模型权重、训练，一律不动；旧链路的 `SkillRunner` 行为不变。
+
+
+---
+
+## 33. Pi0.5 组合任务：冻结基准、四对筛查、一次修复与 D 的六回合验收（2026-11-04，真实执行）
+
+本轮把"组合任务"从 OpenWAM 时代的结论里剥出来，在**当前模型层**（`backend=pi05`）上
+重新建立基线：先冻结可运行版本，再核对执行契约，然后用两条固定 init 筛查四对候选，
+接着实现并实跑一次有界修复，最后把唯一证据最清楚的一对（D：1→7）冻成六回合验收，
+并做 stop/reset 隔离。
+
+所有数字来自 `raw/composite/MANIFEST_20261104.json` 的分组原始回合。**筛选（结构化
+`plan_keys` 入口）与验收（Qwen 路由）从不相加**；交接实现迭代过程中每个版本的回合
+单独成组，不覆盖也不混算。
+
+### 33.1 冻结锚点
+
+| 项 | 值 |
+| --- | --- |
+| 代码根 / 分支 | `/home/host/page-dmh`（git 根） / `feature/page-ui-three-arm-integration` |
+| 基线功能提交 | `761e9e3`（谓词步释放终结、一次有界修复、交接连续性证据） |
+| 本轮交付提交 | 本文件所在提交（分支 `feature/page-ui-three-arm-integration`；完整 SHA、标签与源码包校验见 `raw/composite/MANIFEST_20261104.json` 的 `code` 段） |
+| 本轮备份标签 | `backup/pi05-composite-final-20261104-<交付提交短 SHA>`（新建；`…-761e9e3` 与更早标签都未移动） |
+| 历史标签（只读参照） | `backup/pi05-composite-final-20261104-761e9e3`、`backup/pi05-composite-20261104-c0815a4`、`backup/composite-state-restore-20261029-abb75db` |
+| 源码包 | `backup/embodied_engine-src-<交付提交短 SHA>.tar.gz`（`git archive` 导出，不含模型/虚拟环境/日志；SHA256 见主清单） |
+| 推送状态 | 本地提交与标签已完成；`git push origin feature/page-ui-three-arm-integration` 被远端拒绝（首次 GitHub `Internal Server Error`，随后 `Permission denied (publickey)`），未 force push、未合并 main |
+| 模型 | `pi05_libero (official PyTorch conversion)`，`/home/host/flashrt-store/models/pi05-libero-pytorch`，revision `6222623f…` |
+| 加速 | FlashRT `flash_rt` BF16（`Pi05TorchFrontendRtx` v0.2.0），arm **S2**，`127.0.0.1:14551`，`precision=bf16` |
+| 运行配置 | `EMBODIED_CONFIG_DIR=/home/host/flashrt-exp/pi05_round/config_demo_b900`（`repair.enabled=true`，步预算 `1:240` / `2:900`，退离 `90`） |
+| 服务 | agent `:14571`（Qwen3.5-9B @vLLM `:8001`）、engine `:14821`、inference `:14621`、env `:14591`、page_ui `:14901`（LAN `:14902`） |
+
+"加速"只指 Pi0.5 前向走 FlashRT BF16 图；OpenWAM 的旧加速数字与旧成功率没有一条
+写进本节。
+
+### 33.2 执行契约实测（都能在记录里查到字段）
+
+| 契约项 | 实测值 | 证据字段 |
+| --- | --- | --- |
+| 组合跑完整任务策略 | 两步都是 `skill=whole_task`（`WholeTaskRunner` + `Pi05ChunkBackend`），没有拆成 `SkillRunner` 原子 | `steps[].skill` |
+| 动作契约 | `libero7d` 7 维、`action_horizon=10`、`execute_horizon=5`、`denoise_steps=10`、20 Hz、sync | `model` |
+| 观测 | 主/腕各 224×224（rot180）+ 8 维 LIBERO proprio | `model`、`pi05_contract` 日志行 |
+| 步间清缓冲 | `buffer_reset.token` 换新、`reason="no step-1 action chunk may be consumed by step 2"`、第二步观测 id 必须不同 | `handoff.buffer_reset`、`handoff.post_reset` |
+| 非最终步目标 | `stop_reason=step_goal`；加载场景的 `native_goal` 只记录不裁决（D 的回合里第一步成立时 `native_goal=false`） | `steps[0].stop_reason`、`handoff.pre.goal` |
+| 交接前释放证据 | 第一步 `placement_verified=true`、`evidence_source=execution_finalizer`、`extra_actions=21` | `record.steps[0].placement` |
+| 交接物理连续 | `action_retreat`、`physical_continuity=true`、`robot_teleport=false` | `composite.handoff` |
+| 同一 episode | `scene_epoch` 全程不变；不 reset、不 reload、不改 BDDL、不传送物体 | `composite.scene_epoch_continuous` |
+| 终局复验 | 每步都用**新的**样本复验，不只看最后一步或 `native_ever` | `final_verification` |
+
+### 33.3 冻结筛查清单（运行前固定）
+
+结构化入口 `plan_keys`（不经 Qwen，避免把路由能力混进可行性结论）；同一 episode；
+物理交接默认 `action_retreat`；`--load-task` = 最后一步 task id（BDDL 锚定最后一步）。
+
+| 对 | 顺序（目录 key） | 加载场景 | 预算 | init |
+| --- | --- | --- | --- | --- |
+| A | `open_middle_drawer → put_bowl_on_plate` | task 8 | 1:240 / 2:900 | 0, 1 |
+| B | `put_bowl_on_plate → open_middle_drawer` | task 0 | 1:240 / 2:900 | 0, 1 |
+| C | `turn_on_stove → put_bowl_on_plate` | task 8 | 1:240 / 2:900 | 0, 1 |
+| D | `put_bowl_on_stove → turn_on_stove` | task 7 | 1:240 / 2:900 | 0, 1 |
+
+失败原样保留；因为交接实现被真实证据推翻而重跑的组，一律另编号（`final*`），
+不覆盖旧文件。
+
+### 33.4 交接实现：四次真实迭代（筛查失败直接暴露的缺陷）
+
+筛查不是"跑满预算"，每一步失败都先定位到具体机制，再改交接。四代实现与对应证据：
+
+| 代 | 交接实现 | 结果 |
+| --- | --- | --- |
+| 1 | 平移+旋转同时下发，无脱离接触 | C **0/2**：退离时腕部 33.3°→1.6°，手指仍贴着旋钮，把 `flat_stove_1_button` 从 `qpos=0.5338` 拖回阈值 0.5 以下 → `retreat_lost_step_1_goal` |
+| 2 | ＋先 `_detach`（开爪、无旋转、按 `robot_state_inspect` 的接触直到清零，≤8 动作） | C **2/2**（235/218）；B 出现 `retreat_not_converged`：60 动作后仍离 home 0.2208 m / 25.45° |
+| 3 | ＋先纯 +Z 抬升（`lift_clear_m=0.12`，≤12 动作，不旋转）再退离 | B 仍 1/2；C 1/2（init 1 抬升只升 0.0755 m 后退离 60 动作差 0.1178 m / 16.83°） |
+| 4 | ＋位移与旋转分相：先只平移到位，再原地回正（同一预算） | B **2/2**（302/289）、C **2/2**（240/243）；A 的交接能到位，但从 33° 回正需要 20 动作以上 → 把 `retreat_max_actions` 由 60 提到 **90**（实测 A 用满 90/82 动作收敛） |
+
+交付代码 = 第 4 代 + `retreat_max_actions=90`。第 4 代里 B/C 的交接都在
+45~70 个动作内收敛（未触上限），所以把上限 60→90 不会改变它们的轨迹；A 是在 90 下
+重跑的（见下）。
+
+### 33.5 筛查结果（交付代码）
+
+| 对 | init | 第一步 | 交接 | 第二步 | 总动作 | 耗时 | 结果 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| A | 0 | 131 动作 `step_goal` | 90（收敛） | 900 动作未到 native | 1121 | 115.9 s | `composite_step_2_failed` |
+| A | 1 | 123 动作 `step_goal` | 82（收敛） | 900 动作未到 native | 1105 | 115.9 s | `composite_step_2_failed` |
+| B | 0 | 70 动作 `step_goal` | 45 | 163 动作 `native_goal` | 302 | 32.7 s | **一次通过** |
+| B | 1 | 71 动作 `step_goal` | 70 | 124 动作 `native_goal` | 289 | 31.1 s | **一次通过** |
+| C | 0 | 76 动作 `step_goal` | 65 | 75 动作（谓词已成立） | 240 | 25.3 s | **一次通过** |
+| C | 1 | 77 动作 `step_goal` | 62 | 80 动作（谓词已成立） | 243 | 26.6 s | **一次通过** |
+
+- **A 的失败点已经不在交接**：两回合交接都 `ready`（90 / 82 动作收敛），
+  第二步拿到完整的 900 动作预算仍没到 native。历史形态（抓住碗后送不到）
+  在诊断组里测得 `grasp.min_opening_m≈0.0016`（确实夹住），本组两次都没有走到释放。
+- **B 现在稳定**：两个 init 都一次通过；第二步开抽屉 163 / 124 动作。
+- **C 稳定**：两个 init 都一次通过；第一步炉灶旋钮在交接后 `qpos` 继续升到
+  `1.06~1.08`（远超阈值 0.5），说明脱离接触后不再被拖回。
+
+两回合只判可行性，不当成功率；A 的 0/2 不阻止 B/C/D 的探测。
+
+### 33.6 一次有界修复的真实数据（A init 0，`enabled=true`）
+
+这条证据来自交接第 2 代的 A 回合（`ep-20261104-081706-8acf8a`，修复代码此后未改）：
+
+| 项 | 值 |
+| --- | --- |
+| 触发 | 锚定步（碗放盘子）native + 释放都通过（830 动作，`window_exhausted`），终局复验发现前序 `drawer_open` 丢失 |
+| Qwen 决策 | `repair` → `open_middle_drawer`，`decision_source=qwen3.5-9b-semantic-router`，决策 2.34 s |
+| 修复预算 | `max_calls=1`、`max_steps=400`、`timeout_s=60`（冻结） |
+| 实际执行 | 400 动作 / 80 个 chunk / 61.5 s，`stop_reason=budget` |
+| 结果 | 抽屉 `qpos=-0.0954`（阈值 `-0.14`），`repair_succeeded=false`，`final_all_goals_met=false` |
+| 记账 | `policy_actions=957`、`handoff_actions=47`、`finalizer_actions=21`、`repair_policy_actions=400`（分开记账，不合并成"一次自主完成"） |
+
+- 修复机制本身**按设计跑通了**：资格在代码里判、Qwen 只选 key、指令查目录、
+  独立 token、独立记账、失败也保留子记录。
+- 400 动作在"放完碗之后"的姿态下不足以把抽屉重新拉到 `-0.14`。这是预算/起点问题。
+- 这次运行早于"修复失败也要刷新终局快照"的计数修正：记录的
+  `episode_sim_actions=1028` 不含修复的 400，真实总动作数是 **1428**；修正后
+  修复没达标也会取修复的最后观测、再走一遍终局复验才判失败。
+- 在交付代码上 A 的两次都没能让第二步成功，因此**没有再次触发修复**；
+  这不影响上面这条修复证据（`_composite_repair` 与选 key 路径未变）。
+
+### 33.7 冻结验收：D（1→7）六回合，中英文各三回合
+
+代码、清单与运行配置在调试结束后冻结；自然语言**真的经过 Qwen**
+（`plan.source=qwen3.5-9b-semantic-router`），送给策略的是目录官方指令
+（`put the bowl on the stove` / `turn on the stove`）。
+
+| 语言 | init | 指令 | 第一步 | 第二步 | 交接 | 总动作 | 时长 | 结果 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| en | 0 | put the bowl on the stove and turn on the stove | 112 | 87 | 50 | 273 | 31.1 s | 通过 |
+| en | 1 | 同上 | 89 | 69 | 50 | 232 | 26.5 s | 通过 |
+| en | 2 | 同上 | 82 | 72 | 47 | 225 | 26.0 s | 通过 |
+| zh | 0 | 把碗放到炉灶上，然后打开炉灶 | 82 | 77 | 49 | 232 | 26.4 s | 通过 |
+| zh | 1 | 同上 | 90 | 76 | 51 | 241 | 27.4 s | 通过 |
+| zh | 2 | 同上 | 83 | 70 | 49 | 226 | 26.0 s | 通过 |
+
+- **6/6 一次通过**（`first_pass_success=true`、`repair_attempted=false`、
+  `final_all_goals_met=true`），两步都 `whole_task`、`physical_continuity=true`、
+  `scene_epoch` 不变。
+- 时延分解（六回合区间）：planner 0.91–0.95 s、执行 17.6–22.6 s、
+  交接 3.87–4.13 s（含 12 个抬升动作）、终局复验 0.25 s 量级，
+  总 26.0–31.1 s（20 Hz 下 201–249 个策略/终结器动作 + 47–51 个交接动作）。
+- 语言映射：中文、英文都落到同一有序 key 对
+  `["put_bowl_on_stove","turn_on_stove"]`，没有一次由脚本直接构造计划。
+
+同一条 D 在筛查里（结构化入口、init 0/1）也是 2/2，另有 init 2/3 各 1 次探测通过，
+合计 **10/10**；验收的 6 回合是这份清单里唯一的"冻结验收"组。
+
+### 33.8 stop / reset 隔离（交付代码）
+
+| 用例 | 触发点 | ack | ack 后动作 | 泄漏检查 |
+| --- | --- | --- | --- | --- |
+| `stop-step2-acceptance-pair` | 第二步进行中 201 动作 | `sim_at_request=201`、`sim_at_ack=201`、`in_flight_actions=0`、`settle_agreements=3` | 12 个样本全部 201（`advanced=false`） | `/api/load` 新 episode、`sim_action_count=0`、`last_result` 空 |
+| `stop-repair`（决策阶段） | `repairing` 571 动作（另一次 658 动作） | `sim_at_request=sim_at_ack`、`in_flight=0` | 9 个样本全部停在同值 | 同上，无旧结果泄漏 |
+| `stop-repair-actions`（修复动作阶段） | `repairing` 658 动作 | `sim_at_request=658`、`sim_at_ack=659`、`in_flight_actions=1`（被 cancel barrier 收掉） | 9 个样本全部 659 | 同上，`chunk_buffer_cleared=true` |
+
+修复阶段的两条 stop 在 07:1x / 09:27 命中（那时 A 的第二步还能到达并触发修复）；
+在交付代码上又试过一次（`stop_repair_v3_20261104.json`），该回合第二步先失败、
+没有进入修复阶段，记录为 `stage_not_reached`，不算通过也不删。修复路径本身
+（`_composite_repair` 与 stop 同步点）在两次命中之后没有再改。
+
+### 33.9 仍未解决的问题（写清楚，不粉饰）
+
+1. **A（0→8）仍是 0/2**：交接已经稳定（90 / 82 动作收敛），第二步拿到 900 动作
+   仍没到 native。历史诊断显示它**能夹住碗**（`min_opening≈0.0016`）但送不到盘子，
+   且唯一一次到达时把抽屉撞回关闭（`qpos≈-0.057`）。抽屉是否构成物理阻挡，
+   本轮没有接触/穿深数据能证明，不下结论。
+2. **修复预算 400 动作不够**：A 的修复只到 `-0.0954`。下一轮应做"修复起点姿态 +
+   预算"的单独对照，而不是直接加预算混跑。
+3. **谓词裕度**：7→8 第一步在 `qpos=0.5338`（阈值 0.5）成立，裕度 0.03；
+   脱离接触已消除拖拽，但"刚好过线"在第二步接触下仍有回退风险。要不要给 jog 类
+   目标加滞后带，需要单独一轮对照。
+4. **本轮没动**：动作执行窗口（5）、Qwen/planner、模型权重、训练、逐动作裁剪、
+   固定坐标绕障，一律没改，避免失去归因。
+
+### 33.10 产物与复现入口
+
+- 源码包：`/home/host/flashrt-exp/pi05_round/backup/embodied_engine-src-<短 SHA>.tar.gz`
+  （`git archive <交付提交> embodied_engine`；SHA256 与提交 SHA 见主清单 `code` 段）。
+- 主清单：`/home/host/flashrt-exp/pi05_round/raw/composite/MANIFEST_20261104.json`
+  （分组 + 每个原始文件的 SHA256）与同名 `.md`；原始回合按组单独归档。
+- 筛查（交付代码）：`screen_A_0to8_final3_20261104/`、`screen_B_8to0_final4_20261104/`、
+  `screen_C_7to8_final4_20261104/`；交接迭代过程：`screen_*_final{,2,3}_20261104/`。
+- 验收：`accept_D_1to7_{en,zh}_v3_20261104/`（六回合）；
+  `accept_D_1to7_{en,zh}_final_20261104/` 与 `_v2_` 是更早代码的回合，清单里单列，
+  不计入验收。
+- 修复诊断：`diag_A_*`；修复证据：`screen_A_0to8_final_20261104/`
+  （含 `composite.repair.episode` 完整子记录）。
+- stop 证据：`stop_step2_v3_20261104.json`、`stop_repair_20261104.json`、
+  `stop_repair_actions_20261104.json`、`stop_repair_final3_20261104.json`。
+- 启动引擎：
+  `EMBODIED_CONFIG_DIR=<config> EMBODIED_RECORDS_DIR=<records> \
+  /home/host/page-dmh/openwam_harness/envs/rpent/bin/python engine/engine_service.py`；
+  页面 `http://<host>:14901/`（LAN `:14902`），中英文指令直接说即可。
+- 复现单个组合回合：`python3 tools/composite_round.py --mode screen
+  --load-task <最后一步 task> --keys key1,key2 --inits 0,1`；
+  验收用 `--mode accept --instruction "…"`（走 Qwen）。

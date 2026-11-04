@@ -565,7 +565,10 @@ class RetreatReadyTest(unittest.TestCase):
     def test_exhausted_budget_is_not_ready_even_though_the_goal_still_holds(self):
         env = RestoreFakeEnv(drawer_snapshot(eef=[0.5, 0.5, 1.5]))
         block = self._run(env)
-        self.assertEqual(block["retreat"]["actions"], 4)
+        # ``actions`` includes the lift phase (bounded separately); the capped
+        # retreat itself is still exactly the configured 4.
+        lift_actions = int((block["retreat"].get("lift") or {}).get("actions") or 0)
+        self.assertEqual(block["retreat"]["actions"] - lift_actions, 4)
         self.assertEqual(block["retreat"]["reason"], "bounded_actions_exhausted")
         self.assertFalse(block["retreat"]["converged"])
         self.assertTrue(block["post_retreat"]["goal"]["ok"])  # goal still holds

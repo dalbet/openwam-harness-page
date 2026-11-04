@@ -1592,6 +1592,19 @@ class Engine:
             "scene_epoch": snapshot.get("scene_epoch"),
             "token": token,
         }
+        records.append_journal(
+            {
+                "t": time.time(),
+                "stage": "composite_repair_start",
+                "episode_id": episode_id,
+                "task_key": key,
+                "prompt": candidate["official_instruction"],
+                "observation_id": snapshot.get("observation_id"),
+                "sim_action_count": snapshot.get("sim_action_count"),
+                "scene_epoch": snapshot.get("scene_epoch"),
+                "token": token,
+            }
+        )
         repair_started = time.perf_counter()
         try:
             record, obs, snapshot = self._run_whole_task(
@@ -2836,16 +2849,16 @@ class Engine:
                         composite_state["repair"].pop("episode_record", None)
                     if repair_block.get("status") != "executed":
                         composite_state["repair"]["final_all_goals_met"] = False
-                        raise SkillFailure(
-                            "composite_final_verification_failed",
-                            "the composite's end state does not satisfy every step goal on fresh samples",
-                            {
-                                "steps": final_steps,
-                                "snapshot": snapshot,
-                                "repair": repair_block,
-                                "first_pass_success": False,
-                            },
-                        )
+                        # The repair issued real actions even when it did not
+                        # reach its goal. Take its last observation, then go
+                        # round the verification loop once more: the archived
+                        # record must carry the post-repair end state and the
+                        # true total action count, not the pre-repair snapshot.
+                        snapshot = repair_raw.get("_snapshot") or snapshot
+                        obs = repair_raw.get("_obs") or obs
+                        token = repair_raw.get("_token") or token
+                        self._set_frames(obs, snapshot)
+                        continue
                     obs = repair_raw.get("_obs")
                     snapshot = repair_raw.get("_snapshot")
                     token = repair_raw.get("_token") or token

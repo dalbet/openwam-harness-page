@@ -38,7 +38,10 @@ DEFAULT_HANDOFF = {
     "mode": "action_retreat",
     "retreat_m": 0.18,
     "retreat_step_m": 0.04,
-    "retreat_max_actions": 30,
+    "retreat_max_actions": 90,
+    "lift_clear_m": 0.12,
+    "lift_max_actions": 12,
+    "lift_step_m": 0.04,
     "tolerance_m": 0.02,
     "retreat_rot_step_rad": 1.0,
     "rot_tolerance_rad": 0.139626,
@@ -244,6 +247,9 @@ class Handoff:
                     "retreat_m",
                     "retreat_step_m",
                     "retreat_max_actions",
+                    "lift_clear_m",
+                    "lift_max_actions",
+                    "lift_step_m",
                     "tolerance_m",
                     "rot_tolerance_rad",
                     "settle_actions",
@@ -488,18 +494,28 @@ class Handoff:
     def _run_retreat(
         self, pre: dict[str, Any], block: dict[str, Any], started: float
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], str]:
+        # Free the fingers before any rotation. A retreat that turns the wrist
+        # while the fingers still touch the thing step 1 just moved drags it
+        # back: 7->8 lost the stove button this way. The detach is a measured,
+        # counted, rotation-free back-off; if the contact cannot be released
+        # inside its budget, the handoff is refused instead of guessing.
+        refused = self._detach(started, pre, block)
+        if refused is not None:
+            return refused
+        start_snapshot = self._last_snapshot or pre
+
         # Both position and orientation are restored: the policy continues
         # from a wrist pose close to the one the episode started in, so step 2
         # is not asked to grasp from an arbitrary orientation left by step 1.
         retreat = {
             "applied": False,
             "actions": 0,
-            "start_eef": self._eef(pre),
+            "start_eef": self._eef(start_snapshot),
             "target_eef": self.home_eef,
             "target_quat": self.home_quat,
             "reason": None,
         }
-        start_quat = _quat_of_snapshot(pre) or _quat_from_obs(self._last_obs)
+        start_quat = _quat_of_snapshot(start_snapshot) or _quat_from_obs(self._last_obs)
         if start_quat is not None and self.home_quat is not None:
             retreat["start_angle_deg"] = round(
                 float(np.degrees(np.linalg.norm(_axis_angle(start_quat, self.home_quat)))), 2
@@ -517,6 +533,50 @@ class Handoff:
                                        or np.linalg.norm(_axis_angle(quat, self.home_quat)) < rot_tol):
                 retreat["reason"] = "already_home"
             else:
+                # Climb clear before translating. A lateral move straight off a
+                # low approach pose can jam on the table, the plate or the
+                # cabinet: 8->0 at init 1 spent its whole retreat budget 3 cm
+                # from where it started. This is a short, counted,
+                # rotation-free climb; it never rotates the wrist.
+                lift = {
+                    "applied": False,
+                    "actions": 0,
+                    "clear_m": float(self.opts["lift_clear_m"]),
+                    "start_z": float(current[2]),
+                    "end_z": None,
+                    "risen_m": None,
+                }
+                retreat["lift"] = lift
+                lift_step = float(self.opts["lift_step_m"])
+                for _ in range(int(self.opts["lift_max_actions"])):
+                    self._check_stop()
+                    eef = self._eef(self._last_snapshot or pre)
+                    if eef is None:
+                        break
+                    risen = float(eef[2]) - float(lift["start_z"])
+                    if risen >= float(self.opts["lift_clear_m"]):
+                        break
+                    dz = min(lift_step, float(self.opts["lift_clear_m"]) - max(risen, 0.0))
+                    action = np.array(
+                        [0.0, 0.0, dz / RETREAT_SCALE_M, 0.0, 0.0, 0.0,
+                         float(self.opts["gripper_open_command"])],
+                        dtype=np.float64,
+                    )
+                    obs, _reward, _term, _trunc, _info = self.env.step(action)
+                    snap = self.env.state_snapshot()
+                    self._last_obs = obs
+                    self._last_snapshot = snap
+                    if self.frame_sink is not None:
+                        self.frame_sink(obs, snap)
+                    lift["actions"] += 1
+                    lift["applied"] = True
+                    retreat["actions"] += 1
+                    retreat["applied"] = True
+                eef_lifted = self._eef(self._last_snapshot or pre)
+                if eef_lifted is not None:
+                    lift["end_z"] = float(eef_lifted[2])
+                    lift["risen_m"] = round(float(eef_lifted[2]) - float(lift["start_z"]), 4)
+
                 limit = int(self.opts["retreat_max_actions"])
                 step_m = float(self.opts["retreat_step_m"])
                 rot_step = float(self.opts["retreat_rot_step_rad"])
@@ -537,7 +597,19 @@ class Handoff:
                     if pos_done and rot_done:
                         retreat["reason"] = "home_reached"
                         break
-                    bounded = [max(-step_m, min(step_m, value)) for value in delta]
+                    # Translate first, rotate after. OSC answers a command that
+                    # asks for translation *and* a large wrist rotation worse
+                    # than either alone; 7->8 at init 1 spent 60 actions 0.12 m
+                    # from home that way. The position phase keeps the wrist
+                    # fixed, the rotation phase holds the position, and both
+                    # share the same bounded budget.
+                    if pos_done:
+                        bounded = [0.0, 0.0, 0.0]
+                        retreat["rotate_phase_actions"] = int(retreat.get("rotate_phase_actions") or 0) + 1
+                    else:
+                        bounded = [max(-step_m, min(step_m, value)) for value in delta]
+                        rot_vector = np.zeros(3)
+                        retreat["translate_phase_actions"] = int(retreat.get("translate_phase_actions") or 0) + 1
                     command = [value / RETREAT_SCALE_M for value in bounded]
                     rot_norm = float(np.linalg.norm(rot_vector))
                     rot_command = [0.0, 0.0, 0.0]
