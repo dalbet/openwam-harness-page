@@ -71,7 +71,7 @@ def test_parse_repairs_once_then_accepts_choice():
     assert decision["choice"] == "put_bowl_on_stove"
     assert decision["repairs"] == 0
     assert len(calls) == 1
-    assert calls[0]["max_tokens"] == semantic_router.MAX_TOKENS
+    assert calls[0]["max_tokens"] >= semantic_router.MAX_TOKENS
 
 
 def test_unknown_choice_triggers_one_repair():

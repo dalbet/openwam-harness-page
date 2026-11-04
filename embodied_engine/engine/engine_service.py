@@ -1930,6 +1930,13 @@ class Engine:
         failure: dict[str, Any] | None = None
         execution_status = "failed"
         native_ever = False
+        # Episode scope, not verification scope: a SkillFailure raised by step 2
+        # (budget exhausted) jumps straight to the record assembly, which still
+        # reads these rows. They were first declared next to the verification
+        # loop and that raised UnboundLocalError, leaving the episode thread dead
+        # in phase "running" (observed on 12-step-2 budget failure).
+        final_steps: list[dict[str, Any]] = []
+        verification_attempts: list[dict[str, Any]] = []
         plan_completed_at: float | None = None
         openwam_stats: dict[str, Any] | None = None
         composite_state: dict[str, Any] = {"enabled": False}
@@ -2716,7 +2723,29 @@ class Engine:
             # verify again instead of failing an otherwise complete task.
             verify_started = time.perf_counter()
             verify_repairs = 0
+            # A verification round may loop to look at a repaired episode or a
+            # re-opened drawer. Without a hard cap an ineligible repair used to
+            # `continue` forever (repair disabled -> status "not_attempted" ->
+            # attempted stays False -> same branch again), which kept stepping
+            # the environment: one episode reached 9895 sim actions and then
+            # lost the env connection. Bounded here, and the repair branch is
+            # entered at most once.
+            verify_rounds = 0
+            repair_considered = False
+            final_steps = []
+            verification_attempts = []
             while True:
+                verify_rounds += 1
+                if verify_rounds > 6:
+                    raise SkillFailure(
+                        "composite_verification_did_not_converge",
+                        "final verification kept failing without a repair that issued actions",
+                        {
+                            "rounds": verify_rounds - 1,
+                            "steps": final_steps,
+                            "repair": composite_state.get("repair"),
+                        },
+                    )
                 self._set_phase("verifying", "final task verification")
                 samples = []
                 for _ in range(3):
@@ -2856,14 +2885,46 @@ class Engine:
                     if not ok:
                         failed.append((position, step))
                 native_ever = native_ever or any(bool(s.get("native_goal")) for s in samples)
+                # Every verification round is kept, not just the decisive one.
+                # A first round that failed on 3 fresh samples and a later round
+                # that held are different outcomes; losing the failed triple
+                # would leave "first_pass_success=false" without evidence.
+                verification_attempts.append(
+                    {
+                        "round": verify_rounds,
+                        "ok": all_ok,
+                        "observation_ids": [s.get("observation_id") for s in samples],
+                        "sim_action_counts": [s.get("sim_action_count") for s in samples],
+                        "steps": [
+                            {
+                                "step_id": (row.get("step") or {}).get("step_id"),
+                                "task_key": (row.get("step") or {}).get("step_task_key"),
+                                "ok": bool(row.get("ok")),
+                                "reason_code": (row.get("verification") or {}).get("reason_code"),
+                                "native_samples": (row.get("verification") or {}).get("samples"),
+                                "relation_samples": [
+                                    {
+                                        "ok": item.get("ok"),
+                                        "predicate": item.get("predicate"),
+                                        "xy_m": item.get("xy_m"),
+                                        "object_bottom_z": item.get("object_bottom_z"),
+                                    }
+                                    for item in ((row.get("verification") or {}).get("relation_samples") or [])
+                                ],
+                            }
+                            for row in final_steps
+                        ],
+                    }
+                )
                 if all_ok:
                     if composite_state.get("repair"):
                         composite_state["repair"]["final_all_goals_met"] = True
                     break
-                if composite_state.get("enabled") and not composite_state.get("repair_attempted"):
+                if composite_state.get("enabled") and not composite_state.get("repair_attempted") and not repair_considered:
                     # One bounded repair, only when the anchor step succeeded
                     # and an *earlier* goal was lost. The eligibility rules are
                     # checked inside the engine; the model only picks the task.
+                    repair_considered = True
                     composite_state["first_pass_success"] = False
                     try:
                         repair_raw = self._composite_repair(
@@ -3140,7 +3201,7 @@ class Engine:
             step_rows_ok = [
                 {
                     "step_id": row.get("step_id"),
-                    "key": row.get("step_task_key"),
+                    "key": row.get("task_key"),
                     "goal_kind": row.get("goal_kind"),
                     "ok": bool(row.get("ok")),
                     "ok_final": row.get("ok_final"),
@@ -3154,10 +3215,22 @@ class Engine:
             anchor_row = step_rows[-1] if step_rows else {}
             anchor_native = bool((anchor_row.get("evidence") or {}).get("ok")) and len(step_rows) > 1
             anchor_native_final = anchor_row.get("ok_final") if step_rows else None
+            # A handoff happens after step n (0-based) and before step n+1, so
+            # its labels are step_ids[n] -> step_ids[n+1]. Deriving them from
+            # the enumerate index labelled the first handoff "c0 -> c1", which
+            # reads as "before step 1" and is wrong for 2- and 3-step plans.
+            handoff_step_ids = list(composite_state.get("step_ids") or [])
             handoff_rows = [
                 {
-                    "from_step": f"c{n}",
-                    "to_step": f"c{n + 1}",
+                    "index": n + 1,
+                    "from_step": (
+                        handoff_step_ids[n] if n < len(handoff_step_ids) else f"c{n + 1}"
+                    ),
+                    "to_step": (
+                        handoff_step_ids[n + 1]
+                        if n + 1 < len(handoff_step_ids)
+                        else f"c{n + 2}"
+                    ),
                     "mode": row.get("mode"),
                     "status": row.get("status"),
                     "sim_actions": row.get("sim_actions"),
@@ -3263,6 +3336,7 @@ class Engine:
                     anchor_native and anchor_row.get("release_state") == "verified"
                 ),
                 "hold_check": hold_check,
+                "final_verification_attempts": verification_attempts,
                 # Legacy names kept for the existing manifest/report readers:
                 # step_1_* is the first step, step_2_* is the anchor (last) step.
                 "step_1_ok": step_1_ok,

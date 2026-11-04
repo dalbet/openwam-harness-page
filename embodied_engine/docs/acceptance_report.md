@@ -2526,3 +2526,286 @@ watch_joints:{name:qpos}, watch_joints_qvel:{name:qvel}}`，在 env 侧用已经
 - 复现单个组合回合：`python3 tools/composite_round.py --mode screen
   --load-task <最后一步 task> --keys key1,key2 --inits 0,1`；
   验收用 `--mode accept --instruction "…"`（走 Qwen）。
+
+## 34. Pi0.5 家务组合：两步 `6 → 1` 与三步 `6 → 1 → 7`（2026-11-04，真实执行）
+
+本轮在**当前模型层**（`backend=pi05`，FlashRT BF16 / arm S2）上把"有家务逻辑的组合"
+从两步推到三步：`put_cream_cheese_in_bowl → put_bowl_on_stove → turn_on_stove`
+（目录 key，不用数字答案）。两步先做六回合冻结验收，两步通过后再做三步六回合；
+失败原样保留，并追加 `6 → 8`、`1 → 6` 两组最小对照定位失败阶段。
+
+**先给结论，再给证据**：
+
+1. **两步 `6 → 1` 可用但不稳定：交付版 5/6**（en 3/3、zh 2/3）。唯一失败是
+   zh init 1 的第二步：碗搬到了炉灶**旁边**（与成功回合落点 x 向差 2.7 cm），
+   native 目标 600 个动作内始终 `false`，而机械臂已经松手并退回 home。
+2. **三步 `6 → 1 → 7` 可用但不稳定：交付版 4/6**（en 2/3、zh 2/3）。两次失败
+   分属两种不同机制：(a) 搬碗阶段奶酪在碗内滑出（en init 1，终点 xy 49.2 mm，
+   超 25 mm 判据，两个复验轮次都失败）；(b) 第二步 600 动作没把碗送到炉灶
+   （zh init 1，碗几乎没离开原位，奶酪同时滑到 57.7 mm）。
+3. 失败都发生在**第二步（搬碗/放炉灶）**，不在交接、不在释放、不在第三步：
+   全部 12 个交付回合的交接都是 `ready`（27–65 动作），第一步 `6` 全部成立并释放。
+4. 第三步 `turn_on_stove` 没有推走碗/奶酪：成功回合里第三步期间碗位移
+   0.0–0.6 mm、奶酪 0.0–2.9 mm。
+5. 对照组：`6 → 8`（碗放盘子）**2/2 通过**，`1 → 6`（碗放炉灶→奶酪入碗）**0/2**。
+   所以"带碗搬运"本身不是瓶颈，"把碗送到炉灶"和"奶酪在碗里待得住"才是。
+
+### 34.1 锚点、代码与运行配置
+
+| 项 | 值 |
+| --- | --- |
+| 代码根 / 分支 | `/home/host/page-dmh` / `feature/pi05-household-composite-3step` |
+| 基线提交 | `3a03b6771c1bfd8808addfc34864ed46b9735c6a`（标签 `backup/pi05-composite-final-20261104-3a03b67` 解析到该完整 SHA，已核对） |
+| 交付提交 | 本文件所在提交（`git rev-parse HEAD`；完整 SHA、标签与源码包校验见主清单 `MANIFEST_20261104_household.json` 的 `code` 段） |
+| 运行配置 | `EMBODIED_CONFIG_DIR=/home/host/flashrt-exp/pi05_round/config_demo_b900` |
+| 组合开关 | `composite.enabled=true`、`max_steps=3`、预算 `1:300 / 2:600 / 3:300`、`goal_confirm_samples=2` |
+| 修复开关 | `composite.repair.enabled=false`（本轮是**无修复基线**；`max_calls=1`、`max_steps=400`、`timeout_s=60` 冻结未用） |
+| 交接 | `action_retreat`（`retreat_m=0.18`、`retreat_max_actions=90`、`lift_clear_m=0.12`、`detach_from_contact=true`） |
+| Agent | Qwen3.5-9B（vLLM `:8001`），`mode=semantic_router`、`max_tokens=64`、`non_thinking` |
+| 模型 | `pi05_libero (official PyTorch conversion)`，revision `6222623f635769bfc73c9472e29fab9b7fd8e027` |
+| 加速 | FlashRT `flash_rt` BF16（`Pi05TorchFrontendRtx` v0.2.0），arm **S2**，`127.0.0.1:14551` |
+| 动作契约 | `libero7d`、`action_dim=7`、`action_horizon=10`、`execute_horizon=5`、`denoise_steps=10`、20 Hz、`mode=sync` |
+| 观测 | 主/腕各 224×224（rot180）+ 8 维 LIBERO proprio |
+| 服务 | agent `:14571`、engine `:14821`、inference `:14621`、env `:14591`、page_ui `:14901`（LAN `:14902`） |
+
+模型、执行窗口（5）、加速配置、阈值、BDDL 本轮一律没改。所有回合都是**同一
+episode、不 reset、不 reload、不传送物体、不锁物体、不改摩擦/碰撞**；记录里
+`scene_epoch_continuous=true`、`env_reset_between_steps=0`、`env_reload_between_steps=0`、
+`object_teleport=false`。
+
+### 34.2 目标核对（从安装目录/BDDL/资产确认，不硬编码数字）
+
+| 任务 | 目录 key | BDDL（sha256 前 8 位） | 官方指令（查表发给策略） | 关系 |
+| --- | --- | --- | --- | --- |
+| 6 | `put_cream_cheese_in_bowl` | `put_the_cream_cheese_in_the_bowl.bddl`（`81c54eac`） | `put the cream cheese in the bowl` | `interior`：`cream_cheese_1` → `akita_black_bowl_1` |
+| 1 | `put_bowl_on_stove` | `put_the_bowl_on_the_stove.bddl`（`c6812d6c`） | `put the bowl on the stove` | `on`：`akita_black_bowl_1` → `flat_stove_1_cook_region` |
+| 7 | `turn_on_stove` | `turn_on_the_stove.bddl`（`cbd2a051`） | `turn on the stove` | native：`TurnOn flat_stove_1_button` |
+| 8 | `put_bowl_on_plate` | `put_the_bowl_on_the_plate.bddl`（`358b77814`） | `put the bowl on the plate` | `support_body`：碗 → `plate_1` |
+
+- 计划里每一步的 `step_task_id / step_task_key / prompt` 都来自 `config/tasks.json`
+  的目录条目（`plan.steps[].prompt` = `official_instruction`），Qwen 只输出有序
+  key 列表，**不生成指令文本、不知道任务编号**。
+- task 6 的 `bddl_language` 字符串是 `Put the cream cheese on the bowl`（LIBERO 自己
+  的措辞），但它的 native goal 是 `In(cream_cheese_1, akita_black_bowl_1)`；本轮的
+  "奶酪在碗内"谓词按碗的内部几何判，不是把 `on` 读成"在碗口上"。
+
+### 34.3 "奶酪在碗内"的判据、精度与限制
+
+`common/geometry.py::object_relation`（值来自安装的资产 XML，未按轮调参）：
+
+- `xy_m = |object_xy - bowl_xy|`，判据 `xy_m ≤ inner_xy_m = 0.025`（`akita_black_bowl.xml`
+  的内半径）；这是**中心距离**，不是"整个奶酪都在碗沿内"，所以比"完全装入"宽松。
+- 高度带：`object_bottom_z = object_z + bottom_z(asset)`（奶酪 `bottom_z=-0.040608`），
+  要求 `floor_z - 0.02 ≤ object_bottom_z ≤ rim_z`，其中 `floor_z = bowl_z - 0.012`、
+  `rim_z = bowl_z + 0.04`。**这条带子允许"底部高出碗底 3–4 cm 仍算在碗内"**，
+  本轮两次失败正是"奶酪架在碗沿/堆叠上"（`delta_m=0.0357 / 0.0359`）。
+- 用的是**世界系 XY + 目标当前位姿**：碗被搬动时判据自动跟着碗走（`goal_watch`
+  每个快照都重算），但**不建模碗的倾角**——碗一旦明显倾斜，内圆投影成椭圆，
+  0.025 m 的半径不再精确。本轮没有测到碗明显倾斜的样本，这一点是限制而非结论。
+- 判据容忍的判定误差：XY ±0.5 mm（四舍五入到 1e-4 m）、Z 带 ±20 mm。Z 带是
+  LIBERO 自己的 `check_ontop` 口径，本轮**没有放宽也没有收紧**。
+- 搬碗期间的关系保持与"最终放置后的稳定关系"分开记录：`carry_watch` 每 5 个动作
+  采样一次，记录奶酪/碗/炉灶位姿、相对 3D/XY 偏移、抓取开合；**瞬时抖动不判长期
+  失败**，最终判据用回合末 3 个新样本（每步都复验，不看 `native_ever`）。
+
+### 34.4 三步通用契约（不是只改 `max_steps`）
+
+| 位置 | 改动 | 证据 |
+| --- | --- | --- |
+| `common/composite_plan.py` | `max_steps=3`、按步预算表 `1:300 / 2:600 / 3:300`；支持 2..N 有序对；**非末步禁止 `native_goal`**；4 步返回 `step_limit_exceeded` | `tests/test_composite_plan.py`、`tests/test_composite_three_step.py`（161 tests 全过） |
+| `agent/semantic_router.py` | 允许 1–3 个目录 key 的有序序列，`max_tokens=64`；4 步直接拒 | `test_three_step_answer_is_accepted` / `test_four_step_answer_is_refused` |
+| `engine/engine_service.py` | 每步自己的目标/身份/缓冲；`c1..cN` 步 id；终局逐重复验；`hold_check` 证明"放下的物体没有被继续夹着"；`handoffs[]` 记录每次交接 | `composite.step_ids / steps_ok / handoffs / hold_check` |
+| `engine/openwam_rollout.py` | `goal_watch`：搬运期间持续跟踪前序步谓词（"随动物体目标"） | `steps[].goal_watch.timeline` |
+| `page_ui` | `步骤: 1/3 ✓ key → 2/3 ▶ key → 3/3 · key` | §34.9 |
+
+本轮同时修掉三个**记录/控制缺陷**（都不是判定口径变更）：
+
+1. **终局复验的无限循环（严重）**：`repair.enabled=false` 时，终局复验失败会进入
+   修复分支，`_composite_repair` 返回 `status=not_attempted`，代码 `continue`
+   回到同一个分支——每轮再走 3 个仿真动作。实测一个回合冲到 **9895 个仿真动作**
+   并把 env 服务打到 `Connection refused`（`ep-20261104-113101-f0c2ad`）。
+   现在：修复分支只进一次（`repair_considered`），并加 `verify_rounds > 6` 的硬上限
+   （`composite_verification_did_not_converge`）。
+2. **交接标签错位**：`handoffs[]` 用 enumerate 下标写成 `c0→c1`，第一步交接
+   （c1 之后、c2 之前）被标成"第 1 步之前"。现在按 `step_ids[n] → step_ids[n+1]`。
+3. **`steps_ok[].key` 恒为 null**：`step_summary` 的字段名是 `task_key`，
+   汇总处读的是 `step_task_key`。已修（外部工具原来读到的 key 是空的）。
+   另外新增 `final_verification_attempts[]`：**每一轮**复验的样本都留档，
+   这样 `first_pass_success=false` 有据可查，不再只有最后一轮。
+
+### 34.5 单任务 task 6 冒烟（先确认"第一步本身能做"）
+
+结构化入口（不经 Qwen），固定 init 0/1/2 各一回合：
+
+| init | 动作 | 耗时 | native | 释放 | 结果 |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 96 | 13.2 s | true | `placement_verified=true`、`release_verified=true` | 通过 |
+| 1 | 94 | 13.0 s | true | 同上 | 通过 |
+| 2 | 92 | 12.6 s | true | 同上 | 通过 |
+
+抓取开合实测 `release.opening_m≈0.0596`（三次一致）、`release.samples=2`、
+奶酪到指间 `object_eef_m` 0.044–0.082 m（不是"一直夹着"），
+且 release 之后还有 3 个新样本（`:94/:95/:96` 等）作证据。
+**3/3 一次通过**，说明"奶酪入碗并松手"这一步不是瓶颈。
+
+### 34.6 两步 `6 → 1` 冻结验收（交付代码，六回合）
+
+自然语言**真的经过 Qwen**（`plan.source=qwen3.5-9b-semantic-router`），两步 key
+由 Qwen 输出、指令由目录查表；同一 episode 内 `6 →（物理交接）→ 1`。
+
+| 语言 | init | 指令 | 第一步 | 交接 | 第二步 | 总动作 | 耗时 | 结果 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| en | 0 | put the cream cheese in the bowl, then put the bowl on the stove | 90 `step_goal` | 33 | 228 `policy_release` | 375 | 41.7 s | 通过 |
+| en | 1 | 同上 | 77 `step_goal` | 27 | 180 `chunk_exhausted` | 329 | 38.1 s | 通过 |
+| en | 2 | 同上 | 99 `step_goal` | 35 | 85 `chunk_exhausted` | 264 | 31.4 s | 通过 |
+| zh | 0 | 把奶酪放进碗里，再把碗放到炉灶上。 | 86 `step_goal` | 33 | 139 `policy_release` | 282 | 32.9 s | 通过 |
+| zh | 1 | 同上 | 88 `step_goal` | 40 | **600 `budget`（失败）** | 749 | 80.4 s | `composite_step_2_failed` |
+| zh | 2 | 同上 | 88 `step_goal` | 36 | 95 `chunk_exhausted` | 264 | 31.1 s | 通过 |
+
+- **5/6 通过**（5 个一次通过、0 次修复；`combo_verified=true`、`hold_ok=true`、
+  `final_all_goals_met=true`）。`handoffs[]` 全部 `status=ready`、`physical_continuity=true`、
+  `robot_teleport=false`。
+- 时延（通过的 5 回合）：路由+装配 1.10–1.12 s、首动作 0.116–0.137 s、
+  执行 21.1–34.4 s、交接 2.28–3.14 s、终局复验 0.21–0.31 s、总 31.1–41.7 s。
+  失败回合执行 72.7 s、总 80.4 s（600 动作打满）。
+- 失败回合（zh init 1）的物理过程：碗确实被抓起并抬高（`bowl_z` 最大 1.066 m，
+  起点 `(-0.083, -0.005, 0.898)`），落到 `(-0.192, 0.220, 0.929)` 后松手
+  （`opening` 0.0794），机械臂退回 `eef=(-0.726, 0.168, 1.053)`；同一 batch 成功
+  回合的落点是 `x ∈ [-0.250, -0.218]`、`y ∈ [0.196, 0.220]`，失败回合比最近的
+  成功落点还偏右 **2.6 cm**。`native_ever=false`——600 个动作内加载场景的 native
+  目标一次都没成立。奶酪全程在碗内（`carry_watch` 121 个采样，xy 2.2–17.7 mm，
+  **0 个超限**），所以这一步的失败是"碗没送到位"，不是"掉料"。
+- 同一 batch 的 en init 1 有**瞬时**滑出（39 个采样里 5 个超 25 mm，最大 30.1 mm，
+  末样本回到 8.7 mm）仍然通过——这正是"瞬时抖动不判长期失败"的口径，
+  与下面三步 en init 1 的"再也没回来"形成对照。
+- 结构化入口的同对筛查（不经 Qwen）另测 **3/3**（327/351/267 动作），与验收不混算。
+
+### 34.7 三步 `6 → 1 → 7` 冻结验收（交付代码，六回合）
+
+加载场景 = 最后一步的 BDDL（task 7 `turn_on_the_stove.bddl`）；计划
+`["put_cream_cheese_in_bowl","put_bowl_on_stove","turn_on_stove"]`。
+
+| 语言 | init | 第一步 | 交接1 | 第二步 | 交接2 | 第三步 | 总动作 | 耗时 | 结果 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| en | 0 | 106 `step_goal` | 39 | 85 `step_goal` | 47 | 119 `native_goal` | 441 | 49.2 s | 通过 |
+| en | 1 | 80 `step_goal` | 39 | 472 `step_goal` | 65 | 81 `native_goal` | 785 | 90.8 s | `composite_final_verification_failed` |
+| en | 2 | 92 `step_goal` | 38 | 88 `step_goal` | 47 | 72 `native_goal` | 382 | 42.8 s | 通过 |
+| zh | 0 | 105 `step_goal` | 37 | 85 `step_goal` | 51 | 82 `native_goal` | 405 | 45.8 s | 通过 |
+| zh | 1 | 78 `step_goal` | 39 | **600 `budget`（失败）** | — | — | 738 | 82.8 s | `composite_step_2_failed` |
+| zh | 2 | 82 `step_goal` | 33 | 122 `step_goal` | 48 | 77 `native_goal` | 407 | 45.5 s | 通过 |
+
+- **4/6 通过**（4 个一次通过、0 次修复）。四个通过回合里三个目标都是
+  "奶酪在碗内 + 碗在炉灶 + 炉灶已开"，终局用 3 个新样本逐步复验
+  （`final_all_goals_met=true`、`hold_ok=true`）。第三步是**开旋钮**，不是放置，
+  所以 `anchor_release_verified=false` 是预期的（该步 `release_state=not_applicable`）；
+  "没有被继续夹着"由终局 `hold_check` 对两个放置物分别给出
+  （`not_held=true`、`eef_object_m` 0.16–0.23 m、`opening` 0.030–0.064 m）。
+- 时延（通过的 4 回合）：路由+装配 1.32–1.34 s（三步 key 比两步多 ~0.22 s）、
+  首动作 0.125–0.134 s、执行 30.3–37.1 s、两次交接合计 7.1–7.7 s、
+  终局复验 0.27–0.34 s、总 42.8–49.2 s。
+- **失败 A（en init 1，终局复验）**：三个目标里只有 `c1` 失效：
+  两轮复验各 3 个样本，奶酪-碗 xy 都是 **49.2 mm**（判据 25 mm，`reason_code=step_goal_regressed`）；
+  碗（`c2` native 3/3）与炉灶（`c3` native 3/3）都成立。
+  关系是**在第二步搬运开始后 69 个动作就掉了**（`carry_watch`：第二步 96 个采样
+  里 82 个超限，xy 从 17.8 mm 漂到 50.2 mm，末样本 49.8 mm；第三步 17 个采样
+  **全部**超限，47.5–49.1 mm，`never_held`）。第一步结束时奶酪底高出碗底
+  **35.7 mm**（"架在碗沿/堆叠上"，同一批通过回合是 11.8–29.0 mm）。
+  **不是第三步开炉灶碰掉的**，是搬运阶段滑出去的，而且没有回来。
+- **失败 B（zh init 1，第二步预算）**：第二步 600 动作内碗只从
+  `(-0.082, -0.005, 0.898)` 挪到 `(-0.101, -0.044, 0.940)`——抬高仅 4.2 cm、
+  横向 4 cm，**根本没往炉灶（`x≈-0.26, y≈0.21`）走**；同时奶酪滑到
+  **57.7 mm**（121 个采样里 107 个超限，末样本 57.0 mm）。机械臂在该步结束时
+  仍在碗附近（`eef=(-0.051, -0.020, 1.053)`，`opening` 0.0791），
+  `native_ever=false`。这是"抓起来走不了"+"掉料"叠加，不是落点判据问题。
+- 结构化入口的三步筛查（不经 Qwen）另测 **3/3**（431/672/387 动作），不混算。
+
+> 更早的同配置批次（交接标签修复前，代码为 `f2b7392`）两步 en 2/3 + zh 3/3、
+> 三步 en 3/3 + zh 3/3；它们与本节的差别只有轨迹随机性与记录字段，
+> 本节不再拿它们凑成功率，全部原始回合在主清单里单列。
+
+### 34.8 失败定位：两组最小对照（各两个固定 init）
+
+| 对照 | 计划（目录 key） | init | 结果 | 说明 |
+| --- | --- | --- | --- | --- |
+| `6 → 8` | `put_cream_cheese_in_bowl → put_bowl_on_plate` | 1, 2 | **2/2 通过**（285/238 动作） | 带奶酪搬碗到盘子：可行；`carry_watch` 奶酪 xy 最大 29.7 / 19.0 mm |
+| `1 → 6` | `put_bowl_on_stove → put_cream_cheese_in_bowl` | 1, 2 | **0/2**（749 / 754 动作，第二步各 600 打满） | 碗已在炉灶上时再把奶酪放进碗：没完成 |
+
+按事先约定的解释规则：
+
+- **`6→8` 能完成、`6→1` 失败** → 重点在**炉灶路径/落点**，不是"带物搬运"本身。
+  zh init 1 的失败落点距成功落点 2.7 cm，机械臂却已松手回 home，属于
+  "策略认为放完了、官方判据不认"；没有接触/bbox 数据证明偏差是否唯一原因，
+  这里只记阶段，不下"炉灶被挡住"的结论。
+- **`1→6` 也不能完成** → 不能拿"换个顺序"当备用流程；它失败在"把奶酪放进
+  已在炉灶上的碗"（第二步 600 动作打满，`eef_object_m` 0.036 / 0.100）。
+- **奶酪滑出**（en init 1）与"策略不会搬碗"是两件事：该回合碗确实被搬上炉灶
+  （`c2` native 3/3），失效的是第一步的长期关系；`carry_watch` 把滑出时刻、
+  相对偏移和阶段都留下了，所以能区分"搬运抖动导致滑出"与"根本没放进去"。
+- 三个失败回合都 `hold_ok=true`（终局样本上两个物体都不在指间），
+  没有出现"夹着不放却判成功"。
+
+### 34.9 stop / reset 隔离（交付代码，真点）
+
+| 用例 | 触发点（引擎自己发布的阶段） | ack | ack 后动作 | 记录 | 泄漏检查 |
+| --- | --- | --- | --- | --- | --- |
+| `stop-step3-household` | `running` / `step 3/3 turn_on_stove`，`sim=299` | `sim_at_request=299`、`sim_at_ack=299`、`in_flight_actions=0` | 11 个样本全部 299（`advanced=false`） | `execution_status=stopped`、`failure=user_stop`、`sim_actions=299` | `/api/load` → 新 episode、`sim_action_count=0`、`phase=ready`、`last_result` 空 |
+| `stop-handoff-c2c3` | `handoff` / `step c2->c3 put_bowl_on_stove->turn_on_stove`，`sim=270` | `sim_at_request=270`、`sim_at_ack=271`、`in_flight_actions=1`（被 cancel barrier 收掉） | 11 个样本全部 271（`advanced=false`） | `stopped` / `user_stop` / `sim_actions=271` | 同上，`new_episode=true` |
+
+两个同步点都是**引擎发布的阶段字符串**（`step 3/3 …`、`step c2->c3 …`），
+不是 sleep 猜的；`stop` 之后没有再走一个仿真动作，`/api/load` 之后没有旧结果。
+
+### 34.10 页面演示（真实 WS 驱动，不是截图猜）
+
+用页面自己的协议（`/ws`：`get_scenes` → `load task_7` → `start "把奶酪放进碗里，再把碗放到炉灶上，最后打开炉灶。"`）
+驱动一轮真实三步，记录页面收到的 `identity` 消息里的 `steps`：
+
+```
+t=0.0s   phase=ready       []
+t=23.1s  phase=running     1/3 running put_cream_cheese_in_bowl | 2/3 pending put_bowl_on_stove | 3/3 pending turn_on_stove
+t=34.6s  phase=handoff     1/3 done    put_cream_cheese_in_bowl | 2/3 running put_bowl_on_stove | 3/3 pending turn_on_stove
+t=49.3s  phase=handoff     1/3 done    put_cream_cheese_in_bowl | 2/3 done    put_bowl_on_stove | 3/3 running turn_on_stove
+t=61.1s  phase=verifying   1/3 done    | 2/3 done    | 3/3 done
+```
+
+该回合是 `ep-20261104-122936-76646e`，引擎最终记为 `succeeded`、**386 个仿真动作**、
+42.7 s（探针本身在 `verifying` 阶段（t=61.1 s）停止记录，之后没再等结果）。
+页面上显示的就是 `1/3 ✓`、`2/3 ▶`、`3/3 ·` 这种"真实步骤 + 进度"，
+不是把整轮画成一个任务；仿真没有热学模型，所以页面上**不会**出现"已升温/已融化"。
+
+### 34.11 已知限制与断点（如实列）
+
+1. **两步/三步都不是 100%**：交付版 5/6 与 4/6。失败全部在第二步，两种机制
+   （落点差 2.7 cm 被判失败；奶酪在搬运中滑出 49–58 mm）。不是交接或释放问题。
+2. **奶酪"放得高"会滑**：失败 A 的第一步 `delta_m`（奶酪底高出碗底）35.7 mm，
+   失败 B 是 35.9 mm；同一批通过回合是 11.8–32.9 mm，只有 1 个通过回合到 32.9 mm。
+   这是**观察到的相关**，不是判据：本轮没有改阈值、没有加"必须落在碗底"的新条件。
+3. **裕度很小**：通过回合第一步终点 xy 落在 0.7–22.4 mm（判据 25 mm），
+   搬运中瞬时超限的样本真实存在（en 两步 init 1：39 个采样 5 个超限，最大 30.1 mm；
+   en 三步 init 0：18 个采样 2 个超限，最大 26.5 mm），两回合最后都回到限内。
+   要不要给"碗内"加滞后带，需要单独一轮对照，本轮不动。
+4. **`1 → 6` 不能当备用流程**：0/2，第二步 600 动作打满。
+5. **修复路径本轮没启用**（`repair.enabled=false`）；即使启用，本次两类失败
+   都不满足"末步成功 + 前序目标丢失"的资格（失败 B 末步没跑，失败 A 的末两步
+   都成立但修复预算只覆盖一次有界调用），**不能用修复掩盖**。
+6. **终局复验允许第二轮**：`repair.enabled=false` 时，第一轮 3 样本失败后代码
+   会再取一轮 3 样本（历史上的无限循环修成有界两轮），最终判定用最后一轮，
+   但 `first_pass_success=false` 与 `final_verification_attempts[]` 会保留
+   第一轮的失败样本。是否需要"只认第一轮"的严格口径，留给下一轮决定。
+
+### 34.12 产物与复现入口
+
+- 主清单：`/home/host/flashrt-exp/pi05_round/raw/composite/MANIFEST_20261104_household.json`
+  （分组 + 每个原始文件的 SHA256；`code` 段含提交/标签/源码包 SHA256）。
+- 冻结验收（交付代码）：`step2_{en,zh}_delivery_20261104/`、
+  `step3_{en,zh}_delivery_20261104/`。
+- 结构化筛查：`screen_cheese_bowl_stove_20261104/`（两步）、
+  `three_step_20261104/`（三步）、`smoke_task6_20261104/`（单步冒烟）。
+- 对照：`diag_6to8_20261104/`、`diag_1to6_20261104/`。
+- stop：`stop_three_step_final_20261104.json`。
+- 页面：`page_step_progress_20261104.json`（WS 驱动，含逐步状态）。
+- 更早批次（不混算）：`accept_2step_*_20261104/`、`accept_3step_*_20261104/`、
+  `*_v2_*`、`accept_2step_*_final_20261104/`，以及**无限循环证据**
+  `ep-20261104-113101-f0c2ad`（`records_demo/runs/`，9895 动作、env 断连）。
+- 复现单个组合回合：
+  `python3 tools/composite_round.py --mode screen --load-task <末步 task> --keys k1,k2[,k3] --inits 0,1,2`；
+  验收用 `--mode accept --instruction "…"`（走 Qwen）。

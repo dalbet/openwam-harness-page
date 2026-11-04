@@ -809,3 +809,156 @@ env 进程重启后旧编号一律 `capture_unknown`，不会恢复一个没人�
   `sim_actions_total` 会漏掉修复动作（实测 1028 vs 真实 1428）。
 - **预算与裕度**：`retreat_max_actions=90`（实测 A 用满 90 / 82）；
   7→8 第一步在 `qpos=0.5338`（阈值 0.5）成立，裕度只有 0.03，尚未加滞后带。
+## 11. 三步有序组合与随动目标（2026-11-04，Pi0.5）
+
+§10 是**两步**基线（`supported_pairs` 白名单 + `step_1_* / step_2_*` 字段）。
+本节是把它推广到 **2..N 步（N=3）** 之后的实现。要点不是把 `max_steps` 从 2 改成 3，
+而是把"第几步"从字段名变成数据：**有序 key 列表 + 每步位置**。
+
+触发这一轮的真实任务：
+
+- 两步：`put_cream_cheese_in_bowl → put_bowl_on_stove`（6→1）
+- 三步：`put_cream_cheese_in_bowl → put_bowl_on_stove → turn_on_stove`（6→1→7）
+- 对照（只做诊断）：6→8（碗放盘子）、1→6（碗放炉灶→奶酪入碗）
+
+### 11.1 契约：`common/composite_plan.py`
+
+| 概念 | 实现 |
+| --- | --- |
+| 步数上限 | `composite.max_steps`（出厂 3），超过返回 `step_limit_exceeded`，不截断、不降级 |
+| 每步预算 | `composite.step_max_steps`，按**位置**索引：`{"1":300,"2":600,"3":300}`；`step_budget(i)` 是唯一入口 |
+| 锚定 | 加载场景 = **最后一步**的 BDDL；`support()` 检查 `anchor.task_id == loaded_task.task_id`，否则 `requires_scene_switch` |
+| 每步目标 | `completion_for(task, is_anchor=...)`：锚步 `native_goal`；非锚步只允许引擎谓词（`relation+release_height` / `drawer_open` / `stove_button`）；非锚步**拿不到** `native_goal` 这个 kind |
+| 白名单 | `supported_pairs` 是**显式列出的有序序列**，长度 2 或 3。识别出但没列的序列返回 `unsupported_combo`，不改顺序、不拆分 |
+| 步 id | `build_plan()` 按位置生成 `c1..cN`；`step_index` 从 1 开始；每步的 `prompt` 来自目录 `official_instruction`，不由模型生成 |
+| 校验顺序 | `support()`：禁用 → 步数 <2 → **超上限** → 重复 key → 未知 key → 不在白名单 → 锚点不匹配 → 非锚步谓词不支持 |
+
+对"只改 `max_steps` 会漏掉什么"的逐项处理：
+
+1. **长度校验**：路由层先拒 4 步（`semantic_router` 用同一个 `max_steps`），
+   计划层再拒一次（`support()`）。两层都拒，不靠"截断成 3 步"。
+2. **预算索引**：旧代码 `budget = 240 if index == 1 else 900`——第 3 步会拿到第 2 步的
+   预算。现在按位置查表，缺省 600。
+3. **中间步骤交接**：交接是 `step[i] -> step[i+1]` 的循环，数量 `N-1`；
+   `handoffs[]` 里 `from_step/to_step` 取 `step_ids[n] / step_ids[n+1]`
+   （之前用 enumerate 下标，第一步的交接被写成 `c0->c1`）。
+4. **目标收集**：终局复验遍历 `step_results`（全部步），不是"第一步 + 最后一步"；
+   摘要里的 `steps_ok[]` 每步一行（`task_key` 之前恒为 null，已修）。
+5. **终局检查**：`combo_verified = 所有步在新鲜样本上成立 ∧ hold_check`。
+6. **修复入口**：资格仍要求"锚步成功并释放 + 某个前序步丢失"；三步时**仍然只一次**，
+   不递归、不按步数放大预算。
+
+### 11.2 路由与装配：`agent/semantic_router.py`
+
+- Qwen 只输出 `{"choice":"<key>"}` 或 `{"choice":["k1","k2"]}` / `{"choice":["k1","k2","k3"]}`，
+  `max_tokens=64`；4 个 key 直接判 `composite_too_many_steps`，不截断。
+- 模型**看不到 task_id**，也拿不到"哪条序列被验收过"；它只看能力目录（key + 官方指令 +
+  语义）。白名单在 `support()` 里判，模型无权决定"这条序列是否可执行"。
+- 装配：`build_plan()` 用 key 查目录得到 `step_task_id / prompt / goal_kind`，
+  所以"中文指令 → 有序 key → 目录查表指令"这条链上没有按测试答案构造计划的入口。
+- 高层意图（例如"帮我准备加热奶酪"）走同一张能力目录；目录里没有的能力
+  （搅拌、拆包装、融化检测）不会被编出来，只会 `clarify` / `unsupported`。
+
+### 11.3 执行：`engine/engine_service.py`
+
+一步的生命周期（`c1..cN` 完全同构）：
+
+1. `_set_phase("running", f"step {i}/{N} {key}")`——阶段字符串本身就是给外部
+   观察者（停止测试、页面）用的同步点，不是日志装饰。
+2. 发本步官方指令，带 `step_id`；动作、请求行、完成状态按 `step_id` 隔离。
+   缓冲换新发生在**交接里**：`inference.reset(f"handoff:{episode}:{step_id}")`
+   换 token 并清模型侧 chunk 缓冲（第一步用 episode 的 token），
+   所以"上一步剩下的动作块"不会被下一步消费。
+3. 非锚步用引擎谓词判完成：`goal_confirm_samples=2` 个新样本同时成立才 `step_goal`；
+   放置类还要走 `_finish_predicate_placement`（有界开爪 + 有界退离 + 3 个新样本复验），
+   所以**中间步也有自己的释放证据**，不是只有最后一步。
+4. 超预算 → `composite_step_{i}_failed` + `reason_code=native_goal_not_reached|step_goal_not_reached`
+   （`step_summary.reason_code` 是外部判失败阶段的依据，不靠猜）。
+5. 步间：`_composite_handoff()` → `composite.Handoff`（§10.4 的
+   `detach → lift → translate → rotate` 四段），失败即 `composite_handoff_failed`，
+   不会带着夹住的物体进入下一步。
+6. 末步（锚）用加载场景的 native 目标；`turn_on_stove` 这类非放置步
+   `release_state=not_applicable`（它不放置东西）。
+
+### 11.4 随动物体目标：`goal_watch` / `carry_watch`
+
+旧实现只判"最终那一下"，所以"碗搬走后奶酪掉了"要到终局才发现，且没有过程证据。
+现在每次进入第 i 步时，把**前面所有引擎谓词步**作为 `watch_goals` 交给 rollout：
+
+```python
+self.watch_goals = [ {step_id:"c1", object_n:"cream_cheese_1",
+                      target_n:"akita_black_bowl_1", goal:{...}} ]
+```
+
+- 判定在 `openwam_rollout._observe_watch_goals()` 里，**每个动作快照**都对
+  `target` 的**当前位姿**重算关系——碗被搬起来时，"奶酪在碗内"跟着碗走，
+  不用第一步结束时的坐标（这正是"搬碗后的检查必须随碗更新"）。
+- 采样节流 `timeline_every_actions=5`（20 Hz 下 0.25 s），只在步内记录，
+  不做逐动作 RPC。
+- 每个被监视目标聚合为 `per_goal`：`samples / samples_ok / longest_ok_streak /
+  first_lost / last_transition / ok_first / ok_last / never_held`；
+  `first_slide_out` 给出"首次明显滑出"的 `sim_action_count`、`skill_sim_actions`、
+  `observation_id` 和当时的 `relation/height`。
+- timeline 每行含 `eef`、`gripper_opening_m`、`positions{碗,炉灶,奶酪}`、
+  `relative.{c1: {delta_m, distance_m, xy_m}}`、`goals.{c1: {...}}`，以及
+  `carry = {object_n, target_n, held_through}`（本步主搬的物体是否全程被夹）。
+- **它只做诊断，不做判定**：终局是否失败仍由终局 3 个新样本决定。
+  实测证据支持这个分工：en 两步 init 1 在搬运中 5/39 个采样超限（最大 30.1 mm）
+  又回到 8.7 mm，最终通过；en 三步 init 1 从第 69 个动作掉出去后再没回来
+  （82/96 超限），最终失败。同一份指标，两种结局，差别在"是否恢复"。
+
+### 11.5 终局复验、轮次留档与"未夹持"检查
+
+- 终局取 **3 个新样本**（每样本一次零动作 `env.step`），对**每一步**判一次；
+  全部成立才算 `final_all_goals_met`。不看 `native_ever`（那是"曾经成立"）。
+- `final_verification_attempts[]`：**每一轮**的 `observation_ids / sim_action_counts /
+  steps[]` 都留档（含失败轮）。`first_pass_success=false` 的回合能查到第一轮
+  到底哪一步、哪个样本失效；不再只有最后一轮。
+- 轮次有硬上限：`verify_rounds > 6` → `composite_verification_did_not_converge`；
+  修复分支**只进一次**（`repair_considered`）。原因是一次真实事故：
+  `repair.enabled=false` 时"复验失败 → 修复资格不足 → not_attempted → continue"
+  死循环，每轮再走 3 个仿真动作，一个回合冲到 **9895 个动作**并把 env 服务打断连
+  （`ep-20261104-113101-f0c2ad`）。
+- `hold_check`：在**最终新鲜样本**上，对每个放置步的物体算
+  `eef_object_m / object_gap_m / separation_m / outside_finger_span /
+  gripper_opening_m`，`not_held = outside_finger_span or opening > 0.05`。
+  一个物体"在目标区域"不等于"被放开"；native/谓词只证明位置，`hold_check`
+  才证明手是空的。
+
+### 11.6 记录字段（`composite.*`，供外部判读，不靠日志）
+
+| 字段 | 含义 |
+| --- | --- |
+| `keys / step_ids / step_count / step_limit` | 计划真值（顺序即执行顺序） |
+| `anchor / anchor_step_key / anchor_native / anchor_native_samples` | 锚步及其 native 证据 |
+| `budgets` | 每步预算真值（本轮 `{"1":300,"2":600,"3":300}`） |
+| `steps[]` | 每步：`step_id / task_key / goal_kind / ok / evidence / final_evidence / sim_actions / chunks_used / stop_reason / release_state / carry_watch` |
+| `steps_ok[]` | 汇总结论（每步一行） |
+| `handoffs[]` | 每次交接：`from_step / to_step / mode / status / sim_actions / physical_continuity / robot_teleport / counts` |
+| `final_verification_attempts[]` | 每轮终局复验的原始样本 |
+| `first_pass_success / repair_attempted / repair_task_key / repair_succeeded / final_all_goals_met` | 一次通过 vs 修复后的结果，分开记 |
+| `hold_check` | 终局"没有被继续夹着"的逐物体证据 |
+| `action_accounting` | 策略 / 交接 / 终结器 / 修复动作分开计数 |
+| `scene_epoch_start/end/continuous`、`env_reset_between_steps=0`、`env_reload_between_steps=0`、`object_teleport=false` | 同一 episode 的反证 |
+
+### 11.7 page_ui
+
+- `server.py::step_progress()` 把 `steps[]`（含 `step_index`、`task_key`、当前 `step_id`）
+  投影成 `[{index, total, key, status}]`，状态只有 `pending / running / done`。
+- `static/app.js::renderSteps()` 渲染 `1/3 装料 ✓`、`2/3 搬碗 ▶`、`3/3 开炉灶 ·`
+  这类行；`total` 来自计划，不写死 2 或 3。
+- 三步回合在 WebSocket 上真的会经历 `1/3:running → 1/3:done+2/3:running →
+  2/3:done+3/3:running → 3/3:done`（`tools/page_step_progress_probe.py` 实测）。
+- 仿真没有热学模型，页面**不显示**"已升温/已融化"，流程名只写"奶酪加热准备"。
+
+### 11.8 已知限制
+
+- 三步契约是**最大 N=3**；`max_steps=4` 会直接被拒，没有做通用 N 的预算/UI 测试。
+- 随动目标只监视**引擎谓词步**（锚步的 native 由 rollout 自己报），并且
+  只对"目标是一个可搬物体"的关系有意义；抽屉/旋钮类目标没有被搬动，不需要 watch。
+- `hold_check` 用"指间开合 + 物体到指垫线距离"，不建模软体/多指包裹；
+  一个被卡在指间的薄物体在张开后仍可能贴着手指，`outside_finger_span` 会偏严格。
+- `carry_watch` 的 5 动作采样会漏掉 0.25 s 内的瞬时接触；"没记到滑出"不等于
+  "没滑过"，最终判据仍是终局样本。
+- `verify_rounds<=6` 与"修复只进一次"是**为止血加的上限**，不是收敛保证；
+  本轮验收全程 `repair.enabled=false`，上限只是在失败路径上生效。

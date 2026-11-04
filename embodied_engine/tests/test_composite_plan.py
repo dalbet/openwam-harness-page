@@ -64,9 +64,16 @@ class SupportTest(unittest.TestCase):
         self.assertEqual(check["reason_code"], "unsupported_combo")
         self.assertIn(["open_middle_drawer", "put_bowl_on_plate"], check["supported_pairs"])
 
-    def test_three_steps_exceed_the_limit(self):
+    def test_four_steps_exceed_the_limit(self):
+        # The contract allows up to three ordered steps; a fourth is refused by
+        # the step limit before any supported-pair lookup can answer.
         check = composite_plan.support(
-            ["open_middle_drawer", "put_bowl_on_plate", "put_bowl_on_stove"],
+            [
+                "open_middle_drawer",
+                "put_bowl_on_plate",
+                "put_bowl_on_stove",
+                "turn_on_stove",
+            ],
             loaded_task=TASK8,
             catalog=CATALOG,
             cfg=CFG,
@@ -147,10 +154,12 @@ class PlanTest(unittest.TestCase):
 
     def test_budgets_are_bounded_per_step(self):
         opts = composite_plan.options(CFG)
-        self.assertEqual(opts["max_steps"], 2)
-        self.assertGreater(composite_plan.step_budget(1, CFG), 0)
-        self.assertGreater(composite_plan.step_budget(2, CFG), 0)
-        self.assertLessEqual(composite_plan.step_budget(1, CFG) + composite_plan.step_budget(2, CFG), 2000)
+        self.assertEqual(opts["max_steps"], 3)
+        for step in (1, 2, 3):
+            self.assertGreater(composite_plan.step_budget(step, CFG), 0)
+        self.assertLessEqual(
+            sum(composite_plan.step_budget(step, CFG) for step in (1, 2, 3)), 2000
+        )
 
 
 class RouterParseTest(unittest.TestCase):
@@ -286,13 +295,44 @@ class RouterDecisionTest(unittest.TestCase):
         self.assertEqual(assembled["reason_code"], "unsupported_combo")
         self.assertIsNone(assembled["plan"])
 
-    def test_three_step_answer_is_refused_before_assembly(self):
+    def test_three_step_answer_is_accepted(self):
+        from agent import semantic_router
+
+        snapshot = {
+            "sim": {
+                "objects": {
+                    "akita_black_bowl_1": {"pos": [0, 0, 0]},
+                    "cream_cheese_1": {"pos": [0, 0, 0]},
+                    "flat_stove_1": {"pos": [0, 0, 0]},
+                }
+            },
+            "named_poses": {
+                "sites": {"flat_stove_1_cook_region": {}},
+                "bodies": {"main_table": {}, "flat_stove_1": {}},
+            },
+            "joints": {"flat_stove_1_button": {}},
+        }
+        decision = semantic_router.decide(
+            "put the cream cheese in the bowl, put the bowl on the stove and switch on the stove",
+            snapshot,
+            chat_fn=_FakeChat(
+                '{"choice":["put_cream_cheese_in_bowl","put_bowl_on_stove","turn_on_stove"]}'
+            ),
+        )
+        self.assertEqual(decision["status"], "ok")
+        self.assertEqual(
+            decision["composite_keys"],
+            ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+        )
+
+    def test_four_step_answer_is_refused(self):
         from agent import semantic_router
 
         decision = semantic_router.decide(
-            "open the drawer, put the bowl on the plate and switch on the stove",
-            {"sim": {"objects": {}}},            chat_fn=_FakeChat(
-                '{"choice":["open_middle_drawer","put_bowl_on_plate","turn_on_stove"]}'
+            "open the drawer, put the bowl on the plate, switch on the stove and close the drawer",
+            {"sim": {"objects": {}}},
+            chat_fn=_FakeChat(
+                '{"choice":["open_middle_drawer","put_bowl_on_plate","turn_on_stove","open_middle_drawer"]}'
             ),
         )
         self.assertEqual(decision["status"], "unsupported")
