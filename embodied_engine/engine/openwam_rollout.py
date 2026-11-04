@@ -119,6 +119,9 @@ class WholeTaskRunner:
         goal_confirm_samples: int = 2,
         step_ref: str | None = None,
         watch_joints: list[str] | None = None,
+        watch_goals: list[dict[str, Any]] | None = None,
+        carry_objects: list[str] | None = None,
+        watch_every: int = 5,
     ):
         self.env = env
         self.inference = inference
@@ -160,6 +163,55 @@ class WholeTaskRunner:
         self.watch_baseline: dict[str, float] = {}
         self.watch_events: list[dict[str, Any]] = []
         self._last_watched: dict[str, Any] | None = None
+
+        # ---- earlier steps' *goals*, carried along with a moved object ------
+        # A later step can move the very object an earlier step placed into
+        # (cheese in a bowl, then the bowl is carried). A stored end-of-step
+        # pose would answer the wrong question, so each watched goal is
+        # re-evaluated against the *live* snapshot, i.e. against the moved
+        # object's current frame. Rows are written every ``watch_every``
+        # actions from a snapshot the loop already takes: no extra RPC, and
+        # one contact probe only at the first loss.
+        self.watch_goals: list[dict[str, Any]] = [dict(row) for row in (watch_goals or [])]
+        self.watch_objects: list[str] = []
+        for name in [
+            *(carry_objects or []),
+            *[row.get("object_n") for row in self.watch_goals],
+            *[row.get("target_n") for row in self.watch_goals],
+        ]:
+            if isinstance(name, str) and name and name not in self.watch_objects:
+                self.watch_objects.append(name)
+        self.watch_every = max(1, int(watch_every))
+        self.goal_watch: dict[str, Any] = {
+            "watch_goals": [
+                {
+                    "step_id": row.get("step_id"),
+                    "key": row.get("key"),
+                    "goal_kind": row.get("goal_kind"),
+                    "object_n": row.get("object_n"),
+                    "target_n": row.get("target_n"),
+                    "relation": row.get("relation"),
+                }
+                for row in self.watch_goals
+            ],
+            "objects": list(self.watch_objects),
+            "timeline_every_actions": self.watch_every,
+            "samples": 0,
+            "timeline": [],
+            "per_goal": {},
+            "events": [],
+            "first_slide_out": None,
+            "carry": {
+                "object_n": (carry_objects[0] if carry_objects else None),
+                "target_n": (self.watch_goals[0].get("target_n") if self.watch_goals else None),
+                "held_through": None,
+            },
+            "note": (
+                "each watched goal is evaluated on the live snapshot, so a carried object's goal is checked "
+                "against that object's current pose, not its pose at the end of the earlier step"
+            ),
+        }
+        self._goal_watch_last_ok: dict[str, bool] = {}
 
         self.prompt = str(step.get("prompt") or task.get("instruction") or "")
         self.sim_actions = 0
@@ -246,7 +298,123 @@ class WholeTaskRunner:
         if self.goal is not None:
             self._goal_facts = self._observe_step_goal(snap)
         self._last_watched = self._watch(snap)
+        self._observe_watch_goals(snap)
         return snap
+
+    # ---- earlier steps' goals under a carried object ---------------------
+
+    def _observe_watch_goals(self, snap: dict[str, Any]) -> None:
+        if not self.watch_goals:
+            return
+        block = self.goal_watch
+        block["samples"] = int(block["samples"]) + 1
+        positions = {name: grasp_geometry.object_pos(snap, name) for name in self.watch_objects}
+        row: dict[str, Any] = {
+            "n": self.sim_actions,
+            "sim_action_count": snap.get("sim_action_count"),
+            "gripper_opening_m": grasp_geometry.opening_m(snap),
+            "eef": grasp_geometry.eef_pos(snap),
+            "positions": positions,
+        }
+        if len(self.watch_objects) >= 2:
+            relatives: dict[str, Any] = {}
+            for item in self.watch_goals:
+                obj_name = item.get("object_n")
+                target_name = item.get("target_n")
+                a = positions.get(obj_name) if isinstance(obj_name, str) else None
+                b = positions.get(target_name) if isinstance(target_name, str) else None
+                if not isinstance(a, list) or not isinstance(b, list):
+                    continue
+                delta = [round(float(a[i]) - float(b[i]), 5) for i in range(3)]
+                relatives[str(item.get("step_id") or "")] = {
+                    "of": obj_name,
+                    "to": target_name,
+                    "delta_m": delta,
+                    "distance_m": round(sum(value * value for value in delta) ** 0.5, 5),
+                    "xy_m": round((delta[0] ** 2 + delta[1] ** 2) ** 0.5, 5),
+                }
+            if relatives:
+                row["relative"] = relatives
+        states: dict[str, Any] = {}
+        for item in self.watch_goals:
+            step_id = str(item.get("step_id") or "")
+            goal = item.get("goal") or {}
+            try:
+                facts = completion.goal_state(snap, goal, self.task)
+            except Exception as exc:  # noqa: BLE001 - evidence must not break the rollout
+                facts = {"ok": False, "reason_code": "goal_evaluation_failed",
+                         "error": f"{type(exc).__name__}: {exc}"}
+            ok = bool(facts.get("ok"))
+            summary = {
+                "ok": ok,
+                "predicate": facts.get("predicate"),
+                "relation": facts.get("relation"),
+                "height": facts.get("height"),
+                "object_pose": facts.get("object_pose"),
+            }
+            states[step_id] = summary
+            per = block["per_goal"].setdefault(
+                step_id,
+                {
+                    "step_id": step_id,
+                    "key": item.get("key"),
+                    "goal_kind": item.get("goal_kind"),
+                    "ok_first": ok,
+                    "ok_last": ok,
+                    "samples": 0,
+                    "samples_ok": 0,
+                    "longest_ok_streak": 0,
+                    "first_lost": None,
+                    "last_transition": None,
+                },
+            )
+            per["samples"] = int(per["samples"]) + 1
+            per["samples_ok"] = int(per["samples_ok"]) + (1 if ok else 0)
+            per["ok_last"] = ok
+            streak = int(per.get("_streak") or 0)
+            per["_streak"] = (streak + 1) if ok else 0
+            per["longest_ok_streak"] = max(int(per.get("longest_ok_streak") or 0), int(per["_streak"]))
+            before = self._goal_watch_last_ok.get(step_id)
+            if before is not None and before != ok:
+                transition = {
+                    "sim_action_count": snap.get("sim_action_count"),
+                    "skill_sim_actions": self.sim_actions,
+                    "observation_id": snap.get("observation_id"),
+                    "step_id": step_id,
+                    "key": item.get("key"),
+                    "from": "held" if before else "lost",
+                    "to": "held" if ok else "lost",
+                    "state": summary,
+                    "gripper_opening_m": row["gripper_opening_m"],
+                    "eef": row["eef"],
+                    "positions": positions,
+                    "relative": row.get("relative"),
+                }
+                if not ok:
+                    # One contact read at the first loss only: it says whether
+                    # the arm itself touched the object, which a position-only
+                    # record cannot answer.
+                    transition["contacts"] = self._watch_contact_probe()
+                per["last_transition"] = transition
+                if not ok and per["first_lost"] is None:
+                    per["first_lost"] = transition
+                    if block["first_slide_out"] is None:
+                        block["first_slide_out"] = dict(transition)
+                if len(block["events"]) < 200:
+                    block["events"].append(transition)
+            self._goal_watch_last_ok[step_id] = ok
+            if not ok and per["first_lost"] is None and before is None:
+                # A goal that never held during this step is not a slide-out;
+                # it is recorded once as the starting state instead.
+                per["never_held"] = True
+        row["goals"] = states
+        at_boundary = self.sim_actions % self.watch_every == 0
+        if at_boundary:
+            block["timeline"].append(row)
+        elif block["events"] and block["events"][-1].get("skill_sim_actions") == self.sim_actions:
+            # The transition row and the periodic row are the same state.
+            block["timeline"].append(row)
+        block["current"] = states
 
     # ---- earlier steps' goals (diagnostics only) -------------------------
 
@@ -844,6 +1012,9 @@ class WholeTaskRunner:
                 "target": self.goal.get("target_n") or self.goal.get("relation"),
                 "qpos": facts.get("qpos"),
                 "threshold": facts.get("threshold"),
+                "relation": facts.get("relation"),
+                "height": facts.get("height"),
+                "object_pose": facts.get("object_pose"),
                 "native_goal": native,
                 "native_goal_note": "the loaded scene's flag; not this step's goal",
                 "samples": len(self.observations),
@@ -941,8 +1112,25 @@ class WholeTaskRunner:
             "watch_joints": self.watch_joints,
             "watch_baseline": self.watch_baseline,
             "watch_events": self.watch_events,
+            "goal_watch": self._goal_watch_record(),
             "final_state": state,
         }
+
+    def _goal_watch_record(self) -> dict[str, Any]:
+        """The carried-object watch, without the internal streak counters."""
+        block = dict(self.goal_watch)
+        per: dict[str, Any] = {}
+        for key, row in (block.get("per_goal") or {}).items():
+            row = dict(row)
+            row.pop("_streak", None)
+            if str(row.get("step_id")) == "":
+                continue
+            per[str(key)] = row
+        block["per_goal"] = per
+        block["carry"]["held_through"] = (
+            all(bool(row.get("ok_last")) for row in per.values()) if per else None
+        )
+        return block
 
 
 __all__ = ["GpuSampler", "WholeTaskRunner", "completion"]

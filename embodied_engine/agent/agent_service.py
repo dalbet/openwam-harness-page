@@ -152,8 +152,8 @@ async def health(request: web.Request) -> web.Response:
             "planner_vision": False,
             "routing": {
                 "contract": (
-                    "one catalog choice, or an ordered pair of catalog choices; code looks up each "
-                    "official whole_task prompt and checks pair executability"
+                    "one catalog choice, or an ordered sequence of two or three catalog choices; code "
+                    "looks up each official whole_task prompt and checks sequence executability"
                 ),
                 **semantic_router.router_options(),
                 "composite": composite_plan.options(config.engine_config()),

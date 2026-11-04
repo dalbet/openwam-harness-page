@@ -41,6 +41,7 @@ from common import plan_contract
 from engine import completion  # noqa: E402
 from engine import composite  # noqa: E402
 from engine import finalize  # noqa: E402
+from engine import grasp_geometry  # noqa: E402
 from engine.inference_client import InferenceClient  # noqa: E402
 from engine.openwam_rollout import WholeTaskRunner  # noqa: E402
 from engine.pi05_rollout import Pi05WholeTaskRunner  # noqa: E402
@@ -1117,6 +1118,8 @@ class Engine:
         max_steps: int | None = None,
         watch_joints: list[str] | None = None,
         step_task: dict[str, Any] | None = None,
+        watch_goals: list[dict[str, Any]] | None = None,
+        carry_objects: list[str] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         """Run one whole-task policy rollout; returns (record, obs, snapshot).
 
@@ -1162,6 +1165,8 @@ class Engine:
             goal_confirm_samples=int(composite_opts["goal_confirm_samples"]),
             step_ref=str(step.get("step_id") or "step"),
             watch_joints=watch_joints,
+            watch_goals=watch_goals,
+            carry_objects=carry_objects,
             **extra,
         )
         result = runner.run()
@@ -1267,6 +1272,42 @@ class Engine:
         obs = finalizer.last_obs if finalizer.last_obs is not None else (record.get("obs") or {})
         snap = finalizer.last_snapshot if finalizer.last_snapshot is not None else snapshot
         return block, obs, snap
+
+    # ---- errors earlier steps' goals under a carried object ---------------
+
+    def _carry_watch(
+        self,
+        *,
+        steps: list[dict[str, Any]],
+        index: int,
+        catalog_by_key: dict[str, dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """The earlier goals a later step must not destroy while it moves things.
+
+        Only engine-predicate goals are watched: the anchor's own goal is the
+        loaded scene's native flag and is already reported by the rollout. The
+        goal is re-evaluated on every snapshot, so for "cheese in bowl" it is
+        checked against the bowl's *current* pose while the bowl is carried.
+        """
+        watch: list[dict[str, Any]] = []
+        for previous in steps[:index]:
+            goal = composite.step_goal(previous)
+            if not isinstance(goal, dict):
+                continue
+            watch.append(
+                {
+                    "step_id": previous.get("step_id"),
+                    "key": previous.get("step_task_key"),
+                    "goal_kind": previous.get("goal_kind"),
+                    "object_n": goal.get("object_n"),
+                    "target_n": goal.get("target_n"),
+                    "relation": goal.get("relation"),
+                    "goal": goal,
+                }
+            )
+        current = catalog_by_key.get(str(steps[index].get("step_task_key"))) if index < len(steps) else {}
+        carry = [str(name) for name in ((current or {}).get("objects") or []) if isinstance(name, str)]
+        return watch, carry
 
     def _composite_handoff(
         self,
@@ -2162,9 +2203,15 @@ class Engine:
                         self.steps_done = [s for s in step_results]
                     index += 1
                     continue
+                binding = (
+                    f" {step.get('object_n')} -> {step.get('target_n')}"
+                    if step.get("object_n") or step.get("target_n")
+                    else ""
+                )
+                label = step.get("step_task_key") or step.get("skill")
                 self._set_phase(
                     "running",
-                    f"step {index + 1}/{len(steps)} {step['skill']} {step.get('object_n') or ''} -> {step.get('target_n') or ''}".strip(),
+                    f"step {index + 1}/{len(steps)} {label}{binding}".strip(),
                 )
                 skill_started = time.perf_counter()
                 attempt_key = (step.get("skill"), step.get("object_n"), step.get("target_n"), step.get("relation"))
@@ -2191,6 +2238,11 @@ class Engine:
                     )
                 if step.get("skill") == "whole_task":
                     step_goal = composite.step_goal(step) if composite_state.get("enabled") else None
+                    carry_watch, carry_objects = (
+                        self._carry_watch(steps=steps, index=index, catalog_by_key=catalog_by_key)
+                        if composite_state.get("enabled")
+                        else ([], [])
+                    )
                     record, obs, snapshot = self._run_whole_task(
                         env=env,
                         obs=obs,
@@ -2212,6 +2264,8 @@ class Engine:
                             if composite_state.get("enabled")
                             else None
                         ),
+                        watch_goals=carry_watch,
+                        carry_objects=carry_objects,
                     )
                     timing["execution_s"] += time.perf_counter() - skill_started
                     timing["inference_s_sum"] += record["timing"]["inference_s_sum"]
@@ -2691,6 +2745,19 @@ class Engine:
                             "samples": [bool(state.get("ok")) for state in states],
                             "qpos": [state.get("qpos") for state in states],
                             "threshold": first_state.get("threshold"),
+                            "relation": first_state.get("relation"),
+                            "height": first_state.get("height"),
+                            "object_pose": first_state.get("object_pose"),
+                            "relation_samples": [
+                                {
+                                    "ok": bool(state.get("ok")),
+                                    "predicate": (state.get("relation") or {}).get("predicate"),
+                                    "xy_m": (state.get("relation") or {}).get("xy_m"),
+                                    "object_bottom_z": (state.get("relation") or {}).get("object_bottom_z"),
+                                    "target_pose": (state.get("relation") or {}).get("target_pose"),
+                                }
+                                for state in states
+                            ],
                             "native_goal_samples": [bool(s.get("native_goal")) for s in samples],
                             "sim_action_counts": [s.get("sim_action_count") for s in samples],
                             "observation_ids": [s.get("observation_id") for s in samples],
@@ -2986,6 +3053,53 @@ class Engine:
         release_required = str(task.get("kind") or "") in {"pick_place", "composite"}
         composite_record: dict[str, Any] | None = None
         if composite_state.get("enabled"):
+            # Whether the arm is still holding anything it placed. Native goals
+            # say where an object is, not that it was let go; a closed gripper
+            # on the last object would satisfy some goals and still be a
+            # different outcome. Measured on the final fresh sample.
+            hold_rows: list[dict[str, Any]] = []
+            opening_final = grasp_geometry.opening_m(final_snapshot)
+            seen_objects: list[str] = []
+            for result in step_results:
+                step_row = result.get("step") or {}
+                step_task_row = catalog_by_key.get(str(step_row.get("step_task_key"))) or {}
+                if not composite.release_required(step_task_row):
+                    continue
+                for name in list(step_task_row.get("objects") or [])[:1]:
+                    if not isinstance(name, str) or name in seen_objects:
+                        continue
+                    seen_objects.append(name)
+                    frame = grasp_geometry.finger_frame(final_snapshot, name)
+                    gap = frame.get("object_gap_m")
+                    separation = frame.get("separation_m")
+                    outside = bool(
+                        isinstance(gap, (int, float))
+                        and isinstance(separation, (int, float))
+                        and gap > max(float(separation) / 2.0, 0.02)
+                    )
+                    open_wide = isinstance(opening_final, (int, float)) and float(opening_final) > 0.05
+                    hold_rows.append(
+                        {
+                            "step_id": step_row.get("step_id"),
+                            "step_task_key": step_row.get("step_task_key"),
+                            "object_n": name,
+                            "eef_object_m": grasp_geometry.eef_object_m(final_snapshot, name),
+                            "object_gap_m": gap,
+                            "separation_m": separation,
+                            "outside_finger_span": outside,
+                            "gripper_opening_m": opening_final,
+                            "not_held": bool(outside or open_wide),
+                        }
+                    )
+            hold_check = {
+                "ok": (all(row["not_held"] for row in hold_rows) if hold_rows else None),
+                "objects": hold_rows,
+                "observation_id": final_snapshot.get("observation_id"),
+                "note": (
+                    "measured on the final fresh sample: finger opening plus each placed object's distance "
+                    "from the pad line; a native goal alone does not prove the object was let go"
+                ),
+            }
             # Every step of the composite is reported separately: its own goal,
             # its own native observations, its own action count. The composite
             # verdict is the conjunction, never the last step alone.
@@ -3022,11 +3136,40 @@ class Engine:
                 )
             handoff = composite_state.get("handoff") or {}
             scene_epochs = [composite_state.get("scene_epoch_start"), final_snapshot.get("scene_epoch")]
+            step_count = len(composite_state.get("keys") or [])
+            step_rows_ok = [
+                {
+                    "step_id": row.get("step_id"),
+                    "key": row.get("step_task_key"),
+                    "goal_kind": row.get("goal_kind"),
+                    "ok": bool(row.get("ok")),
+                    "ok_final": row.get("ok_final"),
+                    "release_state": row.get("release_state"),
+                    "sim_actions": row.get("sim_actions"),
+                }
+                for row in step_rows
+            ]
             step_1_ok = bool(step_rows[0]["ok"]) if len(step_rows) > 0 else False
             step_1_final_ok = step_rows[0]["ok_final"] if len(step_rows) > 0 else None
             anchor_row = step_rows[-1] if step_rows else {}
-            step_2_native = bool((anchor_row.get("evidence") or {}).get("ok")) and len(step_rows) > 1
-            step_2_final_native = anchor_row.get("ok_final") if step_rows else None
+            anchor_native = bool((anchor_row.get("evidence") or {}).get("ok")) and len(step_rows) > 1
+            anchor_native_final = anchor_row.get("ok_final") if step_rows else None
+            handoff_rows = [
+                {
+                    "from_step": f"c{n}",
+                    "to_step": f"c{n + 1}",
+                    "mode": row.get("mode"),
+                    "status": row.get("status"),
+                    "sim_actions": row.get("sim_actions"),
+                    "physical_continuity": bool(row.get("physical_continuity", False)),
+                    "robot_teleport": bool(row.get("robot_teleport")),
+                    "scene_epoch": row.get("scene_epoch"),
+                    "object_moved_m": row.get("object_moved_m"),
+                    "reason": row.get("reason"),
+                    "counts": row.get("counts"),
+                }
+                for n, row in enumerate(composite_state.get("handoff_records") or [])
+            ]
             composite_record = {
                 "schema": composite.SCHEMA,
                 "keys": composite_state.get("keys"),
@@ -3108,11 +3251,24 @@ class Engine:
                     ),
                 },
                 "handoff": handoff,
+                "handoffs": handoff_rows,
+                "handoff_count": len(handoff_rows),
                 "steps": step_rows,
+                "step_count": step_count,
+                "steps_ok": step_rows_ok,
+                "anchor_step_key": (composite_state.get("keys") or [None])[-1],
+                "anchor_native": bool(anchor_native),
+                "anchor_native_samples": (anchor_row.get("evidence") or {}).get("samples"),
+                "anchor_release_verified": bool(
+                    anchor_native and anchor_row.get("release_state") == "verified"
+                ),
+                "hold_check": hold_check,
+                # Legacy names kept for the existing manifest/report readers:
+                # step_1_* is the first step, step_2_* is the anchor (last) step.
                 "step_1_ok": step_1_ok,
                 "step_1_final_ok": step_1_final_ok,
-                "step_2_native": bool(step_2_native),
-                "step_2_final_native": step_2_final_native,
+                "step_2_native": bool(anchor_native),
+                "step_2_final_native": anchor_native_final,
                 "final_verification_read": bool(final_verification),
                 "first_pass_success": bool(composite_state.get("first_pass_success", True)),
                 "repair_attempted": bool(composite_state.get("repair_attempted")),
@@ -3128,12 +3284,13 @@ class Engine:
                 ),
                 "repair": composite_state.get("repair"),
                 "step_2_native_samples": (anchor_row.get("evidence") or {}).get("samples"),
-                "step_2_release_verified": bool((step_2_native and anchor_row.get("release_state") == "verified")),
+                "step_2_release_verified": bool((anchor_native and anchor_row.get("release_state") == "verified")),
                 "combo_verified": bool(
                     execution_status == "completed"
-                    and len(step_rows) == len(composite_state.get("keys") or [])
+                    and len(step_rows) == step_count
                     and all(row.get("ok") for row in step_rows)
                     and all(row.get("ok_final") is not False for row in step_rows)
+                    and hold_check.get("ok") is not False
                 ),
                 "native_goal_current": native_final,
                 "native_goal_ever": bool(native_ever),
@@ -3141,8 +3298,10 @@ class Engine:
                     (row.get("verification") or {}).get("ok") for row in step_results[:1]
                 ),
                 "note": (
-                    "step 1 is judged by its engine predicate, step 2 by the loaded scene's native goal plus a "
-                    "measured release; both are re-checked on fresh samples of the same episode"
+                    f"{step_count} ordered steps in one episode. Every step before the last is judged by its "
+                    "engine predicate on live/fresh samples (a carried object's goal is re-checked against its "
+                    "current pose), the last by the loaded scene's native goal; each placing step also needs a "
+                    "measured release, and the final sample must show nothing still gripped"
                 ),
             }
         if composite_record is not None:

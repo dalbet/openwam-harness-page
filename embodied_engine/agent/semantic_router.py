@@ -47,26 +47,26 @@ def router_options() -> dict[str, Any]:
         "model_mode": str(block.get("model_mode", "non_thinking")),
     }
 
-SYSTEM_PROMPT = """You are the semantic router for a LIBERO-Goal robot. Your only job is to decide which one supported capability, or which ordered pair of supported capabilities, the user's instruction asks for.
+SYSTEM_PROMPT = """You are the semantic router for a LIBERO-Goal robot. Your only job is to decide which one supported capability, or which ordered sequence of two or three supported capabilities, the user's instruction asks for.
 
 Decide in this order:
 1. Choose "clarify" when the user's words leave a slot unfilled and the capability list would decide it: an unresolved pronoun or demonstrative ("put it on the stove", "把它放到炉灶上"), no destination at all ("move the bowl"), or a container named without a level while capabilities name levels of that container. Missing a level is a missing slot even when another part of the same instruction is complete: "open the drawer and put the bowl on the plate" and "打开抽屉，然后把碗放到盘子上" ask which drawer, so choose "clarify".
-2. Otherwise, if the instruction asks for two of the supported capabilities in the same scene, return both keys in the order the user's words put them.
+2. Otherwise, if the instruction asks for two or three of the supported capabilities in the same scene, return those keys in the order the user's words put them.
 3. Otherwise choose exactly one capability key whose object, destination, relation, level and every subgoal match the complete goal. Polite phrasing, word order and ordinary synonyms do not change the goal.
-4. Otherwise choose "unsupported" because the request is specific enough to judge and no capability matches: an object, level, relation or place the user did state but no capability has ("open the lower drawer", "put the plate on the cabinet", "put the bowl next to the stove"), one half of a composite capability, a combination that is not two capabilities from the list, or three or more separate capabilities.
+4. Otherwise choose "unsupported" because the request is specific enough to judge and no capability matches: an object, level, relation or place the user did state but no capability has ("open the lower drawer", "put the plate on the cabinet", "put the bowl next to the stove"), one half of a composite capability, a combination that is not two or three capabilities from the list, or four or more separate capabilities.
 
-Ordered pairs:
-- Return {"choice":["<key1>","<key2>"]} only when two separate capabilities in the list are both asked for. Keep the user's order and do not add, drop, split or reorder a step.
-- One capability can read like two actions ("open the top drawer and place the bowl inside it"). When the list has a capability for the whole goal, choose that single key, not a pair.
-- "clarify" when the order of two separate capabilities is neither stated nor implied by which goal depends on the other, when a step's object or place is missing, or when two goals conflict (the same object sent to two different destinations).
-- Three or more separate capabilities are outside this contract: choose "unsupported".
+Ordered sequences:
+- Return {"choice":["<key1>","<key2>"]} or {"choice":["<key1>","<key2>","<key3>"]} only when that many separate capabilities in the list are all asked for. Keep the user's order and do not add, drop, split or reorder a step.
+- One capability can read like two actions ("open the top drawer and place the bowl inside it"). When the list has a capability for the whole goal, choose that single key, not a sequence.
+- "clarify" when the order of separate capabilities is neither stated nor implied by which goal depends on the other, when a step's object or place is missing, or when two goals conflict (the same object sent to two different destinations).
+- Four or more separate capabilities are outside this contract: choose "unsupported".
 
 A stated relation or level is part of the request, not a missing slot: "beside", "near", "behind", "under" are unsupported relations, never reasons to clarify. 
 
 Do not substitute a different object or place.
 
 Return exactly one JSON object and nothing else:
-{"choice":"<key>"} or {"choice":["<key1>","<key2>"]} or {"choice":"clarify"} or {"choice":"unsupported"}
+{"choice":"<key>"} or {"choice":["<key1>","<key2>"]} or {"choice":["<key1>","<key2>","<key3>"]} or {"choice":"clarify"} or {"choice":"unsupported"}
 """
 
 
@@ -149,8 +149,8 @@ def _repair_messages(messages: list[dict[str, str]], content: str) -> list[dict[
             "content": (
                 'Return one corrected JSON object with exactly {"choice":"<key>"} '
                 'using a key from the capability list, or "clarify", or "unsupported". '
-                'Use {"choice":["<key1>","<key2>"]} only when two separate capabilities are asked for. '
-                "Do not explain."
+                'Use {"choice":["<key1>","<key2>"]} or {"choice":["<key1>","<key2>","<key3>"]} only when '
+                "that many separate capabilities are asked for. Do not explain."
             ),
         },
     ]
@@ -308,7 +308,7 @@ def assemble_plan(
     """Turn a catalog choice into a plan, after checks.
 
     A single choice becomes the one ``whole_task`` step. A composite choice is
-    only assembled when the ordered pair is executable in this scene; the model
+    only assembled when the ordered sequence is executable in this scene; the model
     recognizes the sequence, the code decides whether it can run.
     """
     task = decision.get("task")

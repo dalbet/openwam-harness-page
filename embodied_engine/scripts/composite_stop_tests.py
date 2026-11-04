@@ -18,6 +18,7 @@ episode starts from zero instead of inheriting the stopped one.
 from __future__ import annotations
 
 import argparse
+import re
 import json
 import os
 import time
@@ -147,35 +148,41 @@ def run_case(args, spec: dict[str, Any]) -> dict[str, Any]:
     )
     if loaded.get("status") != "ok":
         return {"case": spec["id"], "kind": kind, "ok": False, "error": loaded}
-    started_episode = post(
-        f"{engine}/api/run",
-        {
-            "task_id": int(spec["task_id"]),
-            "instruction": spec["instruction"],
-            "seed": int(spec["seed"]),
-        },
-        timeout=120,
-    )
+    run_body: dict[str, Any] = {
+        "task_id": int(spec["task_id"]),
+        "instruction": spec["instruction"],
+        "seed": int(spec["seed"]),
+    }
+    if spec.get("plan_keys"):
+        # The stop mechanics are the subject here, not the language router:
+        # pin the ordered plan through the engine's structured entry.
+        run_body["plan_keys"] = list(spec["plan_keys"])
+    started_episode = post(f"{engine}/api/run", run_body, timeout=120)
     episode_id = started_episode.get("episode_id")
     print(f"[{spec['id']}] episode {episode_id} kind={kind}", flush=True)
 
-    if kind == "step-1":
-        status = wait_for(
-            engine,
-            predicate=lambda row: (
+    if kind in {"step-1", "step-2", "step-3"}:
+        # The phase detail is "step <i>/<n> <key>"; the position is read from
+        # it instead of assuming a two-step plan, so the same case works for a
+        # three-step sequence (step 3/3 after the second handoff).
+        wanted = int(spec.get("step") or kind.split("-")[1])
+
+        def _in_step(row: dict[str, Any]) -> bool:
+            detail = str(row.get("detail") or "")
+            match = re.match(r"step (\d+)/(\d+)", detail)
+            return bool(
                 str(row.get("phase")) in {"running", "verifying"}
-                and "step 1/2" in str(row.get("detail") or "")
-                and int(row.get("sim_action_count") or 0) >= int(spec.get("min_actions", 20))
-            ),
-            timeout_s=args.timeout,
-        )
-    elif kind == "step-2":
-        status = wait_for(
-            engine,
-            predicate=lambda row: (
-                str(row.get("phase")) in {"running", "verifying"}
-                and "step 2/2" in str(row.get("detail") or "")
+                and match
+                and int(match.group(1)) == wanted
                 and int(row.get("sim_action_count") or 0) >= int(spec.get("min_actions", 10))
+            )
+
+        status = wait_for(engine, predicate=_in_step, timeout_s=args.timeout, poll_s=0.02)
+    elif kind == "handoff-3":
+        status = wait_for(
+            engine,
+            predicate=lambda row: (
+                str(row.get("phase")) == "handoff" and "->c3" in str(row.get("detail") or "")
             ),
             timeout_s=args.timeout,
             poll_s=0.02,
@@ -531,6 +538,46 @@ def main() -> int:
             "load_task_id": 1,
             "seed": 0,
             "instruction": "put the bowl on the stove",
+        },
+        {
+            # The new third step: the 6 -> 1 -> 7 plan is mid-way through
+            # turn_on_stove, i.e. after *two* handoffs, and the stop must land
+            # in that step rather than in step 2.
+            "id": "stop-step3-household",
+            "kind": "step-3",
+            "step": 3,
+            "task_id": 7,
+            "load_task_id": 7,
+            "seed": 0,
+            "min_actions": 8,
+            "plan_keys": [
+                "put_cream_cheese_in_bowl",
+                "put_bowl_on_stove",
+                "turn_on_stove",
+            ],
+            "instruction": (
+                "put the cream cheese in the bowl, then put the bowl on the stove, "
+                "and turn on the stove"
+            ),
+        },
+        {
+            # The second handoff (c2 -> c3) is new for this round: a stop here
+            # must be acked, no action may follow, and the next load must not
+            # inherit the stopped episode.
+            "id": "stop-handoff-c2c3",
+            "kind": "handoff-3",
+            "task_id": 7,
+            "load_task_id": 7,
+            "seed": 0,
+            "plan_keys": [
+                "put_cream_cheese_in_bowl",
+                "put_bowl_on_stove",
+                "turn_on_stove",
+            ],
+            "instruction": (
+                "put the cream cheese in the bowl, then put the bowl on the stove, "
+                "and turn on the stove"
+            ),
         },
     ]
     if args.include_restore_cases:

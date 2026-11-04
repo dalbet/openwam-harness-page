@@ -10,6 +10,7 @@ const sceneSel = $("scene"), loadBtn = $("load"), taskIn = $("task"),
   idInference = $("id-inference"), idPhase = $("id-phase"),
   idFailureWrap = $("id-failure-wrap"), idFailure = $("id-failure"),
   idRaw = $("id-raw"), idChoice = $("id-choice"), idStandard = $("id-standard"),
+  idStepsWrap = $("id-steps-wrap"), idSteps = $("id-steps"),
   idSwitchWrap = $("id-switch-wrap"), idSwitch = $("id-switch"),
   armCtrl = $("arm-ctrl"), armSel = $("arm"), armBtn = $("armBtn"),
   mTask = $("m-task"), mProgress = $("m-progress"), mPlan = $("m-plan"),
@@ -100,11 +101,22 @@ function applyIdentity(m){
   }
   idStandard.textContent = u.official_instruction || "—";
   idStandard.className = u.official_instruction ? "" : "bad";
+  renderSteps(m.steps || []);
   const needSwitch = u.needs_scene_switch === true;
   idSwitchWrap.style.display = needSwitch ? "" : "none";
   idSwitch.textContent = needSwitch
     ? `task ${u.required_task_id} ${u.required_task_key || ""}`
     : "";
+}
+
+// 真实步骤及进度：1/3、2/3、3/3，每项是目录里的 key。
+function renderSteps(rows){
+  if (!rows.length){ idStepsWrap.style.display = "none"; idSteps.textContent = "—"; return; }
+  const mark = {done:"✓", running:"▶", pending:"·"};
+  idStepsWrap.style.display = "";
+  idSteps.textContent = rows
+    .map(r => `${r.index}/${r.count} ${mark[r.state] || "·"} ${r.key || ""}`)
+    .join("  →  ");
 }
 
 // ---- 方案（arm）----

@@ -1,13 +1,18 @@
-"""Catalog-level contract for a same-scene, two-step composite.
+"""Catalog-level contract for a same-scene, ordered composite (2..N steps).
 
 Pure data and string logic: no simulator, no numpy, no HTTP. Both the Agent
 layer (routing/assembly) and the engine (execution) import this module, so
-"which ordered pairs exist" and "what is each step's goal" have exactly one
+"which ordered sequences exist" and "what is each step's goal" have exactly one
 definition.
+
+Nothing here is specific to two steps: the number of steps is bounded by
+``composite.max_steps`` (three in the shipped config) and every step occupies a
+position in an ordered list. ``step_1_*`` / ``step_2_*`` names are gone from
+this module; the engine reports per-step rows plus an anchor row.
 
 The composite is anchored on the **last** step's BDDL: the loaded scene is the
 last capability's scene, so the simulator's own ``native_goal`` is exactly the
-final step's goal atoms. An earlier step is judged by an engine predicate on
+final step's goal atoms. Every earlier step is judged by an engine predicate on
 the same snapshots, never by the native flag of a scene it does not belong to.
 """
 
@@ -17,9 +22,9 @@ from typing import Any
 
 SCHEMA = "embodied_engine.composite.v1"
 
-DEFAULT_PAIRS: tuple[tuple[str, str], ...] = (("open_middle_drawer", "put_bowl_on_plate"),)
-DEFAULT_MAX_STEPS = 2
-DEFAULT_STEP_MAX_STEPS = {"1": 240, "2": 600}
+DEFAULT_PAIRS: tuple[tuple[str, ...], ...] = (("open_middle_drawer", "put_bowl_on_plate"),)
+DEFAULT_MAX_STEPS = 3
+DEFAULT_STEP_MAX_STEPS = {"1": 300, "2": 600, "3": 300}
 DEFAULT_GOAL_CONFIRM_SAMPLES = 2
 
 
@@ -109,7 +114,7 @@ def support(
 ) -> dict[str, Any]:
     """Whether this ordered key list is executable in the loaded scene.
 
-    Recognition and execution are deliberately separate: a pair can be a
+    Recognition and execution are deliberately separate: a sequence can be a
     correct reading of the instruction and still be ``unsupported`` here.
     """
     opts = options(cfg)
@@ -142,10 +147,10 @@ def support(
                 "reason_code": "unsupported_combo",
                 "reason": (
                     "the request names a valid sequence, but only "
-                    + ", ".join("->".join(pair) for pair in opts["pairs"])
+                    + ", ".join("->".join(seq) for seq in opts["pairs"])
                     + " is executable right now"
                 ),
-                "supported_pairs": [list(pair) for pair in opts["pairs"]],
+                "supported_pairs": [list(seq) for seq in opts["pairs"]],
             }
         )
         return out
@@ -214,18 +219,20 @@ def build_plan(
                 "completion": completion,
             }
         )
+    count = len(ordered)
     return {
         "interpretation": (
-            f"One scene, two ordered capabilities ({' -> '.join(ordered)}). The episode is loaded from task "
-            f"{loaded_task['task_id']} ({loaded_task['key']}) and is never reset between steps; each step "
+            f"One scene, {count} ordered capabilities ({' -> '.join(ordered)}). The episode is loaded from "
+            f"task {loaded_task['task_id']} ({loaded_task['key']}) and is never reset between steps; each step "
             "receives its own catalog official instruction."
         ),
         "success_condition": (
-            "Step 1's engine predicate and step 2's native LIBERO goal plus a measured release must all hold "
-            "on fresh samples of the same episode after step 2."
+            f"Every step's own goal must hold on fresh samples of the same episode after step {count}: steps "
+            f"1..{count - 1} by their engine predicates, step {count} by the loaded scene's native LIBERO goal; "
+            "every step that places an object must also show a measured release."
         ),
         "task_scope": "combo",
-        "step_limit": 2,
+        "step_limit": count,
         "instruction": instruction,
         "composite": {
             "schema": SCHEMA,
@@ -263,7 +270,7 @@ def validate_plan(
     keys = [str(key) for key in (block.get("keys") or [])]
     check = support(keys, loaded_task=loaded_task, catalog=catalog, cfg=cfg)
     if not check.get("ok"):
-        error("composite.keys", str(check.get("reason_code")), keys, "an executable pair")
+        error("composite.keys", str(check.get("reason_code")), keys, "an executable sequence")
     steps = plan.get("steps")
     if not isinstance(steps, list) or len(steps) != len(keys):
         return [*errors, {"field": "steps", "code": "count_mismatch", "value": steps, "expected": len(keys)}]
@@ -289,6 +296,12 @@ def validate_plan(
         ids = [str(s.get("step_id")) for s in steps if isinstance(s, dict)]
         if len(set(ids)) != len(ids):
             error("steps.step_id", "not_unique", ids, "distinct step ids")
+    # Only the loaded scene's own (last) step may be judged by the native goal.
+    # An earlier step that claimed ``native_goal`` would be judged by a BDDL it
+    # does not belong to, which is exactly the failure this contract prevents.
+    for index, step in enumerate(steps[:-1]):
+        if str(((step or {}).get("completion") or {}).get("kind")) == "native_goal":
+            error(f"steps[{index}].completion", "early_step_native_goal", "native_goal", "an engine predicate")
     if keys and isinstance(steps, list) and steps:
         anchor_step = steps[-1] if isinstance(steps[-1], dict) else {}
         anchor_id = anchor_step.get("step_task_id")

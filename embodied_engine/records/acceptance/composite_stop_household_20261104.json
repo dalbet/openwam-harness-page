@@ -1,0 +1,171 @@
+{
+  "schema": "embodied_engine.composite_stop.v1",
+  "generated_at": "2026-11-04T11:05:10",
+  "engine": "http://127.0.0.1:14821",
+  "handoff_mode": null,
+  "handoff_mode_reply": null,
+  "cases": [
+    {
+      "case": "stop-step3-household",
+      "kind": "step-3",
+      "episode_id": "ep-20261104-110527-d1e471",
+      "ok": true,
+      "trigger_phase": "running",
+      "trigger_detail": "step 3/3 turn_on_stove",
+      "trigger_sim_actions": 309,
+      "stop_ack": {
+        "status": "ok",
+        "active": false,
+        "phase": "stopped",
+        "stop": {
+          "reason": "stop-test:stop-step3-household",
+          "sim_at_request": 309,
+          "sim_at_ack": 309,
+          "in_flight_actions": 0,
+          "thread_alive": false,
+          "settle_agreements": 3,
+          "cancel_barrier_s": 0.0001,
+          "in_flight_after_cancel": 0,
+          "inference_idle": true,
+          "chunk_buffer_cleared": true
+        }
+      },
+      "after_stop": {
+        "samples": [
+          309,
+          309,
+          309,
+          309,
+          309,
+          309,
+          309,
+          309,
+          309,
+          309,
+          309
+        ],
+        "first": 309,
+        "last": 309,
+        "advanced": false,
+        "phase": "stopped"
+      },
+      "final_phase": "stopped",
+      "final_detail": "episode stopped",
+      "step_2_started": true,
+      "record_execution_status": "stopped",
+      "record_failure": {
+        "code": "user_stop",
+        "reason": "episode stopped by user"
+      },
+      "record_sim_actions": 309,
+      "scene_epoch": 2,
+      "journal_stages": [
+        "composite_handoff",
+        "composite_step_start",
+        "episode_end",
+        "finalizer_step",
+        "handoff",
+        "loading",
+        "pi05_contract",
+        "planning",
+        "policy_buffer_reset",
+        "ready",
+        "running",
+        "step_goal_latched",
+        "stopped",
+        "stopping"
+      ],
+      "leak_check": {
+        "load_status": "ok",
+        "sim_action_count_after_load": 0,
+        "scene_epoch_after_load": 1,
+        "episode_after_load": null,
+        "phase_after_load": "ready",
+        "last_result_after_load": {},
+        "no_actions_left": true,
+        "new_episode": true
+      }
+    },
+    {
+      "case": "stop-handoff-c2c3",
+      "kind": "handoff-3",
+      "episode_id": "ep-20261104-110643-0102ac",
+      "ok": true,
+      "trigger_phase": "handoff",
+      "trigger_detail": "step c2->c3 put_bowl_on_stove->turn_on_stove",
+      "trigger_sim_actions": 268,
+      "stop_ack": {
+        "status": "ok",
+        "active": false,
+        "phase": "stopped",
+        "stop": {
+          "reason": "stop-test:stop-handoff-c2c3",
+          "sim_at_request": 268,
+          "sim_at_ack": 269,
+          "in_flight_actions": 1,
+          "thread_alive": false,
+          "settle_agreements": 3,
+          "cancel_barrier_s": 0.0001,
+          "in_flight_after_cancel": 0,
+          "inference_idle": true,
+          "chunk_buffer_cleared": true
+        }
+      },
+      "after_stop": {
+        "samples": [
+          269,
+          269,
+          269,
+          269,
+          269,
+          269,
+          269,
+          269,
+          269,
+          269,
+          269
+        ],
+        "first": 269,
+        "last": 269,
+        "advanced": false,
+        "phase": "stopped"
+      },
+      "final_phase": "stopped",
+      "final_detail": "episode stopped",
+      "step_2_started": true,
+      "record_execution_status": "stopped",
+      "record_failure": {
+        "code": "user_stop",
+        "reason": "episode stopped by user"
+      },
+      "record_sim_actions": 269,
+      "scene_epoch": 2,
+      "journal_stages": [
+        "composite_handoff",
+        "composite_step_start",
+        "episode_end",
+        "finalizer_step",
+        "handoff",
+        "loading",
+        "pi05_contract",
+        "planning",
+        "policy_buffer_reset",
+        "ready",
+        "running",
+        "step_goal_latched",
+        "stopped",
+        "stopping"
+      ],
+      "leak_check": {
+        "load_status": "ok",
+        "sim_action_count_after_load": 0,
+        "scene_epoch_after_load": 1,
+        "episode_after_load": null,
+        "phase_after_load": "ready",
+        "last_result_after_load": {},
+        "no_actions_left": true,
+        "new_episode": true
+      }
+    }
+  ]
+}

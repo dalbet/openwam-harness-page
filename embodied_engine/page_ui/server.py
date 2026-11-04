@@ -130,7 +130,55 @@ def identity_message(status: dict) -> dict:
         "failure_reason": status.get("failure_reason") or "",
         "raw_instruction": status.get("instruction") or "",
         "understanding": plan.get("understanding") or {},
+        "steps": step_progress(status),
     }
+
+
+def step_progress(status: dict) -> list[dict]:
+    """The ordered plan steps and where this episode is inside them.
+
+    A composite is reported as its real steps, not as one opaque task: the page
+    shows ``1/3``, ``2/3``, ... with the catalog key of each step. A step counts
+    as done only when the engine has a finished step row for it; the first
+    unfinished step of a running episode is the one being executed.
+    """
+    plan = status.get("plan") or {}
+    planned = [row for row in (plan.get("steps") or []) if isinstance(row, dict)]
+    if not planned:
+        return []
+    done: set[int] = set()
+    for row in status.get("steps") or []:
+        if not isinstance(row, dict):
+            continue
+        index = int((row.get("step") or {}).get("step_index") or 0)
+        if index > 0:
+            done.add(index)
+    phase = str(status.get("phase") or "")
+    active = phase in {"running", "recovering", "verifying", "handoff", "stopping"}
+    rows: list[dict] = []
+    count = len(planned)
+    claimed_running = False
+    for position, row in enumerate(planned, start=1):
+        index = int(row.get("step_index") or position)
+        if index in done:
+            state = "done"
+        elif active and not claimed_running:
+            state = "running"
+            claimed_running = True
+        else:
+            state = "pending"
+        rows.append(
+            {
+                "index": index,
+                "count": count,
+                "key": row.get("step_task_key"),
+                "prompt": row.get("prompt"),
+                "goal_kind": row.get("goal_kind"),
+                "state": state,
+            }
+        )
+    return rows
+
 
 
 def metrics_message(status: dict) -> dict:

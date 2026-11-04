@@ -1171,6 +1171,7 @@ def step_summary(
         "failure_code": None if verification.get("ok") else verification.get("reason_code"),
         "release_state": release_state,
         "release_source": release_source,
+        "carry_watch": (record.get("goal_watch") if (record.get("goal_watch") or {}).get("samples") else None),
     }
 
 

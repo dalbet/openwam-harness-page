@@ -42,9 +42,10 @@
   "max_tokens": 300,
   "planner_vision": false,
   "semantic_router": {
-   "max_tokens": 24,
+   "max_tokens": 64,
    "max_repairs": 1,
-   "model_mode": "non_thinking"
+   "model_mode": "non_thinking",
+   "note": "64 tokens because an ordered three-key list does not fit in 24; non-thinking mode, single repair retry, unchanged model"
   },
   "jev": {
    "endpoint": "https://api.typesafe.ai/v1/systemone",
@@ -152,13 +153,31 @@
    [
     "put_bowl_on_stove",
     "turn_on_stove"
+   ],
+   [
+    "put_cream_cheese_in_bowl",
+    "put_bowl_on_stove"
+   ],
+   [
+    "put_cream_cheese_in_bowl",
+    "put_bowl_on_stove",
+    "turn_on_stove"
+   ],
+   [
+    "put_cream_cheese_in_bowl",
+    "put_bowl_on_plate"
+   ],
+   [
+    "put_bowl_on_stove",
+    "put_cream_cheese_in_bowl"
    ]
   ],
-  "max_steps": 2,
+  "max_steps": 3,
   "goal_confirm_samples": 2,
   "step_max_steps": {
-   "1": 240,
-   "2": 600
+   "1": 300,
+   "2": 600,
+   "3": 300
   },
   "handoff": {
    "mode": "action_retreat",
@@ -185,7 +204,7 @@
    "lift_max_actions": 12,
    "lift_step_m": 0.04
   },
-  "note": "Same-scene two-step execution. Pairs are listed explicitly: recognized-but-unlisted pairs are refused, not attempted. The composite anchors on the LAST step's BDDL; earlier steps are judged by engine predicates on the same episode.",
+  "note": "Same-scene ordered composite, 2 or 3 steps, one episode. Pairs/sequences are listed explicitly: recognized-but-unlisted sequences are refused, not attempted. Anchored on the LAST step's BDDL; earlier steps are judged by engine predicates on the same episode's live snapshots. 6->1 (cream cheese in bowl, then bowl on stove) is the primary 2-step target; 6->1->7 adds turn_on_stove; 6->8 and 1->6 are diagnostic controls, not acceptance runs.",
   "repair": {
    "enabled": false,
    "max_calls": 1,
