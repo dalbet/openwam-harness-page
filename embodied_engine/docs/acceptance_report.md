@@ -2523,6 +2523,14 @@ watch_joints:{name:qpos}, watch_joints_qvel:{name:qvel}}`，在 env 侧用已经
   `EMBODIED_CONFIG_DIR=<config> EMBODIED_RECORDS_DIR=<records> \
   /home/host/page-dmh/openwam_harness/envs/rpent/bin/python engine/engine_service.py`；
   页面 `http://<host>:14901/`（LAN `:14902`），中英文指令直接说即可。
+
+> 早期批次的完整性（如实记，不当作结果）：`accept_2step_en_v2_20261104` 3 回合、
+> `accept_2step_zh_v2_20261104` 2 回合、`accept_3step_en_v2_20261104` 1 个完成 + 1 个
+> `stopped`（被当时的 stop 测试打断，`sim=177`）、`accept_3step_zh_v2_20261104` **0 个**
+> （批次在开始前被中止）；`accept_2step_en_delivery_20261104` 只有 i0 一个回合
+> （引擎重启中断了批次）。这些截断的批次不参与任何成功率统计，交付版数据只取
+> `step2_*_delivery_20261104/` 与 `step3_*_delivery_20261104/`。
+
 - 复现单个组合回合：`python3 tools/composite_round.py --mode screen
   --load-task <最后一步 task> --keys key1,key2 --inits 0,1`；
   验收用 `--mode accept --instruction "…"`（走 Qwen）。
