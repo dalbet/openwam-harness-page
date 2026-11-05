@@ -85,9 +85,25 @@ DEFAULTS: dict[str, Any] = {
         "max_opening_m": 0.05,
         "max_eef_object_m": 0.06,
     },
+    # The container must stay put while a stage claims the cheese was picked
+    # out of it. Two numbers, both measured rather than assumed:
+    # ``max_move_m`` is the horizontal drift of a free body resting on the
+    # table, read from archived snapshots of a bowl nobody touched (p99
+    # per-sample change over the whole step), times a safety factor of 3;
+    # ``max_lift_m`` is the same quantity on the vertical axis. They are not a
+    # universal 5 mm: they are this asset, this timestep, this noise.
+    "container_guard": {
+        "stages": ["grasp", "lift", "settle"],
+        "max_move_m": 0.004,
+        "max_lift_m": 0.004,
+    },
     "lift": {
-        # "clear of the rim by 2 cm", measured as a rise from the attempt's own
-        # start: required_rise = (rim_z - bottom_z_start) + clearance.
+        # "clear of the rim by 2 cm", in the container's own frame: the object
+        # bottom has to be 2 cm above the *current* rim plane. A bowl lifted
+        # together with the cheese inside it does not change this number, so it
+        # cannot be mistaken for a lift. ``clearance_above_rim_m`` is kept as
+        # the name the previous round used; the criterion is the same number
+        # applied to a relative measurement.
         "clearance_above_rim_m": 0.02,
     },
     "carry": {
@@ -165,14 +181,33 @@ def measure(row: dict[str, Any]) -> dict[str, Any]:
     above_rim = None
     if isinstance(bottom, (int, float)) and isinstance(rim, (int, float)):
         above_rim = round(float(bottom) - float(rim), 5)
+    contacts = row.get("contacts")
+    if contacts is None:
+        # Older callers pass only the finger pairs; the split is the same.
+        contacts = row.get("gripper_contacts")
+    available = row.get("contacts_available")
+    if available is None:
+        available = isinstance(contacts, list)
+    split = _split_contacts(contacts)
     return {
         "sim_action_count": row.get("sim_action_count"),
         "observation_id": row.get("observation_id"),
         "object_pos": row.get("object_pos"),
         "target_pos": row.get("target_pose"),
+        "container_pos": row.get("container_pos"),
+        "container_bottom_z": row.get("container_bottom_z"),
         "eef_pos": row.get("eef_pos"),
         "opening_m": row.get("opening_m"),
         "eef_object_m": row.get("eef_object_m"),
+        # Tri-state on purpose: ``True`` the fingers touch the object,
+        # ``False`` the contact list was readable and does not name it,
+        # ``None`` no contact list was available at all. Collapsing the last
+        # two into "no contact" is what made a missing probe look like a
+        # measured negative.
+        "contacts_available": bool(available),
+        "gripper_object_contact": split["gripper_object"],
+        "gripper_container_contact": split["gripper_container"],
+        "object_container_contact": split["object_container"],
         "gripper_contacts": row.get("gripper_contacts"),
         "relation_ok": row.get("relation_ok"),
         "xy_m": row.get("xy_m"),
@@ -181,6 +216,48 @@ def measure(row: dict[str, Any]) -> dict[str, Any]:
         "rim_z": rim,
         "seat_m": seat,
         "above_rim_m": above_rim,
+    }
+
+
+def _split_contacts(contacts: Any) -> dict[str, bool | None]:
+    """Separate the three contact questions a re-seat has to tell apart.
+
+    ``None`` (no list at all) is *unavailable evidence*, not "nothing is
+    touching"; the stage rules treat it as a refusal instead of a pass.
+
+    * ``gripper_object``    — a finger body touches the carried object;
+    * ``gripper_container`` — a finger body touches the container (the policy
+      grabbed the bowl, so any object motion is passive);
+    * ``object_container``  — the object touches the container (the object is
+      being supported by the bowl, which is the state a re-seat starts from).
+    """
+    if not isinstance(contacts, (list, tuple)):
+        return {"gripper_object": None, "gripper_container": None, "object_container": None}
+    gripper_object = False
+    gripper_container = False
+    object_container = False
+    for row in contacts:
+        if not isinstance(row, dict):
+            continue
+        sides = [str(row.get("body1") or ""), str(row.get("body2") or "")]
+        finger = bool(row.get("gripper1") or row.get("gripper2")) or any(
+            "finger" in name.lower() or "gripper" in name.lower() for name in sides
+        )
+        object_side = any(
+            "cream" in name.lower() or "cheese" in name.lower() or name.lower().startswith("object")
+            for name in sides
+        )
+        container_side = any("bowl" in name.lower() for name in sides)
+        if finger and object_side:
+            gripper_object = True
+        if finger and container_side:
+            gripper_container = True
+        if object_side and container_side:
+            object_container = True
+    return {
+        "gripper_object": gripper_object,
+        "gripper_container": gripper_container,
+        "object_container": object_container,
     }
 
 
@@ -215,21 +292,13 @@ def trigger(reading: dict[str, Any]) -> dict[str, Any]:
 
 
 def _object_contact(reading: dict[str, Any]) -> bool | None:
-    contacts = reading.get("gripper_contacts")
-    if not isinstance(contacts, (list, tuple)):
-        return None
-    names: list[str] = []
-    for row in contacts:
-        if isinstance(row, str):
-            names.append(row)
-        elif isinstance(row, dict):
-            for key in ("object", "object_n", "geom", "body", "name"):
-                value = row.get(key)
-                if isinstance(value, str):
-                    names.append(value)
-    if not names:
-        return False
-    return any("cream" in name.lower() or name.lower().startswith("object") for name in names)
+    """Finger-to-object contact from the older ``gripper_contacts`` rows.
+
+    Kept for the ``contact_samples`` counter; the stage rules use the
+    tri-state field ``gripper_object_contact`` produced by :func:`measure`,
+    which separates "unavailable" from "no contact".
+    """
+    return _split_contacts(reading.get("gripper_contacts"))["gripper_object"]
 
 
 class Tracker:
@@ -259,6 +328,12 @@ class Tracker:
         self.max_rise_m: float | None = None
         self.max_offset_m: float | None = None
         self.max_above_rim_m: float | None = None
+        # Container motion is measured from this attempt's own first sample, so
+        # it is a displacement, not an absolute pose.
+        self.container_move_m: float | None = None
+        self.container_lift_m: float | None = None
+        self.container_moved_at: dict[str, Any] | None = None
+        self.refusals: list[dict[str, Any]] = []
         self._release_streak = 0
         self._lifted = False
         self._released = False
@@ -292,6 +367,54 @@ class Tracker:
         if not (isinstance(bottom0, (int, float)) and isinstance(rim, (int, float))):
             return None
         return round((float(rim) - float(bottom0)) + float(self.opts["lift"]["clearance_above_rim_m"]), 5)
+
+    # -- container guard -------------------------------------------------
+
+    def _update_container(self, reading: dict[str, Any]) -> dict[str, Any]:
+        """How far the container moved since this attempt started.
+
+        Judged only against ``container_guard.stages``: during ``carry`` the
+        arm is moving the object and may legitimately brush the bowl, but while
+        ``grasp``/``lift``/``settle`` are being claimed the bowl has to be a
+        fixture. A cheese that rose because the bowl rose is not a lift.
+        """
+        start_pos = self.start.get("container_pos")
+        pos = reading.get("container_pos")
+        move = lift = None
+        if isinstance(start_pos, (list, tuple)) and isinstance(pos, (list, tuple)) and len(start_pos) >= 3 and len(pos) >= 3:
+            move = round(
+                math.hypot(float(pos[0]) - float(start_pos[0]), float(pos[1]) - float(start_pos[1])),
+                5,
+            )
+            lift = round(float(pos[2]) - float(start_pos[2]), 5)
+            self.container_move_m = move if self.container_move_m is None else max(self.container_move_m, move)
+            self.container_lift_m = lift if self.container_lift_m is None else max(self.container_lift_m, lift)
+        guard = self.opts["container_guard"]
+        moved = (
+            (move is not None and move > float(guard["max_move_m"]))
+            or (lift is not None and lift > float(guard["max_lift_m"]))
+        )
+        return {
+            "move_m": move,
+            "lift_m": lift,
+            "max_move_m": guard["max_move_m"],
+            "max_lift_m": guard["max_lift_m"],
+            "moved": moved,
+        }
+
+    def _refuse(self, stage: str, reading: dict[str, Any], reason: str, detail: dict[str, Any] | None = None) -> None:
+        if any(item.get("stage") == stage and item.get("reason") == reason for item in self.refusals):
+            return
+        self.refusals.append(
+            {
+                "stage": stage,
+                "reason": reason,
+                "sim_action_count": reading.get("sim_action_count"),
+                "detail": detail or {},
+            }
+        )
+        if stage not in self.not_measured:
+            self.not_measured.append(stage)
 
     # -- main entry ------------------------------------------------------
 
@@ -335,10 +458,29 @@ class Tracker:
         grasp_opts = self.opts["grasp"]
         opening = reading.get("opening_m")
         near = reading.get("eef_object_m")
-        contact = _object_contact(reading)
+        contact = reading.get("gripper_object_contact")
+        on_container = reading.get("gripper_container_contact")
+        container = self._update_container(reading)
+        row["container"] = container
         closed = isinstance(opening, (int, float)) and float(opening) <= float(grasp_opts["max_opening_m"])
         at_object = isinstance(near, (int, float)) and float(near) <= float(grasp_opts["max_eef_object_m"])
-        grasp_ok = bool(closed and at_object and contact is not False)
+        if contact is None:
+            # No contact evidence at all: say so instead of scoring it as a
+            # miss or a hit. The stage cannot be reached on proximity alone.
+            self._refuse("grasp", reading, "contact_evidence_unavailable")
+        elif contact is False:
+            self._refuse("grasp", reading, "no_gripper_object_contact", {"opening_m": opening, "eef_object_m": near})
+        if on_container:
+            self._refuse("grasp", reading, "gripper_on_container", {"opening_m": opening})
+        if container["moved"] and "grasp" in self.opts["container_guard"]["stages"]:
+            self._refuse("grasp", reading, "container_moved", container)
+        grasp_ok = bool(
+            closed
+            and at_object
+            and contact is True
+            and not on_container
+            and not (container["moved"] and "grasp" in self.opts["container_guard"]["stages"])
+        )
         if grasp_ok:
             self._reach(
                 "grasp",
@@ -347,27 +489,37 @@ class Tracker:
                     "opening_m": opening,
                     "eef_object_m": near,
                     "contact": contact,
-                    "source": "contact" if contact else ("proximity" if contact is None else "gripper"),
+                    "container_move_m": container["move_m"],
+                    "source": "finger_object_contact",
                 },
             )
 
         # 2. lift clear of the rim --------------------------------------
-        required = self._required_rise()
-        if required is None:
-            if "lift" not in self.not_measured:
-                self.not_measured.append("lift")
-        elif rise is not None and rise >= required:
-            self._lifted = True
-            self._reach(
-                "lift",
-                reading,
-                {
-                    "rise_m": rise,
-                    "required_rise_m": required,
-                    "clearance_above_rim_m": self.opts["lift"]["clearance_above_rim_m"],
-                    "above_rim_m": reading.get("above_rim_m"),
-                },
-            )
+        # The criterion is stated in the container's frame: the object bottom
+        # has to be ``clearance_above_rim_m`` above the rim *now*. A bowl that
+        # was picked up with the cheese still riding in it leaves this number
+        # unchanged, so it cannot produce a lift.
+        clearance = float(self.opts["lift"]["clearance_above_rim_m"])
+        above = reading.get("above_rim_m")
+        if above is None:
+            self._refuse("lift", reading, "above_rim_unavailable")
+        else:
+            guard = self.opts["container_guard"]["stages"]
+            if float(above) >= clearance and "lift" in guard and container["moved"]:
+                self._refuse("lift", reading, "container_lifted_with_object", {**container, "above_rim_m": above})
+            elif float(above) >= clearance:
+                self._lifted = True
+                self._reach(
+                    "lift",
+                    reading,
+                    {
+                        "above_rim_m": above,
+                        "clearance_above_rim_m": clearance,
+                        "rise_m": rise,
+                        "container_move_m": container["move_m"],
+                        "container_lift_m": container["lift_m"],
+                    },
+                )
 
         # 3. carried while lifted ---------------------------------------
         offset = self._xy_offset(reading)
@@ -383,7 +535,7 @@ class Tracker:
         # 4. release over the bowl --------------------------------------
         release_opts = self.opts["release"]
         opened = isinstance(opening, (int, float)) and float(opening) >= float(release_opts["min_opening_m"])
-        free = contact is False or contact is None
+        free = contact is False
         if opened and free:
             self._release_streak += 1
             if self._release_onset is None and self._lifted:
@@ -416,7 +568,7 @@ class Tracker:
                 reading,
                 {
                     "opening_m": onset.get("opening_m"),
-                    "contact": _object_contact(onset),
+                    "contact": onset.get("gripper_object_contact"),
                     "confirm_samples": self._release_streak,
                     "onset_sim_action_count": onset.get("sim_action_count"),
                     "onset_xy_m": onset.get("xy_m"),
@@ -453,9 +605,12 @@ class Tracker:
                 and float(settle_opts["seat_min_m"]) <= float(seat) <= float(settle_opts["seat_max_m"])
             )
             xy_ok = isinstance(xy, (int, float)) and float(xy) <= float(settle_opts["max_xy_m"])
-            resting = contact is False or contact is None
+            # "resting" is only claimed when the contact probe was readable and
+            # reports no finger contact; an unavailable probe is not a rest.
+            resting = contact is False
             stable = drift is not None and drift <= float(settle_opts["max_drift_m"])
-            if len(window) >= int(settle_opts["samples"]) and relation_ok and inside_window and xy_ok and resting and stable:
+            still_bowl = not container["moved"] or "settle" not in self.opts["container_guard"]["stages"]
+            if len(window) >= int(settle_opts["samples"]) and relation_ok and inside_window and xy_ok and resting and stable and still_bowl:
                 self._reach(
                     "settle",
                     reading,
@@ -506,8 +661,28 @@ class Tracker:
                 "seat_m": self.start.get("seat_m"),
                 "xy_m": self.start.get("xy_m"),
                 "rim_z": self.start.get("rim_z"),
+                "container_pos": self.start.get("container_pos"),
                 "opening_m": self.start.get("opening_m"),
-                "required_rise_m": self._required_rise(),
+                "above_rim_m": self.start.get("above_rim_m"),
+                "contacts_available": self.start.get("contacts_available"),
+            },
+            "container": {
+                "move_m": self.container_move_m,
+                "lift_m": self.container_lift_m,
+                "guard": dict(self.opts["container_guard"]),
+                "note": (
+                    "the guard applies only to the stages where the bowl must stay a fixture; "
+                    "a container that moved is reported, never rounded down to zero"
+                ),
+            },
+            "refusals": list(self.refusals),
+            "evidence": {
+                "contacts_available": bool(self.start.get("contacts_available")),
+                "contact_samples": self.contact_samples,
+                "closed_samples": self.closed_samples,
+                "note": (
+                    "an unavailable contact probe is refused, not counted as a measured absence"
+                ),
             },
             "peak": {
                 "rise_m": self.max_rise_m,
@@ -556,5 +731,10 @@ def summarise(block: dict[str, Any]) -> dict[str, Any]:
         "seat_after_m": ((block.get("end") or {}).get("seat_m")),
         "xy_after_m": ((block.get("end") or {}).get("xy_m")),
         "peak_rise_m": (block.get("peak") or {}).get("rise_m"),
+        "peak_above_rim_m": (block.get("peak") or {}).get("above_rim_m"),
+        "container_move_m": (block.get("container") or {}).get("move_m"),
+        "container_lift_m": (block.get("container") or {}).get("lift_m"),
+        "contacts_available": (block.get("evidence") or {}).get("contacts_available"),
+        "refusals": [row.get("reason") for row in (block.get("refusals") or [])],
         "reason": block.get("reason"),
     }

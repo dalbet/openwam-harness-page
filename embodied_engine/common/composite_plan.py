@@ -26,11 +26,22 @@ DEFAULT_PAIRS: tuple[tuple[str, ...], ...] = (("open_middle_drawer", "put_bowl_o
 DEFAULT_MAX_STEPS = 3
 DEFAULT_STEP_MAX_STEPS = {"1": 300, "2": 600, "3": 300}
 DEFAULT_GOAL_CONFIRM_SAMPLES = 2
+# ``None`` keeps the shipped per-chunk window for every step. An integer
+# narrows the executed window *only* for a step that carries an object into a
+# container (index >= 2), which is the only phase this option exists for: the
+# carried object is already placed, so a shorter window buys fresher
+# observations during the grasp and the carry and costs more inferences.
+DEFAULT_TRANSPORT_EXECUTE_HORIZON = None
 
 
 def options(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
     block = dict((cfg or {}).get("composite") or {})
     pairs = block.get("supported_pairs") or [list(pair) for pair in DEFAULT_PAIRS]
+    transport_horizon = block.get("transport_execute_horizon", DEFAULT_TRANSPORT_EXECUTE_HORIZON)
+    try:
+        transport_horizon = None if transport_horizon in (None, "", 0, "0") else max(1, int(transport_horizon))
+    except (TypeError, ValueError):
+        transport_horizon = None
     return {
         "enabled": bool(block.get("enabled", True)),
         "pairs": tuple(tuple(str(key) for key in pair) for pair in pairs),
@@ -40,6 +51,11 @@ def options(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
             **{str(k): int(v) for k, v in (block.get("step_max_steps") or {}).items()},
         },
         "goal_confirm_samples": int(block.get("goal_confirm_samples") or DEFAULT_GOAL_CONFIRM_SAMPLES),
+        "transport_execute_horizon": transport_horizon,
+        "transport_execute_note": (
+            "null = every step executes the shipped window; an int replaces execute_horizon only "
+            "for a step with step_index >= 2 that carries an object, never for the placing step"
+        ),
     }
 
 

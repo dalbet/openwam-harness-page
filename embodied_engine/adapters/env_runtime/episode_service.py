@@ -351,7 +351,16 @@ def _wrap(cls) -> None:
         sim = poses.get("sim") if isinstance(poses, dict) and isinstance(poses.get("sim"), dict) else {"evidence_source": "readonly_rpc", "objects": {}}
         named = {
             key: poses.get(key)
-            for key in ("bodies", "sites", "site_geometry", "evidence_source", "error")
+            for key in (
+                "bodies",
+                "sites",
+                "site_geometry",
+                "dynamics",
+                "contacts",
+                "geoms",
+                "evidence_source",
+                "error",
+            )
             if isinstance(poses, dict) and key in poses
         }
         native_goal = bool(getattr(self, "_sequential_native_goal", False))
@@ -423,12 +432,29 @@ def _attach_named_poses_class(cls) -> None:
             sites = _indexed_xyz(model, data, "nsite", "site_xpos", "site_names", getattr(model, "site_id2name", None))
             geometry = _site_geometry(model, data)
             reading = _worker_reading(self, bodies)
+            try:
+                transport = {
+                    "dynamics": _body_dynamics(model, data, bodies),
+                    "contacts": _contact_rows_all(model, data, _robot_prefixes(self)),
+                    "geoms": _nonrobot_geoms(model),
+                }
+            except Exception as exc:  # noqa: BLE001 - evidence must not break a snapshot
+                transport = {
+                    "dynamics": {},
+                    "contacts": None,
+                    "geoms": {},
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
             return {
                 "bodies": bodies,
                 "sites": sites,
                 "site_geometry": geometry,
                 "sim": reading["sim"],
                 "joints": reading["joints"],
+                # Transport evidence rides on the same payload: orientation and
+                # velocity of every body, every contact pair, and the collision
+                # geometry the loader actually compiled.
+                **transport,
                 "evidence_source": "mujoco_site",
             }
         except Exception as exc:
@@ -836,6 +862,172 @@ def _indexed_xyz(model, data, count_name, xpos_name, names_attr, id2name) -> dic
     return found
 
 
+def _body_dynamics(model, data, bodies: dict[str, list[float]] | None = None) -> dict[str, dict]:
+    """World pose, orientation and 6D velocity per non-world body.
+
+    Read-only. Velocities come from the body's own free joint when it has one
+    (``qvel``: linear in the world frame, angular in the body frame, rotated
+    into the world frame here). A body without a free joint falls back to
+    ``data.cvel`` (``[angular, linear]``, centred on the body's own com).
+
+    This rides on the snapshot call the rollout already makes after every
+    action, so a transport trace costs no extra round trip.
+    """
+    count = int(getattr(model, "nbody", 0))
+    names = _names(getattr(model, "body_names", None), getattr(model, "body_id2name", None), count)
+    xpos = getattr(data, "xpos", None)
+    xquat = getattr(data, "xquat", None)
+    xmat = getattr(data, "xmat", None)
+    qvel = getattr(data, "qvel", None)
+    cvel = getattr(data, "cvel", None)
+    free: dict[int, int] = {}
+    try:
+        jnt_type = list(getattr(model, "jnt_type"))
+        jnt_body = list(getattr(model, "jnt_bodyid"))
+        jnt_qvel = list(getattr(model, "jnt_qveladr"))
+        for index, kind in enumerate(jnt_type):
+            if int(kind) == 0:  # mjJNT_FREE
+                free[int(jnt_body[index])] = int(jnt_qvel[index])
+    except Exception:
+        free = {}
+    out: dict[str, dict] = {}
+    for index, name in enumerate(names):
+        if index == 0 or not name:
+            continue  # the world body has no pose to report
+        try:
+            pos = [float(v) for v in list(xpos[index])[:3]]
+            quat = [float(v) for v in list(xquat[index])[:4]]
+        except Exception:
+            continue
+        linear = None
+        angular = None
+        address = free.get(index)
+        if address is not None and qvel is not None:
+            try:
+                linear = [float(v) for v in list(qvel[address : address + 3])]
+                local = [float(v) for v in list(qvel[address + 3 : address + 6])]
+                rot = list(xmat[index]) if xmat is not None else None
+                if rot is not None and len(rot) >= 9:
+                    angular = [
+                        float(rot[0]) * local[0] + float(rot[1]) * local[1] + float(rot[2]) * local[2],
+                        float(rot[3]) * local[0] + float(rot[4]) * local[1] + float(rot[5]) * local[2],
+                        float(rot[6]) * local[0] + float(rot[7]) * local[1] + float(rot[8]) * local[2],
+                    ]
+                else:
+                    angular = local
+            except Exception:
+                linear = angular = None
+        if linear is None and cvel is not None:
+            try:
+                row = list(cvel[index])
+                angular = [float(row[0]), float(row[1]), float(row[2])]
+                linear = [float(row[3]), float(row[4]), float(row[5])]
+            except Exception:
+                linear = angular = None
+        out[name] = {
+            "pos": [round(v, 6) for v in pos],
+            "quat": [round(v, 6) for v in quat],
+            "vel": None if linear is None else [round(v, 6) for v in linear],
+            "angvel": None if angular is None else [round(v, 6) for v in angular],
+            "velocity_source": "free_joint_qvel" if address is not None else ("cvel" if linear is not None else None),
+        }
+    return out
+
+
+def _names(raw_names, id2name, count: int) -> list[str]:
+    names: list[str] = []
+    if raw_names is not None:
+        try:
+            names = [str(item) for item in list(raw_names)[:count]]
+        except Exception:
+            names = []
+    if len(names) < count and callable(id2name):
+        names = []
+        for index in range(count):
+            try:
+                names.append(str(id2name(index) or ""))
+            except Exception:
+                names.append("")
+    return names
+
+
+def _contact_rows_all(model, data, prefixes: dict[str, list[str]], limit: int = 96) -> list[dict]:
+    """Every contact pair, not just the robot's.
+
+    ``_contact_summary`` keeps only robot-vs-nonrobot pairs because that is what
+    a grasp question needs. A transport question needs the object-to-container
+    pairs too: "the cheese is held by the bowl" and "the cheese is held by the
+    fingers" have the same positions and different physics.
+    """
+    rows: list[dict] = []
+    try:
+        count = int(getattr(data, "ncon", 0))
+    except Exception:
+        return rows
+    for index in range(min(count, limit)):
+        contact = data.contact[index]
+        geom1, geom2 = int(contact.geom1), int(contact.geom2)
+        body1 = _model_body_name(model, int(getattr(model, "geom_bodyid")[geom1]))
+        body2 = _model_body_name(model, int(getattr(model, "geom_bodyid")[geom2]))
+        robot_prefixes = tuple(prefixes["arms"] + prefixes["grippers"])
+        gripper_prefixes = tuple(prefixes["grippers"])
+        try:
+            pos = [round(float(v), 5) for v in list(contact.pos)[:3]]
+        except Exception:
+            pos = None
+        rows.append(
+            {
+                "body1": body1,
+                "body2": body2,
+                "geom1": _model_geom_name(model, geom1),
+                "geom2": _model_geom_name(model, geom2),
+                "dist": round(float(contact.dist), 5),
+                "pos": pos,
+                "robot1": bool(robot_prefixes) and body1.startswith(robot_prefixes),
+                "robot2": bool(robot_prefixes) and body2.startswith(robot_prefixes),
+                "gripper1": bool(gripper_prefixes) and body1.startswith(gripper_prefixes),
+                "gripper2": bool(gripper_prefixes) and body2.startswith(gripper_prefixes),
+            }
+        )
+    return rows
+
+
+def _nonrobot_geoms(model, limit: int = 240) -> dict[str, dict]:
+    """The collision geometry the simulator actually compiled.
+
+    Copied from the live model, not from the XML on disk, so a scale or an
+    offset applied by the loader cannot hide: the numbers that decide whether
+    an object fits are the numbers here.
+    """
+    out: dict[str, dict] = {}
+    try:
+        count = int(getattr(model, "ngeom", 0))
+        names = _names(getattr(model, "geom_names", None), getattr(model, "geom_id2name", None), count)
+        for index in range(min(count, limit)):
+            body = _model_body_name(model, int(getattr(model, "geom_bodyid")[index]))
+            if body.startswith("robot") or body == "world":
+                continue
+            name = names[index] if index < len(names) and names[index] else f"geom{index}"
+            try:
+                size = [round(float(v), 6) for v in list(getattr(model, "geom_size")[index])]
+                pos = [round(float(v), 6) for v in list(getattr(model, "geom_pos")[index])]
+                quat = [round(float(v), 6) for v in list(getattr(model, "geom_quat")[index])]
+            except Exception:
+                size = pos = quat = None
+            out[name] = {
+                "body": body,
+                "type": int(getattr(model, "geom_type")[index]),
+                "size": size,
+                "pos": pos,
+                "quat": quat,
+                "contype": int(getattr(model, "geom_contype")[index]),
+                "conaffinity": int(getattr(model, "geom_conaffinity")[index]),
+            }
+    except Exception:
+        return out
+    return out
+
+
 def _site_geometry(model, data) -> dict[str, dict]:
     """World pose of each site. quat is MuJoCo wxyz. size is the site half-extent."""
     from regions import mat_to_quat_wxyz
@@ -997,6 +1189,9 @@ def _read_worker_poses(facade) -> dict[str, Any]:
         return {"bodies": {}, "sites": {}, "error": f"named pose payload is {type(payload).__name__}"}
     payload.setdefault("bodies", {})
     payload.setdefault("sites", {})
+    payload.setdefault("dynamics", {})
+    payload.setdefault("geoms", {})
+    payload.setdefault("contacts", None)
     return payload
 
 

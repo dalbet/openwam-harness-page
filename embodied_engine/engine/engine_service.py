@@ -337,6 +337,36 @@ def _watched_joints(
     return names
 
 
+def _loaded_containers(
+    watch_goals: list[dict[str, Any]] | None,
+    carry_objects: list[str] | None,
+) -> list[str]:
+    """Carried bodies that an earlier step already put something into.
+
+    ``watch_goals`` are the earlier steps' engine predicates, each with
+    ``object_n`` (the thing being placed) and ``target_n`` (the container).
+    When the body this step carries is one of those targets, the step is a
+    transport *of a loaded container* — the case this diagnostic arm is about.
+
+    The comparison is exact on purpose. ``turn_on_stove`` lists the stove as its
+    object, and an earlier step's target is ``flat_stove_1_cook_region``; a
+    prefix match would treat turning the knob as transport and change that
+    step's execution window too, which is not one variable.
+    """
+    carried = {str(name) for name in (carry_objects or []) if isinstance(name, str)}
+    if not carried:
+        return []
+    found: list[str] = []
+    for goal in watch_goals or []:
+        source = goal.get("object_n")
+        target = goal.get("target_n")
+        if not isinstance(target, str) or not isinstance(source, str) or source == target:
+            continue
+        if target in carried and target not in found:
+            found.append(target)
+    return found
+
+
 def _post_json(url: str, body: dict[str, Any], timeout_s: float) -> dict[str, Any]:
     data = json.dumps(body, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
@@ -1282,9 +1312,42 @@ class Engine:
         # other (an 8-D proprio in OpenWAM or EEF10 in pi05 both fail loudly).
         runner_cls = Pi05WholeTaskRunner if backend == "pi05" else WholeTaskRunner
         pi05_cfg = dict(self.cfg["action_model"].get("pi05") or {})
+        generate_horizon = int(pi05_cfg.get("generate_horizon") or 10)
+        execute_horizon = int(pi05_cfg.get("execute_horizon") or 5)
+        # Diagnostic execution change (off unless configured): a step that
+        # carries a container which an earlier step already placed something
+        # into may execute a narrower slice of each generated chunk, so the next
+        # observation is one or two actions old instead of ``execute_horizon``
+        # actions old. Nothing else about the policy changes: same weights, same
+        # precision, same num_steps (denoise), same generate_horizon, same noise
+        # rule.
+        horizon_policy: dict[str, Any] | None = None
+        transport_horizon = composite_opts.get("transport_execute_horizon")
+        # Scope: the body being carried must be the target of an earlier step's
+        # relation, and the source of that relation must be a different body.
+        # A looser rule ("this step's task has an object list") also catches
+        # ``turn_on_stove``, whose "object" is the stove itself; the first
+        # version of this arm did exactly that and is kept in the records as a
+        # defect, so the scope is now the measured one.
+        loaded_containers = _loaded_containers(watch_goals, carry_objects)
+        if transport_horizon and runner_cls is Pi05WholeTaskRunner and loaded_containers:
+            applied = max(1, min(int(transport_horizon), generate_horizon))
+            horizon_policy = {
+                "kind": "transport_execute_horizon",
+                "step_index": int(step.get("step_index") or 1),
+                "configured": int(transport_horizon),
+                "applied": applied,
+                "baseline_execute_horizon": execute_horizon,
+                "generate_horizon": generate_horizon,
+                "scope": "carried body is the target of an earlier step's relation",
+                "scope_carried": loaded_containers,
+                "reason": "carried object is already placed: a shorter window gives the policy a fresher "
+                          "observation during the grasp and the carry; inferences per action rise by "
+                          "baseline/applied",
+            }
+            execute_horizon = applied
         extra = (
-            {"execute_horizon": int(pi05_cfg.get("execute_horizon") or 5),
-             "generate_horizon": int(pi05_cfg.get("generate_horizon") or 10)}
+            {"execute_horizon": execute_horizon, "generate_horizon": generate_horizon}
             if runner_cls is Pi05WholeTaskRunner
             else {}
         )
@@ -1314,9 +1377,18 @@ class Engine:
             watch_joints=watch_joints,
             watch_goals=watch_goals,
             carry_objects=carry_objects,
+            watch_every=int((self.cfg.get("composite") or {}).get("watch_every") or 5),
             **extra,
         )
         result = runner.run()
+        if horizon_policy is not None:
+            # The action window is part of the evidence: a shorter window
+            # changes how often the policy sees the scene, and that is the
+            # whole point of the arm being compared. ``inference_rows`` is the
+            # same list the step record exposes, so the call count is recorded
+            # from the run rather than recomputed.
+            horizon_policy["inference_rows"] = len(list(getattr(runner, "inference_rows", []) or []))
+            result["execute_horizon_policy"] = horizon_policy
         if goal is not None and step_task is not None and composite.release_required(step_task):
             # An early composite step that places an object still owes a real
             # release: its own predicate says "on the target", not "let go".
@@ -1475,8 +1547,18 @@ class Engine:
 
     # ---- independent re-seat (experiment, default off) --------------------
 
-    def _reseat_contacts(self, env: EnvClient) -> list[dict[str, Any]] | None:
-        """Finger-to-non-robot contact names, or ``None`` when unreadable."""
+    def _reseat_contacts(self, env: EnvClient, snapshot: dict[str, Any] | None = None) -> list[dict[str, Any]] | None:
+        """Contact rows from the snapshot the caller already holds.
+
+        The snapshot carries every contact pair now, so this costs no extra
+        round trip. ``robot_state_inspect`` stays as the fallback for a
+        snapshot read from an older environment service. ``None`` means the
+        evidence is unavailable, which the stage rules refuse.
+        """
+        named = (snapshot or {}).get("named_poses") or {}
+        rows = named.get("contacts")
+        if isinstance(rows, list):
+            return list(rows)
         reader = getattr(env, "robot_state_inspect", None)
         if not callable(reader):
             return None
@@ -1513,16 +1595,22 @@ class Engine:
         if floor is None:
             floor = height.get("surface_z")
         object_n = goal.get("object_n")
+        container_n = goal.get("target_n")
+        container_pos = grasp_geometry.object_pos(snapshot, container_n) if isinstance(container_n, str) else None
+        contacts = self._reseat_contacts(env, snapshot)
         return independent_reseat.measure(
             {
                 "sim_action_count": snapshot.get("sim_action_count"),
                 "observation_id": snapshot.get("observation_id"),
                 "object_pos": grasp_geometry.object_pos(snapshot, object_n),
                 "target_pose": relation.get("target_pose"),
+                "container_pos": container_pos,
                 "eef_pos": grasp_geometry.eef_pos(snapshot),
                 "opening_m": grasp_geometry.opening_m(snapshot),
                 "eef_object_m": grasp_geometry.eef_object_m(snapshot, object_n),
-                "gripper_contacts": self._reseat_contacts(env),
+                "contacts": contacts,
+                "contacts_available": contacts is not None,
+                "gripper_contacts": contacts,
                 "relation_ok": relation.get("ok"),
                 "xy_m": relation.get("xy_m"),
                 "object_bottom_z": bottom,

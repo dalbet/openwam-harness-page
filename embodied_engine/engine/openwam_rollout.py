@@ -25,6 +25,7 @@ sequence this policy produced by itself.
 
 from __future__ import annotations
 
+import math
 import subprocess
 import threading
 import time
@@ -340,6 +341,9 @@ class WholeTaskRunner:
                 }
             if relatives:
                 row["relative"] = relatives
+        dynamics = self._watch_dynamics(snap)
+        if dynamics:
+            row["dynamics"] = dynamics
         states: dict[str, Any] = {}
         for item in self.watch_goals:
             step_id = str(item.get("step_id") or "")
@@ -422,6 +426,124 @@ class WholeTaskRunner:
         block["current"] = states
 
     # ---- earlier steps' goals (diagnostics only) -------------------------
+
+    def _watch_dynamics(self, snap: dict[str, Any]) -> dict[str, Any] | None:
+        """Orientation/velocity/contact evidence for the watched bodies.
+
+        Reads the snapshot the loop already took: no extra round trip, no
+        extra simulator action. ``tilt_deg`` is the angle between the body's
+        own +z axis and world +z, which is what a bowl's "tilt" means visually.
+
+        The composite names objects the way the catalog does
+        (``akita_black_bowl_1``) while the simulator names the same body with a
+        ``_main`` suffix. Both spellings are accepted and the row is keyed by
+        the *catalog* name so a trace stays comparable across environment
+        versions; ``body`` records which simulator body answered.
+        """
+        if not self.watch_objects:
+            return None
+        named = snap.get("named_poses") or {}
+        body_dyn = named.get("dynamics") or {}
+        if not isinstance(body_dyn, dict) or not body_dyn:
+            return None
+
+        def resolve(name: str) -> str | None:
+            if not isinstance(name, str) or not name:
+                return None
+            if name in body_dyn:
+                return name
+            for candidate in (f"{name}_main", name[: -len("_main")] if name.endswith("_main") else name):
+                if candidate in body_dyn:
+                    return candidate
+            for key in body_dyn:
+                if key.startswith(f"{name}_"):
+                    return key
+            return None
+
+        resolved: dict[str, str] = {}
+        rows: dict[str, Any] = {}
+        for name in self.watch_objects:
+            body = resolve(name)
+            if body is None:
+                continue
+            entry = body_dyn.get(body)
+            if not isinstance(entry, dict):
+                continue
+            resolved[name] = body
+            quat = entry.get("quat")
+            tilt = None
+            if isinstance(quat, (list, tuple)) and len(quat) == 4:
+                w, x, y, z = (float(v) for v in quat)
+                norm = (w * w + x * x + y * y + z * z) ** 0.5
+                if norm > 1e-9:
+                    w, x, y, z = w / norm, x / norm, y / norm, z / norm
+                    cos_tilt = max(-1.0, min(1.0, 1.0 - 2.0 * (x * x + y * y)))
+                    tilt = round(math.degrees(math.acos(cos_tilt)), 3)
+            rows[name] = {
+                "body": body,
+                "pos": entry.get("pos"),
+                "quat": None if quat is None else [round(float(v), 5) for v in quat],
+                "tilt_deg": tilt,
+                "vel": entry.get("vel"),
+                "angvel": entry.get("angvel"),
+            }
+        # Relative velocity is the quantity a "was it thrown?" question needs:
+        # a cheese moving with the bowl is not sliding in it.
+        relatives: dict[str, Any] = {}
+        for item in self.watch_goals:
+            a = rows.get(item.get("object_n"))
+            b = rows.get(item.get("target_n"))
+            if not a or not b or a.get("vel") is None or b.get("vel") is None:
+                continue
+            relative = [round(float(a["vel"][i]) - float(b["vel"][i]), 5) for i in range(3)]
+            relatives[str(item.get("step_id") or "")] = {
+                "of": item.get("object_n"),
+                "to": item.get("target_n"),
+                "vel": relative,
+                "speed": round(sum(v * v for v in relative) ** 0.5, 5),
+            }
+        # Only the pairs a transport question asks about: carried object
+        # against its container, and the fingers against the carried object.
+        pairs: list[dict[str, Any]] = []
+        contacts = named.get("contacts")
+        if isinstance(contacts, list):
+            watched = set(resolved.values()) | set(self.watch_objects)
+            for contact in contacts:
+                if not isinstance(contact, dict):
+                    continue
+                one, two = contact.get("body1"), contact.get("body2")
+                if one in watched or two in watched:
+                    pairs.append(
+                        {
+                            "a": one,
+                            "b": two,
+                            "geom_a": contact.get("geom1"),
+                            "geom_b": contact.get("geom2"),
+                            "dist": contact.get("dist"),
+                            "robot": bool(contact.get("robot1") or contact.get("robot2")),
+                        }
+                    )
+        block: dict[str, Any] = {"bodies": rows}
+        if relatives:
+            block["relative_vel"] = relatives
+        # Robot-vs-object pairs first: they are the ones that answer "did the
+        # fingers touch the cheese while closing on the bowl". ``total`` keeps a
+        # truncated list from being read as "no other contact existed".
+        pairs.sort(
+            key=lambda row: (
+                0 if row.get("robot") else 1,
+                row.get("dist") if isinstance(row.get("dist"), (int, float)) else 0.0,
+            )
+        )
+        block["contacts"] = pairs[:24]
+        block["contacts_total"] = len(pairs)
+        block["contacts_available"] = contacts is not None
+        inference = self.inference_rows[-1] if self.inference_rows else {}
+        if isinstance(inference, dict):
+            block["chunk_id"] = inference.get("chunk_id")
+            block["buffer_index"] = inference.get("buffer_index")
+            block["cache_hit"] = inference.get("cache_hit")
+        return block
 
     def _watch(self, snap: dict[str, Any]) -> dict[str, Any] | None:
         """Record the first action after which an earlier goal joint moved.

@@ -1341,3 +1341,114 @@ reset 的顺序决定了"为什么只有静态夹具在变"：
    这条属于资产/任务设定本身，不是本轮能改的，报告里按事实写。
 4. **A/B 未运行**：按"只有出现实际重新抓取和重新放置后才做效果对照"的门控，
    本轮没有可对照的纠偏样本，两臂都没有跑（A 臂记录目录为空）。
+
+## 15. 运输失稳的观测面与一个可开关的执行窗口（2026-11-05）
+
+本轮没有改策略、没有改判据阈值、没有加预算。新增的是**两层只读观测**和**一个默认关闭的
+执行窗口开关**；两者都只在本轮的诊断臂里使用。
+
+### 15.1 `engine/openwam_rollout.py::_watch_dynamics()`：每动作一次的只读证据
+
+rollout 循环本来每个动作后就要取一份快照（`named_poses`）。本函数只从**这一份**快照里读：
+
+| 字段 | 含义 | 为什么需要 |
+| --- | --- | --- |
+| `bodies[name].pos/quat/tilt_deg/vel/angvel` | 被观察 body 的位姿、`+z` 与世界 `+z` 的夹角、速度、角速度 | "碗倾了几度""是滑还是被带着走" |
+| `relative_vel[step_id]` | 对象速度 − 容器速度 | 两者的相对速度才是"在碗里滑"的证据；同速只是"一起被搬" |
+| `contacts` / `contacts_total` / `contacts_available` | 与观察 body 相关的接触对（含 geom 名、穿透深度、是否机器人） | 判断"手指有没有碰到奶酪""碗是不是被托住" |
+| `chunk_id` / `buffer_index` / `cache_hit` | 本动作来自哪个生成块、块内第几个、是否命中缓存 | 干预臂要靠它算生成次数 |
+
+三条实现约束：
+
+1. **零额外成本**：不新开 RPC、不额外 `env.step`、不改动作。`watch_every=1` 时每动作一行，
+   没有 `watch_every` 就拿不到逐动作时间线——这也是本轮诊断臂与交付配置的唯一差别之一。
+2. **命名归一**：catalog 用 `akita_black_bowl_1`，仿真用 `akita_black_bowl_1_main`，
+   geom 是 `akita_black_bowl_1_g13`。`resolve()` 两种拼写都接受，行键统一用 catalog 名，
+   `body` 字段记实际应答的仿真名，这样 trace 可以跨环境版本比较。
+3. **截断要报出来**：接触对按 `robot` 优先、穿透深度次之排序，最多留 24 条，
+   同时写 `contacts_total`。**列表为空 ≠ 没有接触**：`contacts_available=false` 是"证据不可用"，
+   `contacts_total > 已列条数` 是"被截断"。第一版没有这两个字段，导致一次"手指确实碰到奶酪"
+   的事件在记录里看不见——这正是本轮把三态写进记录的原因。
+
+### 15.2 阶段是从测量量导出的，不是按动作序号硬编码
+
+`scripts/transport_phase_compare.py` 不给"第 39 个动作"这种常量，而是逐个动作判：
+
+| 阶段 | 判据（全部来自 15.1 的测量） |
+| --- | --- |
+| `approach` | 夹爪开度 ≥ 0.065 m 且容器相对本次起点的抬升 < 3 mm |
+| `grasp` | 开度 < 0.065 m 且容器仍在地面高度 |
+| `lift` | 抬升 ≥ 3 mm 且容器竖直速度（3 点中值平滑）> +0.004 m/s |
+| `carry` | 抬升 ≥ 3 mm 且竖直速度在 ±0.004 m/s 之间 |
+| `place` | 抬升 ≥ 3 mm 且竖直速度 < −0.004 m/s |
+| `retreat` | 已经搬运过，且开度回到 ≥ 0.065 m、容器回到起点高度 |
+
+同理，漂移阈值不是"5 mm 听起来很小"，而是取**同一回合里容器必然没被动过的那一段**
+（夹爪张开、容器仍在地面）的中位绝对偏差 σ，阈值 = `max(0.005, 3σ)`。
+本轮实测 σ 为 0.15–0.17 mm，所以阈值被 5 mm 下限接管，σ 也写进报告。
+
+这样做的代价是：阶段划分本身依赖阈值，换任务要重新看这些常数；
+好处是同一套代码可以比较"动作数完全不同的两条轨迹"，而不是比"第 39 个动作"。
+
+### 15.3 `composite.transport_execute_horizon`：作用域比窗口更重要
+
+`engine/engine_service.py::_run_whole_task()` 在起 rollout 之前决定本步的
+`execute_horizon`。开关关闭（默认 `None`）时行为与之前逐位相同；开启时：
+
+```
+execute_horizon = min(transport_execute_horizon, generate_horizon)   # 本轮取 2
+```
+
+**是否生效由 `_loaded_containers(watch_goals, carry_objects)` 判定**：
+被搬运的 body 必须**精确等于**之前某一步关系目标的名字，且该关系的来源是另一个 body。
+例如 `put_cream_cheese_in_bowl` 的 `object_n=cream_cheese_1, target_n=akita_black_bowl_1`，
+第二步搬的是 `akita_black_bowl_1` → 生效；`turn_on_stove` 的 objects 是 `flat_stove_1`，
+而前面某步的目标是 `flat_stove_1_cook_region`，**精确匹配不成立** → 不生效。
+
+这里刻意不用前缀匹配，也不用"这一步的任务有 objects 列表"：第一版就是后者，
+结果 `turn_on_stove` 也被缩短了（一次改了两个因素，记录留在
+`summaries/intervention_h2_v1_scopeleak_20261105.json`）。作用域的判定结果写进记录：
+
+| 字段 | 例子 | 用途 |
+| --- | --- | --- |
+| `execute_horizon_policy.kind` | `transport_execute_horizon` | 一眼看出这一步被改过 |
+| `.baseline_execute_horizon` / `.applied` | `5` / `2` | 改前改后 |
+| `.generate_horizon` | `10` | 证明生成块长度没变 |
+| `.scope_carried` | `["akita_black_bowl_1"]` | 为什么这一步生效 |
+| `.inference_rows` | `85` | 该步实际推理行数（不是估算） |
+
+**这个开关改变的是"每块执行几个动作"，不改变噪声规则**：噪声仍按
+`(policy_seed, step_ref, sim_action_count)` 生成，权重、精度、`num_steps`、`generate_horizon`
+都不变；但请求次数变了 → 两条轨迹消耗的噪声数组不同，所以它只能支撑"闭环对照"，
+不能声称"同一输入下的两条轨迹"。代价可以直接从记录读出：第二步生成次数 17→43，
+该步推理时间 1.26→3.14 s。
+
+### 15.4 判据的参考点：`bowl_interior` 到底在量什么
+
+`common/geometry.py::object_relation()` 对 `interior` 类目标（碗）：
+
+```
+xy       = ||object_xy - target_xy||                 # 两个 body 原点
+bottom   = object_z + ASSETS[object].bottom_z        # 奶酪取 -0.040608（长半轴）
+floor_z  = target_z + ASSETS[target].floor_z         # 碗取 -0.012（外底）
+rim_z    = target_z + ASSETS[target].rim_z           # 碗取 +0.04
+ok       = xy <= inner_xy_m(0.025) and floor_z - 0.02 <= bottom <= rim_z
+```
+
+`inner_xy_m=0.025` 来自 asset 的 `horizontal_radius_site`，是 robosuite 判"在容器内"的
+**容差**，不是碗沿半径（实测内腔自由半径 25 mm→47.5 mm）。所以这个谓词表达的是
+**居中程度**，不是**是否被托住**。本轮据此把"掉料"和"居中超限"分开写，
+并没有改这个阈值或资产。
+
+### 15.5 已知限制（本轮实测暴露）
+
+1. **接触证据曾经不可读**：v0 版本的记录没有 `contacts_total`，列表被截到 12 条且全是
+   table-碗，导致"手指碰到奶酪"的关键动作看起来像"没有接触"。已修，但**旧记录不能回溯**，
+   所以 §38.6 的时间线用的是修好之后的重复回合，不是最早那条。
+2. **阶段阈值是候选值**：0.065 m 开度、3 mm 抬升、0.004 m/s 竖直速度都是按本资产定的，
+   换容器/换夹爪要重新核对，代码里没有自适应。
+3. **`execute_horizon` 只按"是否搬运已装料容器"开关**：容器是区域（`*_cook_region`）时不生效，
+   因为精确匹配故意不接受区域名；若将来确实需要"搬进区域"也缩短窗口，要显式加规则，
+   不能放宽成前缀匹配（否则又会把 `turn_on_stove` 算进来）。
+4. **`n` 太小**：本轮失败配置只有 2 个，机制对照是 1 对 1，结论只能写成
+   "与观察一致的解释"，不能写成因果定律；要升级需要更多同机制样本。
