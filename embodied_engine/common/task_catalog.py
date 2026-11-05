@@ -95,6 +95,61 @@ def capability_rows() -> list[dict[str, Any]]:
     ]
 
 
+def flows() -> list[dict[str, Any]]:
+    """Verified household flows: a goal description plus the ordered keys.
+
+    The model may only name a ``flow_id``; the keys are read here by code, so a
+    flow can never invent a capability the catalog does not already contain.
+    """
+    block = load().get("flows") or {}
+    rows = block.get("flows") if isinstance(block, dict) else None
+    return [dict(row) for row in (rows or []) if isinstance(row, dict) and row.get("flow_id")]
+
+
+def flows_version() -> str:
+    block = load().get("flows") or {}
+    return str(block.get("version") or "unknown") if isinstance(block, dict) else "unknown"
+
+
+def flow_by_id() -> dict[str, dict[str, Any]]:
+    return {str(row["flow_id"]): row for row in flows()}
+
+
+def flow_rows() -> list[dict[str, Any]]:
+    """The candidate flow list sent to the semantic router."""
+    return [
+        {
+            "flow_id": str(row["flow_id"]),
+            "name": str(row.get("name") or ""),
+            "capability": str(row.get("capability") or ""),
+            "keys": [str(key) for key in (row.get("keys") or [])],
+            "excludes": [str(item) for item in (row.get("excludes") or [])],
+        }
+        for row in flows()
+    ]
+
+
+def flow_for_terminal_key(key: str) -> list[dict[str, Any]]:
+    """Flows whose *last* step is ``key``.
+
+    Used by the router's guard: a single-key answer that is a flow's final step
+    is exactly the shape a dropped goal would take, so it has to be asked about
+    instead of accepted silently.
+    """
+    out = []
+    for row in flows():
+        keys = [str(item) for item in (row.get("keys") or [])]
+        if keys and keys[-1] == str(key):
+            out.append(row)
+    return out
+
+
+def flow_keys(flow_id: str) -> list[str]:
+    row = flow_by_id().get(str(flow_id)) or {}
+    return [str(key) for key in (row.get("keys") or [])]
+
+
+
 def _scene_objects(snapshot: dict[str, Any]) -> set[str]:
     return set(((snapshot.get("sim") or {}).get("objects") or {}).keys())
 
@@ -173,6 +228,8 @@ def catalog_evidence() -> dict[str, Any]:
         "sha256": fingerprint(),
         "path": str(CATALOG_PATH),
         "suite": load().get("suite"),
+        "flows_version": flows_version(),
+        "flow_ids": [str(row["flow_id"]) for row in flows()],
         "libero_repo": libero.get("repo"),
         "libero_commit": libero.get("commit"),
         "libero_package_path": libero.get("package_path"),
@@ -185,6 +242,12 @@ __all__ = [
     "capability_rows",
     "catalog_evidence",
     "fingerprint",
+    "flow_by_id",
+    "flow_for_terminal_key",
+    "flow_keys",
+    "flow_rows",
+    "flows",
+    "flows_version",
     "libero_identity",
     "load",
     "scene_support",

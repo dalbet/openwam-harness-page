@@ -37,7 +37,9 @@ if str(PROJECT) not in sys.path:
 
 from adapters.env_client import EnvClient  # noqa: E402
 from common import config, records, task_catalog  # noqa: E402
+from common import geometry  # noqa: E402
 from common import plan_contract
+from common import transport_ready  # noqa: E402
 from engine import completion  # noqa: E402
 from engine import composite  # noqa: E402
 from engine import finalize  # noqa: E402
@@ -1273,6 +1275,370 @@ class Engine:
         snap = finalizer.last_snapshot if finalizer.last_snapshot is not None else snapshot
         return block, obs, snap
 
+    # ---- transport readiness (is the placed object safe to carry?) --------
+
+    def _target_region_diagnostic(
+        self,
+        *,
+        step: dict[str, Any],
+        catalog_by_key: dict[str, dict[str, Any]],
+        snapshot: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Where the step's object sits against the official target region.
+
+        Read-only and ``diagnostic_only``: the official relation is evaluated
+        for the record, not for the verdict. LIBERO's own site check also
+        requires contact between the fixture and the object, which snapshots do
+        not carry; the geometric bounds here are the part that can be measured
+        from a pose read, and the note says so instead of implying more.
+        """
+        row = catalog_by_key.get(str(step.get("step_task_key"))) or {}
+        goal = composite.step_goal(step) or {}
+        objects = row.get("objects") or []
+        targets = row.get("targets") or []
+        object_n = str(goal.get("object_n") or (objects[0] if objects else ""))
+        target_n = str(goal.get("target_n") or (targets[0] if targets else ""))
+        if not object_n or not target_n:
+            return None
+        relation = str(goal.get("relation") or (row.get("semantics") or {}).get("relation") or "on")
+        try:
+            check = geometry.relation_check(snapshot, object_n, target_n, relation)
+        except Exception as exc:  # noqa: BLE001 - a read must never fail a step
+            return {"diagnostic_only": True, "error": f"{type(exc).__name__}: {exc}"}
+        block = dict(check)
+        block.update(
+            {
+                "diagnostic_only": True,
+                "object_n": object_n,
+                "target_n": target_n,
+                "relation": relation,
+                "step_id": step.get("step_id"),
+                "step_task_key": step.get("step_task_key"),
+                "measure": (
+                    "official relation geometry on the step's final snapshot; "
+                    "LIBERO's fixture-contact term is not evaluated here"
+                ),
+            }
+        )
+        if isinstance(check.get("delta_site"), list) and isinstance(check.get("site_size"), list):
+            dx, dy = float(check["delta_site"][0]), float(check["delta_site"][1])
+            sx, sy = float(check["site_size"][0]), float(check["site_size"][1])
+            outside = max(abs(dx) - sx, abs(dy) - sy)
+            block["outside_xy_m"] = round(outside, 4)
+            block["near_miss"] = bool(0.0 < outside <= 0.03)
+        return block
+
+    def _transport_readiness(
+        self,
+        *,
+        env: EnvClient,
+        episode_id: str,
+        steps: list[dict[str, Any]],
+        index: int,
+        step: dict[str, Any],
+        step_task: dict[str, Any],
+        catalog_by_key: dict[str, dict[str, Any]],
+        task: dict[str, Any],
+        record: dict[str, Any],
+        obs: dict[str, Any],
+        snapshot: dict[str, Any],
+        token: str,
+        stop_event: threading.Event,
+        composite_state: dict[str, Any],
+        timing: dict[str, Any],
+        records,
+    ) -> tuple[dict[str, Any], dict[str, Any], str]:
+        """Judge whether the object placed by this step can be carried later.
+
+        The step's own goal stays exactly as it was: this runs *after* the step
+        is complete and only decides whether to re-seat the object once, end the
+        episode with an explicit not-ready failure, or carry on. Every number it
+        reads comes from the step's own post-release samples.
+        """
+        opts = transport_ready.options(self.cfg)
+        block = transport_ready.evaluate(
+            step=step,
+            relation=record.get("final_evidence") or record.get("evidence"),
+            samples=(record.get("placement") or {}).get("samples"),
+            evidence=record.get("final_evidence") or record.get("evidence"),
+            cfg=self.cfg,
+        )
+        block["applicable"] = transport_ready.applies(steps, index, catalog_by_key)
+        block["reseat"] = {
+            "schema": "embodied_engine.composite.reseat.v1",
+            "enabled": bool(opts["reseat"]["enabled"]),
+            "attempted": False,
+            "calls": 0,
+            "max_calls": int(opts["reseat"]["max_calls"]),
+            "max_steps": int(opts["reseat"]["max_steps"]),
+            "task_key": None,
+            "prompt": None,
+            "step_id": None,
+            "status": "not_attempted",
+            "reason": None,
+            "policy_actions": 0,
+            "finalizer_actions": 0,
+            "sim_action_counts": None,
+            "after": None,
+            "reseat_succeeded": False,
+        }
+        record["transport_ready"] = block
+        composite_state["transport_ready"] = block
+        if not block["applicable"] or not block.get("checked"):
+            block["reseat"]["reason"] = "no later step carries this target; nothing to re-seat"
+            return obs, snapshot, token
+        if block.get("ok") is None:
+            # Not measured is not a failure: with fewer samples than the rule
+            # requires there is no verdict, so nothing is executed on it.
+            block["reseat"]["reason"] = (
+                f"not measured ({block.get('reason_code')}); no re-seat is attempted"
+            )
+            block["reseat"]["status"] = "not_measured"
+            records.append_journal(
+                {
+                    "t": time.time(),
+                    "stage": "composite_transport_not_measured",
+                    "episode_id": episode_id,
+                    "step_id": step.get("step_id"),
+                    "reason_code": block.get("reason_code"),
+                    "samples": (block.get("evidence") or {}).get("samples"),
+                }
+            )
+            return obs, snapshot, token
+        if block.get("ok"):
+            block["reseat"]["reason"] = "transport readiness holds; no re-seat"
+            return obs, snapshot, token
+
+        records.append_journal(
+            {
+                "t": time.time(),
+                "stage": "composite_transport_not_ready",
+                "episode_id": episode_id,
+                "step_id": step.get("step_id"),
+                "reason_code": block.get("reason_code"),
+                "risk": block.get("risk"),
+                "features": block.get("features"),
+            }
+        )
+        if not opts["reseat"]["enabled"]:
+            block["reseat"]["reason"] = "re-seat is disabled in config"
+        elif self._action_backend() != "pi05":
+            block["reseat"]["reason"] = "re-seat requires the whole-task policy backend"
+        else:
+            obs, snapshot, token = self._transport_reseat(
+                env=env,
+                episode_id=episode_id,
+                step=step,
+                step_task=step_task,
+                task=task,
+                record=record,
+                snapshot=snapshot,
+                token=token,
+                stop_event=stop_event,
+                composite_state=composite_state,
+                timing=timing,
+                records=records,
+                opts=opts,
+            )
+            after = (block["reseat"].get("after") or {}) if isinstance(block["reseat"], dict) else {}
+            if after.get("checked"):
+                # The trigger is kept verbatim; the top-level fields then
+                # describe the state transport actually started from.
+                block["before_reseat"] = {
+                    "ok": block.get("ok"),
+                    "risk": block.get("risk"),
+                    "reason_code": block.get("reason_code"),
+                    "reasons": block.get("reasons"),
+                    "features": block.get("features"),
+                }
+                block["reasons"] = after.get("reasons")
+                block["features"] = after.get("features")
+                block["reason_code"] = after.get("reason_code")
+                block["risk"] = after.get("risk")
+                block["ok"] = bool(after.get("ok"))
+                block["ready"] = bool(after.get("ok"))
+                block["reseat"]["reseat_succeeded"] = bool(after.get("ok"))
+        if not block.get("ok"):
+            on_failure = str(opts["reseat"].get("on_failure") or "stop")
+            block["on_reseat_failure"] = on_failure
+            if on_failure == "stop":
+                reseat_row = block.get("reseat") or {}
+                change = reseat_row.get("state_change") or {}
+                tail = ""
+                if change.get("changed") is False:
+                    tail = "; the re-seat ran and the geometry did not move"
+                elif change.get("changed") is True:
+                    tail = (
+                        f"; the re-seat moved the object by "
+                        f"{change.get('seat_delta_change_m')} m in seat depth and still did not "
+                        f"reach a ready state"
+                    )
+                raise SkillFailure(
+                    "composite_transport_not_ready",
+                    (
+                        f"step {step.get('step_id')} placed the object but it is not safe to "
+                        f"carry ({block.get('reason_code')}); one bounded re-seat did not "
+                        f"reach a ready state{tail}"
+                    ),
+                    {
+                        "transport_ready": transport_ready.summarise(block),
+                        "features": block.get("features"),
+                        "reseat": block.get("reseat"),
+                    },
+                )
+            block["proceeded_not_ready"] = True
+            records.append_journal(
+                {
+                    "t": time.time(),
+                    "stage": "composite_transport_proceeded_not_ready",
+                    "episode_id": episode_id,
+                    "step_id": step.get("step_id"),
+                    "reason_code": block.get("reason_code"),
+                }
+            )
+        return obs, snapshot, token
+
+    def _transport_reseat(
+        self,
+        *,
+        env: EnvClient,
+        episode_id: str,
+        step: dict[str, Any],
+        step_task: dict[str, Any],
+        task: dict[str, Any],
+        record: dict[str, Any],
+        snapshot: dict[str, Any],
+        token: str,
+        stop_event: threading.Event,
+        composite_state: dict[str, Any],
+        timing: dict[str, Any],
+        records,
+        opts: dict[str, Any],
+    ) -> tuple[dict[str, Any], dict[str, Any], str]:
+        """One bounded re-run of the same catalog capability, from live state.
+
+        No reset, no reload, no teleport, no object or physics write: the policy
+        receives the same official instruction again and the executed actions
+        are ordinary ``env.step`` calls counted in this episode.
+        """
+        reseat = composite_state["transport_ready"]["reseat"]
+        reseat.update(
+            {
+                "attempted": True,
+                "calls": int(reseat.get("calls") or 0) + 1,
+                "task_key": step.get("step_task_key"),
+                "prompt": step.get("prompt"),
+                "step_id": f"r{int(step.get('step_index') or 1)}",
+                "status": "executing",
+            }
+        )
+        reseat_step = dict(step)
+        reseat_step["step_id"] = str(reseat["step_id"])
+        reseat_step["action_source"] = "policy_reseat"
+        token = self.inference.reset(f"reseat:{episode_id}")
+        obs, snapshot = env.raw_obs(), env.state_snapshot()
+        reseat["start"] = {
+            "observation_id": snapshot.get("observation_id"),
+            "sim_action_count": snapshot.get("sim_action_count"),
+            "scene_epoch": snapshot.get("scene_epoch"),
+            "token": token,
+        }
+        records.append_journal(
+            {
+                "t": time.time(),
+                "stage": "composite_transport_reseat_start",
+                "episode_id": episode_id,
+                "step_id": step.get("step_id"),
+                "reseat_step_id": reseat["step_id"],
+                "task_key": step.get("step_task_key"),
+                "observation_id": snapshot.get("observation_id"),
+                "sim_action_count": snapshot.get("sim_action_count"),
+                "scene_epoch": snapshot.get("scene_epoch"),
+            }
+        )
+        started = time.perf_counter()
+        try:
+            reseat_record, obs, snapshot = self._run_whole_task(
+                env=env,
+                obs=obs,
+                snapshot=snapshot,
+                step=reseat_step,
+                task=task,
+                token=token,
+                episode_id=episode_id,
+                stop_event=stop_event,
+                goal=composite.step_goal(reseat_step),
+                max_steps=int(opts["reseat"]["max_steps"]),
+                step_task=step_task,
+            )
+        except Stopped:
+            reseat["status"] = "stopped"
+            reseat["reason"] = "user_stop"
+            composite_state["transport_ready"]["reason_code"] = "user_stop"
+            raise
+        except Exception as exc:  # noqa: BLE001 - report, never fake success
+            reseat["status"] = "failed"
+            reseat["reason"] = f"{type(exc).__name__}: {exc}"
+            reseat["after"] = transport_ready.evaluate(
+                step=step,
+                relation=record.get("final_evidence") or record.get("evidence"),
+                samples=(record.get("placement") or {}).get("samples"),
+                evidence=record.get("final_evidence") or record.get("evidence"),
+                cfg=self.cfg,
+            )
+            return obs, snapshot, token
+        reseat["s"] = round(time.perf_counter() - started, 3)
+        timing["reseat_s"] = float(timing.get("reseat_s") or 0.0) + reseat["s"]
+        placement = reseat_record.get("placement") or {}
+        reseat["policy_actions"] = int(reseat_record.get("sim_actions") or 0)
+        reseat["finalizer_actions"] = int(placement.get("extra_actions") or 0)
+        reseat["sim_action_counts"] = {
+            "start": (reseat.get("start") or {}).get("sim_action_count"),
+            "end": snapshot.get("sim_action_count"),
+        }
+        reseat["result"] = {
+            "ok": bool(reseat_record.get("ok")),
+            "stop_reason": reseat_record.get("stop_reason"),
+            "verification": reseat_record.get("verification"),
+            "release_state": reseat_record.get("release_state"),
+            "release_verified": bool(placement.get("release_verified")),
+            "placement_verified": bool(placement.get("placement_verified")),
+            "reason_code": placement.get("reason_code"),
+        }
+        reseat["status"] = "executed"
+        reseat["after"] = transport_ready.evaluate(
+            step=step,
+            relation=reseat_record.get("final_evidence") or reseat_record.get("evidence"),
+            samples=placement.get("samples"),
+            evidence=reseat_record.get("final_evidence") or reseat_record.get("evidence"),
+            cfg=self.cfg,
+        )
+        reseat["after_evidence"] = {
+            "observation_ids": [row.get("observation_id") for row in (placement.get("samples") or [])],
+            "sim_action_counts": [row.get("sim_action_count") for row in (placement.get("samples") or [])],
+        }
+        reseat["reseat_succeeded"] = bool(reseat["after"].get("ok"))
+        reseat["state_change"] = transport_ready.change(
+            composite_state["transport_ready"].get("features"),
+            reseat["after"].get("features"),
+        )
+        record["reseat"] = reseat
+        records.append_journal(
+            {
+                "t": time.time(),
+                "stage": "composite_transport_reseat_end",
+                "episode_id": episode_id,
+                "step_id": step.get("step_id"),
+                "reseat_step_id": reseat["step_id"],
+                "status": reseat["status"],
+                "policy_actions": reseat["policy_actions"],
+                "succeeded": reseat["reseat_succeeded"],
+                "after": transport_ready.summarise(reseat["after"]),
+                "sim_action_count": snapshot.get("sim_action_count"),
+            }
+        )
+        return obs, snapshot, token
+
     # ---- errors earlier steps' goals under a carried object ---------------
 
     def _carry_watch(
@@ -2057,6 +2423,9 @@ class Engine:
                     "enabled": True,
                     "keys": list((plan.get("composite") or {}).get("keys") or []),
                     "plan_source": plan.get("plan_source"),
+                    "flow": (plan.get("composite") or {}).get("flow"),
+                    "flow_expansion": plan.get("flow_expansion"),
+                    "flow_guard": plan.get("flow_guard"),
                     "structured_entry": bool(plan_keys),
                     "anchor": {
                         "task_id": int(task["task_id"]),
@@ -2345,6 +2714,18 @@ class Engine:
                         }
                     record["step"] = step
                     record["attempt"] = attempt_no
+                    if composite_state.get("enabled"):
+                        # Diagnostic only: where the placed object sits relative
+                        # to the *official* target region, on the snapshot this
+                        # step ended with. It never changes a judgement, but an
+                        # anchor judged by the loaded scene's native flag has no
+                        # other way to say "3 mm outside the region" vs "never
+                        # carried it there".
+                        record["target_region"] = self._target_region_diagnostic(
+                            step=step,
+                            catalog_by_key=catalog_by_key,
+                            snapshot=snapshot,
+                        )
                     step_results.append(record)
                     with self.lock:
                         self.steps_done = [s for s in step_results]
@@ -2463,6 +2844,30 @@ class Engine:
                             {"verification": evidence, "recovery": recovery},
                         )
                     if composite_state.get("enabled") and index + 1 < len(steps):
+                        # Transport readiness: the step's own relation is met,
+                        # but the object may be perched on the rim. Evaluated on
+                        # the step's own post-release samples; may run exactly
+                        # one bounded re-seat of the same catalog capability.
+                        obs, snapshot, token = self._transport_readiness(
+                            env=env,
+                            episode_id=episode_id,
+                            steps=steps,
+                            index=index,
+                            step=step,
+                            step_task=catalog_by_key.get(str(step.get("step_task_key"))) or {},
+                            catalog_by_key=catalog_by_key,
+                            task=task,
+                            record=record,
+                            obs=obs,
+                            snapshot=snapshot,
+                            token=token,
+                            stop_event=stop_event,
+                            composite_state=composite_state,
+                            timing=timing,
+                            records=records,
+                        )
+                        if record.get("transport_ready", {}).get("reason_code") == "user_stop":
+                            raise Stopped("stop requested during transport re-seat")
                         # Step handoff: verify, (release only if the step's own
                         # kind needs it), bounded retreat, fresh observation,
                         # policy buffer reset, then start the next step from
@@ -3212,6 +3617,21 @@ class Engine:
             ]
             step_1_ok = bool(step_rows[0]["ok"]) if len(step_rows) > 0 else False
             step_1_final_ok = step_rows[0]["ok_final"] if len(step_rows) > 0 else None
+            # The top-level readiness fields describe the step that was
+            # actually judged. With three steps the last step has no later
+            # carrier, so reading ``composite_state`` (which holds the *last*
+            # step's block) reported None on every 3-step round.
+            readiness_row = next(
+                (
+                    row
+                    for row in step_rows
+                    if isinstance(row.get("transport_ready"), dict)
+                    and row["transport_ready"].get("checked")
+                ),
+                {},
+            )
+            readiness_block = readiness_row.get("transport_ready") or {}
+            readiness_reseat = readiness_row.get("reseat") or {}
             anchor_row = step_rows[-1] if step_rows else {}
             anchor_native = bool((anchor_row.get("evidence") or {}).get("ok")) and len(step_rows) > 1
             anchor_native_final = anchor_row.get("ok_final") if step_rows else None
@@ -3246,6 +3666,9 @@ class Engine:
             composite_record = {
                 "schema": composite.SCHEMA,
                 "keys": composite_state.get("keys"),
+                "flow": composite_state.get("flow"),
+                "flow_expansion": composite_state.get("flow_expansion"),
+                "flow_guard": composite_state.get("flow_guard"),
                 "step_ids": composite_state.get("step_ids"),
                 "anchor": composite_state.get("anchor"),
                 "instruction": instruction,
@@ -3318,6 +3741,18 @@ class Engine:
                     "repair_finalizer_actions": int(
                         ((composite_state.get("repair") or {}).get("finalizer_actions")) or 0
                     ),
+                    "reseat_policy_actions": int(
+                        (((composite_state.get("transport_ready") or {}).get("reseat") or {}).get(
+                            "policy_actions"
+                        ))
+                        or 0
+                    ),
+                    "reseat_finalizer_actions": int(
+                        (((composite_state.get("transport_ready") or {}).get("reseat") or {}).get(
+                            "finalizer_actions"
+                        ))
+                        or 0
+                    ),
                     "sim_actions_total": (
                         int(final_snapshot.get("sim_action_count") or 0)
                         - int(composite_state.get("sim_action_count_start") or 0)
@@ -3340,6 +3775,23 @@ class Engine:
                 # Legacy names kept for the existing manifest/report readers:
                 # step_1_* is the first step, step_2_* is the anchor (last) step.
                 "step_1_ok": step_1_ok,
+                # Transport readiness (independent of every step goal).
+                "step_1_met": step_1_ok,
+                "ready_to_transport": readiness_block.get("ok") if readiness_row else None,
+                "ready_to_transport_step": readiness_row.get("step_id") if readiness_row else None,
+                "transport_ready": readiness_block or composite_state.get("transport_ready"),
+                "reseat_attempted": bool(readiness_reseat.get("attempted")),
+                "reseat_succeeded": bool(readiness_reseat.get("reseat_succeeded")),
+                "reseat_actions": int(readiness_reseat.get("policy_actions") or 0)
+                + int(readiness_reseat.get("finalizer_actions") or 0),
+                "reseat_state_changed": bool(
+                    (readiness_reseat.get("state_change") or {}).get("changed")
+                ),
+                "reseat": readiness_reseat or None,
+                "repair_actions": int(
+                    ((composite_state.get("repair") or {}).get("policy_actions")) or 0
+                )
+                + int(((composite_state.get("repair") or {}).get("finalizer_actions")) or 0),
                 "step_1_final_ok": step_1_final_ok,
                 "step_2_native": bool(anchor_native),
                 "step_2_final_native": anchor_native_final,

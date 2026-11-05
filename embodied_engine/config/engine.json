@@ -205,6 +205,23 @@
    "lift_step_m": 0.04
   },
   "note": "Same-scene ordered composite, 2 or 3 steps, one episode. Pairs/sequences are listed explicitly: recognized-but-unlisted sequences are refused, not attempted. Anchored on the LAST step's BDDL; earlier steps are judged by engine predicates on the same episode's live snapshots. 6->1 (cream cheese in bowl, then bowl on stove) is the primary 2-step target; 6->1->7 adds turn_on_stove; 6->8 and 1->6 are diagnostic controls, not acceptance runs.",
+  "transport_ready": {
+   "enabled": true,
+   "max_seat_delta_m": 0.029,
+   "min_seat_delta_m": -0.002,
+   "min_xy_margin_m": 0.002,
+   "max_relative_drift_m": 0.015,
+   "samples_required": 3,
+   "reseat": {
+    "enabled": true,
+    "max_calls": 1,
+    "max_steps": 240,
+    "timeout_s": 120.0,
+    "on_failure": "stop"
+   },
+   "perched_is_warning": true,
+   "note": "Independent of every step goal: seat depth, XY margin, rim clearance and (with two or more samples) relative drift are recorded for the placed object. 0.029 m sits in the archived gap between 0.0263 m (35 rounds, all carried) and 0.0329 m (12 perched rounds, 11 of which carried fine), so a seat above it is a warning (perched_is_warning=true), not a rejection: the only archived loss is not separable from two passing rounds at the same 0.0357 m. on_failure=stop applies only to hard failures (relation broken, fell beside the bowl, edge of the opening, still sliding) and ends the episode with composite_transport_not_ready instead of carrying an object judged unsafe; proceed is the alternative and is reported as proceeded_not_ready."
+  },
   "repair": {
    "enabled": false,
    "max_calls": 1,

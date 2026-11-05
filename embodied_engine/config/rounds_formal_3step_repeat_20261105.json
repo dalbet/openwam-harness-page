@@ -1,0 +1,19 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-11-05T14:05:00+08:00",
+  "note": "Repeatability measurement for the 2026-11-05 round. Purpose: the first formal batch (formal_3step_20261105) scored 2/6 and the identical manifest scored 5/6 in a second batch run minutes later on a fresh engine process with the same weights, the same shipped config (config_demo_b900), the same execute_horizon=5, the same budgets (1:300/2:600/3:300) and the same handoff (action_retreat). Neither number is reported as the round's success rate. This file pre-declares two further repeats of the *same* frozen manifest, in the same order, with no per-round retry and no skipping, so the spread can be measured instead of guessed. A round that fails stays in the denominator. The only thing that changes between batches is the engine process and the resident policy server's request history; nothing in the code, config or manifests changes.",
+  "manifest": "config/rounds_formal_3step_20261105.json",
+  "repeats": [
+    {
+      "name": "repeat-c",
+      "out": "raw/composite/formal_3step_repeat_c_20261105",
+      "declared_before_run": true
+    },
+    {
+      "name": "repeat-d",
+      "out": "raw/composite/formal_3step_repeat_d_20261105",
+      "declared_before_run": true
+    }
+  ],
+  "reporting": "Per-round outcomes are reported for every batch side by side (pass/fail, actions, failure code). No batch is selected as 'the' result and no batch is dropped."
+}

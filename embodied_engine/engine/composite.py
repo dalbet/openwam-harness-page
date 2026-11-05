@@ -1172,6 +1172,34 @@ def step_summary(
         "release_state": release_state,
         "release_source": release_source,
         "carry_watch": (record.get("goal_watch") if (record.get("goal_watch") or {}).get("samples") else None),
+        # Diagnostics attached by the engine; neither is a success judgement.
+        "transport_ready": _transport_summary(record.get("transport_ready")),
+        "reseat": record.get("reseat"),
+        "target_region": record.get("target_region"),
+    }
+
+
+def _transport_summary(block: dict[str, Any] | None) -> dict[str, Any] | None:
+    block = block or {}
+    if not block:
+        return None
+    features = block.get("features") or {}
+    return {
+        "applicable": block.get("applicable"),
+        "checked": block.get("checked"),
+        "ok": block.get("ok"),
+        "risk": block.get("risk"),
+        "warning": block.get("warning"),
+        "reason_code": block.get("reason_code"),
+        "reason": block.get("reason"),
+        "reasons": block.get("reasons"),
+        "drift_measured": block.get("drift_measured"),
+        "seat_delta_m": features.get("seat_delta_m"),
+        "xy_m": features.get("xy_m"),
+        "xy_margin_m": features.get("xy_margin_m"),
+        "rim_clearance_m": features.get("rim_clearance_m"),
+        "relative_drift_m": (features.get("relative_drift") or {}).get("max_distance_m"),
+        "thresholds": block.get("thresholds"),
     }
 
 

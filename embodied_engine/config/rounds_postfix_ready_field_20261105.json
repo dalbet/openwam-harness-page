@@ -1,0 +1,18 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-11-05T13:45:00+08:00",
+  "note": "Post-fix projection check, not part of the formal six rounds. The six formal rounds recorded ready_to_transport as null because the top-level field read the last step's (not-applicable) block instead of the step that was actually judged; that projection is fixed now and this single round re-runs the same init and instruction as formal round 1 to show the field reports the judged step. Same seed, same instruction, same config as the formal round, so the outcome should match; it is reported apart from the acceptance set and never counted as an extra pass.",
+  "seed": 3,
+  "rounds": [
+    {
+      "round": "postfix-ready-field-20261105-s3-en",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "help me get the cream cheese ready to heat up on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "seed": 3,
+      "handoff_mode": "action_retreat"
+    }
+  ]
+}

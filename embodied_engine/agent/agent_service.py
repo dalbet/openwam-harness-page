@@ -102,6 +102,11 @@ def _understanding(
         ],
         "task_key": chosen.get("key"),
         "task_id": chosen.get("task_id"),
+        "flow": decision.get("flow"),
+        "flow_guard": decision.get("flow_guard"),
+        "flow_expanded_keys": (
+            list(decision.get("composite_keys") or []) if decision.get("flow") else None
+        ),
         "official_instruction": official or None,
         "prompt_source": "config/tasks.json official_instruction" if official else None,
         "model": (decision.get("router") or {}).get("model"),

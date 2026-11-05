@@ -1,0 +1,28 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-11-05T13:20:00+08:00",
+  "note": "Development-phase check for transport readiness, not an acceptance set. Two LIBERO init indices that were already used in the 2026-11-04 rounds: seed 1 lost the cheese during transport (step3_en_delivery i1) and failed the bowl placement in Chinese (step3_zh_delivery i1); seed 0 carried it fine in every archived round. Same explicit three-step instruction for both, same task 7 anchor, same action_retreat handoff, so only the mechanism under test differs from the archive. Rounds are never retried or skipped; these results are development evidence and are reported apart from the formal six rounds.",
+  "seed": 0,
+  "rounds": [
+    {
+      "round": "dev-tra-20261105-s1",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "seed": 1,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "dev-tra-20261105-s0-control",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "seed": 0,
+      "handoff_mode": "action_retreat"
+    }
+  ]
+}

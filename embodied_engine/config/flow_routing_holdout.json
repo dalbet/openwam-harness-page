@@ -1,0 +1,119 @@
+{
+ "schema": "embodied_engine.flow_routing_cases.v1",
+ "version": "2026-11-05.holdout.1",
+ "frozen_on": "2026-11-05",
+ "note": "Holdout written after the router prompt was already revised on the tuning set, and before this file was ever run. Purpose: measure whether the household-flow routing generalises to phrasings that were not used to write the prompt. Same contract as flow_routing_cases.json; this file is not edited after the first run.",
+ "expectation_kinds": {
+  "flow": "the whole household goal; ordered keys expanded from the flow catalog",
+  "composite": "the user named separate capabilities in an order",
+  "single": "exactly one catalog capability",
+  "clarify": "a slot is unfilled (pronoun, missing place, missing level)",
+  "unsupported": "specific enough to judge, and no capability or flow matches"
+ },
+ "cases": [
+  {
+   "id": "en_holdout_whole_goal_warm_setup",
+   "lang": "en",
+   "category": "equivalent_household",
+   "instruction": "could you get the cream cheese all set up so I can warm it on the stove?",
+   "expect": {"kind": "flow", "flow_id": "cream_cheese_heating_prep", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"]},
+   "rationale": "Whole preparation in different words; all three steps required."
+  },
+  {
+   "id": "zh_holdout_whole_goal_warm_setup",
+   "lang": "zh",
+   "category": "equivalent_household",
+   "instruction": "能帮我把奶油奶酪布置好，放在炉灶上加温吗",
+   "expect": {"kind": "flow", "flow_id": "cream_cheese_heating_prep", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"]},
+   "rationale": "同一家务目标的另一种中文说法。"
+  },
+  {
+   "id": "en_holdout_explicit_two",
+   "lang": "en",
+   "category": "explicit_steps",
+   "instruction": "first put the cream cheese in the bowl, and after that put the bowl on the stove",
+   "expect": {"kind": "composite", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove"]},
+   "rationale": "Two named steps; the flow adds a third the user did not ask for."
+  },
+  {
+   "id": "zh_holdout_explicit_two",
+   "lang": "zh",
+   "category": "explicit_steps",
+   "instruction": "先把奶酪放进碗里，再把碗放到炉灶上",
+   "expect": {"kind": "composite", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove"]},
+   "rationale": "同上，中文两步。"
+  },
+  {
+   "id": "en_holdout_negation_bowl",
+   "lang": "en",
+   "category": "negation",
+   "instruction": "don't put the bowl on the stove, only put the cream cheese in the bowl",
+   "expect": {"kind": "single", "key": "put_cream_cheese_in_bowl"},
+   "rationale": "The negated step must not be re-added by the flow."
+  },
+  {
+   "id": "zh_holdout_negation_bowl",
+   "lang": "zh",
+   "category": "negation",
+   "instruction": "别把碗放到炉灶上，只要把奶酪放进碗里",
+   "expect": {"kind": "single", "key": "put_cream_cheese_in_bowl"},
+   "rationale": "同上，中文否定。"
+  },
+  {
+   "id": "en_holdout_missing_place",
+   "lang": "en",
+   "category": "missing_slot",
+   "instruction": "get the cream cheese ready",
+   "expect": {"kind": "clarify"},
+   "rationale": "No destination and no heating place; the scene must not decide it."
+  },
+  {
+   "id": "zh_holdout_missing_object",
+   "lang": "zh",
+   "category": "missing_slot",
+   "instruction": "把奶酪放进碗里，然后打开它",
+   "expect": {"kind": "clarify"},
+   "rationale": "「它」没有绑定对象（碗或炉灶都可能），能力目录不应替用户决定。"
+  },
+  {
+   "id": "en_holdout_four_steps",
+   "lang": "en",
+   "category": "beyond_capability",
+   "instruction": "put the cheese in the bowl, put the bowl on the stove, turn on the stove, and open the middle drawer",
+   "expect": {"kind": "unsupported"},
+   "rationale": "Four separate capabilities exceed the three-step contract; a flow cannot absorb the extra request."
+  },
+  {
+   "id": "zh_holdout_other_destination",
+   "lang": "zh",
+   "category": "different_destination",
+   "instruction": "把奶酪放进碗里，然后把碗放到柜子顶上",
+   "expect": {"kind": "composite", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_cabinet_top"]},
+   "rationale": "Different destination is a different capability, never the flow."
+  },
+  {
+   "id": "en_holdout_only_stove_switch",
+   "lang": "en",
+   "category": "only_stove_on",
+   "instruction": "switch the stove on",
+   "expect": {"kind": "single", "key": "turn_on_stove"},
+   "rationale": "Only the final capability; the guard must keep it single."
+  },
+  {
+   "id": "zh_holdout_unwrap_then_heat",
+   "lang": "zh",
+   "category": "beyond_capability",
+   "instruction": "帮我拆开奶酪包装，然后把它加热",
+   "expect": {"kind": "unsupported"},
+   "rationale": "拆包装没有对应能力；不能跑流程减去这一步。"
+  },
+  {
+   "id": "en_holdout_melt_report",
+   "lang": "en",
+   "category": "beyond_capability",
+   "instruction": "heat the cream cheese in the bowl on the stove and tell me when it melts",
+   "expect": {"kind": "unsupported"},
+   "rationale": "Melt detection is not a capability; the flow excludes it."
+  }
+ ]
+}

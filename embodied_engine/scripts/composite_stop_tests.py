@@ -311,6 +311,51 @@ def run_case(args, spec: dict[str, Any]) -> dict[str, Any]:
                 poll_s=0.02,
             )
             status = {**status, "trigger_row": start_row, "repair_actions_requested": want}
+    elif kind == "reseat-actions":
+        # Stop *inside* the bounded re-seat: the engine has already published
+        # ``composite_transport_reseat_start`` for this episode and the re-seat
+        # has issued a few real actions. This is the recovery path the transport
+        # readiness check can enter, so a stop there has to end the episode
+        # instead of leaving a half-executed re-seat behind.
+        deadline = time.time() + args.timeout
+        status: dict[str, Any] = {}
+        start_row = None
+        ended = None
+        while time.time() < deadline:
+            for row in tail.new_rows():
+                if episode_id and row.get("episode_id") != episode_id:
+                    continue
+                if row.get("stage") == "composite_transport_reseat_start":
+                    start_row = row
+                    break
+                if row.get("stage") in {"episode_end", "succeeded", "failed", "stopped"}:
+                    ended = row
+            if start_row:
+                break
+            if ended is not None:
+                status = {
+                    "phase": "stage_not_reached",
+                    "detail": (
+                        "episode ended with stage "
+                        f"{ended.get('stage')} before the transport re-seat started"
+                    ),
+                }
+                break
+            time.sleep(0.01)
+        if not start_row and not status:
+            status = {"phase": "sync_timeout", "detail": "no composite_transport_reseat_start row"}
+        elif start_row:
+            want = int(start_row.get("sim_action_count") or 0) + int(spec.get("min_actions", 2))
+            status = wait_for(
+                engine,
+                predicate=lambda row: (
+                    str(row.get("phase")) in {"running", "verifying"}
+                    and int(row.get("sim_action_count") or 0) >= want
+                ),
+                timeout_s=args.timeout,
+                poll_s=0.02,
+            )
+            status = {**status, "trigger_row": start_row, "reseat_actions_requested": want}
     elif kind == "finalizer":
         deadline = time.time() + args.timeout
         status: dict[str, Any] = {}
@@ -578,6 +623,20 @@ def main() -> int:
                 "put the cream cheese in the bowl, then put the bowl on the stove, "
                 "and turn on the stove"
             ),
+        },
+        {
+            # The bounded re-seat is the one recovery path the transport
+            # readiness check can enter on its own. Stopping inside it must end
+            # the episode (nothing may keep executing the re-seat) and the next
+            # load must not inherit it. Needs a config where the check triggers:
+            # config_demo_b900_forced lowers max_seat_delta_m to 0.005.
+            "id": "stop-reseat-actions",
+            "kind": "reseat-actions",
+            "task_id": 7,
+            "load_task_id": 7,
+            "seed": 0,
+            "min_actions": 2,
+            "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
         },
     ]
     if args.include_restore_cases:

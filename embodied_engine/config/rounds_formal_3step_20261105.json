@@ -1,0 +1,74 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-11-05T13:05:00+08:00",
+  "note": "Formal six-round three-step verification for the 2026-11-05 transport-readiness round. LIBERO task 7 is the anchor (turn_on_stove). Seeds 3, 4 and 5 are init indices that appear in no earlier round: the 2026-11-04 delivery rounds used seeds 0, 1 and 2, and the offline calibration and the development rounds also used seeds 0 and 1 only. Three English and three Chinese rounds; each language carries one frozen base-suite high-level phrasing, one explicit ordered instruction, and one high-level phrasing that appears in no frozen routing set (so the routing generalisation is measured, not assumed). Every round is run once, in this order, and is never retried or skipped; a failed round stays in the denominator. Rounds are executed with the shipped config (config_demo_b900: max_seat_delta_m=0.029, perched_is_warning=true), the official pi05 weights, execute_horizon=5, budgets 1:300/2:600/3:300 and the action_retreat handoff.",
+  "seed": 3,
+  "rounds": [
+    {
+      "round": "formal-20261105-3s-en-hl-s3",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "help me get the cream cheese ready to heat up on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_equivalent_household (frozen base suite)",
+      "seed": 3,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "formal-20261105-3s-en-explicit-s4",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "explicit ordered instruction; no routing judgement is required",
+      "seed": 4,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "formal-20261105-3s-en-hl-new-s5",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "I want cream cheese warmed up on the stove, can you set that whole thing up",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "not in any frozen routing set: measured here, expectation written before the run",
+      "seed": 5,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "formal-20261105-3s-zh-hl-s3",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "zh",
+      "instruction": "帮我把奶酪准备好，放到炉灶上加热",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#zh_equivalent_household (frozen base suite)",
+      "seed": 3,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "formal-20261105-3s-zh-explicit-s4",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "zh",
+      "instruction": "把奶酪放进碗里，然后把碗放到炉灶上，最后打开炉灶",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "explicit ordered instruction; no routing judgement is required",
+      "seed": 4,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "formal-20261105-3s-zh-hl-new-s5",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "zh",
+      "instruction": "我要把奶油奶酪放到炉灶上加加热，你帮我把这些弄好",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "not in any frozen routing set: measured here, expectation written before the run",
+      "seed": 5,
+      "handoff_mode": "action_retreat"
+    }
+  ]
+}

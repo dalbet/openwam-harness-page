@@ -1,0 +1,18 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-11-05T13:32:00+08:00",
+  "note": "Control round for the development-phase transport-readiness check: LIBERO init index 0, which carried the cheese fine in every archived round. Used to show the new check does not reject a normal path. Development evidence only, reported apart from the formal six rounds.",
+  "seed": 0,
+  "rounds": [
+    {
+      "round": "dev-tra-20261105-s0-control",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "seed": 0,
+      "handoff_mode": "action_retreat"
+    }
+  ]
+}

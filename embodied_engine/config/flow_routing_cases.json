@@ -1,0 +1,143 @@
+{
+ "schema": "embodied_engine.flow_routing_cases.v1",
+ "version": "2026-11-05.1",
+ "frozen_on": "2026-11-05",
+ "note": "Frozen before the first run. Every expectation below was written down from the contract (catalog capabilities + the single verified household flow), not from a router answer. A case that the router gets wrong is reported as a miss; the file is not edited afterwards to match the model.",
+ "expectation_kinds": {
+  "flow": "the whole household goal; the ordered keys are expanded from the flow catalog",
+  "composite": "the user named separate capabilities in an order; keys are the user's own",
+  "single": "exactly one catalog capability",
+  "clarify": "a slot is unfilled (pronoun, missing place, missing level)",
+  "unsupported": "specific enough to judge, and no capability or flow matches; a sub-request the flow excludes is never dropped"
+ },
+ "cases": [
+  {
+   "id": "en_equivalent_household",
+   "lang": "en",
+   "category": "equivalent_household",
+   "instruction": "help me get the cream cheese ready to heat up on the stove",
+   "expect": {"kind": "flow", "flow_id": "cream_cheese_heating_prep", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"]},
+   "rationale": "The whole preparation is asked for in ordinary words; the earlier subgoals must not be dropped."
+  },
+  {
+   "id": "zh_equivalent_household",
+   "lang": "zh",
+   "category": "equivalent_household",
+   "instruction": "帮我把奶酪准备好，放到炉灶上加热",
+   "expect": {"kind": "flow", "flow_id": "cream_cheese_heating_prep", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"]},
+   "rationale": "Same goal in Chinese; no step is named, so the flow is the only answer that keeps all three."
+  },
+  {
+   "id": "en_explicit_three_steps",
+   "lang": "en",
+   "category": "explicit_steps",
+   "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+   "expect": {"kind": "composite", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"]},
+   "rationale": "Existing behaviour: a user-named ordered sequence is returned as keys, not as a flow id."
+  },
+  {
+   "id": "zh_explicit_three_steps",
+   "lang": "zh",
+   "category": "explicit_steps",
+   "instruction": "把奶酪放进碗里，然后把碗放到炉灶上，最后打开炉灶",
+   "expect": {"kind": "composite", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"]},
+   "rationale": "Same, in Chinese, with 最后 fixing the order."
+  },
+  {
+   "id": "en_explicit_two_steps_cheese_bowl",
+   "lang": "en",
+   "category": "explicit_steps",
+   "instruction": "put the cream cheese in the bowl and put the bowl on the stove",
+   "expect": {"kind": "composite", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove"]},
+   "rationale": "Two named capabilities: the flow's first two steps only, so it is not the flow."
+  },
+  {
+   "id": "en_missing_slot_pronoun",
+   "lang": "en",
+   "category": "missing_slot",
+   "instruction": "get the cream cheese ready to heat up and then turn it on",
+   "expect": {"kind": "clarify"},
+   "rationale": "\"it\" has two candidates (the stove, the bowl); the capability list would decide it."
+  },
+  {
+   "id": "zh_missing_slot_pronoun",
+   "lang": "zh",
+   "category": "missing_slot",
+   "instruction": "帮我把奶酪准备好加热，然后把那个打开",
+   "expect": {"kind": "clarify"},
+   "rationale": "\"那个\" names no object; asking is the only answer that does not invent one."
+  },
+  {
+   "id": "en_negation_stove_off",
+   "lang": "en",
+   "category": "negation",
+   "instruction": "do not turn on the stove, just put the cream cheese in the bowl",
+   "expect": {"kind": "single", "key": "put_cream_cheese_in_bowl"},
+   "rationale": "A negated step is not requested; the flow would add it back."
+  },
+  {
+   "id": "zh_negation_stove_off",
+   "lang": "zh",
+   "category": "negation",
+   "instruction": "不用开炉灶，只把奶酪放进碗里",
+   "expect": {"kind": "single", "key": "put_cream_cheese_in_bowl"},
+   "rationale": "Same negation in Chinese; 只 marks the single requested capability."
+  },
+  {
+   "id": "en_different_destination_plate",
+   "lang": "en",
+   "category": "different_destination",
+   "instruction": "put the cream cheese in the bowl and then put the bowl on the plate",
+   "expect": {"kind": "composite", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_plate"]},
+   "rationale": "A different destination is a different capability, never the flow."
+  },
+  {
+   "id": "zh_different_destination_plate",
+   "lang": "zh",
+   "category": "different_destination",
+   "instruction": "把奶酪放进碗里，再把碗放到盘子上",
+   "expect": {"kind": "composite", "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_plate"]},
+   "rationale": "Same, in Chinese."
+  },
+  {
+   "id": "en_beyond_capability_stir",
+   "lang": "en",
+   "category": "beyond_capability",
+   "instruction": "get the cream cheese ready to heat and stir it while it melts",
+   "expect": {"kind": "unsupported"},
+   "rationale": "Stirring and melt detection have no capability; running the flow would drop the user's request."
+  },
+  {
+   "id": "zh_beyond_capability_stir",
+   "lang": "zh",
+   "category": "beyond_capability",
+   "instruction": "把奶酪加热准备好，顺便帮我搅拌并看看有没有融化",
+   "expect": {"kind": "unsupported"},
+   "rationale": "搅拌 and 融化检测 are outside the catalog; the flow must not be run as a silent substitute."
+  },
+  {
+   "id": "en_beyond_capability_unwrap",
+   "lang": "en",
+   "category": "beyond_capability",
+   "instruction": "unwrap the cream cheese, put it in the bowl and then put the bowl on the stove",
+   "expect": {"kind": "unsupported"},
+   "rationale": "Unwrapping is not a capability; two of the three steps existing does not make this executable."
+  },
+  {
+   "id": "en_only_stove_on",
+   "lang": "en",
+   "category": "only_stove_on",
+   "instruction": "turn on the stove",
+   "expect": {"kind": "single", "key": "turn_on_stove"},
+   "rationale": "The flow's last step alone; the guard must keep it a single capability."
+  },
+  {
+   "id": "zh_only_stove_on",
+   "lang": "zh",
+   "category": "only_stove_on",
+   "instruction": "打开炉灶",
+   "expect": {"kind": "single", "key": "turn_on_stove"},
+   "rationale": "Same, in Chinese."
+  }
+ ]
+}

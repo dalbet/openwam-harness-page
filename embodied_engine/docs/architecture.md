@@ -962,3 +962,107 @@ self.watch_goals = [ {step_id:"c1", object_n:"cream_cheese_1",
   "没滑过"，最终判据仍是终局样本。
 - `verify_rounds<=6` 与"修复只进一次"是**为止血加的上限**，不是收敛保证；
   本轮验收全程 `repair.enabled=false`，上限只是在失败路径上生效。
+
+## 12. 搬运就绪检查、目标区域诊断与受约束的高层意图（2026-11-05）
+
+§11 解决了"三步怎么排、怎么交接、怎么随动"。本节解决三个**不改变任务步骤**的问题：
+
+1. 装料完成 ≠ 可以搬碗：`step_goal` 只判"在碗里"，不判"待会儿搬得走"；
+2. 第二步失败要能说清是哪一类（抓取 / 搬运 / 落点 / 判定），
+   且落点误差要相对**官方目标区域**算；
+3. 高层家务表达要能换成有序 key，但换的必须是**模型选的流程 ID**，不是关键词。
+
+### 12.1 `common/transport_ready.py`：独立于步目标的第二个问题
+
+| 概念 | 实现 |
+| --- | --- |
+| 适用性 `applies()` | 只有"后面还有一步会搬这个容器"时才判：拿本步 `completion.target_n` 去查后续步目录行 `objects`，命中才 `applicable=True`。没有关键词表 |
+| 证据来源 `views()` | 两种样本形状统一：`placement.samples`（新观测 id、每行带位姿）优先，否则退回 `final_evidence.relation_samples`，几何量从 evidence 的 relation 行补齐。`source` 与 `samples` 都记进记录 |
+| 几何量 | `seat_delta_m = object_bottom_z - floor_z`、`xy_margin_m = xy_limit_m - xy_m`、`rim_clearance_m = rim_z - object_bottom_z` |
+| 漂移 `drift()` | 两个及以上样本才有；有完整位姿时用 `object - target` 三维向量，否则退回 `(xy_m, 0, seat)` 并标明 `mode`。**单样本不报 0**，报 `drift_measured=false` |
+| 判定 | 硬失败：`relation_not_met`、`fell_beside_bowl`、`edge_of_bowl`、`still_moving`；警告：`perched_above_floor`（默认只警告） |
+| 三态 | `ok=True`（可就位/警告）、`ok=False`（不可搬运）、`ok=None`（没测出来：样本不足）。`None` 不触发任何动作 |
+
+阈值来自离线 47 回合（`tools/ready_features.py`）：座深 10.2–39.2 mm 连续分布，
+其中 12 回合"架在碗沿"（>29 mm），11 回合照样搬成功；唯一掉料回合座深 35.7 mm，
+与两个成功回合**同值**，XY 也在通过区间内 —— 所以"架高"只报警、不判失败。
+
+### 12.2 有界重新装料 `engine/engine_service.py::_transport_reseat()`
+
+- 触发条件只有"硬失败"。`ok=None` 不触发，`ok=True`（含 perched 警告）不触发。
+- 次数上限 `reseat.max_calls=1`、预算 `reseat.max_steps=240`、`on_failure=stop`
+  （结束 episode 并给 `composite_transport_not_ready`，而不是带着被判不安全的东西继续搬）。
+- 执行的是**同一个目录能力**：同一条官方指令、同一个 `step_task_key`，
+  从当前 episode 的真实观测开始，动作走 `env.step` 计入 `episode_sim_actions`；
+  不 reset、不 reload、不传送、不写物体位姿、不改摩擦/碰撞。
+- 记 `before/after` 两份 `transport_ready` 与 `state_change`
+  （座深/XY 变化量、`changed` 标志）。`changed=false` 明确写成
+  "策略认为放置目标已满足"，不让一次空跑被读成修复。
+- 字段：`step_1_met / ready_to_transport / ready_to_transport_step /
+  reseat_attempted / reseat_succeeded / reseat_actions / reseat_state_changed /
+  repair_actions / final_all_goals_met`。顶层 `ready_to_transport` 取自
+  **真正被判过的那一步**（`checked=true` 的第一行），不是最后一步的空块。
+
+### 12.3 第二步诊断
+
+- `_target_region_diagnostic()`（`diagnostic_only`）：用 `common.geometry.relation_check`
+  在步的最终快照上算 `delta_site / site_size / inside_xy / outside_xy_m / near_miss`。
+  `delta_site` 是 `mat @ (object - site)`，已在站点自身坐标系里，
+  所以 `outside_xy_m = max(|dx| - sx, |dy| - sy)` 直接对官方半尺寸。
+  LIBERO 自己的 site 判据还含"夹具接触"项，快照拿不到，记录里写明不冒充。
+- `tools/step_diagnosis.py`：只读归档记录，把失败步分成
+  `grasp_failed / lifted_not_transferred / not_reached_target /
+  drifted_after_release / carried_object_lost / judgement_mismatch`，
+  并把"这一步跑的时候弄丢了别的步的目标"单列为 `collateral`。
+  证据取自记录里已有的 `grasp.min_opening_m`、`release`、`carry_watch`、
+  `observations`（eef/开合）—— 不重新仿真、不新增逐动作 RPC。
+- 记录里的 `1.066 m` 是 `eef[2]`，**世界坐标下的绝对高度**，不是增量：
+  同一快照 `akita_black_bowl_1` 的 z 是 0.898 m。报告里按绝对高度写。
+
+### 12.4 受约束的高层意图
+
+| 层 | 谁做决定 |
+| --- | --- |
+| 能力目录 `config/tasks.json` | 10 个目录能力 + `flows` 段：`cream_cheese_heating_prep` → 三个合法 key |
+| Qwen（`agent/semantic_router.py`） | 只输出 `{"choice":"<key>"}` / `{"choice":["k1",...]}` / `{"choice":{"flow":"<flow_id>"}}` / clarify / unsupported；看不到 task_id，也不知道哪条序列被验收过 |
+| 代码查表 | `flow_id` → 有序 key 列表；再走 `support()` 白名单 + 预算索引 + 锚点检查，与显式列表完全同一条路 |
+| `flow_guard` | 只在模型给了单个末步 key、而用户原话里有整段流程语义时投一次"是不是整流程"的复核（`guard_flow_upgrades` 计数），不静默降级 |
+
+指令层级（prompt 里写死，由 16 条基础集校准）：
+缺槽代词（"把它打开"）> 明确分步序列 > 流程 ID > 单任务 key。
+"明确分步"允许返回 `composite`（kind 标签不同）但**顺序必须一致**；
+明确指定顺序时不得重排。
+
+- 冻结集：`config/flow_routing_cases.json`（16 条，调 prompt 用）与
+  `config/flow_routing_holdout.json`（13 条，写完不再改）；
+  期望字段在首次运行前写好，`scripts/run_flow_cases.py` 只读不写期望。
+- 记录：`router_status / reason_code / latency / completion_tokens / repairs / guard /
+  plan_source`，以及 `goal_omissions`（整流程被降级时漏掉哪些 key）。
+
+### 12.5 记录层新增字段
+
+| 字段 | 含义 |
+| --- | --- |
+| `steps[i].transport_ready` | 该步的完整判定块（`checked/ok/risk/warning/reasons/features/thresholds/evidence`） |
+| `steps[i].reseat` | 该步的重新装料块（`attempted/calls/status/policy_actions/finalizer_actions/sim_action_counts/before/after/state_change`） |
+| `steps[i].target_region` | 官方目标区域的几何误差（诊断用） |
+| `composite.ready_to_transport(_step)` | 被判过的那一步的结论与步 id |
+| `composite.reseat_*`、`reseat_state_changed` | 重新装料是否发生、是否改变了几何 |
+| `action_accounting.reseat_policy_actions / reseat_finalizer_actions` | 重新装料的动作单列，不混进策略动作 |
+
+### 12.6 已知限制（本轮实测暴露）
+
+- **单批 6 回合没有分辨力**。同一冻结清单跑四次（`config/rounds_formal_3step_repeat_20261105.json`
+  预登记批次 C、D），通过率 2/6、5/6、5/6、4/6，合并 16/24；同一 init 的
+  `initial_state_fingerprint` 四批全等，但动作数是 400 / 356 / 359 / 372。
+  引擎请求不带 seed、策略服务的扩散噪声取自进程全局 RNG，所以执行不可复现。
+  横向对照用 `tools/round_spread.py`（`--batch A=<dir> ...`），不产生"平均成功率"，
+  只把每回合每批次摊开。
+- 就绪检查的 XY 裕度冻结在 2 mm，而 24 回合里 4 次掉料的放置裕度是
+  2.6 / 4.9 / 7.6 / 7.8 mm，搬运中滑到 25.3–28.3 mm（判据 25 mm）——
+  **2 mm 挡不住这类"擦边放置"；把阈值提到 8 mm 会同时误拒 4 个能完成的回合**。
+  本轮不回调阈值（会在同一批数据上调参），只把数值记全。
+- 同一句官方指令的重新装料在"奶酪已在碗里"时是空跑：策略只发 1 个动作，
+  几何完全不变。目录里没有"单独抓起奶酪"的能力，所以不做脚本化重抓
+  （那属于执行层校正，必须另开可选模式并如实标注，不能冒充策略成功）。
+- `carry_watch` 5 动作采样可能漏掉 0.25 s 内的瞬时滑出；结论仍以终局样本为准。
