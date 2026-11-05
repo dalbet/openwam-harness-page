@@ -107,6 +107,9 @@ class InferenceEngine:
             "inference_s_last": None,
             "chunk_generations": 0,
             "cache_hits": 0,
+            "seed_requests": 0,
+            "seed_applied": 0,
+            "seed_ignored": 0,
             "last_request": None,
         }
         self._new_token("startup")
@@ -221,6 +224,24 @@ class InferenceEngine:
                 return value or {"status": "missing"}
             time.sleep(min(0.02, remaining))
 
+    def _predict(self, request: dict[str, Any], obs: dict[str, Any]) -> dict[str, Any]:
+        """Call the backend with this request's resolved sampling seed.
+
+        The seed is applied *here*, in the process that fronts the action
+        server, and is forwarded as an explicit noise array by the Pi0.5
+        backend. A backend that cannot honour it says so (``supports_seed``)
+        and the fact is recorded rather than assumed away.
+        """
+        seed = request.get("noise_seed")
+        prompt = str(request.get("prompt") or "")
+        if seed is None or not getattr(self.backend, "supports_seed", False):
+            out = self.backend.predict(obs, prompt)
+            if seed is not None:
+                out = {**out, "seed_applied": False, "seed_unsupported": True}
+            return out
+        out = self.backend.predict(obs, prompt, seed=int(seed))
+        return {**out, "seed_applied": True}
+
     def infer(self, request: dict[str, Any], obs: dict[str, Any]) -> dict[str, Any]:
         token_error = self._check_token(request.get("token"))
         if token_error is not None:
@@ -231,7 +252,7 @@ class InferenceEngine:
             queued_s = time.perf_counter() - timer
             self.metrics["in_flight"] = 1
             try:
-                out = self.backend.predict(obs, str(request.get("prompt") or ""))
+                out = self._predict(request, obs)
             except Exception as exc:
                 self.metrics["model_errors"] += 1
                 return {"status": "error", "error": f"{type(exc).__name__}: {exc}", "request": request}
@@ -252,6 +273,11 @@ class InferenceEngine:
             "chunk": out.get("chunk"),
             "action_space": out.get("action_space"),
             "action_raw": out.get("action_raw"),
+            "noise_seed": out.get("noise_seed"),
+            "noise_source": out.get("noise_source"),
+            "noise_sha256": out.get("noise_sha256"),
+            "noise_echo": out.get("noise_echo"),
+            "seed_applied": out.get("seed_applied"),
             "queued_s": round(queued_s, 4),
             "total_s": round(time.perf_counter() - started, 4),
         }
@@ -259,6 +285,12 @@ class InferenceEngine:
     def _record_success(self, request: dict[str, Any], out: dict[str, Any], queued_s: float, total_s: float) -> None:
         self.metrics["inference_s_total"] += float(out["inference_s"])
         self.metrics["inference_s_last"] = float(out["inference_s"])
+        if request.get("noise_seed") is not None:
+            self.metrics["seed_requests"] = int(self.metrics.get("seed_requests") or 0) + 1
+            if out.get("seed_applied"):
+                self.metrics["seed_applied"] = int(self.metrics.get("seed_applied") or 0) + 1
+            else:
+                self.metrics["seed_ignored"] = int(self.metrics.get("seed_ignored") or 0) + 1
         chunk = out.get("chunk") or {}
         if chunk.get("chunk_generation"):
             self.metrics["chunk_generations"] = int(self.metrics.get("chunk_generations") or 0) + 1
@@ -296,7 +328,7 @@ class InferenceEngine:
             with self.lock:
                 queued_s = started - float(row.get("enqueued", started))
                 try:
-                    out = self.backend.predict(row["obs"], str(request.get("prompt") or ""))
+                    out = self._predict(request, row["obs"])
                 except Exception as exc:
                     with self.results_lock:
                         self.results[row["request_id"]] = {
@@ -323,6 +355,10 @@ class InferenceEngine:
                     "chunk": out.get("chunk"),
                     "action_space": out.get("action_space"),
                     "action_raw": out.get("action_raw"),
+                    "noise_seed": out.get("noise_seed"),
+                    "noise_source": out.get("noise_source"),
+                    "noise_sha256": out.get("noise_sha256"),
+                    "seed_applied": out.get("seed_applied"),
                     "queued_s": round(queued_s, 4),
                     "total_s": round(time.perf_counter() - started, 4),
                 }
@@ -384,6 +420,17 @@ class InferenceEngine:
             "server_url": getattr(self.backend, "base_url", None) or _pi05_service_url(),
             "precision_requested": os.environ.get("PI05_PRECISION"),
             "arm": os.environ.get("PI05_ARM"),
+            # Where a per-request sampling seed can actually take effect. This
+            # is the honest answer to "did the seed reach the sampler?".
+            "seed_support": {
+                "backend_supports_seed": bool(getattr(self.backend, "supports_seed", False)),
+                "seed_transport": "explicit initial-noise array in each /infer request"
+                if getattr(self.backend, "supports_seed", False)
+                else "unsupported: this backend's sampler owns its own RNG",
+                "seed_requests": int(self.metrics.get("seed_requests", 0)),
+                "seed_applied": int(self.metrics.get("seed_applied", 0)),
+                "seed_ignored": int(self.metrics.get("seed_ignored", 0)),
+            },
         }
         if backend == "openwam":
             server_health = self.backend.health()

@@ -59,8 +59,15 @@ DEFAULTS: dict[str, Any] = {
     # (it fell beside it); the official relation's own tolerance is 0.02, so
     # this is deliberately tighter than the goal predicate.
     "min_seat_delta_m": -0.002,
-    # The official ``bowl_interior`` XY limit is 0.025 m. Archived rounds reach
-    # 0.0224 m and still transport; 0.002 of margin only flags the edge.
+    # ``xy_limit_m`` is the bowl asset's own declared horizontal radius
+    # (``akita_black_bowl.xml``: ``horizontal_radius_site`` x = 0.025 m, which is
+    # robosuite's ``horizontal_radius`` for this object and the number LIBERO's
+    # container convention uses). It is a *centre-distance* allowance measured
+    # from the bowl's centre, not the physical rim: the collision ring's interior
+    # wall sits at ~0.033 m and the rim ring at ~0.047 m. ``xy_margin_m`` is
+    # ``0.025 - xy_m``, so it says "how much centre-distance allowance is left",
+    # never "how far the cheese is from the rim". Archived rounds reach 0.0224 m
+    # and still transport; 0.002 of margin only flags the edge.
     "min_xy_margin_m": 0.002,
     # Relative displacement between two fresh samples, i.e. the object is
     # still sliding while the arm is holding still. Archived samples move
@@ -365,6 +372,11 @@ def evaluate(
     block["features"] = {
         "xy_m": xy,
         "xy_limit_m": limit,
+        # Named so a reader cannot mistake it for a distance to the rim: the
+        # limit is the asset's declared horizontal radius (centre-distance
+        # allowance), and the margin is what is left of it.
+        "xy_limit_source": "asset_horizontal_radius:akita_black_bowl.horizontal_radius_site.x",
+        "xy_margin_kind": "xy_limit_m - xy_m (centre-distance allowance, not a rim distance)",
         "xy_margin_m": margin,
         "seat_delta_m": seat,
         "object_bottom_z": bottom,
@@ -491,6 +503,94 @@ def change(
     }
 
 
+def classify_reseat(
+    *,
+    stop_reason: str | None,
+    policy_actions: int | None,
+    state_change: dict[str, Any] | None,
+    before_ok: bool | None,
+    after_ok: bool | None,
+    skipped: bool = False,
+) -> dict[str, Any]:
+    """Name what a re-seat actually did, without letting one fact imply another.
+
+    The four things that must not be conflated:
+
+    ``goal_satisfied``
+        The step's own predicate already held when the re-seat started. This is
+        what makes the policy emit one action and stop - not a policy failure.
+    ``actions_executed``
+        Whether real ``env.step`` calls happened (policy + execution finalizer).
+    ``geometry_changed``
+        Whether the object's seat/XY geometry moved beyond tolerance.
+    ``readiness_improved``
+        Whether the transport-readiness verdict flipped to ok.
+
+    A re-seat is ``effective`` only when the geometry moved *and* readiness
+    improved. Anything else is recorded as ``ineffective`` with the specific
+    reason, because "the policy ran" is not evidence that the object was
+    re-seated.
+    """
+    goal_satisfied = bool(skipped) or (
+        str(stop_reason or "") == "step_goal" and int(policy_actions or 0) <= 1
+    )
+    # ``None`` means "the re-run failed before it could be counted", which is
+    # not the same as zero actions and must not be recorded as such.
+    actions = None if policy_actions is None else int(policy_actions)
+    change = state_change or {}
+    geometry_changed = bool(change.get("changed"))
+    readiness_improved = bool(after_ok) and not bool(before_ok)
+    if skipped:
+        # The re-run capability's own goal already held, so the attempt was
+        # refused before any action: nothing was executed, nothing moved, and
+        # this says nothing about whether a re-seat would have helped.
+        verdict = "unsupported"
+        reason = (
+            "goal_already_satisfied: the catalog capability's own predicate held on live state before "
+            "the re-seat started, so no action was executed; re-running a place-and-release capability "
+            "cannot express a re-seat"
+        )
+    elif geometry_changed and readiness_improved:
+        verdict = "effective"
+        reason = "geometry changed and the readiness verdict improved"
+    elif goal_satisfied and not geometry_changed:
+        verdict = "ineffective"
+        reason = (
+            "goal_already_satisfied: the catalog predicate held on live state, so the policy emitted "
+            f"{actions} action(s) and stopped; the object geometry did not move"
+        )
+    elif not geometry_changed:
+        verdict = "ineffective"
+        reason = (
+            "the re-run failed before its action count could be read; the object geometry did not "
+            "change beyond tolerance"
+            if actions is None
+            else f"executed {actions} action(s) but the object geometry did not change beyond tolerance"
+        )
+    elif not readiness_improved:
+        verdict = "ineffective"
+        reason = "the object moved but the readiness verdict did not improve"
+    else:  # pragma: no cover - covered by the branches above
+        verdict = "ineffective"
+        reason = "no criterion for effectiveness was met"
+    return {
+        "schema": "embodied_engine.composite.reseat_classification.v1",
+        "verdict": verdict,
+        "reason": reason,
+        "goal_satisfied": goal_satisfied,
+        "precheck_refused": bool(skipped),
+        "actions_executed": actions,
+        "geometry_changed": geometry_changed,
+        "readiness_improved": readiness_improved,
+        "capability_supported": bool(geometry_changed),
+        "note": (
+            "the catalog capability used for this target is a place-and-release skill whose success "
+            "predicate is 'object inside target + released'; it has no term for seat depth or transport "
+            "stability, so re-running it cannot express a re-seat"
+        ),
+    }
+
+
 def summarise(block: dict[str, Any] | None) -> dict[str, Any]:
     """The short row the composite record and the round summary carry."""
     block = block or {}
@@ -514,6 +614,7 @@ __all__ = [
     "SCHEMA",
     "applies",
     "change",
+    "classify_reseat",
     "drift",
     "evaluate",
     "options",

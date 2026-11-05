@@ -122,6 +122,7 @@ class WholeTaskRunner:
         watch_goals: list[dict[str, Any]] | None = None,
         carry_objects: list[str] | None = None,
         watch_every: int = 5,
+        policy_seed: int | None = None,
     ):
         self.env = env
         self.inference = inference
@@ -138,6 +139,10 @@ class WholeTaskRunner:
         self.timeout_s = float(timeout_s)
         self.gpu_index = gpu_index
         self.frame_sink = frame_sink
+        # Recorded by both runners; only the Pi0.5 runner can honour it (its
+        # server takes explicit initial noise). The OpenWAM path reports it as
+        # unsupported rather than pretending the sample was pinned.
+        self.policy_seed = None if policy_seed is None else int(policy_seed)
 
         # ---- step goal (composite step 1) ----------------------------------
         # ``goal`` is an engine predicate (drawer_open / stove_button / relation)

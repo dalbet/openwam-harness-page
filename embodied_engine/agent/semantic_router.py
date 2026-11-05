@@ -62,7 +62,7 @@ Decide in this order:
 Ordered sequences:
 - Return {"choice":["<key1>","<key2>"]} or {"choice":["<key1>","<key2>","<key3>"]} only when that many separate capabilities in the list are all asked for. Keep the user's order and do not add, drop, split or reorder a step.
 - When the user spells the steps out as separate instructions ("first ... then ... last ...", "先…然后…最后…"), return those keys as a sequence, not a flow id, even when the sequence happens to equal a flow's steps. A named sequence stays a named sequence.
-- A named sequence is not incomplete just because a flow has more steps after the ones the user said: a user who names two of the three steps asked for two steps, not for "clarify" and not for the flow.
+- A named sequence is not incomplete just because a flow has more steps after the ones the user said: a user who names two of the three steps asked for two steps, not for "clarify" and not for the flow. "Clarify" is for a slot inside the steps the user did say (a pronoun, a missing place, a missing level), never for a step the user did not ask for.
 - One capability can read like two actions ("open the top drawer and place the bowl inside it"). When the list has a capability for the whole goal, choose that single key, not a sequence.
 - "clarify" when the order of separate capabilities is neither stated nor implied by which goal depends on the other, when a step's object or place is missing, or when two goals conflict (the same object sent to two different destinations).
 - Four or more separate capabilities are outside this contract: choose "unsupported".
@@ -72,7 +72,7 @@ A stated relation or level is part of the request, not a missing slot: "beside",
 Household flows:
 A flow is a fixed, verified sequence of catalog capabilities for one household goal. The flow's steps are listed after its description, but you never retype them: code expands the flow into its ordered keys and validates the plan.
 - Return {"choice":{"flow":"<flow_id>"}} when the instruction asks for the whole household goal that flow describes, in any words.
-- Return {"choice":{"flow":"<flow_id>"}} only when every step of the flow is required by the instruction. Never answer with just the flow's last step: a complete household goal is not a request for its final action.
+- A flow never supplies a destination the user did not say, and a complete heating preparation is never reduced to the stove being switched on.
 - If the instruction asks for the whole goal *and* for something the flow excludes (stirring, unwrapping, melting detection, measuring temperature, an extra object), choose "unsupported". Do not run the flow minus the extra request.
 - If the instruction names only one of the flow's steps and nothing else, return that single capability key instead of the flow.
 - If the user named the steps themselves, use the named sequence rule above: the flow id is for a goal described as a whole, not for a goal the user already broke down.
@@ -295,8 +295,9 @@ The router answered "{key}", which is the LAST step of this verified household f
 Decide which the instruction actually asks for:
 - "flow": the instruction asks for the whole household preparation (every step above).
 - "single": the instruction asks only for "{key}" and for nothing else.
+- "clarify": the instruction does not state the goal's outcome or its place at all, so no step above follows from the user's words. Only for that case; if any step is asked for, answer "single".
 
-Return exactly one JSON object and nothing else: {{"scope":"flow"}} or {{"scope":"single"}}"""
+Return exactly one JSON object and nothing else: {{"scope":"flow"}}, {{"scope":"single"}} or {{"scope":"clarify"}}"""
 
 
 def _flow_guard(
@@ -335,7 +336,7 @@ def _flow_guard(
         "key": key,
         "flow_ids": [str(item.get("flow_id")) for item in candidates],
         "raw": content,
-        "scope": scope if scope in {"flow", "single"} else None,
+        "scope": scope if scope in {"flow", "single", "clarify"} else None,
         "s": elapsed,
         "timing": timing,
         "note": (
@@ -478,6 +479,18 @@ def decide(
             options["flow_guard_max_tokens"],
         )
         result["flow_guard"] = guard
+        if guard.get("scope") == "clarify":
+            # The instruction names neither the goal's outcome nor its place, so
+            # the flow's last step was not asked for either. Ask instead of
+            # inventing a destination: no task, no keys, no composite.
+            result.pop("task", None)
+            result["status"] = "needs_clarification"
+            result["reason_code"] = "goal_outcome_unspecified"
+            result["reason"] = (
+                "the instruction says the object should be ready but not where or how, "
+                "and the flow's outcome is not in the user's words"
+            )
+            return result
         if guard.get("scope") == "flow":
             flow_id = str(terminal[0].get("flow_id"))
             keys = task_catalog.flow_keys(flow_id)

@@ -295,7 +295,7 @@
           "turn_on_stove"
         ],
         "goal": "the cream cheese is in a bowl, that bowl is on the stove, and the stove is on",
-        "capability": "The complete preparation for heating: the cream cheese ends up in a bowl, that bowl sits on the stove, and the stove is switched on (three steps: cheese into the bowl, bowl onto the stove, stove on). Use it when the instruction asks for the whole preparation in any words (get the cheese ready / set it up / prepare it to heat or warm or cook on the stove). It is the complete three-step preparation, not one of its steps, and not a request that names only the cheese, only the bowl, or only the stove.",
+        "capability": "The complete preparation for heating: the cream cheese ends up in a bowl, that bowl sits on the stove, and the stove is switched on (three steps: cheese into the bowl, bowl onto the stove, stove on). Use it only when the instruction states the heating outcome as well as the object - heating, warming, cooking, ready to heat, or switching the stove on - and every step follows from those words. An instruction that says only that the cheese should be ready or prepared, with no destination and no heating outcome, leaves both slots unstated: that is clarify, not this flow, and not one of its steps. It is the complete three-step preparation, not one of its steps, and not a request that names only the cheese, only the bowl, or only the stove.",
         "excludes": [
           "stirring or mixing the cheese",
           "unwrapping or opening the cheese package",

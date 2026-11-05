@@ -98,6 +98,8 @@ def request_row(
     step_id: int,
     prompt: str,
     step_ref: str | None = None,
+    noise_seed: int | None = None,
+    policy_seed: int | None = None,
 ) -> dict[str, Any]:
     return {
         "token": token,
@@ -109,5 +111,11 @@ def request_row(
         "step_id": step_id,
         "step_ref": step_ref,
         "prompt": prompt,
+        # Resolved sampling seed for this logical request. ``None`` keeps the
+        # legacy path (the backend's own per-(prompt, chunk-index) stream); when
+        # set, the backend builds the noise from it and ignores its counter, so
+        # a retry of the same observation reproduces the same sample.
+        "noise_seed": None if noise_seed is None else int(noise_seed),
+        "policy_seed": None if policy_seed is None else int(policy_seed),
         "created_at": time.time(),
     }

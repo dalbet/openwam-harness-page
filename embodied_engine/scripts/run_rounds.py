@@ -89,15 +89,28 @@ def policy_randomness(identity: dict[str, Any]) -> dict[str, Any]:
     inference = identity.get("inference") or {}
     action = identity.get("action_model") or {}
     openwam = action.get("openwam") or {}
+    engine = identity.get("engine") or {}
+    sampling = engine.get("sampling") or {}
+    seed_support = (inference.get("identity") or {}).get("seed_support") or {}
     return {
         "inference_mode": inference.get("mode"),
         "denoise_steps": openwam.get("denoise_steps") or action.get("denoise_steps"),
         "execute_horizon": openwam.get("execute_horizon") or action.get("execute_horizon"),
         "action_horizon": action.get("action_chunk"),
-        "sampling_seed": None,
+        "policy_seed": sampling.get("policy_seed"),
+        "policy_seed_source": sampling.get("policy_seed_source"),
+        "protocol": sampling.get("protocol"),
+        "scene_seed": sampling.get("scene_seed"),
+        "backend_supports_seed": seed_support.get("backend_supports_seed"),
+        "seed_transport": seed_support.get("seed_transport"),
         "note": (
-            "no per-episode sampling seed is exposed by the resident OpenWAM server; action sampling "
-            "draws from that process's ambient RNG, while the scene init is fixed by the env seed"
+            "policy_seed pins the *initial diffusion noise* of every request: the noise is an explicit "
+            "array built from (policy_seed, step_ref, sim_action_count), and the Pi0.5 server consumes it "
+            "verbatim (its Euler sampler is deterministic given noise). Weights, precision, CUDA path and "
+            "denoise steps are unchanged. A fixed seed is a comparison tool, not a success-rate claim."
+            if sampling.get("policy_seed") is not None
+            else "no sampling seed: the backend's per-(prompt, chunk-index) noise stream is used, which is "
+            "what every record before this round ran under (legacy protocol)"
         ),
     }
 
@@ -445,7 +458,17 @@ def main() -> int:
         started = time.time()
         submitted = post(
             f"{args.engine}/api/run",
-            {"task_id": int(spec.get("load_task_id", spec["task_id"])), "instruction": spec["instruction"]},
+            {
+                "task_id": int(spec.get("load_task_id", spec["task_id"])),
+                "instruction": spec["instruction"],
+                # The sampling seed of this round, distinct from the scene seed
+                # passed to /api/load above. Absent = legacy sampling.
+                **(
+                    {"policy_seed": int(spec["policy_seed"])}
+                    if spec.get("policy_seed") is not None
+                    else {}
+                ),
+            },
             timeout=60,
         )
         if submitted.get("status") != "started":
@@ -474,6 +497,9 @@ def main() -> int:
         )
         row["round"] = spec.get("round")
         row["seed"] = round_seed
+        row["policy_seed"] = spec.get("policy_seed")
+        row["sampling_protocol"] = ((record.get("sampling") or {}).get("protocol"))
+        row["sampling"] = record.get("sampling")
         row["handoff_mode_requested_by_runner"] = spec.get("handoff_mode")
         row["handoff_mode_effective"] = (handoff_reply.get("options") or {}).get("mode") or spec.get("handoff_mode")
         row["wall_s"] = round(time.time() - started, 3)

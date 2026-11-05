@@ -1,0 +1,34 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-11-05T15:05:00+08:00",
+  "note": "Two repeats of the seed matrix, one of a round that succeeded and one of a round that failed, with the SAME scene init and the SAME policy seed. The pair answers one question only: with the sampling seed pinned, does the closed loop follow the same path twice? A repeat that diverges is a measured fact about the remaining non-determinism (fixture placement, renderer, physics), not a retry to be averaged in: the first matrix round and its repeat are both reported. The instruction is unchanged from the matrix so the comparison is not contaminated by a routing difference. Run order: success first, then failure.",
+  "seed": 5,
+  "rounds": [
+    {
+      "round": "repeat-20261105-s5-ps202-success",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_explicit_three_steps (frozen base suite; composite, not a flow)",
+      "seed": 5,
+      "policy_seed": 202,
+      "repeats": "matrix-20261105-s5-ps202 (completed)",
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "repeat-20261105-s3-ps101-failure",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_explicit_three_steps (frozen base suite; composite, not a flow)",
+      "seed": 3,
+      "policy_seed": 101,
+      "repeats": "matrix-20261105-s3-ps101 (composite_final_verification_failed)",
+      "handoff_mode": "action_retreat"
+    }
+  ]
+}

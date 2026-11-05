@@ -62,6 +62,8 @@
   "action_chunk": 5,
   "action_dim": 7,
   "control_frequency_hz": 20,
+  "policy_seed": null,
+  "policy_seed_note": "null = shipped legacy sampling (noise keyed to the backend's per-(prompt, chunk-index) counter). An int pins the initial diffusion noise of every request to a pure function of (policy_seed, step_ref, sim_action_count); the scene seed is a separate number and is reported separately.",
   "openwam": {
    "name": "OpenWAM-Alpha-Sim-LIBERO",
    "checkpoint": "/home/host/page-dmh/openwam_harness/checkpoints/OpenWAM-Alpha-Sim-LIBERO",

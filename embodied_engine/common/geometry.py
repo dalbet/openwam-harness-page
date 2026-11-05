@@ -20,6 +20,10 @@ ASSETS = {
         "bottom_z": -0.012,
         "floor_z": -0.012,
         "rim_z": 0.04,
+        # From the asset's own ``horizontal_radius_site`` (pos "0.025 0.025 0"):
+        # robosuite reads exactly that x value as ``horizontal_radius``. It is a
+        # centre-distance allowance for containers, NOT the physical rim (the
+        # collision ring's interior wall is at ~0.033 m, the rim ring at ~0.047 m).
         "inner_xy_m": 0.025,
     },
     "plate": {

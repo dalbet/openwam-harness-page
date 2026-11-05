@@ -205,3 +205,18 @@ class TestFlowGuard:
         assert decision["task"]["key"] == "turn_on_stove"
         assert decision["flow_guard"]["scope"] is None
         assert decision["flow_guard"]["error"] is not None
+
+    def test_a_clarify_scope_turns_the_single_choice_into_a_question(self):
+        # "get the cream cheese ready" states no place and no heat. The model
+        # may still answer with the flow's last step, so the guard must be able
+        # to send it back as clarify instead of running a guessed destination.
+        decision = semantic_router.decide(
+            "get the cream cheese ready",
+            FULL_SNAPSHOT,
+            chat_fn=_fake_seq('{"choice":"turn_on_stove"}', '{"scope":"clarify"}'),
+        )
+        assert decision["status"] == "needs_clarification"
+        assert decision["reason_code"] == "goal_outcome_unspecified"
+        assert "task" not in decision
+        assert not decision.get("composite_keys")
+        assert decision["flow_guard"]["scope"] == "clarify"

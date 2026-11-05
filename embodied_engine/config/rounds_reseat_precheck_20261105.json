@@ -1,0 +1,20 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-11-05T15:30:00+08:00",
+  "note": "One dev round with the forced-trigger config (config_demo_b900_forced: max_seat_delta_m 0.005, perched_is_warning false), used only to reach the re-seat branch. The shipped config leaves all 21 archived readiness checks nominal and never enters it, so the branch cannot be exercised under it. What this round is for: prove that the pre-check now refuses the re-seat before any action when the re-run capability's own predicate already holds, and that the refusal is recorded as unsupported with zero actions instead of one policy action being counted as a repair. This is a code-path verification, not an acceptance result and not a new success number; the episode is expected to end as composite_transport_not_ready because on_failure=stop is unchanged.",
+  "seed": 3,
+  "rounds": [
+    {
+      "round": "dev-reseat-precheck-20261105-s3",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_explicit_three_steps (frozen base suite; composite, not a flow)",
+      "seed": 3,
+      "policy_seed": 101,
+      "handoff_mode": "action_retreat"
+    }
+  ]
+}

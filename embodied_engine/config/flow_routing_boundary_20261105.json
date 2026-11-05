@@ -1,0 +1,103 @@
+{
+  "schema": "embodied_engine.flow_routing_cases.v1",
+  "version": "2026-11-05.boundary.1",
+  "frozen_on": "2026-11-05",
+  "note": "Boundary set for the under-specified-goal defect ('get the cream cheese ready' used to be answered with an invented destination). Frozen from the routing contract before this run: a goal with no destination and no heating outcome is an unfilled slot, so it is 'clarify'; a stated heating outcome still needs a place, otherwise the steps cannot be verified. The controls exist to catch the opposite failure (a real heating preparation downgraded to 'turn on stove', or the flow swallowing a single-capability request). Written before the run and never edited to match an answer; it is kept separate from config/flow_routing_cases.json so that the earlier frozen result stays a valid, untouched record.",
+  "expectation_kinds": {
+    "flow": "the whole household goal; the ordered keys are expanded from the flow catalog",
+    "composite": "the user named separate capabilities in an order; keys are the user's own",
+    "single": "exactly one catalog capability",
+    "clarify": "a slot is unfilled (pronoun, missing place, missing level)",
+    "unsupported": "specific enough to judge, and no capability or flow matches; a sub-request the flow excludes is never dropped"
+  },
+  "cases": [
+    {
+      "id": "en_undefined_ready",
+      "lang": "en",
+      "category": "undefined_goal",
+      "instruction": "get the cream cheese ready",
+      "expect": {"kind": "clarify"},
+      "rationale": "Neither a destination nor a heating outcome is stated. The flow cannot supply the bowl, the stove or the switching-on from its own text."
+    },
+    {
+      "id": "zh_undefined_ready",
+      "lang": "zh",
+      "category": "undefined_goal",
+      "instruction": "把奶酪准备好",
+      "expect": {"kind": "clarify"},
+      "rationale": "Same slot as the English case; '准备好' alone leaves the place and the method unstated."
+    },
+    {
+      "id": "en_undefined_prepare",
+      "lang": "en",
+      "category": "undefined_goal",
+      "instruction": "prepare the cream cheese",
+      "expect": {"kind": "clarify"},
+      "rationale": "'Prepare' is the same empty goal in another word; no place, no heat, no stove."
+    },
+    {
+      "id": "zh_undefined_prepare",
+      "lang": "zh",
+      "category": "undefined_goal",
+      "instruction": "帮我把奶油奶酪准备一下",
+      "expect": {"kind": "clarify"},
+      "rationale": "Politeness and a pronoun do not fill the two missing slots."
+    },
+    {
+      "id": "en_heating_no_place",
+      "lang": "en",
+      "category": "missing_place",
+      "instruction": "get the cream cheese ready to heat up",
+      "expect": {"kind": "clarify"},
+      "rationale": "The heating outcome is stated but the place is not, so 'bowl then stove' cannot be checked against the instruction. A missing place is a clarify slot, not a licence to assume the stove."
+    },
+    {
+      "id": "zh_heating_no_place",
+      "lang": "zh",
+      "category": "missing_place",
+      "instruction": "帮我把奶酪加热准备好",
+      "expect": {"kind": "clarify"},
+      "rationale": "Same missing place in Chinese: heating is named, the destination is not."
+    },
+    {
+      "id": "en_control_flow",
+      "lang": "en",
+      "category": "control_flow",
+      "instruction": "set the cream cheese up for heating on the stove",
+      "expect": {
+        "kind": "flow",
+        "flow_id": "cream_cheese_heating_prep",
+        "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"]
+      },
+      "rationale": "Object, place and heating outcome are all stated, so the whole three-step preparation is required. Guards against over-correcting into clarify."
+    },
+    {
+      "id": "zh_control_flow",
+      "lang": "zh",
+      "category": "control_flow",
+      "instruction": "帮我把奶油奶酪准备好放到炉灶上加热",
+      "expect": {
+        "kind": "flow",
+        "flow_id": "cream_cheese_heating_prep",
+        "keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"]
+      },
+      "rationale": "Place and heating outcome stated in Chinese; the complete preparation must not be downgraded to switching the stove on."
+    },
+    {
+      "id": "en_control_stove_only",
+      "lang": "en",
+      "category": "control_single",
+      "instruction": "switch the stove on",
+      "expect": {"kind": "single", "key": "turn_on_stove"},
+      "rationale": "One capability asked for; the flow must not swallow it."
+    },
+    {
+      "id": "zh_control_cheese_only",
+      "lang": "zh",
+      "category": "control_single",
+      "instruction": "帮我把奶油奶酪放进碗里就行",
+      "expect": {"kind": "single", "key": "put_cream_cheese_in_bowl"},
+      "rationale": "One capability asked for ('就行' bounds the request); the flow must not add two steps the user excluded."
+    }
+  ]
+}

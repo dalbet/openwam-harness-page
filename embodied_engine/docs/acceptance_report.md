@@ -3108,12 +3108,20 @@ init 3/4/5 **未被用于任何调参**：2026-11-04 的交付回合用的是 0/
 而完成回合里也有 4.5 / 4.7 / 5.0 / 5.2 / 8.2 / 8.7 mm 的裕度。
 按 21 个读数做阈值回溯（**同一批数据，只能当下轮假设**）：
 
-| 阈值 | 会拒绝 | 拦下掉料 | 误拒完成回合 |
+| 阈值 | 会拒绝 | 拦下掉料（分母=这批 24 回合里的 4 次） | 误拒完成回合 |
 | --- | --- | --- | --- |
-| 2 mm（现行） | 0 | 0 / 5 | 0 |
-| 3 mm | 1 | 1 / 5 | 0 |
-| 6 mm | 6 | 2 / 5 | 4 |
-| 8 mm | 8 | 4 / 5 | 4 |
+| 2 mm（现行） | 0 | 0 / 4 | 0 |
+| 3 mm | 1 | 1 / 4 | 0 |
+| 6 mm | 6 | 2 / 4 | 4 |
+| 8 mm | 8 | 4 / 4 | 4 |
+
+**分母为什么是 4 而不是 5**：本报告 §35.5 的四批 24 回合里 `carried_object_lost` 是 4 次
+（A-en-4、A-zh-4、C-en-5、D-en-4）。上一版表里写的是 `/5`，第 5 个来自
+`raw/composite/step_diagnosis_20261105.json` 汇总目录时一并扫到的 2026-11-04
+`step3_en_delivery` i1（`ep-20261104-121734-febbf1`）——那一回合不在 24 回合里，
+它的就绪读数也不在回溯用的 21 个读数里（它的 c1 座深 35.7 mm 只作警告）。
+混进分子或分母都会让阈值看起来比实际更好，所以本轮把口径钉死：**回溯只用 24 回合的 21 个读数，
+掉料分母是 4**；表里的 0/4、1/4、2/4、4/4 就是按这个口径重算的结果（分子未变）。
 
 结论要写死：**裕度单独不足以判定可搬运**——4.5 mm 的回合通过了，7.8 mm 的回合掉了。
 上一版报告里"6 mm 左右能干净分开"的说法只看了 4 个回合，本次 24 回合的数据**推翻**了它。
@@ -3200,3 +3208,242 @@ init 3/4/5 **未被用于任何调参**：2026-11-04 的交付回合用的是 0/
 - 复现：`scripts/run_rounds.py --manifest config/rounds_formal_3step_20261105.json`；
   单条路由集：`scripts/run_flow_cases.py --cases config/flow_routing_holdout.json`；
   失败分类：`tools/step_diagnosis.py --root <dir>`。
+
+## 36. Pi0.5 家务组合：采样种子、可复现基线与重新装料前置检查（2026-11-05，真实执行）
+
+本轮把"同配置跑两次结果不同"拆成可以分别记账的两件事：**策略采样**与**场景像素**；
+并把"重新装料为什么是一个动作的空跑"从一句解释变成代码里的拒绝。
+权重、精度、加速路径、执行窗口（5）、预算（300/600/300）与目标阈值全部未改；
+24 回合历史记录、标签与结果一律保留，本轮不重跑、不改写。
+
+### 36.1 本轮新增/改动（只列与本轮结论有关的）
+
+| 位置 | 改动 | 目的 |
+| --- | --- | --- |
+| `common/policy_seed.py`（新） | splitmix64 纯整数派生 `derive(policy_seed, step_ref, sim_action_count)`、`noise_for()`、`resolve()` | 一个逻辑请求对应一个稳定的 31-bit 种子 |
+| `models/pi05_chunk_backend.py` | `predict(..., seed=)`：**自己构造**显式噪声数组，不再依赖服务端环境 RNG；返回 `noise_source/noise_sha256/noise_echo` | 种子在真正生成动作的进程里生效 |
+| `inference/inference_service.py` | `_predict()` 读 `noise_seed` 并转发；`identity().seed_support` 暴露 `seed_requests/seed_applied/seed_ignored` | 生效与否可核对，不靠假设 |
+| `engine/inference_client.py` / `engine/pi05_rollout.py` | 请求带 `noise_seed/policy_seed`；每 chunk 记 `obs` 哈希、噪声哈希、`action0` 哈希、`seed_applied` | 分歧可以定位到"像素 / 噪声 / 动作" |
+| `engine/engine_service.py` | `/api/run` 接受 `policy_seed`；`initial_fixture_fingerprint`；重新装料前置检查 | 两个种子分开记账；空跑不再被执行 |
+| `common/transport_ready.py` | `classify_reseat(skipped=)`；`xy_limit_source/xy_margin_kind` | 四件事互不推导；裕度口径写清 |
+| `agent/semantic_router.py` | `flow_guard` 可答 `clarify`；"ready/prepare 无地点无加热"→clarify 的提示约束 | 不擅自补目的地、不把整流程降级成开炉灶 |
+| `config/flow_routing_boundary_20261105.json`（新） | 10 条中英边界样例，运行前冻结 | 与已公布的 16 条基础集分开，不改写旧结果 |
+
+### 36.2 实际生效位置（不是引擎进程的 `manual_seed`）
+
+链路：`pi05_rollout`（派生种子）→ `InferenceClient.request_row`（进请求体）→
+`inference_service._predict`（读 `noise_seed`）→ `Pi05ChunkBackend.predict`（构造 `(10,32)` 噪声）→
+生成服务按 `noise` 去噪。服务身份实测：
+`openpi.PI0Pytorch (eager, no CUDA Graph)`、`num_steps=10`、`action_horizon=10`、
+`execute_horizon=5`、`precision=fp32 weights + bf16 selected params`，
+种子统计 `seed_requests=466 / seed_applied=466 / seed_ignored=0`。
+
+**为什么不是在引擎里 `manual_seed`**：引擎和策略服务是两个进程，引擎里的 RNG 与
+服务端的采样没有关系；只有把噪声数组放进请求，才谈得上"这一请求用哪份噪声"。
+
+### 36.3 离线复现（固定真实观测与 prompt，不步进仿真）
+
+`scripts/policy_action_seed_probe.py` → `records/acceptance/policy_action_seed_probe.json`
+（同一台机器、同一个常驻推理服务；"相同"指返回的动作块逐位相等）：
+
+| 检查 | 结果 | 读数 |
+| --- | --- | --- |
+| 同 seed 重复（两次都先 reset 清缓冲） | ✅ | `max|Δ| = 0.0` |
+| 中间插入另一个 seed 的请求后再重复 | ✅ | `max|Δ| = 0.0`（别的请求挪不动这一份流） |
+| 清缓冲后再重复 | ✅ | 与上两行同一份，`noise_sha256` 一致 |
+| 不同 seed 对照 | ✅ | `max|Δ| = 0.129`（种子确实被读） |
+| 不同逻辑 step 对照（`sim_action_count` 0→5） | ✅ | 动作不同（流按逻辑坐标分叉，不每 chunk 重置） |
+| 服务端回显噪声 = 发送的噪声 | ✅ | `noise_echo` 前 4 项与本地 `noise_for()` 一致（`atol=1e-6`） |
+| 旧回合 token 被拒 | ✅ | `status=conflict, reason=stale_episode_token` |
+| 旧协议（不带 seed）重复 | ✅ | 也逐位相同——**说明旧协议并非"每次乱抽"**，它的噪声是 `noise_for(prompt, chunk_index)` 计数器 |
+
+这张表能说明"同一请求可复现"，**不能**说明跨软件/硬件逐位一致。
+
+### 36.4 闭环矩阵：3 init × 2 policy_seed
+
+清单 `config/rounds_seed_matrix_20261105.json`（运行前写定，指令统一为
+`en_explicit_three_steps` 的显式三步，避免把路由差异混进采样比较）：
+`raw/composite/seed_matrix_20261105/rounds.jsonl`。
+
+| 回合 | init seed | policy_seed | 用户目标 | 动作数 | 失败码 |
+| --- | --- | --- | --- | --- | --- |
+| s3-ps101 | 3 | 101 | ❌ | 378 | `composite_final_verification_failed` |
+| s3-ps202 | 3 | 202 | ✅ | 374 | — |
+| s4-ps101 | 4 | 101 | ❌ | 380 | `composite_final_verification_failed` |
+| s4-ps202 | 4 | 202 | ✅ | 382 | — |
+| s5-ps101 | 5 | 101 | ✅ | 399 | — |
+| s5-ps202 | 5 | 202 | ✅ | 396 | — |
+
+- 6/6 走到 c1 就绪判定且全部 `nominal`；**重新装料触发 0 次**（与 §35.7 的 21/21 一致）。
+- 6/6 都满足 `mapping_ok`；user 判定 4/6。**这不是成功率结论**：每个组合只跑一次，
+  只是给"同配置两次是否同路径"提供坐标。
+- 每回合 `sampling` 记 `scene_seed` 与 `policy_seed` 两个数；每 chunk 记
+  `noise_seed/noise_source/noise_sha256/noise_echo`（19/18/14 个 chunk 各有不同的种子与哈希）。
+
+### 36.5 同配置重复：一次成功、一次失败的对照
+
+`config/rounds_seed_repeat_20261105.json` → `raw/composite/seed_repeat_20261105/`：
+
+| 重复的回合 | 原结果 | 重复结果 | 动作数 |
+| --- | --- | --- | --- |
+| s5 + ps202 | ✅ 完成（396） | ❌ `composite_step_1_failed`（300，第一步用满预算未成立） | 300 |
+| s3 + ps101 | ❌ `composite_final_verification_failed`（378） | ✅ 完成（367） | 367 |
+
+两次都是"翻转"，所以本轮闭环共 8 回合，**不能说固定种子让成功率变好**。
+它证明的是：种子钉住之后，动作侧不再是"另一个随机样本"；剩下的分叉必须去别处找。
+
+### 36.6 第一处分叉在哪里
+
+`scripts/seed_divergence_report.py` → `records/acceptance/seed_divergence_20261105.json`，
+从里到外逐级比较（场景初态 → 静态夹具 → 策略输入图像 → 噪声 → 首个动作）：
+
+| 对照 | 首个不同的一级 | 说明 |
+| --- | --- | --- |
+| s3-ps101 原回合 vs 重复回合 | `static_fixtures` | 可动对象与机器人**完全相同**（`initial_state_fingerprint` 同为 `4dcb769919279a46`），静态夹具哈希不同（`a6f7e8b3c92f57b0` vs `34a1dac081a39b6e`） |
+| s5-ps202 原回合 vs 重复回合 | `static_fixtures` | 同上（`cedd52548fc0601f` 相同，夹具 `4ee08f1869eaeadd` vs `453f4c2f406f0397`） |
+| s3-ps101 vs s4-ps101（跨 init 对照） | `scene_init_state` | 不同 init 本来就不同，作为对照证明上面的定位不是"任何不同都归到夹具" |
+
+同一 init、同一 policy_seed 的两回合，**噪声完全相同**：
+`noise_seed=2061631680`、`noise_sha256=ce8808696325…`（ps101）；
+`noise_seed=2121488247`、`noise_sha256=189f1553b53d…`（ps202）。
+第一个不同是**主相机观测哈希**（`main_sha256`），随后才是 `action0`。
+
+原因已由 `scripts/policy_obs_determinism_probe.py` 单独测过：LIBERO 的
+`UniformRandomSampler` 给静态夹具（炉灶 +12.4 mm、柜子 +9.0 mm、酒架 +6.1 mm）重新采样，
+而 `*_pos` 可观测对象逐位不变；画面 16–25% 像素不同。**这不是模型随机，是环境摆放没种子。**
+
+### 36.7 重新装料为什么是空操作（确切原因）
+
+历史强制触发记录 `raw/composite/dev_reseat_20261105/forced_runs/ep-20261105-052817-09a240.json`：
+
+- 触发原因：`transport_ready.ok=false`、`reason_code=perched_above_floor`
+  （座深 0.0128 m 高于强制配置的 0.005 m 阈值）。
+- 重新装料执行的是同一条官方指令 `put the cream cheese in the bowl`，
+  其结果：`policy_actions=1`、`finalizer_actions=21`、
+  `stop_reason=step_goal`、`sim_action_counts 108→130`。
+- `transport_ready` 的 `before/after` 特征完全相同：`xy_m=0.0061`、
+  `xy_limit_m=0.025`、`seat_delta_m=0.0128`、`rim_clearance_m=0.0392`，`state_change.changed=false`。
+- 结论（`classify_reseat`）：`goal_already_satisfied` → **ineffective**。
+  这不是策略失败，也不是搬运变好：**目标谓词（奶酪在碗内 + 已释放）在重跑开始时就已经成立**，
+  runner 的停止条件 `step_goal` 在第一个动作后即满足，于是退出；
+  21 个 finalizer 动作只是收手/落定，不改变放置几何。
+- 目录能力本身表达不了"重新装料"：`put_cream_cheese_in_bowl` 的成功谓词没有
+  "座深/搬运稳定性"这一项，所以它无法通过"再放一次"改进就绪度。
+
+本轮把这件事变成代码事实（`_transport_reseat` 前置检查）：
+
+| 回合 | 前置检查 | `status` | policy / finalizer 动作 | `classification` | 失败文本 |
+| --- | --- | --- | --- | --- | --- |
+| 2026-11-05 前（`dev_reseat_...`） | 无 | `executed` | 1 / 21 | `goal_satisfied=true`、`geometry_changed=false` → ineffective | "跑了但几何没变" |
+| 本轮 `reseat_precheck_20261105b` | `state_check.ok=true`（谓词 `relation+release_height`） | `skipped` | **0 / 0** | `verdict=unsupported`、`precheck_refused=true` | "因放置谓词已成立而拒绝执行（unsupported，无动作）" |
+
+两次都用强制触发配置（`config_demo_b900_forced`，`max_seat_delta_m=0.005`、
+`perched_is_warning=false`），因为正式配置下 21/21 都是 `nominal`，进不了这条分支。
+该回合按 `on_failure=stop` 结束为 `composite_transport_not_ready`，
+**不是**新加的成功/失败样本。
+
+### 36.8 下一轮唯一的优先动作改进
+
+只做一件事：**给"重新装料"一个能表达它的能力**，不要试着把 `put_cream_cheese_in_bowl`
+调参调到能表达。最小可实现方案：
+
+| 项 | 设计 |
+| --- | --- |
+| 过程 | 独立的两段：先 `grasp cheese`（抬到 `rim_z + 0.02` 以上），再 `place into bowl` 到目标座深 |
+| 可观测目标 | 抬升段：`object_bottom_z − rim_z ≥ +0.02` 持续 3 个样本；放置段：`seat_delta ∈ [0.006, 0.029]` 且 `xy_m ≤ 0.015` 持续 3 个新样本 |
+| 完成条件 | 两段都成立且 `carry_watch` 无越界；否则记为 `reseat_ineffective`，不重试第二次 |
+| 动作预算 | 抓取 ≤120 策略动作、放置 ≤180 策略动作；执行层只做末段落定（≤20 个 OSC 动作）与抓取开合校验 |
+| 谁做什么 | **抓取/搬运/放置的轨迹全部来自策略**（同一条官方指令不行，需要一个新目录 key）；执行层只负责"释放后落定"和几何读数，不写物体位姿、不传送 |
+| 明确不做 | 不用脚本轨迹替代策略；不关闭 `step_goal` 提前退出；不靠加大预算伪装成功 |
+
+本轮只做了**调用验证**，没有加入任何新的物理纠偏算法。
+
+### 36.9 两项小范围问题的处置
+
+**(a) 就绪检查的 `xy_margin` 口径。** `xy_limit_m = 0.025` 不是本轮调的"成功阈值"，
+而是碗资产自己声明的水**平半径**：`akita_black_bowl.xml` 里
+`horizontal_radius_site` 的 x = 0.025，robosuite 的 `horizontal_radius` 正是读这个值。
+它是**中心距**允许量：`xy_margin_m = 0.025 − xy_m`。
+它**不是**到碗沿的距离——碰撞环内壁在 ~0.033 m、碗沿环在 ~0.047 m。
+所以 2.6 mm 的裕度说的是"中心距还剩 2.6 mm 才到 25 mm 的中心距上限"，
+不能读成"离碗沿 2.6 mm"。代码里新增 `xy_limit_source` / `xy_margin_kind` 两个字段
+把这句话写进每条记录；`common/geometry.py` 的常量注释同步。
+
+**(b) 阈值表分母 5 的来源。** §35.7 的四批 24 回合里 `carried_object_lost` 是 **4** 次；
+上一版表写成 `/5`，第 5 个来自 `step_diagnosis_20261105.json` 汇总时一并扫到的
+2026-11-04 `step3_en_delivery` i1（`ep-20261104-121734-febbf1`），该回合不在 24 回合里，
+它的就绪读数也不在回溯用的 21 个读数里。本轮把口径钉死为 `/4`
+（0/4、1/4、2/4、4/4，分子未变），并在 §35.7 写了说明。
+**没有**用这批数据去调阈值：`max_seat_delta_m=0.029`、`min_xy_margin_m=0.002` 保持原值。
+
+### 36.10 高层意图：缺信息时 clarify
+
+缺陷："get the cream cheese ready" 被答成整流程（擅自补上"碗 → 炉灶 → 开炉灶"）。
+修正两层：
+
+1. 提示词：明确"只说对象要 ready/prepared、没有地点也没有加热结果"是 `clarify`；
+   明确"完整的加热准备"不得降级成 `turn_on_stove`；并明确这条判据只用于**选择流程**，
+   不把"用户自己列了两步"判成缺槽。
+2. 代码：`flow_guard` 增加 `clarify` 选项。模型若先给了流程末步 key，
+   复核认为"用户没给出这个流程的结果/地点"时，直接
+   `status=needs_clarification`、`reason_code=goal_outcome_unspecified`，
+   不保留 `task`、不展开 `composite_keys`（单测
+   `test_a_clarify_scope_turns_the_single_choice_into_a_question`）。
+
+结果（提示词冻结后跑两遍，两次完全一致；md5 `eae4bec5f9442ec0f5e35bd14d61ee7f`）：
+
+| 集 | 条数 | 命中 | 未命中 | 目标遗漏 | 降级 |
+| --- | --- | --- | --- | --- | --- |
+| 边界集 `flow_routing_boundary_20261105.json` | 10 | **9** | 1 | 0 | 0 |
+| 基础集 `flow_routing_cases.json` | 16 | **15** | 1 | 0 | 0 |
+
+- 缺陷本身已修：`get the cream cheese ready` / `prepare the cream cheese` /
+  `把奶酪准备好` / `帮我把奶油奶酪准备一下` 四条全部 `needs_clarification`；
+  两条"完整加热准备"控制样例仍是整流程（没有降级）。
+- 与上一版基础集对比：`en_explicit_three_steps` 从"答成 flow"变成"答成 composite"，
+  14/16 → 15/16。
+- 仍有一条未命中，如实列出：`en_heating_no_place`
+  （"get the cream cheese ready to heat up"：有加热、无地点）仍被答成整流程。
+  试过在提示里加一句显式规则来修它：该条能修好，但会让
+  `zh_explicit_three_steps` 与 `en_explicit_two_steps_cheese_bowl` 在 4 次运行里
+  出现 2 次翻转（基础集 15/16 ↔ 14/16 不稳定），所以**没有采用**；
+  保留稳定版本，并把这条记为已知未命中，不为了一条样例引入不稳定。
+- 旧的冻结记录 `raw/composite/flows_final_base_20261105/` 与
+  `flows_final_holdout_20261105/` 原样保留；本轮的运行在
+  `raw/composite/flows_router_final2_20261105/`。
+
+### 36.11 本轮结论（如实写）
+
+1. **`policy_seed` 生效位置**：策略服务进程内的 `Pi05ChunkBackend.predict`，
+   以显式 `(10,32)` 噪声数组的形式；键是 `(policy_seed, step_ref, sim_action_count)`，
+   与场景 seed 分开记账。离线对照 9 项全通过（同种子 `max|Δ|=0.0`，异种子 `0.129`）。
+2. **闭环可复现性**：同 init 同 policy_seed 的两次闭环**没有**复现同一路径
+   （一次成功、一次在第一步用满 300 动作失败）；第一处不同不在噪声，而在静态夹具导致的观测像素。
+3. **剩余非确定性来源**：LIBERO `UniformRandomSampler` 未给静态夹具播种（主因，16–25% 像素）；
+   其次才是执行层物理积分对初始微差的放大。策略噪声已不再是"未知的那一份"。
+4. **重新装料空操作的确切原因**：`put_cream_cheese_in_bowl` 的目标谓词在重跑开始时已成立，
+   runner 在 1 个动作后按 `step_goal` 退出，几何未动；目录能力没有"座深/稳定性"项，
+   所以无法表达重新装料。本轮改为前置拒绝（`skipped` / `unsupported` / 0 动作）。
+5. **下一轮唯一优先的动作改进**：新增"抓取—抬升—重新放置"的独立重新装料过程（§36.8），
+   轨迹来自策略，执行层只做落定与读数。
+6. **固定种子不是成功率提升**：8 回合里 5 成功 3 失败，且同配置两次结果相反；
+   它的价值是让两次比较落在同一份噪声上。
+
+### 36.12 本轮产物
+
+- 离线：`records/acceptance/policy_action_seed_probe.json`、
+  `records/acceptance/seed_divergence_20261105.json`。
+- 闭环：`raw/composite/seed_matrix_20261105/`（6 回合 + `rounds.jsonl` + 每回合整档）、
+  `raw/composite/seed_repeat_20261105/`（2 回合）。
+- 重新装料：`raw/composite/reseat_precheck_20261105/`（首次验证）、
+  `raw/composite/reseat_precheck_20261105b/`（修正失败文本后复核）。
+- 路由：`raw/composite/flows_router_final2_20261105/`（边界集 + 基础集各两遍）、
+  开发过程 `raw/composite/flows_router_p2_20261105/`、`flows_boundary_20261105/`。
+- 清单：`config/rounds_seed_matrix_20261105.json`、`config/rounds_seed_repeat_20261105.json`、
+  `config/rounds_reseat_precheck_20261105.json`、`config/flow_routing_boundary_20261105.json`。
+- 汇总：`records/acceptance/manifest_20261105_sampling_seed.json`（本轮主清单，含各产物 SHA256）。
+- 重跑：
+  `scripts/policy_action_seed_probe.py`、
+  `scripts/seed_divergence_report.py --pair <a> <b>`、
+  `scripts/run_rounds.py --manifest config/rounds_seed_matrix_20261105.json`、
+  `scripts/run_flow_cases.py --cases config/flow_routing_boundary_20261105.json`。

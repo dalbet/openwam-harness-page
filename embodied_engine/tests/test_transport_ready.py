@@ -137,6 +137,12 @@ class EvaluateTest(unittest.TestCase):
         self.assertTrue(block["ok"])
         self.assertEqual(block["risk"], "nominal")
         self.assertEqual(block["features"]["seat_delta_m"], 0.012)
+        # The margin must carry its own definition: 0.025 is the asset's
+        # declared horizontal radius, not the rim, so a reader cannot mistake
+        # the number for a distance to the bowl's edge.
+        self.assertEqual(block["features"]["xy_margin_m"], 0.015)
+        self.assertIn("horizontal_radius", block["features"]["xy_limit_source"])
+        self.assertIn("not a rim distance", block["features"]["xy_margin_kind"])
 
     def test_archived_pass_at_the_top_of_the_nominal_cluster_is_ready(self):
         # accept_2step_zh_i2 measured 0.0225 m seat and was carried fine.
@@ -341,6 +347,84 @@ class ChangeTests(unittest.TestCase):
         # 1 mm of settling is inside the tolerance and must not count as a repair.
         row = tr.change({"seat_delta_m": 0.0128, "xy_m": 0.0061}, {"seat_delta_m": 0.0138, "xy_m": 0.0061})
         self.assertFalse(row["changed"])
+
+
+class ReseatClassificationTests(unittest.TestCase):
+    """Four facts, kept apart: goal held, actions ran, geometry moved, quality rose.
+
+    The forced archive run is the fixture: the re-seat's own predicate was
+    already true (xy 0.0061 m inside the bowl, bottom above the interior
+    floor), the policy emitted one action, the finalizer settled the arm, and
+    the readiness verdict stayed ``perched_above_floor``.
+    """
+
+    def test_goal_already_satisfied_is_ineffective_not_a_repair(self):
+        row = tr.classify_reseat(
+            stop_reason="step_goal",
+            policy_actions=1,
+            state_change=tr.change({"seat_delta_m": 0.0128, "xy_m": 0.0061}, {"seat_delta_m": 0.0128, "xy_m": 0.0061}),
+            before_ok=False,
+            after_ok=False,
+        )
+        self.assertEqual(row["verdict"], "ineffective")
+        self.assertTrue(row["goal_satisfied"])
+        self.assertEqual(row["actions_executed"], 1)
+        self.assertFalse(row["geometry_changed"])
+        self.assertFalse(row["readiness_improved"])
+        self.assertFalse(row["capability_supported"])
+        self.assertIn("goal_already_satisfied", row["reason"])
+
+    def test_precheck_refusal_is_unsupported_and_executes_nothing(self):
+        row = tr.classify_reseat(
+            skipped=True,
+            stop_reason=None,
+            policy_actions=0,
+            state_change={"changed": False, "seat_delta_change_m": 0.0, "xy_change_m": 0.0},
+            before_ok=False,
+            after_ok=False,
+        )
+        self.assertEqual(row["verdict"], "unsupported")
+        self.assertTrue(row["precheck_refused"])
+        self.assertTrue(row["goal_satisfied"])
+        self.assertEqual(row["actions_executed"], 0)
+        self.assertFalse(row["geometry_changed"])
+        self.assertIn("before the re-seat started", row["reason"])
+
+    def test_motion_without_a_better_verdict_is_still_ineffective(self):
+        row = tr.classify_reseat(
+            stop_reason="max_steps",
+            policy_actions=240,
+            state_change=tr.change({"seat_delta_m": 0.0357, "xy_m": 0.019}, {"seat_delta_m": 0.011, "xy_m": 0.008}),
+            before_ok=False,
+            after_ok=False,
+        )
+        self.assertEqual(row["verdict"], "ineffective")
+        self.assertTrue(row["geometry_changed"])
+        self.assertFalse(row["readiness_improved"])
+        self.assertTrue(row["capability_supported"])
+
+    def test_a_failed_re_run_is_not_counted_as_zero_actions(self):
+        row = tr.classify_reseat(
+            stop_reason=None,
+            policy_actions=None,
+            state_change=tr.change({"seat_delta_m": 0.0357, "xy_m": 0.019}, {"seat_delta_m": 0.0357, "xy_m": 0.019}),
+            before_ok=False,
+            after_ok=False,
+        )
+        self.assertEqual(row["verdict"], "ineffective")
+        self.assertIsNone(row["actions_executed"], "unknown must not be recorded as zero")
+        self.assertIn("before its action count could be read", row["reason"])
+
+    def test_only_motion_plus_a_better_verdict_is_effective(self):
+        row = tr.classify_reseat(
+            stop_reason="max_steps",
+            policy_actions=240,
+            state_change=tr.change({"seat_delta_m": 0.0357, "xy_m": 0.019}, {"seat_delta_m": 0.011, "xy_m": 0.008}),
+            before_ok=False,
+            after_ok=True,
+        )
+        self.assertEqual(row["verdict"], "effective")
+        self.assertTrue(row["readiness_improved"])
 
 
 if __name__ == "__main__":

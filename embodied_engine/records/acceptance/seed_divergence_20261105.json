@@ -1,0 +1,423 @@
+{
+ "schema": "embodied_engine.seed_divergence.v1",
+ "note": "compares rounds from the inside out: scene init, static fixtures, the policy's own input hashes, the pinned noise, the first action, then the action stream. The first stage that differs is reported as first_divergence; later stages are consequences of it.",
+ "pairs": [
+  {
+   "label": "s3-ps101-failure-vs-repeat",
+   "a": {
+    "path": "/home/host/flashrt-exp/pi05_round/raw/composite/seed_matrix_20261105/rounds_runs/ep-20261105-065829-0b9eb0.json",
+    "episode_id": "ep-20261105-065829-0b9eb0",
+    "round": null
+   },
+   "b": {
+    "path": "/home/host/flashrt-exp/pi05_round/raw/composite/seed_repeat_20261105/rounds_runs/ep-20261105-075224-05fb73.json",
+    "episode_id": "ep-20261105-075224-05fb73",
+    "round": null
+   },
+   "sampling": {
+    "a": {
+     "scene_seed": 3,
+     "policy_seed": 101
+    },
+    "b": {
+     "scene_seed": 3,
+     "policy_seed": 101
+    }
+   },
+   "outcome": {
+    "a": {
+     "user_goal_success": false,
+     "failure_code": "composite_final_verification_failed"
+    },
+    "b": {
+     "user_goal_success": true,
+     "failure_code": null
+    }
+   },
+   "first_step_actions": {
+    "a": 95,
+    "b": 96
+   },
+   "stages": [
+    {
+     "stage": "scene_init_state",
+     "same": true,
+     "a": "4dcb769919279a46",
+     "b": "4dcb769919279a46",
+     "what": "movable objects + robot from the *_pos observables"
+    },
+    {
+     "stage": "static_fixtures",
+     "same": false,
+     "a": "a6f7e8b3c92f57b0",
+     "b": "34a1dac081a39b6e",
+     "what": "flat stove, cabinet, wine rack: written by LIBERO's placement sampler, unseeded"
+    },
+    {
+     "stage": "policy_input_main_image",
+     "same": false,
+     "a": "773867433bb5ace3",
+     "b": "1c6955495f9b0c9d",
+     "what": "the agentview frame the policy actually receives (rotated + resized)"
+    },
+    {
+     "stage": "policy_input_wrist_image",
+     "same": false,
+     "a": "1569746f6d1ad2dd",
+     "b": "784e0140da7a2a53",
+     "what": "the wrist frame the policy actually receives"
+    },
+    {
+     "stage": "policy_input_state",
+     "same": true,
+     "a": "55a1d15d58e48b88",
+     "b": "55a1d15d58e48b88",
+     "what": "the 10-D EEF proprio vector"
+    },
+    {
+     "stage": "sampling_noise",
+     "same": true,
+     "a": {
+      "seed": 2061631680,
+      "sha": "ce8808696325face"
+     },
+     "b": {
+      "seed": 2061631680,
+      "sha": "ce8808696325face"
+     },
+     "what": "the explicit initial diffusion noise sent with the request"
+    },
+    {
+     "stage": "first_action",
+     "same": false,
+     "a": [
+      0.443767,
+      0.41262,
+      0.034306,
+      0.001118,
+      -0.001444,
+      -0.002894,
+      -0.999162
+     ],
+     "b": [
+      0.428672,
+      0.415257,
+      0.041099,
+      0.000966,
+      0.000763,
+      -0.000283,
+      -1.000223
+     ],
+     "what": "the first commanded 7-D action of the step"
+    }
+   ],
+   "first_divergence": "static_fixtures",
+   "first_action_difference": {
+    "chunk": 0,
+    "action": 0,
+    "at_sim_action": {
+     "a": 0,
+     "b": 0
+    },
+    "a_action": [
+     0.443767,
+     0.41262,
+     0.034306,
+     0.001118,
+     -0.001444,
+     -0.002894,
+     -0.999162
+    ],
+    "b_action": [
+     0.428672,
+     0.415257,
+     0.041099,
+     0.000966,
+     0.000763,
+     -0.000283,
+     -1.000223
+    ],
+    "max_abs_diff": 0.015095
+   },
+   "reading": "the two rounds are identical up to static_fixtures, which is where the paths separate"
+  },
+  {
+   "label": "s5-ps202-success-vs-repeat",
+   "a": {
+    "path": "/home/host/flashrt-exp/pi05_round/raw/composite/seed_matrix_20261105/rounds_runs/ep-20261105-070306-ec5e78.json",
+    "episode_id": "ep-20261105-070306-ec5e78",
+    "round": null
+   },
+   "b": {
+    "path": "/home/host/flashrt-exp/pi05_round/raw/composite/seed_repeat_20261105/rounds_runs/ep-20261105-075128-b537ca.json",
+    "episode_id": "ep-20261105-075128-b537ca",
+    "round": null
+   },
+   "sampling": {
+    "a": {
+     "scene_seed": 5,
+     "policy_seed": 202
+    },
+    "b": {
+     "scene_seed": 5,
+     "policy_seed": 202
+    }
+   },
+   "outcome": {
+    "a": {
+     "user_goal_success": true,
+     "failure_code": null
+    },
+    "b": {
+     "user_goal_success": false,
+     "failure_code": "composite_step_1_failed"
+    }
+   },
+   "first_step_actions": {
+    "a": 92,
+    "b": 300
+   },
+   "stages": [
+    {
+     "stage": "scene_init_state",
+     "same": true,
+     "a": "cedd52548fc0601f",
+     "b": "cedd52548fc0601f",
+     "what": "movable objects + robot from the *_pos observables"
+    },
+    {
+     "stage": "static_fixtures",
+     "same": false,
+     "a": "4ee08f1869eaeadd",
+     "b": "453f4c2f406f0397",
+     "what": "flat stove, cabinet, wine rack: written by LIBERO's placement sampler, unseeded"
+    },
+    {
+     "stage": "policy_input_main_image",
+     "same": false,
+     "a": "b824efe59e4ba5b5",
+     "b": "5cbd6bca1b272999",
+     "what": "the agentview frame the policy actually receives (rotated + resized)"
+    },
+    {
+     "stage": "policy_input_wrist_image",
+     "same": false,
+     "a": "da80ae30ef52103c",
+     "b": "c14accc17bcea704",
+     "what": "the wrist frame the policy actually receives"
+    },
+    {
+     "stage": "policy_input_state",
+     "same": true,
+     "a": "3eb29f6e9d226d76",
+     "b": "3eb29f6e9d226d76",
+     "what": "the 10-D EEF proprio vector"
+    },
+    {
+     "stage": "sampling_noise",
+     "same": true,
+     "a": {
+      "seed": 2121488247,
+      "sha": "189f1553b53d27c0"
+     },
+     "b": {
+      "seed": 2121488247,
+      "sha": "189f1553b53d27c0"
+     },
+     "what": "the explicit initial diffusion noise sent with the request"
+    },
+    {
+     "stage": "first_action",
+     "same": false,
+     "a": [
+      0.526156,
+      0.329888,
+      -0.001791,
+      -0.000244,
+      -0.020088,
+      -0.008335,
+      -1.001268
+     ],
+     "b": [
+      0.625446,
+      0.383315,
+      0.00038,
+      -0.000711,
+      -0.022983,
+      -0.012304,
+      -0.996245
+     ],
+     "what": "the first commanded 7-D action of the step"
+    }
+   ],
+   "first_divergence": "static_fixtures",
+   "first_action_difference": {
+    "chunk": 0,
+    "action": 0,
+    "at_sim_action": {
+     "a": 0,
+     "b": 0
+    },
+    "a_action": [
+     0.526156,
+     0.329888,
+     -0.001791,
+     -0.000244,
+     -0.020088,
+     -0.008335,
+     -1.001268
+    ],
+    "b_action": [
+     0.625446,
+     0.383315,
+     0.00038,
+     -0.000711,
+     -0.022983,
+     -0.012304,
+     -0.996245
+    ],
+    "max_abs_diff": 0.09929
+   },
+   "reading": "the two rounds are identical up to static_fixtures, which is where the paths separate"
+  },
+  {
+   "label": "cross_init-s3-vs-s4-same-policy-seed",
+   "a": {
+    "path": "/home/host/flashrt-exp/pi05_round/raw/composite/seed_matrix_20261105/rounds_runs/ep-20261105-065829-0b9eb0.json",
+    "episode_id": "ep-20261105-065829-0b9eb0",
+    "round": null
+   },
+   "b": {
+    "path": "/home/host/flashrt-exp/pi05_round/raw/composite/seed_matrix_20261105/rounds_runs/ep-20261105-070020-90c508.json",
+    "episode_id": "ep-20261105-070020-90c508",
+    "round": null
+   },
+   "sampling": {
+    "a": {
+     "scene_seed": 3,
+     "policy_seed": 101
+    },
+    "b": {
+     "scene_seed": 4,
+     "policy_seed": 101
+    }
+   },
+   "outcome": {
+    "a": {
+     "user_goal_success": false,
+     "failure_code": "composite_final_verification_failed"
+    },
+    "b": {
+     "user_goal_success": false,
+     "failure_code": "composite_final_verification_failed"
+    }
+   },
+   "first_step_actions": {
+    "a": 95,
+    "b": 89
+   },
+   "stages": [
+    {
+     "stage": "scene_init_state",
+     "same": false,
+     "a": "4dcb769919279a46",
+     "b": "5c8959a88bcfd641",
+     "what": "movable objects + robot from the *_pos observables"
+    },
+    {
+     "stage": "static_fixtures",
+     "same": false,
+     "a": "a6f7e8b3c92f57b0",
+     "b": "03d50fa1224cdd25",
+     "what": "flat stove, cabinet, wine rack: written by LIBERO's placement sampler, unseeded"
+    },
+    {
+     "stage": "policy_input_main_image",
+     "same": false,
+     "a": "773867433bb5ace3",
+     "b": "2286ae1734a320a2",
+     "what": "the agentview frame the policy actually receives (rotated + resized)"
+    },
+    {
+     "stage": "policy_input_wrist_image",
+     "same": false,
+     "a": "1569746f6d1ad2dd",
+     "b": "5bc8261001fb7d0f",
+     "what": "the wrist frame the policy actually receives"
+    },
+    {
+     "stage": "policy_input_state",
+     "same": false,
+     "a": "55a1d15d58e48b88",
+     "b": "d580b74d18d69e65",
+     "what": "the 10-D EEF proprio vector"
+    },
+    {
+     "stage": "sampling_noise",
+     "same": true,
+     "a": {
+      "seed": 2061631680,
+      "sha": "ce8808696325face"
+     },
+     "b": {
+      "seed": 2061631680,
+      "sha": "ce8808696325face"
+     },
+     "what": "the explicit initial diffusion noise sent with the request"
+    },
+    {
+     "stage": "first_action",
+     "same": false,
+     "a": [
+      0.443767,
+      0.41262,
+      0.034306,
+      0.001118,
+      -0.001444,
+      -0.002894,
+      -0.999162
+     ],
+     "b": [
+      0.350767,
+      0.349097,
+      0.034357,
+      -5.4e-05,
+      0.00209,
+      -0.022556,
+      -1.00285
+     ],
+     "what": "the first commanded 7-D action of the step"
+    }
+   ],
+   "first_divergence": "scene_init_state",
+   "first_action_difference": {
+    "chunk": 0,
+    "action": 0,
+    "at_sim_action": {
+     "a": 0,
+     "b": 0
+    },
+    "a_action": [
+     0.443767,
+     0.41262,
+     0.034306,
+     0.001118,
+     -0.001444,
+     -0.002894,
+     -0.999162
+    ],
+    "b_action": [
+     0.350767,
+     0.349097,
+     0.034357,
+     -5.4e-05,
+     0.00209,
+     -0.022556,
+     -1.00285
+    ],
+    "max_abs_diff": 0.093
+   },
+   "reading": "the two rounds are identical up to scene_init_state, which is where the paths separate"
+  }
+ ]
+}

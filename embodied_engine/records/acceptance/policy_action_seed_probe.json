@@ -1,0 +1,501 @@
+{
+ "schema": "embodied_engine.policy_action_seed_probe.v1",
+ "inference": "http://127.0.0.1:14621",
+ "env": "http://127.0.0.1:14591",
+ "task_id": 7,
+ "scene_seed": 3,
+ "policy_seed": 101,
+ "other_policy_seed": 202,
+ "prompt": "turn on the stove",
+ "observation_sha256": "617a4ad634eb343c8f4123e41ffb48ad33caab2edad145c17f67aa113d0b8d18",
+ "noise_keys": {
+  "step_seed": 2045692201,
+  "other_step_seed": 1981105975,
+  "next_step_seed": 963652310
+ },
+ "checks": {
+  "same_seed_repeat_identical": true,
+  "interleaved_identical": true,
+  "different_seed_differs": true,
+  "different_step_differs": true,
+  "noise_sha_matches_on_repeat": true,
+  "seed_applied": true,
+  "legacy_repeat_identical": true,
+  "stale_token_refused": true,
+  "noise_echo_matches_sent": true
+ },
+ "comparisons": {
+  "same_seed_repeat": {
+   "comparable": true,
+   "identical": true,
+   "max_abs_diff": 0.0,
+   "mean_abs_diff": 0.0,
+   "differing_elements": 0,
+   "elements": 70,
+   "per_dim_max_abs_diff": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "a_first_action": [
+    -0.301667,
+    0.021928,
+    -0.828149,
+    0.000852,
+    -0.007232,
+    0.017368,
+    -0.997458
+   ],
+   "b_first_action": [
+    -0.301667,
+    0.021928,
+    -0.828149,
+    0.000852,
+    -0.007232,
+    0.017368,
+    -0.997458
+   ]
+  },
+  "interleaved": {
+   "comparable": true,
+   "identical": true,
+   "max_abs_diff": 0.0,
+   "mean_abs_diff": 0.0,
+   "differing_elements": 0,
+   "elements": 70,
+   "per_dim_max_abs_diff": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "a_first_action": [
+    -0.301667,
+    0.021928,
+    -0.828149,
+    0.000852,
+    -0.007232,
+    0.017368,
+    -0.997458
+   ],
+   "b_first_action": [
+    -0.301667,
+    0.021928,
+    -0.828149,
+    0.000852,
+    -0.007232,
+    0.017368,
+    -0.997458
+   ]
+  },
+  "different_seed_contrast": {
+   "comparable": true,
+   "identical": false,
+   "max_abs_diff": 0.12896357,
+   "mean_abs_diff": 0.02262058,
+   "differing_elements": 70,
+   "elements": 70,
+   "per_dim_max_abs_diff": [
+    0.128964,
+    0.020556,
+    0.085989,
+    0.007311,
+    0.022588,
+    0.012344,
+    0.00572
+   ],
+   "a_first_action": [
+    -0.301667,
+    0.021928,
+    -0.828149,
+    0.000852,
+    -0.007232,
+    0.017368,
+    -0.997458
+   ],
+   "b_first_action": [
+    -0.250244,
+    0.019757,
+    -0.804092,
+    0.000876,
+    -0.010504,
+    0.027546,
+    -0.997194
+   ]
+  },
+  "different_step_contrast": {
+   "comparable": true,
+   "identical": false,
+   "max_abs_diff": 1.98889768,
+   "mean_abs_diff": 0.04947827,
+   "differing_elements": 70,
+   "elements": 70,
+   "per_dim_max_abs_diff": [
+    0.077652,
+    0.09394,
+    0.104354,
+    0.010664,
+    0.027716,
+    0.030778,
+    1.988898
+   ],
+   "a_first_action": [
+    -0.301667,
+    0.021928,
+    -0.828149,
+    0.000852,
+    -0.007232,
+    0.017368,
+    -0.997458
+   ],
+   "b_first_action": [
+    -0.379319,
+    0.002023,
+    -0.849504,
+    0.001308,
+    -0.034948,
+    0.031904,
+    -0.995184
+   ]
+  },
+  "legacy_repeat": {
+   "comparable": true,
+   "identical": true,
+   "max_abs_diff": 0.0,
+   "mean_abs_diff": 0.0,
+   "differing_elements": 0,
+   "elements": 70,
+   "per_dim_max_abs_diff": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "a_first_action": [
+    -0.330509,
+    0.020515,
+    -0.831498,
+    0.001364,
+    -0.033843,
+    0.022811,
+    -0.996099
+   ],
+   "b_first_action": [
+    -0.330509,
+    0.020515,
+    -0.831498,
+    0.001364,
+    -0.033843,
+    0.022811,
+    -0.996099
+   ]
+  }
+ },
+ "rows": [
+  {
+   "label": "a_same_seed",
+   "seed": 2045692201,
+   "sim_action_count": 0,
+   "status": "ok",
+   "token": "inf-e60a201fa167",
+   "actions_sha256": "88a1b5d92302707b73773e79c3138445ad90d96e252650a736db4b66f13ba574",
+   "actions_shape": [
+    10,
+    7
+   ],
+   "first_action": [
+    -0.301667,
+    0.021928,
+    -0.828149,
+    0.000852,
+    -0.007232,
+    0.017368,
+    -0.997458
+   ],
+   "noise_seed": 2045692201,
+   "noise_source": "policy_seed",
+   "noise_sha256": "5204e257cefbbb6d8b7c1efa348ed4395d8a6f10f6f095dd9f13f7f6fa6470c8",
+   "noise_echo": [
+    -1.3071078062057495,
+    1.5234743356704712,
+    1.1955112218856812,
+    0.6483902335166931
+   ],
+   "seed_applied": true,
+   "chunk": {
+    "chunk_generation": true,
+    "cache_hit": false,
+    "chunk_id": 0,
+    "execute_horizon": 5,
+    "generated_actions": 10,
+    "noise_seed": 2045692201,
+    "noise_source": "policy_seed"
+   },
+   "s": 0.0985
+  },
+  {
+   "label": "b_same_seed_repeat",
+   "seed": 2045692201,
+   "sim_action_count": 0,
+   "status": "ok",
+   "token": "inf-6798890e97a9",
+   "actions_sha256": "88a1b5d92302707b73773e79c3138445ad90d96e252650a736db4b66f13ba574",
+   "actions_shape": [
+    10,
+    7
+   ],
+   "first_action": [
+    -0.301667,
+    0.021928,
+    -0.828149,
+    0.000852,
+    -0.007232,
+    0.017368,
+    -0.997458
+   ],
+   "noise_seed": 2045692201,
+   "noise_source": "policy_seed",
+   "noise_sha256": "5204e257cefbbb6d8b7c1efa348ed4395d8a6f10f6f095dd9f13f7f6fa6470c8",
+   "noise_echo": [
+    -1.3071078062057495,
+    1.5234743356704712,
+    1.1955112218856812,
+    0.6483902335166931
+   ],
+   "seed_applied": true,
+   "chunk": {
+    "chunk_generation": true,
+    "cache_hit": false,
+    "chunk_id": 0,
+    "execute_horizon": 5,
+    "generated_actions": 10,
+    "noise_seed": 2045692201,
+    "noise_source": "policy_seed"
+   },
+   "s": 0.0902
+  },
+  {
+   "label": "c_other_seed",
+   "seed": 1981105975,
+   "sim_action_count": 0,
+   "status": "ok",
+   "token": "inf-bcbf562ec0b4",
+   "actions_sha256": "c1a4773ada7f657a0fb47ee92760b9a7d5a497f07a2c4b78e23166a10ec1e604",
+   "actions_shape": [
+    10,
+    7
+   ],
+   "first_action": [
+    -0.250244,
+    0.019757,
+    -0.804092,
+    0.000876,
+    -0.010504,
+    0.027546,
+    -0.997194
+   ],
+   "noise_seed": 1981105975,
+   "noise_source": "policy_seed",
+   "noise_sha256": "f636a463bfffe5b42641e4fda6abf197b5d0f82323849d2185aa8aec523917e5",
+   "noise_echo": [
+    1.1516835689544678,
+    -0.7504864931106567,
+    1.3476552963256836,
+    0.11612403392791748
+   ],
+   "seed_applied": true,
+   "chunk": {
+    "chunk_generation": true,
+    "cache_hit": false,
+    "chunk_id": 0,
+    "execute_horizon": 5,
+    "generated_actions": 10,
+    "noise_seed": 1981105975,
+    "noise_source": "policy_seed"
+   },
+   "s": 0.088
+  },
+  {
+   "label": "d_interleaved",
+   "seed": 2045692201,
+   "sim_action_count": 0,
+   "status": "ok",
+   "token": "inf-001152d1c47b",
+   "actions_sha256": "88a1b5d92302707b73773e79c3138445ad90d96e252650a736db4b66f13ba574",
+   "actions_shape": [
+    10,
+    7
+   ],
+   "first_action": [
+    -0.301667,
+    0.021928,
+    -0.828149,
+    0.000852,
+    -0.007232,
+    0.017368,
+    -0.997458
+   ],
+   "noise_seed": 2045692201,
+   "noise_source": "policy_seed",
+   "noise_sha256": "5204e257cefbbb6d8b7c1efa348ed4395d8a6f10f6f095dd9f13f7f6fa6470c8",
+   "noise_echo": [
+    -1.3071078062057495,
+    1.5234743356704712,
+    1.1955112218856812,
+    0.6483902335166931
+   ],
+   "seed_applied": true,
+   "chunk": {
+    "chunk_generation": true,
+    "cache_hit": false,
+    "chunk_id": 0,
+    "execute_horizon": 5,
+    "generated_actions": 10,
+    "noise_seed": 2045692201,
+    "noise_source": "policy_seed"
+   },
+   "s": 0.0905
+  },
+  {
+   "label": "e_next_step",
+   "seed": 963652310,
+   "sim_action_count": 5,
+   "status": "ok",
+   "token": "inf-c886af546a3a",
+   "actions_sha256": "419360d0c9ec4f539e9d258b4065d4d37df348d703d5e94d3ff4c37d690f2157",
+   "actions_shape": [
+    10,
+    7
+   ],
+   "first_action": [
+    -0.379319,
+    0.002023,
+    -0.849504,
+    0.001308,
+    -0.034948,
+    0.031904,
+    -0.995184
+   ],
+   "noise_seed": 963652310,
+   "noise_source": "policy_seed",
+   "noise_sha256": "ef07800c6031f923df4a459afc8747ea20461ee762a8d8682baef078867e3d9e",
+   "noise_echo": [
+    -2.5955405235290527,
+    -1.8710014820098877,
+    -0.08691883087158203,
+    -0.623998761177063
+   ],
+   "seed_applied": true,
+   "chunk": {
+    "chunk_generation": true,
+    "cache_hit": false,
+    "chunk_id": 0,
+    "execute_horizon": 5,
+    "generated_actions": 10,
+    "noise_seed": 963652310,
+    "noise_source": "policy_seed"
+   },
+   "s": 0.0887
+  },
+  {
+   "label": "f_legacy",
+   "seed": null,
+   "sim_action_count": 0,
+   "status": "ok",
+   "token": "inf-d86b71c8e148",
+   "actions_sha256": "e6be293a49143a27e964d6cdd96744682f9a14086fc9220d07111c8c2baeff2a",
+   "actions_shape": [
+    10,
+    7
+   ],
+   "first_action": [
+    -0.330509,
+    0.020515,
+    -0.831498,
+    0.001364,
+    -0.033843,
+    0.022811,
+    -0.996099
+   ],
+   "noise_seed": 0,
+   "noise_source": "legacy_prompt_index",
+   "noise_sha256": "0c17f09daf9795880f4fe14dd005841290c32f7900a234e984d32834e28ad4a8",
+   "noise_echo": [
+    -0.9387295842170715,
+    -0.015956619754433632,
+    -0.2782617509365082,
+    -0.38824597001075745
+   ],
+   "seed_applied": null,
+   "chunk": {
+    "chunk_generation": true,
+    "cache_hit": false,
+    "chunk_id": 0,
+    "execute_horizon": 5,
+    "generated_actions": 10,
+    "noise_seed": 0,
+    "noise_source": "legacy_prompt_index"
+   },
+   "s": 0.0876
+  },
+  {
+   "label": "g_legacy_repeat",
+   "seed": null,
+   "sim_action_count": 0,
+   "status": "ok",
+   "token": "inf-a3d7c9281544",
+   "actions_sha256": "e6be293a49143a27e964d6cdd96744682f9a14086fc9220d07111c8c2baeff2a",
+   "actions_shape": [
+    10,
+    7
+   ],
+   "first_action": [
+    -0.330509,
+    0.020515,
+    -0.831498,
+    0.001364,
+    -0.033843,
+    0.022811,
+    -0.996099
+   ],
+   "noise_seed": 0,
+   "noise_source": "legacy_prompt_index",
+   "noise_sha256": "0c17f09daf9795880f4fe14dd005841290c32f7900a234e984d32834e28ad4a8",
+   "noise_echo": [
+    -0.9387295842170715,
+    -0.015956619754433632,
+    -0.2782617509365082,
+    -0.38824597001075745
+   ],
+   "seed_applied": null,
+   "chunk": {
+    "chunk_generation": true,
+    "cache_hit": false,
+    "chunk_id": 0,
+    "execute_horizon": 5,
+    "generated_actions": 10,
+    "noise_seed": 0,
+    "noise_source": "legacy_prompt_index"
+   },
+   "s": 0.0877
+  },
+  {
+   "label": "h_stale_token",
+   "seed": 2045692201,
+   "status": "conflict",
+   "error": null,
+   "s": 0.0127
+  }
+ ],
+ "note": "same resident inference service, same observation, no simulator step; 'identical' is exact float equality of the returned action chunk"
+}

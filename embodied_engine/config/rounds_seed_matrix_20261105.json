@@ -1,0 +1,80 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-11-05T14:20:00+08:00",
+  "note": "Reproducibility matrix for the 2026-11-05 sampling-seed round. Six rounds: three scene inits (3, 4, 5 -- the same init indices the formal three-step batches used, so the scene side is already characterised) crossed with two policy seeds (101, 202). Every round carries the SAME instruction, the explicit ordered three-step request from the frozen base suite, so the action stream is the only variable: routing is not re-measured here, and a difference between two rounds with the same init and the same policy_seed cannot be blamed on the model's wording. The instruction is English because zh_explicit_three_steps is an open routing miss in the frozen suite (it answers with the flow id); using it would smuggle a routing difference into a sampling comparison. Each round is run once, in this order; no retry, no skip, and a failed round stays in the denominator. These six rounds are a diagnostic baseline, not a success-rate claim: a fixed seed makes two runs comparable, it does not make them succeed.",
+  "seed": 3,
+  "rounds": [
+    {
+      "round": "matrix-20261105-s3-ps101",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_explicit_three_steps (frozen base suite; composite, not a flow)",
+      "seed": 3,
+      "policy_seed": 101,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "matrix-20261105-s3-ps202",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_explicit_three_steps (frozen base suite; composite, not a flow)",
+      "seed": 3,
+      "policy_seed": 202,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "matrix-20261105-s4-ps101",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_explicit_three_steps (frozen base suite; composite, not a flow)",
+      "seed": 4,
+      "policy_seed": 101,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "matrix-20261105-s4-ps202",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_explicit_three_steps (frozen base suite; composite, not a flow)",
+      "seed": 4,
+      "policy_seed": 202,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "matrix-20261105-s5-ps101",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_explicit_three_steps (frozen base suite; composite, not a flow)",
+      "seed": 5,
+      "policy_seed": 101,
+      "handoff_mode": "action_retreat"
+    },
+    {
+      "round": "matrix-20261105-s5-ps202",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_explicit_three_steps (frozen base suite; composite, not a flow)",
+      "seed": 5,
+      "policy_seed": 202,
+      "handoff_mode": "action_retreat"
+    }
+  ]
+}

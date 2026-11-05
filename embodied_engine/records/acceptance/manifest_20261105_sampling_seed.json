@@ -1,0 +1,168 @@
+{
+  "schema": "embodied_engine.manifest.v1",
+  "round": "sampling-seed-and-reseat-precheck-20261105",
+  "created_at": "2026-11-05T16:05:00+08:00",
+  "scope": {
+    "changed": [
+      "policy sampling: explicit policy_seed -> explicit noise array",
+      "reseat: pre-check refuses a re-run whose own predicate already holds",
+      "records: initial_fixture_fingerprint, noise_seed/source/sha256/echo/seed_applied",
+      "router: flow_guard may answer clarify; ready-without-place -> clarify",
+      "docs: xy_margin provenance, loss-rate denominator 4, new sections"
+    ],
+    "unchanged": [
+      "model weights and precision",
+      "num_steps=10, action_horizon=10, execute_horizon=5",
+      "transport_ready thresholds (max_seat_delta_m=0.029, min_xy_margin_m=0.002, max_relative_drift_m=0.015)",
+      "reseat budget (max_calls=1, max_steps=240, on_failure=stop)",
+      "composite step budgets 300/600/300",
+      "all 24 archived rounds, tags and earlier results"
+    ],
+    "no_training": true
+  },
+  "engine_identity": {
+    "inference": "openpi.PI0Pytorch (eager, no CUDA Graph)",
+    "num_steps": 10,
+    "seed_support": {
+      "backend_supports_seed": true,
+      "seed_transport": "explicit initial-noise array in each /infer request",
+      "seed_requests_observed": 466,
+      "seed_applied_observed": 466,
+      "seed_ignored_observed": 0
+    }
+  },
+  "sampling_protocol": {
+    "protocol": "policy_seed_v1",
+    "key": "(policy_seed, step_ref, sim_action_count)",
+    "derivation": "common/policy_seed.py::derive -> splitmix64, pure integer, no hash()",
+    "legacy_protocol": "noise_for(prompt, generation_index), recorded as noise_source=legacy_prompt_index",
+    "scene_seed_separate": true
+  },
+  "offline_determinism": {
+    "script": "scripts/policy_action_seed_probe.py",
+    "artifact": "records/acceptance/policy_action_seed_probe.json",
+    "sha256": "b8fc2d85da6a1f50c893ba0e70cfdedc7078f9b474f3e7ca11ea8b16cde25b08",
+    "checks": {
+      "same_seed_repeat_identical": true,
+      "interleaved_identical": true,
+      "different_seed_differs": true,
+      "different_step_differs": true,
+      "noise_sha_matches_on_repeat": true,
+      "seed_applied": true,
+      "legacy_repeat_identical": true,
+      "stale_token_refused": true,
+      "noise_echo_matches_sent": true
+    },
+    "max_abs_delta_same_seed": 0.0,
+    "max_abs_delta_interleaved": 0.0,
+    "max_abs_delta_other_seed": 0.12896357
+  },
+  "closed_loop": {
+    "matrix": {
+      "manifest": "config/rounds_seed_matrix_20261105.json",
+      "rounds_jsonl": "/home/host/flashrt-exp/pi05_round/raw/composite/seed_matrix_20261105/rounds.jsonl",
+      "sha256": "573061003ec59d473b5acd741e390a899dfea10c88a40dccb9e475a5642c938b",
+      "rounds": 6,
+      "mapping_ok": 6,
+      "native_success": 6,
+      "user_goal_success": 4,
+      "failures": ["s3-ps101", "s4-ps101"],
+      "transport_ready_nominal": "6 / 6",
+      "reseat_triggers": 0
+    },
+    "repeats": {
+      "manifest": "config/rounds_seed_repeat_20261105.json",
+      "rounds_jsonl": "/home/host/flashrt-exp/pi05_round/raw/composite/seed_repeat_20261105/rounds.jsonl",
+      "sha256": "35fad88c9a1cfd47843c8bd1f24f6c89224624adb1e79216a015a04e5e70cea6",
+      "rounds": 2,
+      "outcome_flips": 2,
+      "note": "s5+ps202 success->composite_step_1_failed; s3+ps101 failure->success"
+    },
+    "first_divergence": {
+      "artifact": "records/acceptance/seed_divergence_20261105.json",
+      "sha256": "04f5f76c684e23a6b96351a650a96868a25bc355beebd813cf7bad8951200221",
+      "same_config_pairs": ["static_fixtures", "static_fixtures"],
+      "cross_init_pair": "scene_init_state",
+      "noise_identical_within_pair": true,
+      "explanation": "LIBERO UniformRandomSampler re-draws static fixtures (stove/cabinet/wine rack) on every reset; movable *_pos objects are bit-identical, so the first difference is the agentview pixels, not the diffusion noise."
+    }
+  },
+  "reseat": {
+    "root_cause": "the catalog capability's own predicate (cheese inside bowl + released) already holds when the re-run starts, so the policy stops after one action and geometry cannot move; the capability has no seat-depth/transport term",
+    "precheck": {
+      "where": "engine/engine_service.py::_transport_reseat",
+      "call": "composite.state_check(snapshot, reseat_step, task)",
+      "on_true": "status=skipped, policy_actions=0, finalizer_actions=0, skip_reason=goal_already_satisfied, classification.verdict=unsupported"
+    },
+    "verification": {
+      "before": {
+        "dir": "raw/composite/dev_reseat_20261105/",
+        "policy_actions": 1,
+        "finalizer_actions": 21,
+        "state_change_changed": false
+      },
+      "after": {
+        "manifest": "config/rounds_reseat_precheck_20261105.json",
+        "dirs": [
+          "/home/host/flashrt-exp/pi05_round/raw/composite/reseat_precheck_20261105/",
+          "/home/host/flashrt-exp/pi05_round/raw/composite/reseat_precheck_20261105b/"
+        ],
+        "sha256": [
+          "94a0c636634055ab32b0e6e813e38266104c3bdf4a073389cf065cb065e59af5",
+          "eccc61cc6afb9f10390b2bed736f758ccd9b8af39f442042fc99a0e71e536554"
+        ],
+        "policy_actions": 0,
+        "finalizer_actions": 0,
+        "verdict": "unsupported",
+        "episode_failure": "composite_transport_not_ready"
+      },
+      "config_used": "config_demo_b900_forced (max_seat_delta_m=0.005, perched_is_warning=false)",
+      "why_forced": "the shipped config grades all 21 archived readiness checks nominal, so the branch is unreachable under it"
+    }
+  },
+  "router_boundary": {
+    "prompt_md5": "eae4bec5f9442ec0f5e35bd14d61ee7f",
+    "runs": 2,
+    "runs_identical": true,
+    "boundary_set": {
+      "file": "config/flow_routing_boundary_20261105.json",
+      "cases": 10,
+      "matched": 9,
+      "missed": ["en_heating_no_place"]
+    },
+    "base_set": {
+      "file": "config/flow_routing_cases.json",
+      "cases": 16,
+      "matched": 15,
+      "missed": ["zh_explicit_three_steps"],
+      "previous": "14 / 16 (en_explicit_three_steps and zh_explicit_three_steps both answered as a flow)"
+    },
+    "records": "/home/host/flashrt-exp/pi05_round/raw/composite/flows_router_final2_20261105/",
+    "artifact_sha256": [
+      "4bf4a0c2aa0146da52a6c93e0b89ae8d78d0f7f8cc98ad1e395af4592226d946",
+      "d18e83b3091d92fe06a26a3d0a0c0a987b4504510916268cb723f5c039a7e546",
+      "bf4ee018481fa8504aec60b72e2f21b7664cdffba06410b1608fd4e88676cc85",
+      "56ecdd7c81ba368c15b512722de0081218091e07bf40cd1db95a871b04bf90ec"
+    ],
+    "rejected_variant": "adding an explicit 'heat without a place' rule fixed en_heating_no_place but flipped zh_explicit_three_steps / en_explicit_two_steps_cheese_bowl in 2 of 4 runs; not kept"
+  },
+  "doc_corrections": {
+    "xy_margin": "xy_limit_m=0.025 is the bowl asset's declared horizontal_radius (horizontal_radius_site x), a centre-distance allowance, not a rim distance (interior wall ~0.033 m, rim ring ~0.047 m); recorded as xy_limit_source / xy_margin_kind",
+    "loss_denominator": "the 21-reading threshold backtrack uses 4 carried_object_lost rounds, not 5; the 5th was the 2026-11-04 ep-20261104-121734-febbf1 delivery round, which is outside the 24-round batch and outside the 21 readings"
+  },
+  "tests": {
+    "suite": "pytest tests",
+    "passed": 209,
+    "new": [
+      "tests/test_transport_ready.py::ReseatClassificationTests (5 cases)",
+      "tests/test_flow_routing.py::TestFlowGuard::test_a_clarify_scope_turns_the_single_choice_into_a_question"
+    ]
+  },
+  "known_limits": [
+    "closed loop is NOT bit-reproducible: static fixture placement has no seed",
+    "same init + same policy_seed gave one success and one failure",
+    "noise_used echo covers only 4 of 320 values; the full-array evidence is the same-seed/other-seed contrast",
+    "8 rounds this round is not a success-rate measurement",
+    "the reseat path still has no capability that can improve seat depth"
+  ]
+}

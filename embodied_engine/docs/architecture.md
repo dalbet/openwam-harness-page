@@ -1055,7 +1055,8 @@ self.watch_goals = [ {step_id:"c1", object_n:"cream_cheese_1",
 - **单批 6 回合没有分辨力**。同一冻结清单跑四次（`config/rounds_formal_3step_repeat_20261105.json`
   预登记批次 C、D），通过率 2/6、5/6、5/6、4/6，合并 16/24；同一 init 的
   `initial_state_fingerprint` 四批全等，但动作数是 400 / 356 / 359 / 372。
-  引擎请求不带 seed、策略服务的扩散噪声取自进程全局 RNG，所以执行不可复现。
+  这四批跑在**旧采样协议**上（引擎请求不带 `policy_seed`，噪声由后端
+  `noise_for(prompt, chunk_index)` 计数器决定），可复现性结论见 §13。
   横向对照用 `tools/round_spread.py`（`--batch A=<dir> ...`），不产生"平均成功率"，
   只把每回合每批次摊开。
 - 就绪检查的 XY 裕度冻结在 2 mm，而 24 回合里 4 次掉料的放置裕度是
@@ -1065,4 +1066,117 @@ self.watch_goals = [ {step_id:"c1", object_n:"cream_cheese_1",
 - 同一句官方指令的重新装料在"奶酪已在碗里"时是空跑：策略只发 1 个动作，
   几何完全不变。目录里没有"单独抓起奶酪"的能力，所以不做脚本化重抓
   （那属于执行层校正，必须另开可选模式并如实标注，不能冒充策略成功）。
+  2026-11-05 追加了**前置检查**：`composite.state_check` 在起跑前先问"这次要重跑
+  的能力，它自己的目标是不是已经成立"，成立就不发动作、记 `status=skipped` /
+  `verdict=unsupported`。见 §13.6。
 - `carry_watch` 5 动作采样可能漏掉 0.25 s 内的瞬时滑出；结论仍以终局样本为准。
+
+## 13. 采样随机流、可复现基线与重新装料前置检查（2026-11-05）
+
+本轮只做三件事：把**策略采样**变成可记账、可复现的输入；用离线与闭环证据说清
+"还剩哪些不确定"；把重新装料为什么空跑写成代码里的拒绝，而不是一句结论。
+权重、精度、加速路径、执行窗口、预算与目标阈值全部未改。
+
+### 13.1 执行路径上的随机源（只列执行路径，不混训练）
+
+| 环节 | 是否随机 | 本轮的处置 |
+| --- | --- | --- |
+| 初始扩散噪声 | 是 | **唯一被钉住的量**：由 `(policy_seed, step_ref, sim_action_count)` 派生，作为显式数组随请求发送 |
+| flow_sde / 中间噪声 | 未启用 | Pi0.5 走确定性 Euler ODE（`openpi.PI0Pytorch`，`num_steps=10`），采样器本身没有额外噪声；同噪声同观测时实测 `max|d| = 0.0` |
+| 预热 | 不产生动作 | 首个请求的延迟差异只记时间，不进动作 |
+| CUDA Graph 重放 | 未启用 | 服务端身份写的是 `eager, no CUDA Graph`；因此"图重放把随机状态固定住"的兼容问题本轮不存在，若将来启用需重新验证 |
+| 场景摆放（LIBERO `UniformRandomSampler`） | 是 | 不在策略侧：`scene seed` 只固定 `*_pos` 可观测对象，静态夹具（炉灶/柜子/酒架）每次重置重新采样；用 `initial_fixture_fingerprint` 逐回合记账 |
+| 渲染 / 相机 | 否（但输入被上面那行改变） | 同状态两次读数逐位相同（`policy_obs_determinism_probe`） |
+
+`scene seed` 与 `policy_seed` 分开记账：前者进 `/api/load`，后者进 `/api/run`，
+两条记录互不覆盖。
+
+### 13.2 `policy_seed` 在哪里真正生效
+
+生效位置在**生成动作的那个进程**里，不在引擎进程：
+
+1. `engine/pi05_rollout.py` 每个 chunk 计算
+   `noise_seed = policy_seed.derive(policy_seed, step_ref, sim_action_count)`，写进请求。
+2. `engine/inference_client.py::request_row()` 把 `noise_seed / policy_seed` 放进请求体。
+3. `inference/inference_service.py::_predict()` 读 `noise_seed`，转给
+   `models/pi05_chunk_backend.py::predict(obs, prompt, seed=...)`；
+   后端**自己构造** `(10, 32)` 噪声数组并随请求发给生成服务。
+4. 生成服务按 `noise` 字段做去噪；响应自带 `noise_used` 前 4 个值，记录里是 `noise_echo`。
+
+`common/policy_seed.py::derive()` 是纯整数 splitmix64，键是
+`(policy_seed, step_ref, sim_action_count)`：不用 `hash()`（受 `PYTHONHASHSEED` 影响）、
+不用 episode UUID、不用 wall clock。因此**同一逻辑请求重发得到同一噪声**，
+而每个 chunk 的 `sim_action_count` 不同，流不会每个 chunk 重置成同一串。
+
+`seed is None` 时保持出厂行为（`noise_for(prompt, generation_index)`），
+记录里写 `noise_source="legacy_prompt_index"`，两种协议不混。
+
+### 13.3 加速与算法没有被牺牲
+
+- 没有为固定种子关闭任何已验证的加速：服务端是 eager 实现，`num_steps`、
+  `execute_horizon`、精度、权重全部不变（`sampling.accelerators_changed=false`）。
+- 没有切换采样算法：仍然是同一个 Euler ODE。
+- 如果将来启用 CUDA Graph 或 flow_sde，`13.1` 的两行必须重新实测，
+  不能沿用本轮"采样器无额外噪声"的结论。
+
+### 13.4 重试、预取与 stop/reset 的生命周期
+
+- **重试**：同一 `observation_id`/`sim_action_count` 派生同一 `noise_seed`，
+  重试不会变成另一份随机样本。
+- **预取**：`/prefetch` 与 `/infer` 走同一个 `_predict()`，种子在请求里，
+  预取对象被替换或丢弃都不会影响"这一逻辑请求用哪份噪声"。
+- **stop/reset**：`/reset` 轮换 token 并清空推理服务队列、结果表和模型侧缓冲；
+  用旧 token 的请求被拒（`status=conflict`, `reason=stale_episode_token`），
+  旧回合的 chunk 进不了新回合。该拒绝在 `scripts/policy_action_seed_probe.py`
+  里是一条固定检查（`stale_token_refused`）。
+
+### 13.5 记录层新增字段
+
+| 字段 | 含义 |
+| --- | --- |
+| `sampling.policy_seed / policy_seed_source / protocol / scene_seed` | 本回合的采样协议与两个种子分别是什么 |
+| `steps[i].pi05.generation.rows[j].noise_seed / noise_source / noise_sha256 / noise_echo / seed_applied` | 每个 chunk 的噪声键、来源、哈希、服务端回显、是否真的生效 |
+| `initial_fixture_fingerprint` | 静态夹具（`site_geometry` + `bodies`）的哈希，与 `initial_state_fingerprint` 并列 |
+| `steps[i].reseat.precheck / skip_reason / classification` | 重新装料前置检查的输入与结论 |
+| `steps[i].transport_ready.features.xy_limit_source / xy_margin_kind` | XY 裕度的**口径**：资产声明的水平半径，不是到碗沿的距离 |
+
+`initial_state_fingerprint` 的含义没有变（可动对象 + 机器人），
+新指纹只增不改，旧记录照旧可读。
+
+### 13.6 重新装料的前置检查
+
+`engine/engine_service.py::_transport_reseat()` 在起跑前先调
+`composite.state_check(snapshot, reseat_step, task)`：
+
+- 成立 → `status="skipped"`、`policy_actions=0`、`finalizer_actions=0`、
+  `skip_reason="goal_already_satisfied"`、`classification.verdict="unsupported"`；
+  失败文本改成"因为放置谓词已经成立而拒绝执行"，不再写"跑了但几何没变"。
+- 不成立 → 仍按原路径执行一次有界重跑。
+
+分类函数 `common/transport_ready.py::classify_reseat()` 保持四件事互不推导：
+`goal_satisfied` / `actions_executed` / `geometry_changed` / `readiness_improved`；
+只有"几何动了且结论变好"才叫 `effective`，前置拒绝叫 `unsupported`，
+其余叫 `ineffective` 并给出具体原因。
+
+### 13.7 高层意图的两条边界修正
+
+- 提示词层面：明确"只说出对象要 ready/prepare、没有地点也没有加热结果"时是
+  `clarify`；明确"完整加热准备"不得降级成单个 `turn_on_stove`。
+- 代码层面：`flow_guard` 从只能答 `flow|single` 扩展为也能答 `clarify`；
+  当复核认为"用户没给出这个流程的结果/地点"时，直接返回
+  `status=needs_clarification`、`reason_code=goal_outcome_unspecified`，
+  既不留 `task`，也不展开 `composite_keys`。这样即使模型先给了一个末步 key，
+  也不会被当成整流程执行。
+- 边界集 `config/flow_routing_boundary_20261105.json` 在运行前冻结，
+  与旧的 16 条基础集分开存放：后者是已公布的冻结结果，不改写。
+
+### 13.8 已知限制
+
+- **静态夹具没有种子**。同 `scene seed` 两次重置，可动对象逐位相同，
+  但 `initial_fixture_fingerprint` 每次都不同；第一个分歧点因此落在
+  **观测像素**上，不是噪声。要真正逐位复现闭环，需要在环境侧给
+  `UniformRandomSampler` 加种子（本轮不改环境，只把事实记全）。
+- `policy_seed` 固定的是"同一输入下的同一份噪声"，不是成功率：
+  同 init 同 seed 的两次闭环实测一次成功一次失败，报告里按事实写。
+- 生成服务的 `noise_used` 只回显前 4 个值，不是整张数组的证明；
+  整张数组的证据是"同种子逐位相同 / 异种子动作不同"这一对对照。

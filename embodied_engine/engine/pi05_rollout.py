@@ -40,6 +40,7 @@ from adapters.pi05_contract import (
     build_pi05_obs,
     pi05_action7,
 )
+from common import policy_seed
 from engine.inference_client import request_row
 from engine.openwam_rollout import WholeTaskRunner
 
@@ -56,10 +57,16 @@ class Pi05WholeTaskRunner(WholeTaskRunner):
     """One bounded whole-task Pi0.5 rollout inside an already-reset scene."""
 
     def __init__(self, *args, execute_horizon: int = PI05_EXECUTE_HORIZON,
-                 generate_horizon: int = PI05_GENERATE_HORIZON, **kwargs):
-        super().__init__(*args, **kwargs)
+                 generate_horizon: int = PI05_GENERATE_HORIZON,
+                 policy_seed: int | None = None, **kwargs):
+        super().__init__(*args, policy_seed=policy_seed, **kwargs)
         self.execute_horizon = max(1, min(int(execute_horizon), int(generate_horizon)))
         self.generate_horizon = int(generate_horizon)
+        # ``None`` = the shipped path (noise keyed to the backend's chunk
+        # counter). An int pins the sample: the noise of every request is a pure
+        # function of (policy_seed, step_ref, sim_action_count), so two runs of
+        # the same plan draw the same streams and a retry reproduces its sample.
+        self.seed_rows: list[dict[str, Any]] = []
         self._queue: deque[np.ndarray] = deque()
         self._chunk_id = 0
         self._chunk_row: dict[str, Any] = {}
@@ -130,16 +137,34 @@ class Pi05WholeTaskRunner(WholeTaskRunner):
             }
         if not obs:
             raise RuntimeError("pi05 runner asked for an action with no observation and an empty queue")
+        sim_actions = self.sim_actions
+        noise_seed = None
+        if self.policy_seed is not None:
+            noise_seed = policy_seed.derive(
+                self.policy_seed, step_ref=self.step_ref, sim_action_count=sim_actions
+            )
         request = request_row(
             token=self.token,
             episode_id=self.episode_id,
             scene_epoch=self.snapshot.get("scene_epoch"),
             snapshot=self.snapshot,
             skill="whole_task",
-            step_id=self.sim_actions,
+            step_id=sim_actions,
             prompt=self.prompt,
             step_ref=self.step_ref,
+            noise_seed=noise_seed,
+            policy_seed=self.policy_seed,
         )
+        # What the policy is about to see, before any model time is spent. Two
+        # runs can agree on the scene and still feed different pixels; hashing
+        # here is what tells those two cases apart in the record instead of
+        # blaming the sampler (cost: ~0.4 ms per chunk, no extra RPC).
+        obs_hashes = {
+            "main_sha256": policy_seed.digest(obs.get("main_images")),
+            "wrist_sha256": policy_seed.digest(obs.get("wrist_images")),
+            "state_sha256": policy_seed.digest(obs.get("states")),
+            "state0": [round(float(v), 6) for v in np.asarray(obs.get("states")).reshape(-1)[:3]],
+        }
         out = self.inference.infer(request, obs, timeout_s=self.timeout_s)
         if out.get("status") != "ok":
             raise RuntimeError(
@@ -174,6 +199,18 @@ class Pi05WholeTaskRunner(WholeTaskRunner):
                 "mode": out.get("mode"),
                 "precision": out.get("precision"),
                 "noise_seed": out.get("noise_seed"),
+                "noise_source": out.get("noise_source"),
+                "noise_sha256": out.get("noise_sha256"),
+                "noise_echo": out.get("noise_echo"),
+                # Whether the inference service reports the seed as applied by
+                # the backend. ``None`` on the legacy path (no seed was sent);
+                # ``False`` would mean the backend ignored it, which the record
+                # must not hide.
+                "seed_applied": out.get("seed_applied"),
+                "seed_unsupported": out.get("seed_unsupported"),
+                "obs": obs_hashes,
+                "action0": [round(float(v), 6) for v in window[0][:7]],
+                "action0_sha256": policy_seed.digest(window[0][:7]),
             }
         )
         self.inference_s += float(out.get("inference_s") or 0.0)
@@ -240,6 +277,18 @@ class Pi05WholeTaskRunner(WholeTaskRunner):
                 "client_inference_s": self._summary(lat),
                 "server_latency_ms": self._summary(srv),
                 "rows": gens,
+            },
+            "sampling": {
+                "policy_seed": self.policy_seed,
+                "seed_active": self.policy_seed is not None,
+                "seed_key": "policy_seed + step_ref + sim_action_count"
+                if self.policy_seed is not None
+                else "none: backend per-(prompt, chunk-index) legacy stream",
+                "noise_injected": "explicit array in every request (server echoes noise_used)",
+                "accelerators_changed": False,
+                "obs_hashes": [
+                    {"at_sim_action": row.get("at_sim_action"), **(row.get("obs") or {})} for row in gens
+                ],
             },
         }
         result["release"]["source"] = "measured_gripper_separation"

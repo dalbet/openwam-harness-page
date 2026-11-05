@@ -39,6 +39,7 @@ from adapters.env_client import EnvClient  # noqa: E402
 from common import config, records, task_catalog  # noqa: E402
 from common import geometry  # noqa: E402
 from common import plan_contract
+from common import policy_seed as policy_seed_module  # noqa: E402
 from common import transport_ready  # noqa: E402
 from engine import completion  # noqa: E402
 from engine import composite  # noqa: E402
@@ -134,7 +135,7 @@ def _release_evidence(
 
 
 def _state_fingerprint(snapshot: dict[str, Any]) -> str:
-    """Shaper hash of everything that can change what the policy sees first.
+    """Hash of the initial state the env *publishes* to the policy.
 
     ``_scene_fingerprint`` covers object positions and the EEF position, which
     is what "same scene" used to mean. The policy also consumes the wrist image
@@ -142,6 +143,11 @@ def _state_fingerprint(snapshot: dict[str, Any]) -> str:
     can agree on the object positions and still see different pixels. This hash
     adds the joint configuration so a "same initial state" claim can be checked
     against the state the model actually received.
+
+    Scope limit, measured 2026-11-05: this only sees objects the env exposes as
+    ``*_pos`` observables. Static props placed into ``model.body_pos`` (the flat
+    stove, cabinet, wine rack) are absent, so two episodes can share this hash
+    and still see a stove 12 mm away. ``_fixture_fingerprint`` covers that gap.
     """
     sim = snapshot.get("sim") or {}
     objects = {
@@ -161,6 +167,37 @@ def _state_fingerprint(snapshot: dict[str, Any]) -> str:
         "gripper": round(float(sim.get("gripper_opening_m") or 0.0), 6),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def _fixture_fingerprint(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Fingerprint of the *static* props the observation hash cannot see.
+
+    ``_state_fingerprint`` only covers what the env publishes as ``*_pos``
+    observables, which is the movable task objects plus the robot. The flat
+    stove, the cabinet and the wine rack are fixtures: their pose is written to
+    ``model.body_pos`` by LIBERO's placement sampler and never appears in that
+    observable set. Measured on 2026-11-05 (``policy_obs_determinism_probe``),
+    two resets with the same scene seed put the four movable objects at *bit
+    identical* positions while the flat stove moved 12.4 mm, the cabinet 9.0 mm
+    and the wine rack 6.1 mm, and the policy input differed in 16-25% of its
+    pixels. This hash makes that visible in every record without changing the
+    meaning of the existing fingerprint.
+    """
+    geometry = (snapshot.get("named_poses") or {}).get("site_geometry") or {}
+    fixtures = {
+        str(name): {
+            "xyz": [round(float(value), 6) for value in (item.get("xyz") or [])],
+            "quat": [round(float(value), 6) for value in (item.get("quat_wxyz") or [])],
+        }
+        for name, item in geometry.items()
+        if isinstance(item, dict)
+    }
+    payload = {"fixtures": fixtures, "bodies": snapshot.get("named_poses", {}).get("bodies") or {}}
+    return {
+        "sha256": hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16],
+        "sites": len(fixtures),
+        "scope": "named_poses.site_geometry + bodies; excludes movable *_pos observables (see state fingerprint)",
+    }
 
 
 def _scene_fingerprint(snapshot: dict[str, Any]) -> str:
@@ -529,6 +566,11 @@ class Engine:
         self.task_id: int | None = None
         self.task: dict[str, Any] | None = None
         self.seed = int(cfg["env"]["seed"])
+        # Sampling seed of the *episode* (not the scene). ``None`` = legacy.
+        try:
+            self.policy_seed, self.policy_seed_source = policy_seed_module.resolve(cfg)
+        except Exception:  # noqa: BLE001 - a bad config value must not stop the service
+            self.policy_seed, self.policy_seed_source = None, "unresolved"
         self.instruction = ""
         self.episode_id: str | None = None
         self.run_id: int | None = None
@@ -652,6 +694,14 @@ class Engine:
             "engine": {
                 "phase": self.phase,
                 "detail": self.detail,
+                "sampling": {
+                    "policy_seed": self.active_policy_seed(),
+                    "policy_seed_source": self.policy_seed_source,
+                    "scene_seed": int(self.seed),
+                    "protocol": "policy_seed_v1"
+                    if self.active_policy_seed() is not None
+                    else "legacy_prompt_index",
+                },
                 "handoff": {
                     "mode": composite.handoff_mode(self.cfg),
                     "default_mode": composite.DEFAULT_HANDOFF["mode"],
@@ -1005,6 +1055,7 @@ class Engine:
         instruction: str | None,
         seed: int | None = None,
         plan_keys: list[str] | None = None,
+        policy_seed: int | None = None,
     ) -> dict[str, Any]:
         task = config.task_for(task_id)
         with self.run_lock:
@@ -1034,6 +1085,12 @@ class Engine:
             planner_generation = self.planner_generation
             episode_id = self.episode_id
             run_id = self.run_id
+            # Sampling seed for this episode, kept separate from ``self.seed``
+            # (the scene/init seed) on purpose: the two are different numbers
+            # and are reported separately.
+            self.policy_seed, self.policy_seed_source = policy_seed_module.resolve(
+                self.cfg, policy_seed
+            )
         self._set_phase("running", "preparing episode")
         thread = threading.Thread(
             target=self._run_episode,
@@ -1088,6 +1145,15 @@ class Engine:
         return count + 1
 
     # ---- rollout ----
+
+    def active_policy_seed(self) -> int | None:
+        """The sampling seed every request of this episode is derived from.
+
+        ``None`` means the shipped legacy path: no seed is sent, and each chunk
+        keeps the backend's per-(prompt, chunk-index) noise. Reported, never
+        guessed — the record carries the value and where it came from.
+        """
+        return None if self.policy_seed is None else int(self.policy_seed)
 
     def _action_backend(self) -> str:
         """The backend that is actually serving, not the one in the stale config.
@@ -1155,6 +1221,7 @@ class Engine:
             snapshot=snapshot,
             baseline=snapshot,
             stop_event=stop_event,
+            policy_seed=self.active_policy_seed(),
             journal=lambda stage, row: records.append_journal(
                 {"t": time.time(), "stage": stage, "episode_id": episode_id, "row": row}
             ),
@@ -1465,7 +1532,12 @@ class Engine:
                 reseat_row = block.get("reseat") or {}
                 change = reseat_row.get("state_change") or {}
                 tail = ""
-                if change.get("changed") is False:
+                if reseat_row.get("status") == "skipped":
+                    tail = (
+                        "; the re-seat was refused before acting because the placement predicate "
+                        "already held (recorded as unsupported, no action executed)"
+                    )
+                elif change.get("changed") is False:
                     tail = "; the re-seat ran and the geometry did not move"
                 elif change.get("changed") is True:
                     tail = (
@@ -1556,6 +1628,63 @@ class Engine:
                 "scene_epoch": snapshot.get("scene_epoch"),
             }
         )
+        # Pre-check: the capability this re-seat re-runs has its own goal, and
+        # that goal is usually *already true* when readiness refuses the carry
+        # (readiness measures seat quality, not the placement predicate). Asking
+        # the policy again would emit one action and stop on the first rollout
+        # tick, which is motion without a re-seat. So the attempt is recorded as
+        # skipped and named unsupported instead of being counted as a repair.
+        precheck = composite.state_check(snapshot, reseat_step, task)
+        reseat["precheck"] = {
+            "predicate": precheck.get("predicate"),
+            "ok": precheck.get("ok"),
+            "observation_id": precheck.get("observation_id"),
+            "sim_action_count": precheck.get("sim_action_count"),
+            "note": "this is the re-run capability's own goal, not the transport-readiness verdict",
+        }
+        if precheck.get("ok"):
+            reseat["status"] = "skipped"
+            reseat["policy_actions"] = 0
+            reseat["finalizer_actions"] = 0
+            reseat["reseat_succeeded"] = False
+            reseat["skip_reason"] = "goal_already_satisfied"
+            reseat["after"] = transport_ready.evaluate(
+                step=step,
+                relation=record.get("final_evidence") or record.get("evidence"),
+                samples=(record.get("placement") or {}).get("samples"),
+                evidence=record.get("final_evidence") or record.get("evidence"),
+                cfg=self.cfg,
+            )
+            reseat["state_change"] = transport_ready.change(
+                composite_state["transport_ready"].get("features"),
+                reseat["after"].get("features"),
+            )
+            reseat["state_change"]["note"] = (
+                "no action was executed: the re-seat was refused by its own pre-check, so the geometry "
+                "being unchanged says nothing about what a re-seat would have done"
+            )
+            reseat["classification"] = transport_ready.classify_reseat(
+                skipped=True,
+                stop_reason=None,
+                policy_actions=0,
+                state_change=reseat["state_change"],
+                before_ok=composite_state["transport_ready"].get("ok"),
+                after_ok=reseat["after"].get("ok"),
+            )
+            record["reseat"] = reseat
+            records.append_journal(
+                {
+                    "t": time.time(),
+                    "stage": "composite_transport_reseat_skipped",
+                    "episode_id": episode_id,
+                    "step_id": step.get("step_id"),
+                    "reseat_step_id": reseat["step_id"],
+                    "task_key": step.get("step_task_key"),
+                    "skip_reason": reseat["skip_reason"],
+                    "precheck_ok": True,
+                }
+            )
+            return obs, snapshot, token
         started = time.perf_counter()
         try:
             reseat_record, obs, snapshot = self._run_whole_task(
@@ -1585,6 +1714,16 @@ class Engine:
                 samples=(record.get("placement") or {}).get("samples"),
                 evidence=record.get("final_evidence") or record.get("evidence"),
                 cfg=self.cfg,
+            )
+            reseat["classification"] = transport_ready.classify_reseat(
+                stop_reason=None,
+                policy_actions=None,
+                state_change=transport_ready.change(
+                    composite_state["transport_ready"].get("features"),
+                    reseat["after"].get("features"),
+                ),
+                before_ok=composite_state["transport_ready"].get("ok"),
+                after_ok=reseat["after"].get("ok"),
             )
             return obs, snapshot, token
         reseat["s"] = round(time.perf_counter() - started, 3)
@@ -1621,6 +1760,14 @@ class Engine:
         reseat["state_change"] = transport_ready.change(
             composite_state["transport_ready"].get("features"),
             reseat["after"].get("features"),
+        )
+        before_ok = composite_state["transport_ready"].get("ok")
+        reseat["classification"] = transport_ready.classify_reseat(
+            stop_reason=reseat_record.get("stop_reason"),
+            policy_actions=reseat["policy_actions"],
+            state_change=reseat["state_change"],
+            before_ok=before_ok,
+            after_ok=reseat.get("after", {}).get("ok"),
         )
         record["reseat"] = reseat
         records.append_journal(
@@ -2227,6 +2374,7 @@ class Engine:
         episode_init_s = time.perf_counter() - init_started
         initial_scene = _scene_fingerprint(snapshot)
         initial_state = _state_fingerprint(snapshot)
+        initial_fixtures = _fixture_fingerprint(snapshot)
         handoff_mode = composite.handoff_mode(self.cfg)
         handoff_options = composite.handoff_options(self.cfg)
         robot_state_capture: dict = {}
@@ -3870,6 +4018,22 @@ class Engine:
             "scene_epoch": final_snapshot.get("scene_epoch"),
             "initial_scene_fingerprint": initial_scene,
             "initial_state_fingerprint": initial_state,
+            # Static props are placed by LIBERO's unseeded sampler on every
+            # reset, so they are NOT covered by the state fingerprint. Kept
+            # separate so old records stay comparable.
+            "initial_fixture_fingerprint": initial_fixtures,
+            # Sampling protocol of *this* episode. Old records (before this
+            # field existed) are the legacy protocol by definition and must not
+            # be re-read as if they had been seeded.
+            "sampling": {
+                "policy_seed": self.active_policy_seed(),
+                "policy_seed_source": self.policy_seed_source,
+                "scene_seed": int(self.seed),
+                "protocol": "policy_seed_v1"
+                if self.active_policy_seed() is not None
+                else "legacy_prompt_index",
+                "accelerators_changed": False,
+            },
             "started_at": started_iso,
             "ended_at": _now_iso(),
             "duration_s": round(ended - started, 3),
@@ -4111,6 +4275,7 @@ async def run(request: web.Request) -> web.Response:
             body.get("instruction"),
             None if seed is None else int(seed),
             [str(key) for key in plan_keys] if plan_keys else None,
+            None if body.get("policy_seed") is None else int(body["policy_seed"]),
         )
         return web.json_response(out)
     except KeyError as exc:
