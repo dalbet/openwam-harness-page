@@ -1,0 +1,81 @@
+{
+  "schema": "embodied_engine.composite_stop.v1",
+  "generated_at": "2026-11-05T09:13:29",
+  "engine": "http://127.0.0.1:14823",
+  "handoff_mode": null,
+  "handoff_mode_reply": null,
+  "cases": [
+    {
+      "case": "stop-independent-reseat-actions",
+      "kind": "reseat",
+      "episode_id": "ep-20261105-091345-b6094e",
+      "ok": true,
+      "trigger_phase": "reseat",
+      "trigger_detail": "re-seat chunk 1 generated, its actions have not run yet",
+      "trigger_sim_actions": 120,
+      "stop_ack": {
+        "status": "ok",
+        "active": false,
+        "phase": "stopped",
+        "stop": {
+          "reason": "stop-test:stop-independent-reseat-actions",
+          "sim_at_request": 115,
+          "sim_at_ack": 121,
+          "in_flight_actions": 6,
+          "thread_alive": false,
+          "settle_agreements": 3,
+          "cancel_barrier_s": 0.0001,
+          "in_flight_after_cancel": 0,
+          "inference_idle": true,
+          "chunk_buffer_cleared": true
+        }
+      },
+      "after_stop": {
+        "samples": [
+          121,
+          121,
+          121,
+          121,
+          121,
+          121,
+          121,
+          121,
+          121,
+          121,
+          121,
+          121
+        ],
+        "first": 121,
+        "last": 121,
+        "advanced": false,
+        "phase": "stopped"
+      },
+      "final_phase": "stopped",
+      "final_detail": "episode stopped",
+      "step_2_started": false,
+      "record_execution_status": "stopped",
+      "record_failure": {
+        "code": "user_stop",
+        "reason": "episode stopped by user"
+      },
+      "record_sim_actions": 121,
+      "scene_epoch": 2,
+      "journal_stages": [
+        "composite_independent_reseat_end",
+        "episode_end",
+        "stopped",
+        "stopping"
+      ],
+      "leak_check": {
+        "load_status": "ok",
+        "sim_action_count_after_load": 0,
+        "scene_epoch_after_load": 1,
+        "episode_after_load": null,
+        "phase_after_load": "ready",
+        "last_result_after_load": {},
+        "no_actions_left": true,
+        "new_episode": true
+      }
+    }
+  ]
+}

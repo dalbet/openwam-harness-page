@@ -224,6 +224,16 @@
    "perched_is_warning": true,
    "note": "Independent of every step goal: seat depth, XY margin, rim clearance and (with two or more samples) relative drift are recorded for the placed object. 0.029 m sits in the archived gap between 0.0263 m (35 rounds, all carried) and 0.0329 m (12 perched rounds, 11 of which carried fine), so a seat above it is a warning (perched_is_warning=true), not a rejection: the only archived loss is not separable from two passing rounds at the same 0.0357 m. on_failure=stop applies only to hard failures (relation broken, fell beside the bowl, edge of the opening, still sliding) and ends the episode with composite_transport_not_ready instead of carrying an object judged unsafe; proceed is the alternative and is reported as proceeded_not_ready."
   },
+  "independent_reseat": {
+   "enabled": false,
+   "prompt": "pick up the cream cheese and put it back in the bowl",
+   "step_task_keys": ["put_cream_cheese_in_bowl"],
+   "chunk_budget": 48,
+   "max_actions": 240,
+   "timeout_s": 180.0,
+   "on_result": "report",
+   "note": "Experiment, off by default. A separate capability from put_cream_cheese_in_bowl: its own instruction, its own noise coordinates (step_ref=rr), its own budget and its own stage machine (re-grasp -> lift clear of the rim -> carry -> release over the bowl -> settle in the seat window 0.006..0.029 m with xy <= 0.015 m). The original placement predicate is used only as the start-state precondition, never as the completion; every stage action must come from the policy and finalizer_actions stays 0. on_result=report only records the verdict; on_result=stop ends the episode with independent_reseat_not_completed, which is what the lifecycle test uses."
+  },
   "repair": {
    "enabled": false,
    "max_calls": 1,

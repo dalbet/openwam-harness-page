@@ -1,0 +1,9 @@
+[fixturefix-20261105-s5-ps202-a] task 7 en composite: put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove (seed 5)
+  -> failed map=True native=False user=False actions=115 dur=15.545 fail=composite_transport_not_ready
+[fixturefix-20261105-s5-ps202-b] task 7 en composite: put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove (seed 5)
+  -> failed map=True native=False user=False actions=115 dur=15.4 fail=composite_transport_not_ready
+[fixturefix-20261105-s3-ps101-a] task 7 en composite: put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove (seed 3)
+  -> failed map=True native=False user=False actions=109 dur=15.085 fail=composite_transport_not_ready
+[fixturefix-20261105-s3-ps101-b] task 7 en composite: put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove (seed 3)
+  -> failed map=True native=False user=False actions=109 dur=14.967 fail=composite_transport_not_ready
+{"rounds": 4, "mapping_ok": 4, "native_success": 0, "user_goal_success": 0, "failed": 4, "stopped": 0}

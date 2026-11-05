@@ -1,0 +1,126 @@
+{
+ "schema": "embodied_engine.asset_geometry.v1",
+ "bowl": {
+  "label": "akita_black_bowl",
+  "file": "/home/host/page-dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/libero/libero/assets/stable_scanned_objects/akita_black_bowl/akita_black_bowl.xml",
+  "geoms": 40,
+  "bottom_z_m": 0.00159,
+  "top_z_m": 0.052132,
+  "height_m": 0.050542,
+  "sites": {
+   "bottom_site": [
+    0.0,
+    0.0,
+    -0.06
+   ],
+   "top_site": [
+    0.0,
+    0.0,
+    0.04
+   ],
+   "horizontal_radius_site": [
+    0.025,
+    0.025,
+    0.0
+   ]
+  },
+  "bands": [
+   {
+    "count": 5,
+    "z_min": 0.00159,
+    "z_max": 0.00675,
+    "r_centre_median": 0.0181,
+    "inner_radius_m": 0.01782,
+    "outer_radius_m": 0.02937
+   },
+   {
+    "count": 16,
+    "z_min": 0.00298,
+    "z_max": 0.01649,
+    "r_centre_median": 0.03348,
+    "inner_radius_m": 0.02484,
+    "outer_radius_m": 0.04544
+   },
+   {
+    "count": 19,
+    "z_min": 0.01521,
+    "z_max": 0.05213,
+    "r_centre_median": 0.04712,
+    "inner_radius_m": 0.04139,
+    "outer_radius_m": 0.05395
+   }
+  ],
+  "max_radius_m": 0.05395
+ },
+ "cheese": {
+  "label": "cream_cheese",
+  "file": "/home/host/page-dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/libero/libero/assets/stable_hope_objects/cream_cheese/cream_cheese.xml",
+  "geoms": 1,
+  "bottom_z_m": -0.008936,
+  "top_z_m": 0.008936,
+  "height_m": 0.017872,
+  "sites": {
+   "bottom_site": [
+    0.0,
+    0.0,
+    -0.025
+   ],
+   "top_site": [
+    0.0,
+    0.0,
+    0.025
+   ],
+   "horizontal_radius_site": [
+    0.03,
+    0.03,
+    0.0
+   ]
+  },
+  "bands": [
+   {
+    "count": 1,
+    "z_min": -0.00894,
+    "z_max": 0.00894,
+    "r_centre_median": 0.0,
+    "inner_radius_m": 0.04587,
+    "outer_radius_m": 0.04587
+   }
+  ],
+  "max_radius_m": 0.04587
+ },
+ "measured": {
+  "bowl_exterior_bottom_m": 0.00159,
+  "bowl_interior_floor_m": 0.01649,
+  "bowl_top_site_m": 0.04,
+  "bowl_wall_inner_radius_m": 0.02484,
+  "bowl_wall_centre_radius_m": 0.03348,
+  "bowl_rim_inner_radius_m": 0.04139,
+  "bowl_rim_top_m": 0.05213,
+  "horizontal_radius_site_m": 0.025
+ },
+ "candidate_conditions": {
+  "seat_range_m": [
+   0.006,
+   0.029
+  ],
+  "xy_limit_m": 0.015,
+  "lift_above_rim_m": 0.02,
+  "seat_reference": "object_bottom_z - floor_z, where floor_z = bowl origin + (-0.012), the bowl's exterior bottom",
+  "seated_seat_value_m": 0.02849,
+  "seated_cheese_origin_above_bowl_m": 0.025426,
+  "cheese_bottom_offset_m": -0.008936,
+  "cheese_height_m": 0.017872,
+  "cheese_half_height_m": 0.008936,
+  "cheese_max_radius_m": 0.04587,
+  "wall_clearance_for_cheese_m": -0.02103,
+  "rim_inner_clearance_for_cheese_m": -0.00448,
+  "lift_target_cheese_origin_z_m": 0.081066,
+  "lift_target_bowl_origin_z_m": 0.07213
+ },
+ "reading": {
+  "seat": "seat is measured from the bowl's EXTERIOR bottom (-0.012), so a cheese resting on the interior floor (0.01649 m) reads 0.02849 m. The 0.006 lower bound is therefore below the floor by 0.02249 m: it is a tolerance floor, not a seated depth.",
+  "xy": "xy is a centre distance. The asset's horizontal_radius_site (0.025 m) is a convention robosuite reads as horizontal_radius, the official In predicate uses it, and it is NOT the wall: the collision wall's inner face is 0.02484 m, and the cheese's own max radius is 0.04587 m, which leaves -0.02103 m. The candidate 0.015 m sits between those two, i.e. stricter than the goal predicate and looser than 'fully clear of the wall'.",
+  "rim": "the asset's top_site is at 0.04 m and the collision rim reaches 0.05213 m; lifting 2 cm above the rim means the cheese bottom is at or above 0.07213 m relative to the bowl."
+ },
+ "status": "candidate values measured against the installed asset; none of them is a validated success predictor"
+}

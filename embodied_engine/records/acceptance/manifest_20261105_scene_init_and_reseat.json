@@ -1,0 +1,1029 @@
+{
+ "schema": "embodied_engine.manifest.v1",
+ "round": "scene-init-reproducible-and-independent-reseat-20261105",
+ "created_at": "2026-11-05T09:40:14+00:00",
+ "branch": "feature/pi05-scene-init-and-reseat-capability",
+ "baseline": {
+  "commit": "4a5f975e61827cfc99ea87e56306091f5fc03ca4",
+  "tag": "backup/pi05-reproducible-baseline-20261105-4a5f975",
+  "source_tarball": "/home/host/flashrt-exp/freeze/2026-11-05-pi05-reproducible-baseline/embodied_engine-src-4a5f975.tar.gz",
+  "source_tarball_sha256": "258d2ff1e75bd7dd9fae9f63147251e418be1618a69278b39de576334b16e474"
+ },
+ "scope": {
+  "changed": [
+   "scene init: LIBERO placement samplers re-seeded inside every reset (fixtures included)",
+   "records: initial_init_state (fixtures/movable/joints/robot/images) + placement_seeding",
+   "new capability: independent re-seat stage machine, default off",
+   "lifecycle: stop inside the re-seat, reset isolation after it",
+   "docs: architecture section 14, acceptance report section 37"
+  ],
+  "unchanged": [
+   "model weights and precision",
+   "num_steps=10, action_horizon=10, execute_horizon=5",
+   "transport_ready thresholds (0.029 / 0.002 / 0.015)",
+   "composite step budgets",
+   "router prompts and flow boundaries",
+   "all archived rounds, tags and earlier results"
+  ],
+  "no_training": true,
+  "no_router_prompt_change": true,
+  "no_threshold_change_after_results": true
+ },
+ "engine_identity": {
+  "action_backend": "pi05_libero (official PyTorch conversion)",
+  "inference": "openpi.PI0Pytorch (eager, no CUDA Graph)",
+  "num_steps": 10,
+  "action_horizon": 10,
+  "execute_horizon": 5
+ },
+ "placement_seeding": {
+  "mechanism": "libero_env_server maps --seed to LIBERO_PLACEMENT_SEED before importing the env server; episode_service reseeds every leaf placement sampler and the global numpy stream at the top of each _reset_internal",
+  "key": "(scene_seed, sampler name) -> splitmix64",
+  "samplers_seeded_seed5": 9,
+  "global_numpy_seed_seed5": 841021262,
+  "control_arm": "LIBERO_PLACEMENT_SEEDING=0",
+  "root_cause": "ObjectPositionSampler.__init__ uses np.random.default_rng() (OS entropy); BDDLBaseDomain.seed only calls np.random.seed"
+ },
+ "initialisation": {
+  "artifact": "records/acceptance/scene_init_probe_20261105.json",
+  "script": "scripts/scene_init_probe.py",
+  "design": "3 scene seeds x {seeding off, seeding on} x 2 env-server processes x 2 loads",
+  "rows": [
+   {
+    "seed": 0,
+    "seeding": false,
+    "scope": "in_process",
+    "first_divergence": "fixtures",
+    "physics_identical": false,
+    "images_identical": false,
+    "fixture_sha256": [
+     "668595e6f3eaaeec",
+     "738edce52ac795b2"
+    ],
+    "first_field": ".flat_stove_1_main.model_pos[0]",
+    "first_abs_delta_m": 0.004549
+   },
+   {
+    "seed": 0,
+    "seeding": false,
+    "scope": "cross_process",
+    "first_divergence": "fixtures",
+    "physics_identical": false,
+    "images_identical": false,
+    "fixture_sha256": [
+     "668595e6f3eaaeec",
+     "11c6f0a23adc32a7"
+    ],
+    "first_field": ".flat_stove_1_main.model_pos[0]",
+    "first_abs_delta_m": 0.006653
+   },
+   {
+    "seed": 1,
+    "seeding": false,
+    "scope": "in_process",
+    "first_divergence": "fixtures",
+    "physics_identical": false,
+    "images_identical": false,
+    "fixture_sha256": [
+     "c6f782c7c2009caa",
+     "7787f20d9dacf04a"
+    ],
+    "first_field": ".flat_stove_1_main.model_pos[0]",
+    "first_abs_delta_m": 0.003237
+   },
+   {
+    "seed": 1,
+    "seeding": false,
+    "scope": "cross_process",
+    "first_divergence": "fixtures",
+    "physics_identical": false,
+    "images_identical": false,
+    "fixture_sha256": [
+     "c6f782c7c2009caa",
+     "449fc47e2133e442"
+    ],
+    "first_field": ".flat_stove_1_main.model_pos[0]",
+    "first_abs_delta_m": 0.014268
+   },
+   {
+    "seed": 2,
+    "seeding": false,
+    "scope": "in_process",
+    "first_divergence": "fixtures",
+    "physics_identical": false,
+    "images_identical": false,
+    "fixture_sha256": [
+     "02ae85dd9e835315",
+     "fa6bb8154e999a6a"
+    ],
+    "first_field": ".flat_stove_1_main.model_pos[0]",
+    "first_abs_delta_m": 0.010065
+   },
+   {
+    "seed": 2,
+    "seeding": false,
+    "scope": "cross_process",
+    "first_divergence": "fixtures",
+    "physics_identical": false,
+    "images_identical": false,
+    "fixture_sha256": [
+     "02ae85dd9e835315",
+     "7e6620962c073a76"
+    ],
+    "first_field": ".flat_stove_1_main.model_pos[0]",
+    "first_abs_delta_m": 0.007593
+   },
+   {
+    "seed": 0,
+    "seeding": true,
+    "scope": "in_process",
+    "first_divergence": null,
+    "physics_identical": true,
+    "images_identical": true,
+    "fixture_sha256": [
+     "8b6c94808a788176",
+     "8b6c94808a788176"
+    ],
+    "first_field": null,
+    "first_abs_delta_m": null
+   },
+   {
+    "seed": 0,
+    "seeding": true,
+    "scope": "cross_process",
+    "first_divergence": null,
+    "physics_identical": true,
+    "images_identical": true,
+    "fixture_sha256": [
+     "8b6c94808a788176",
+     "8b6c94808a788176"
+    ],
+    "first_field": null,
+    "first_abs_delta_m": null
+   },
+   {
+    "seed": 1,
+    "seeding": true,
+    "scope": "in_process",
+    "first_divergence": null,
+    "physics_identical": true,
+    "images_identical": true,
+    "fixture_sha256": [
+     "a3500d8b48893f67",
+     "a3500d8b48893f67"
+    ],
+    "first_field": null,
+    "first_abs_delta_m": null
+   },
+   {
+    "seed": 1,
+    "seeding": true,
+    "scope": "cross_process",
+    "first_divergence": null,
+    "physics_identical": true,
+    "images_identical": true,
+    "fixture_sha256": [
+     "a3500d8b48893f67",
+     "a3500d8b48893f67"
+    ],
+    "first_field": null,
+    "first_abs_delta_m": null
+   },
+   {
+    "seed": 2,
+    "seeding": true,
+    "scope": "in_process",
+    "first_divergence": null,
+    "physics_identical": true,
+    "images_identical": true,
+    "fixture_sha256": [
+     "3e0275a0ba1387cb",
+     "3e0275a0ba1387cb"
+    ],
+    "first_field": null,
+    "first_abs_delta_m": null
+   },
+   {
+    "seed": 2,
+    "seeding": true,
+    "scope": "cross_process",
+    "first_divergence": null,
+    "physics_identical": true,
+    "images_identical": true,
+    "fixture_sha256": [
+     "3e0275a0ba1387cb",
+     "3e0275a0ba1387cb"
+    ],
+    "first_field": null,
+    "first_abs_delta_m": null
+   }
+  ],
+  "verdict": {
+   "unseeded": "6/6 comparisons diverge at fixtures; movable/joints/robot identical",
+   "seeded": "6/6 comparisons bit-identical including both raw camera frames"
+  }
+ },
+ "closed_loop": {
+  "manifest": "config/rounds_fixturefix_repeat_20261105.json",
+  "summary": "records/acceptance/fixturefix_repeat_20261105.json",
+  "config_note": "both pairs ran on config_demo_b900_forced (max_seat_delta_m=0.005) so the transport-readiness branch triggers every time",
+  "rounds": [
+   {
+    "record": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084216-b999ea.json",
+    "episode_id": "ep-20261105-084216-b999ea",
+    "scene_seed": 5,
+    "policy_seed": 202,
+    "outcome": "composite_transport_not_ready",
+    "sim_action_count": 115,
+    "initial_scene_fingerprint": "679cc07834ac8369",
+    "initial_state_fingerprint": "cedd52548fc0601f",
+    "initial_fixture_fingerprint": "ec09aa53c3ec70de",
+    "initial_images": {
+     "agentview_image": "544b87c4c56dcdf56906582a62118c6a0fe9c5fd859ea018241d0dc4f3d4f8ad",
+     "robot0_eye_in_hand_image": "49e8693f6f6738944130eec6b17cf5ee5fd77b44bd6145eb9d999fc100742349"
+    },
+    "noise_seed": 2121488247,
+    "action0_sha256": "c0d6b3912bc104c3e676b6db86759056f9fa45859cf6093d567b06e9bb63270d"
+   },
+   {
+    "record": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084238-c783ed.json",
+    "episode_id": "ep-20261105-084238-c783ed",
+    "scene_seed": 5,
+    "policy_seed": 202,
+    "outcome": "composite_transport_not_ready",
+    "sim_action_count": 115,
+    "initial_scene_fingerprint": "679cc07834ac8369",
+    "initial_state_fingerprint": "cedd52548fc0601f",
+    "initial_fixture_fingerprint": "ec09aa53c3ec70de",
+    "initial_images": {
+     "agentview_image": "544b87c4c56dcdf56906582a62118c6a0fe9c5fd859ea018241d0dc4f3d4f8ad",
+     "robot0_eye_in_hand_image": "49e8693f6f6738944130eec6b17cf5ee5fd77b44bd6145eb9d999fc100742349"
+    },
+    "noise_seed": 2121488247,
+    "action0_sha256": "c0d6b3912bc104c3e676b6db86759056f9fa45859cf6093d567b06e9bb63270d"
+   },
+   {
+    "record": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084313-7e778b.json",
+    "episode_id": "ep-20261105-084313-7e778b",
+    "scene_seed": 3,
+    "policy_seed": 101,
+    "outcome": "composite_transport_not_ready",
+    "sim_action_count": 109,
+    "initial_scene_fingerprint": "1f236239df8cf281",
+    "initial_state_fingerprint": "4dcb769919279a46",
+    "initial_fixture_fingerprint": "2fc665393b7a84c2",
+    "initial_images": {
+     "agentview_image": "19d76cba6b8c425f3e00426932f11041379cab6bf75009f4a7b9cec3a422c0cf",
+     "robot0_eye_in_hand_image": "9c39df289b1b836268f77f47ffcd803417fd230c006bd4b7c4e6f67973ab3b3b"
+    },
+    "noise_seed": 2061631680,
+    "action0_sha256": "61f1c5cc01601b087e5410cde3bd5c1215b3d82e2618be2e97564e2117701035"
+   },
+   {
+    "record": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084334-c9347b.json",
+    "episode_id": "ep-20261105-084334-c9347b",
+    "scene_seed": 3,
+    "policy_seed": 101,
+    "outcome": "composite_transport_not_ready",
+    "sim_action_count": 109,
+    "initial_scene_fingerprint": "1f236239df8cf281",
+    "initial_state_fingerprint": "4dcb769919279a46",
+    "initial_fixture_fingerprint": "2fc665393b7a84c2",
+    "initial_images": {
+     "agentview_image": "19d76cba6b8c425f3e00426932f11041379cab6bf75009f4a7b9cec3a422c0cf",
+     "robot0_eye_in_hand_image": "9c39df289b1b836268f77f47ffcd803417fd230c006bd4b7c4e6f67973ab3b3b"
+    },
+    "noise_seed": 2061631680,
+    "action0_sha256": "61f1c5cc01601b087e5410cde3bd5c1215b3d82e2618be2e97564e2117701035"
+   }
+  ],
+  "divergence": {
+   "artifact": "records/acceptance/seed_divergence_fixturefix_20261105.json",
+   "pairs": [
+    {
+     "label": "s5-ps202",
+     "sampling": {
+      "a": {
+       "scene_seed": 5,
+       "policy_seed": 202
+      },
+      "b": {
+       "scene_seed": 5,
+       "policy_seed": 202
+      }
+     },
+     "first_divergence": null,
+     "first_action_diff_chunk": null
+    },
+    {
+     "label": "s3-ps101",
+     "sampling": {
+      "a": {
+       "scene_seed": 3,
+       "policy_seed": 101
+      },
+      "b": {
+       "scene_seed": 3,
+       "policy_seed": 101
+      }
+     },
+     "first_divergence": null,
+     "first_action_diff_chunk": null
+    }
+   ],
+   "pre_fix": {
+    "artifact": "records/acceptance/seed_divergence_20261105.json",
+    "pairs": [
+     {
+      "label": "s3-ps101-failure-vs-repeat",
+      "first_divergence": "static_fixtures"
+     },
+     {
+      "label": "s5-ps202-success-vs-repeat",
+      "first_divergence": "static_fixtures"
+     },
+     {
+      "label": "cross_init-s3-vs-s4-same-policy-seed",
+      "first_divergence": "scene_init_state"
+     }
+    ]
+   }
+  }
+ },
+ "asset_geometry": {
+  "artifact": "records/acceptance/asset_geometry_20261105.json",
+  "script": "scripts/asset_geometry_audit.py",
+  "measured": {
+   "bowl_exterior_bottom_m": 0.00159,
+   "bowl_interior_floor_m": 0.01649,
+   "bowl_top_site_m": 0.04,
+   "bowl_wall_inner_radius_m": 0.02484,
+   "bowl_wall_centre_radius_m": 0.03348,
+   "bowl_rim_inner_radius_m": 0.04139,
+   "bowl_rim_top_m": 0.05213,
+   "horizontal_radius_site_m": 0.025
+  },
+  "candidate_conditions": {
+   "seat_range_m": [
+    0.006,
+    0.029
+   ],
+   "xy_limit_m": 0.015,
+   "lift_above_rim_m": 0.02,
+   "seat_reference": "object_bottom_z - floor_z, where floor_z = bowl origin + (-0.012), the bowl's exterior bottom",
+   "seated_seat_value_m": 0.02849,
+   "seated_cheese_origin_above_bowl_m": 0.025426,
+   "cheese_bottom_offset_m": -0.008936,
+   "cheese_height_m": 0.017872,
+   "cheese_half_height_m": 0.008936,
+   "cheese_max_radius_m": 0.04587,
+   "wall_clearance_for_cheese_m": -0.02103,
+   "rim_inner_clearance_for_cheese_m": -0.00448,
+   "lift_target_cheese_origin_z_m": 0.081066,
+   "lift_target_bowl_origin_z_m": 0.07213
+  },
+  "geometric_conflict": {
+   "cheese_max_radius_m": 0.04587,
+   "bowl_wall_inner_radius_m": 0.02484,
+   "bowl_rim_inner_radius_m": 0.04139,
+   "wall_clearance_for_cheese_m": -0.02103,
+   "reading": "the cheese is wider than the bowl opening, so 'in the bowl' can only mean perched on the rim, never inside the cavity"
+  },
+  "status": "candidate values measured against the installed asset; none of them is a validated success predictor"
+ },
+ "independent_reseat": {
+  "config": {
+   "arm": "config_abB_20261105",
+   "shipped_default": "config/engine.json composite.independent_reseat.enabled=false",
+   "prompt": "pick up the cream cheese and put it back in the bowl",
+   "step_ref": "rr",
+   "chunk_budget": 48,
+   "max_actions": 240,
+   "timeout_s": 180.0,
+   "on_result": "report"
+  },
+  "frozen_config_summary": "records/acceptance/reseat_probe_20261105.json",
+  "repeat_probes": [
+   {
+    "record": "records/acceptance/reseat_probe_20261105_runs/ep-20261105-090401-9cff68.json",
+    "episode_id": "ep-20261105-090401-9cff68",
+    "episode_success": true,
+    "status": "no_progress",
+    "policy_actions": 240,
+    "finalizer_actions": 0,
+    "first_chunk_action0_sha256": "52d1d062d89b24306940ba8b5848a8f700627b32559a90360ed36a900e4dde91",
+    "last_chunk_action0_sha256": "f19acb49c7463d964080fa9d3d6725d88d71896fd0b6bccc3519744374b8670d",
+    "first_noise_sha256": "f4fe049a3f9f8c4d40610dd7b21da2f9ee1013b9005a73dc43aa1c0ba5dab070",
+    "peak": {
+     "rise_m": 0.0045,
+     "above_rim_m": -0.04,
+     "offset_m": 0.00656
+    },
+    "pose_change": {
+     "seat_before_m": 0.0101,
+     "seat_after_m": 0.0108,
+     "seat_delta_change_m": 0.0007,
+     "xy_before_m": 0.0134,
+     "xy_after_m": 0.0145,
+     "object_moved_m": 0.00212
+    },
+    "start": {
+     "sim_action_count": 115,
+     "seat_m": 0.0101,
+     "xy_m": 0.0134,
+     "rim_z": 0.9384,
+     "floor_z": 0.8864
+    }
+   },
+   {
+    "record": "records/acceptance/reseat_probe_20261105_repeats/ep-20261105-090635-381c66.json",
+    "episode_id": "ep-20261105-090635-381c66",
+    "episode_success": true,
+    "status": "no_progress",
+    "policy_actions": 240,
+    "finalizer_actions": 0,
+    "first_chunk_action0_sha256": "52d1d062d89b24306940ba8b5848a8f700627b32559a90360ed36a900e4dde91",
+    "last_chunk_action0_sha256": "f19acb49c7463d964080fa9d3d6725d88d71896fd0b6bccc3519744374b8670d",
+    "first_noise_sha256": "f4fe049a3f9f8c4d40610dd7b21da2f9ee1013b9005a73dc43aa1c0ba5dab070",
+    "peak": {
+     "rise_m": 0.0045,
+     "above_rim_m": -0.04,
+     "offset_m": 0.00656,
+     "min_eef_object_m": 0.0228,
+     "min_opening_m": 0.0695,
+     "max_opening_m": 0.0803,
+     "closed_samples": 0,
+     "contact_samples": 0
+    },
+    "pose_change": {
+     "seat_before_m": 0.0101,
+     "seat_after_m": 0.0108,
+     "seat_delta_change_m": 0.0007,
+     "xy_before_m": 0.0134,
+     "xy_after_m": 0.0145,
+     "object_moved_m": 0.00212
+    },
+    "start": {
+     "sim_action_count": 115,
+     "seat_m": 0.0101,
+     "xy_m": 0.0134,
+     "rim_z": 0.9384,
+     "floor_z": 0.8864
+    }
+   },
+   {
+    "record": "records/acceptance/reseat_probe_20261105_repeats/ep-20261105-091731-c813c2.json",
+    "episode_id": "ep-20261105-091731-c813c2",
+    "episode_success": true,
+    "status": "no_progress",
+    "policy_actions": 240,
+    "finalizer_actions": 0,
+    "first_chunk_action0_sha256": "52d1d062d89b24306940ba8b5848a8f700627b32559a90360ed36a900e4dde91",
+    "last_chunk_action0_sha256": "f19acb49c7463d964080fa9d3d6725d88d71896fd0b6bccc3519744374b8670d",
+    "first_noise_sha256": "f4fe049a3f9f8c4d40610dd7b21da2f9ee1013b9005a73dc43aa1c0ba5dab070",
+    "peak": {
+     "rise_m": 0.0045,
+     "above_rim_m": -0.04,
+     "offset_m": 0.00656,
+     "min_eef_object_m": 0.0228,
+     "min_opening_m": 0.0695,
+     "max_opening_m": 0.0803,
+     "closed_samples": 0,
+     "contact_samples": 0
+    },
+    "pose_change": {
+     "seat_before_m": 0.0101,
+     "seat_after_m": 0.0108,
+     "seat_delta_change_m": 0.0007,
+     "xy_before_m": 0.0134,
+     "xy_after_m": 0.0145,
+     "object_moved_m": 0.00212
+    },
+    "start": {
+     "sim_action_count": 115,
+     "seat_m": 0.0101,
+     "xy_m": 0.0134,
+     "rim_z": 0.9384,
+     "floor_z": 0.8864
+    }
+   },
+   {
+    "record": "records/acceptance/reseat_probe_20261105_repeats/ep-20261105-091931-d19f74.json",
+    "episode_id": "ep-20261105-091931-d19f74",
+    "episode_success": true,
+    "status": "no_progress",
+    "policy_actions": 240,
+    "finalizer_actions": 0,
+    "first_chunk_action0_sha256": "52d1d062d89b24306940ba8b5848a8f700627b32559a90360ed36a900e4dde91",
+    "last_chunk_action0_sha256": "f19acb49c7463d964080fa9d3d6725d88d71896fd0b6bccc3519744374b8670d",
+    "first_noise_sha256": "f4fe049a3f9f8c4d40610dd7b21da2f9ee1013b9005a73dc43aa1c0ba5dab070",
+    "peak": {
+     "rise_m": 0.0045,
+     "above_rim_m": -0.04,
+     "offset_m": 0.00656,
+     "min_eef_object_m": 0.0228,
+     "min_opening_m": 0.0695,
+     "max_opening_m": 0.0803,
+     "closed_samples": 0,
+     "contact_samples": 0
+    },
+    "pose_change": {
+     "seat_before_m": 0.0101,
+     "seat_after_m": 0.0108,
+     "seat_delta_change_m": 0.0007,
+     "xy_before_m": 0.0134,
+     "xy_after_m": 0.0145,
+     "object_moved_m": 0.00212
+    },
+    "start": {
+     "sim_action_count": 115,
+     "seat_m": 0.0101,
+     "xy_m": 0.0134,
+     "rim_z": 0.9384,
+     "floor_z": 0.8864
+    }
+   }
+  ],
+  "repeat_verdict": "4/4 runs: identical chunk-level action hashes, identical noise, status=no_progress",
+  "partial_attempt": {
+   "record": "records/acceptance/reseat_probe_20261105_repeats/ep-20261105-090854-1a89df.json",
+   "episode_id": "ep-20261105-090854-1a89df",
+   "policy_seed": null,
+   "status": "partial",
+   "achieved": [
+    "lift",
+    "carry"
+   ],
+   "peak": {
+    "rise_m": 0.16,
+    "above_rim_m": -0.0322,
+    "offset_m": 0.13937,
+    "min_eef_object_m": 0.0156,
+    "min_opening_m": 0.0054,
+    "max_opening_m": 0.0805,
+    "closed_samples": 57,
+    "contact_samples": 0
+   },
+   "pose_change": {
+    "seat_before_m": 0.011,
+    "seat_after_m": 0.0137,
+    "seat_delta_change_m": 0.0027,
+    "xy_before_m": 0.0164,
+    "xy_after_m": 0.0266,
+    "object_moved_m": 0.13726
+   },
+   "outcome": "composite_handoff_failed",
+   "outcome_reason": "handoff after step 1 is step_1_unverified: the step-1 predicate does not hold before the handoff; refusing to start step 2",
+   "inferred_rim_motion": {
+    "rim_z_start_m": 0.9384,
+    "rim_z_at_lift_m": 1.0071,
+    "rim_z_at_peak_m": 1.0896,
+    "rim_rise_at_lift_m": 0.0687,
+    "rim_rise_at_peak_m": 0.1512
+   },
+   "reading": "the bowl rose together with the cheese, so lift/carry fired without a cheese grasp; release/settle never happened and step 1's own predicate was broken"
+  },
+  "verdict": {
+   "grasp": false,
+   "lift": false,
+   "carry": false,
+   "release": false,
+   "settle": false,
+   "completed": 0,
+   "note": "no attempt reached settle; the only lift/carry is the bowl-lift case, which is not a re-seat"
+  }
+ },
+ "lifecycle": {
+  "cases": [
+   {
+    "artifact": "records/acceptance/reseat_stop_20261105.json",
+    "episode_id": "ep-20261105-091345-b6094e",
+    "ok": true,
+    "trigger_detail": "re-seat chunk 1 generated, its actions have not run yet",
+    "sim_at_request": 115,
+    "sim_at_ack": 121,
+    "in_flight_actions": 6,
+    "in_flight_after_cancel": 0,
+    "chunk_buffer_cleared": true,
+    "actions_after_stop": 121,
+    "advanced_after_stop": false,
+    "record_status": "stopped",
+    "leak_check": {
+     "load_status": "ok",
+     "sim_action_count_after_load": 0,
+     "scene_epoch_after_load": 1,
+     "episode_after_load": null,
+     "phase_after_load": "ready",
+     "last_result_after_load": {},
+     "no_actions_left": true,
+     "new_episode": true
+    }
+   },
+   {
+    "artifact": "records/acceptance/composite_stop_reseat_20261105.json",
+    "episode_id": "ep-20261105-093125-cf1d2b",
+    "ok": true,
+    "trigger_detail": "re-seat chunk 1 generated, its actions have not run yet",
+    "sim_at_request": 115,
+    "sim_at_ack": 121,
+    "in_flight_actions": 6,
+    "in_flight_after_cancel": 0,
+    "chunk_buffer_cleared": true,
+    "actions_after_stop": 121,
+    "advanced_after_stop": false,
+    "record_status": "stopped",
+    "leak_check": {
+     "load_status": "ok",
+     "sim_action_count_after_load": 0,
+     "scene_epoch_after_load": 1,
+     "episode_after_load": null,
+     "phase_after_load": "ready",
+     "last_result_after_load": {},
+     "no_actions_left": true,
+     "new_episode": true
+    }
+   }
+  ],
+  "verdict": "two independent runs stop inside the re-seat with 6 actions in flight, leave 0 in flight, clear the chunk buffer, and the next load starts at 0 actions / scene_epoch 1",
+  "harness_fix": {
+   "problem": "composite_stop_tests.py tailed only $EMBODIED_RECORDS_DIR/run_journal.jsonl, so a client without that env var never saw the trigger row and reported a false 'stage_not_reached' after 10 minutes",
+   "fix": "explicit --journal path; a wrong path still fails silently, so it must be passed whenever the engine runs on another records dir",
+   "note": "the misfired run (ep-20261105-091931-d19f74) actually completed and is counted as the 4th re-seat repeat, not discarded"
+  }
+ },
+ "ab_comparison": {
+  "gate": "only compare A (no re-seat) vs B (re-seat then transport) after an actual re-grasp and re-placement",
+  "gate_satisfied": false,
+  "arms": {
+   "A": "config_abA_20261105 (independent_reseat.enabled=false)",
+   "B": "config_abB_20261105 (independent_reseat.enabled=true)",
+   "diff": "the two configs differ only in this block and the two ports"
+  },
+  "runs": {
+   "A": "not run",
+   "B": "1 capability probe round only (records/acceptance/reseat_probe_20261105.json)"
+  },
+  "a_records_dir_exists": true,
+  "consequence": "no drop-rate, no added time, no collision comparison is reported for this round"
+ },
+ "kept_failures": [
+  "ep-20261105-085544-71541a: UnboundLocalError step_task",
+  "ep-20261105-085655-0ba6d1: NameError step",
+  "ep-20261105-085835-54bdb2: KeyError main_images",
+  "ep-20261105-090008-62b68d: missing agentview_image",
+  "ep-20261105-090151-3b2a03: pi05 500 image buffer 196608 vs 150528",
+  "ep-20261105-091931-d19f74: stop harness sync miss (ran to completion, kept as 4th repeat)",
+  "ep-20261105-090854-1a89df: handoff refused after the re-seat carried the bowl away"
+ ],
+ "tests": {
+  "suite": "pytest tests -q",
+  "passed": 224,
+  "new": [
+   "tests/test_independent_reseat.py (15 cases)"
+  ]
+ },
+ "artifacts": [
+  {
+   "path": "config/rounds_fixturefix_repeat_20261105.json",
+   "role": "closed-loop repeat manifest",
+   "bytes": 2949,
+   "sha256": "50aa4cca3ef324d3e4a625bee57cd7649f40944cb2f0df7aa01404941f11da32"
+  },
+  {
+   "path": "config/rounds_reseat_probe_20261105.json",
+   "role": "re-seat capability probe manifest",
+   "bytes": 1168,
+   "sha256": "6f085ce03685068783f54a8eb334484a0d33d2e8041ceadd513da205204366cc"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105.json",
+   "role": "initialisation probe (3 seeds x seeding x processes)",
+   "bytes": 82022,
+   "sha256": "ba63f4b759c4c132b429f4244a1ad810c8a8778ad2d494b739a63d19b5c77468"
+  },
+  {
+   "path": "records/acceptance/seed_divergence_20261105.json",
+   "role": "pre-fix divergence report (baseline round)",
+   "bytes": 9794,
+   "sha256": "04f5f76c684e23a6b96351a650a96868a25bc355beebd813cf7bad8951200221"
+  },
+  {
+   "path": "records/acceptance/seed_divergence_fixturefix_20261105.json",
+   "role": "post-fix divergence report",
+   "bytes": 9272,
+   "sha256": "10f55cd358f2b6d9be214a47ee7810800043d1b702b32d70d849a0016be0fdfb"
+  },
+  {
+   "path": "records/acceptance/fixturefix_repeat_20261105.json",
+   "role": "closed-loop repeat summary",
+   "bytes": 30860,
+   "sha256": "a8ad6b3540f430c8749467331222dbd6aaaa660e12b2e39eb2cc25454fa7c276"
+  },
+  {
+   "path": "records/acceptance/fixturefix_repeat_20261105.log",
+   "role": "closed-loop repeat stdout",
+   "bytes": 1121,
+   "sha256": "5b04aaa587b016a442814b24735ffdeb1cdf984e7deb86618ebea2aee2a33b77"
+  },
+  {
+   "path": "records/acceptance/asset_geometry_20261105.json",
+   "role": "asset geometry audit",
+   "bytes": 3714,
+   "sha256": "8e7b8384e08f6225a80b5127cc0ca5962727c30af6790cfd5a9b4f2bed3a6fd6"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105.json",
+   "role": "re-seat probe summary",
+   "bytes": 12621,
+   "sha256": "53c8d39b0d95d8ebe8b690d4a5851b0722cb5c2437c38ff9a2a75d8df2832bb6"
+  },
+  {
+   "path": "records/acceptance/reseat_stop_20261105.json",
+   "role": "re-seat stop case #1",
+   "bytes": 2119,
+   "sha256": "3c7e7bcc30a47071d48ee17a910d3dd8274cb648146ccbc2425565ad2f74f08c"
+  },
+  {
+   "path": "records/acceptance/composite_stop_reseat_20261105.json",
+   "role": "re-seat stop case #2",
+   "bytes": 2119,
+   "sha256": "c3c14659b56bd80be19669e575fcd05501f02246cc86cb87df13ea94f211bf6e"
+  },
+  {
+   "path": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084216-b999ea.json",
+   "role": "closed-loop repeat episode record",
+   "bytes": 384188,
+   "sha256": "1300a78f0ea05054877c20c8d375b2e9f75c73e5665a4ba214bc6e221a623d8c"
+  },
+  {
+   "path": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084238-c783ed.json",
+   "role": "closed-loop repeat episode record",
+   "bytes": 384305,
+   "sha256": "34e931aba9b7597289ad68626d16322bc1992bfef9a29fe0187ec2abd167b158"
+  },
+  {
+   "path": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084313-7e778b.json",
+   "role": "closed-loop repeat episode record",
+   "bytes": 368188,
+   "sha256": "939806ad5c0b7afec2ffc6129088f2586db63fc478643ea2e7e07aeed7199843"
+  },
+  {
+   "path": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084334-c9347b.json",
+   "role": "closed-loop repeat episode record",
+   "bytes": 368323,
+   "sha256": "a9fc3b4f44d9027954b3081d8165e0680390aa0aba62cd614e244eb63b8c8002"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_runs/ep-20261105-085322-450317.json",
+   "role": "re-seat probe episode record (incl. early defect rounds)",
+   "bytes": 1285424,
+   "sha256": "8d161519135ff030133e389cbf9441585d50ffcadfaad1c38b12ae917500e126"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_runs/ep-20261105-085544-71541a.json",
+   "role": "re-seat probe episode record (incl. early defect rounds)",
+   "bytes": 349559,
+   "sha256": "43c9c07eb253d3fad5e902fed9dd080c2d459373c5c09558f762835c2acfa5fd"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_runs/ep-20261105-085655-0ba6d1.json",
+   "role": "re-seat probe episode record (incl. early defect rounds)",
+   "bytes": 350308,
+   "sha256": "830c47bcec5f45a1b97d42de9f667ccff6870054cb9b199cdc2a264506b9d004"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_runs/ep-20261105-085835-54bdb2.json",
+   "role": "re-seat probe episode record (incl. early defect rounds)",
+   "bytes": 351150,
+   "sha256": "0ea011b0f36372068154c5416c60ed93080814dc9887fb92d653aba4cfc2287f"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_runs/ep-20261105-090008-62b68d.json",
+   "role": "re-seat probe episode record (incl. early defect rounds)",
+   "bytes": 351990,
+   "sha256": "44c07b22789dbf777cd1ca216cc064d3293a8070c58f6676eb03920659e1b286"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_runs/ep-20261105-090151-3b2a03.json",
+   "role": "re-seat probe episode record (incl. early defect rounds)",
+   "bytes": 1294511,
+   "sha256": "2f7a08cad802c63fc4ed894f7064648dba76cfbe8e69c264a7d84743c466e021"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_runs/ep-20261105-090401-9cff68.json",
+   "role": "re-seat probe episode record (incl. early defect rounds)",
+   "bytes": 1368683,
+   "sha256": "71a2fadbd9c3c88ff5e2547404dc4482f127b2292018366b08b7eec2ae9cf565"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_runs/ep-20261105-090635-381c66.json",
+   "role": "re-seat probe episode record (incl. early defect rounds)",
+   "bytes": 1379717,
+   "sha256": "307ecb27a1c16bc7c764965893b33fff8807f26161301eed7cdd8027ff9d2b1d"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_runs/ep-20261105-091731-c813c2.json",
+   "role": "re-seat probe episode record (incl. early defect rounds)",
+   "bytes": 1398136,
+   "sha256": "cac541d799063d9e7ecf200d84014f69d9a71189f0581b97c89dc94e7db677d1"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_repeats/ep-20261105-090635-381c66.json",
+   "role": "re-seat probe repeat / partial episode record",
+   "bytes": 1379717,
+   "sha256": "307ecb27a1c16bc7c764965893b33fff8807f26161301eed7cdd8027ff9d2b1d"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_repeats/ep-20261105-090854-1a89df.json",
+   "role": "re-seat probe repeat / partial episode record",
+   "bytes": 424844,
+   "sha256": "a0a18b91f72be77373f5eb0b75f57cd00d45aefbdbc7026401607c55db7b3655"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_repeats/ep-20261105-091731-c813c2.json",
+   "role": "re-seat probe repeat / partial episode record",
+   "bytes": 1398136,
+   "sha256": "cac541d799063d9e7ecf200d84014f69d9a71189f0581b97c89dc94e7db677d1"
+  },
+  {
+   "path": "records/acceptance/reseat_probe_20261105_repeats/ep-20261105-091931-d19f74.json",
+   "role": "re-seat probe repeat / partial episode record",
+   "bytes": 1398622,
+   "sha256": "c8ba1336917511199fbe1730230cb015059c8fb1284439251e92ea56ddf37813"
+  },
+  {
+   "path": "records/acceptance/reseat_stop_20261105_runs/ep-20261105-091345-b6094e.json",
+   "role": "re-seat stop episode record",
+   "bytes": 355439,
+   "sha256": "c6838ead625aa0027f0b23b53be8120509e838f888f079ba8e7d6739a99a476e"
+  },
+  {
+   "path": "records/acceptance/reseat_stop_20261105_runs/ep-20261105-093125-cf1d2b.json",
+   "role": "re-seat stop episode record",
+   "bytes": 355661,
+   "sha256": "8edccea258413eb438c37fad8c810b38f0edbbac77b26442244779ef00257ffb"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed0_seeding0_p1.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "76393728196f615f762b30aa0bcf5750cf4a1988ce21334c07dc7ffd38fb072c"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed0_seeding0_p2.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "2bc93c771c1f541d80616bdf2e54f550496bb7012ba4d844f7aae4ecd26eb798"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed0_seeding1_p1.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "ee274f43053ae7ffe0c08f33e22b21ede13414c659e6f70260463d38c88066d1"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed0_seeding1_p2.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "7e3fe8a4de218e91cac84d4776816ec497e94a9a8f1f9022754d349ef70094be"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed1_seeding0_p1.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "5b2be6036d5046213e491d0271e57a9896edb0a0a671ed9bba3f129ed3232fee"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed1_seeding0_p2.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "31a83369bd562e6ef625267b62d32d379f31abcb98f5597f5599f114e4589ab5"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed1_seeding1_p1.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "17b77d614eb3110e01430cef599c9854fb657afeaa11c0243ed346efcd5569a7"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed1_seeding1_p2.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "8a5e9681506fcfacda65230eaf7afcc5e45b398cfb1ae5a33615b0accb5a9b32"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed2_seeding0_p1.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "039ea0a7d307d5829d16183cefbe33eca0ebb7c14827666e465d014c1dabc064"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed2_seeding0_p2.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "a27e62de86c036dbbe9a4d35cdf6d2ec93f761b6c51959f69db2f46043c3cc24"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed2_seeding1_p1.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "2567fe83c21d1a9c7156b4fa924d9b7c991344cc0765170c62f42f20ae0ce063"
+  },
+  {
+   "path": "records/acceptance/scene_init_probe_20261105_logs/env_task7_seed2_seeding1_p2.log",
+   "role": "env-server log of an initialisation probe process",
+   "bytes": 3008,
+   "sha256": "ae91add922bc5349783a09819e5c69bf1e565f5a9ac63721c97a25dbd999a651"
+  },
+  {
+   "path": "adapters/libero_env_server.py",
+   "role": "code: placement seed flag -> LIBERO_PLACEMENT_SEED",
+   "bytes": 2972,
+   "sha256": "a761c93ae70bc5b5c0752f43a1c3b3f8a0f368d32b2af4bb1cb3094af09d1249"
+  },
+  {
+   "path": "adapters/env_runtime/episode_service.py",
+   "role": "code: placement sampler re-seeding + env.init_state",
+   "bytes": 76403,
+   "sha256": "297c2164433e8f5611056a17fdd8d25265f340743e15be8b963a3d7550ef3b0c"
+  },
+  {
+   "path": "adapters/env_client.py",
+   "role": "code: init_state RPC",
+   "bytes": 3806,
+   "sha256": "3c7fd45439b295c73232f8b55d0db125959eee28fdc67414a2358a0070bb9765"
+  },
+  {
+   "path": "engine/engine_service.py",
+   "role": "code: initial_init_state, independent re-seat, stop propagation",
+   "bytes": 236426,
+   "sha256": "986448828d23ebd7eaf025d8e8541b6dcc4b82958c0ecdc2a8814c0bac1134af"
+  },
+  {
+   "path": "common/independent_reseat.py",
+   "role": "code: stage machine, default off",
+   "bytes": 25227,
+   "sha256": "8e371d2b102c8b936e9741240daa71d817a8175831228077f8011d14f0d61a51"
+  },
+  {
+   "path": "config/engine.json",
+   "role": "code: composite.independent_reseat (enabled=false)",
+   "bytes": 8191,
+   "sha256": "81b17b83465e1a0022fd1834f56b7a697aa4dd79432b7ece7efb2210adbfb326"
+  },
+  {
+   "path": "scripts/scene_init_probe.py",
+   "role": "code: initialisation probe",
+   "bytes": 17539,
+   "sha256": "870479ff8a6afdae7ecccefff64b6a844b816e3e68992c04dde8531522ae6b4a"
+  },
+  {
+   "path": "scripts/asset_geometry_audit.py",
+   "role": "code: asset geometry audit",
+   "bytes": 10822,
+   "sha256": "1345214b08f5a71593b16b0e3eef7668e43181cef9a4a7f24a3171e1751f0ee1"
+  },
+  {
+   "path": "scripts/seed_divergence_report.py",
+   "role": "code: init_* comparison stages",
+   "bytes": 10817,
+   "sha256": "f36ab21c5fe641077f05ecdb0f22406b96608b4dad0f47bf4e2a7163e195122c"
+  },
+  {
+   "path": "scripts/composite_stop_tests.py",
+   "role": "code: re-seat stop case + --journal",
+   "bytes": 33469,
+   "sha256": "041e03f02f179ec493aa7474485e338e3632b424e8d5425e0f0665805cc6341e"
+  },
+  {
+   "path": "scripts/run_rounds.py",
+   "role": "code: independent_reseat summary column",
+   "bytes": 24976,
+   "sha256": "631b9db8c44f1d58ed6780fad2136fddef26d6587d5345d5305f8fbd474889fa"
+  },
+  {
+   "path": "scripts/build_acceptance_manifest_scene_init.py",
+   "role": "code: this manifest generator",
+   "bytes": 21243,
+   "sha256": "ebe14d650856897fabdf3bd392152bedb8bd8c0609dbcd3862c4f6fe6bf8ef3a"
+  },
+  {
+   "path": "tests/test_independent_reseat.py",
+   "role": "code: 15 unit tests",
+   "bytes": 10159,
+   "sha256": "5e53fccd876a7de9b19776c2e5077df84d9f4bdd985c1438db8a0243d05f2874"
+  },
+  {
+   "path": "docs/architecture.md",
+   "role": "code: section 14",
+   "bytes": 99349,
+   "sha256": "6866f9b89423f0b52cbf5bf2745d8a6b123c2ee6ffd27b9079e175b0624415d1"
+  },
+  {
+   "path": "docs/acceptance_report.md",
+   "role": "code: section 37",
+   "bytes": 269359,
+   "sha256": "979ea6207b2e7d8c44d68b5f8aeb6051cca18fc2dcd0794a45985fa98b438390"
+  }
+ ]
+}

@@ -48,6 +48,15 @@ class EnvClient:
     def state_snapshot(self) -> dict[str, Any]:
         return self._rpc.call("env.state_snapshot", timeout_s=60)
 
+    def init_state(self) -> dict[str, Any]:
+        """Complete initial-state read from inside the env worker.
+
+        Fixture model poses, movable body poses, every joint's qpos/qvel, the
+        robot and its controller references, and the two raw camera hashes —
+        in the order an init comparison needs them. Read-only.
+        """
+        return self._rpc.call("env.init_state", timeout_s=60)
+
     def raw_obs(self) -> dict[str, Any]:
         return self._rpc.call("env.raw_obs", timeout_s=60)
 

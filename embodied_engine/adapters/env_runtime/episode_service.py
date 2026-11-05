@@ -14,11 +14,13 @@ import hashlib
 import json
 import os
 import time
+import zlib
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 MODE_PATH = ROOT / "records" / "episode_mode.json"
+PLACEMENT_SEED_ENV = "LIBERO_PLACEMENT_SEED"
 
 
 def publish_mode(mode: str, task_scope: str = "official_single") -> None:
@@ -120,6 +122,8 @@ def install() -> None:
                 _wrap(facade)
         if module_name.endswith("envs.env_wrapper"):
             _attach_named_poses(module)
+        if module_name.endswith("envs.bddl_base_domain"):
+            _attach_placement_seed(module)
         return module
 
     def build(func, name, *bases, **kwargs):
@@ -128,6 +132,8 @@ def install() -> None:
             _wrap(cls)
         if name == "ControlEnv":
             _attach_named_poses_class(cls)
+        if name == "BDDLBaseDomain":
+            _attach_placement_seed_class(cls)
         return cls
 
     builtins.__import__ = hooked
@@ -177,6 +183,7 @@ def _wrap(cls) -> None:
         original_register(self)
         self._rpc["env.native_goal"] = self.native_goal_status
         self._rpc["env.named_poses"] = self.named_poses
+        self._rpc["env.init_state"] = self.init_state
         self._rpc["env.state_snapshot"] = self.state_snapshot
         self._rpc["env.identity"] = self.identity
         self._rpc["env.robot_state_capture"] = self.robot_state_capture
@@ -184,6 +191,7 @@ def _wrap(cls) -> None:
         self._rpc["env.robot_state_inspect"] = self.robot_state_inspect
         self._readonly_methods.add("env.native_goal")
         self._readonly_methods.add("env.named_poses")
+        self._readonly_methods.add("env.init_state")
         self._readonly_methods.add("env.state_snapshot")
         self._readonly_methods.add("env.identity")
         self._readonly_methods.add("env.robot_state_capture")
@@ -191,6 +199,9 @@ def _wrap(cls) -> None:
 
     def named_poses(self):
         return _read_worker_poses(self)
+
+    def init_state(self):
+        return _read_worker_init_state(self)
 
     def identity(self):
         _ensure_identity(self)
@@ -203,6 +214,7 @@ def _wrap(cls) -> None:
             "code": "episode-service-state-2",
             "capabilities": [
                 "env.state_snapshot",
+                "env.init_state",
                 "env.robot_state_capture",
                 "env.robot_state_restore",
             ],
@@ -371,6 +383,7 @@ def _wrap(cls) -> None:
     cls.reset = reset
     cls.native_goal_status = native_goal_status
     cls.state_snapshot = state_snapshot
+    cls.init_state = init_state
     cls.identity = identity
     cls.robot_state_capture = robot_state_capture
     cls.robot_state_restore = robot_state_restore
@@ -386,10 +399,18 @@ def _attach_named_poses(module) -> None:
         _attach_named_poses_class(cls)
 
 
+def _attach_placement_seed(module) -> None:
+    """The sampler reset lives on ``BDDLBaseDomain``, not on the facade class."""
+    cls = module.__dict__.get("BDDLBaseDomain")
+    if isinstance(cls, type):
+        _attach_placement_seed_class(cls)
+
+
 def _attach_named_poses_class(cls) -> None:
     if not isinstance(cls, type):
         return
     _attach_robot_state_class(cls)
+    _attach_placement_seed_class(cls)
     if getattr(cls, "_sequential_named_poses", False):
         return
 
@@ -415,7 +436,340 @@ def _attach_named_poses_class(cls) -> None:
 
     cls.sequential_named_poses = property(sequential_named_poses)
     cls._sequential_named_poses = True
+    _attach_init_state_class(cls)
     _attach_robot_state_class(cls)
+
+
+def _attach_init_state_class(cls) -> None:
+    """Expose the complete initial state a reset produced, from inside the worker.
+
+    The init probe has to separate "the physics differs" from "only the pixels
+    differ", so this returns the arrays in a fixed order: model-written fixture
+    geometry, movable body poses, every joint's qpos/qvel, the robot's own
+    state, the controller's references, and finally the two raw camera hashes.
+    Read-only: nothing here calls ``env.step`` or writes the scene.
+    """
+    if not isinstance(cls, type) or getattr(cls, "_sequential_init_state", False):
+        return
+
+    def sequential_init_state(self):
+        try:
+            return _init_state_payload(self)
+        except Exception as exc:  # noqa: BLE001 - the worker loop would die
+            return {"schema": INIT_STATE_SCHEMA, "error": f"{type(exc).__name__}: {exc}"}
+
+    cls.sequential_init_state = property(sequential_init_state)
+    cls._sequential_init_state = True
+
+
+INIT_STATE_SCHEMA = "embodied_engine.env.init_state.v1"
+
+
+def _init_state_payload(env) -> dict[str, Any]:
+    import numpy as np
+
+    sim = env.sim
+    model = sim.model
+    data = sim.data
+    reading = _worker_reading(env, {})
+
+    bodies: dict[str, Any] = {}
+    try:
+        count = int(getattr(model, "nbody"))
+        for index in range(count):
+            name = ""
+            try:
+                name = str(model.body_id2name(index) or "")
+            except Exception:
+                names = getattr(model, "body_names", None)
+                if names is not None and index < len(list(names)):
+                    name = str(list(names)[index])
+            if not name:
+                continue
+            bodies[name] = {
+                # ``body_pos`` is what the placement sampler writes for
+                # fixtures; ``body_xpos`` is the resolved world pose.
+                "model_pos": [round(float(v), 6) for v in np.asarray(model.body_pos[index]).reshape(-1)[:3]],
+                "model_quat": [round(float(v), 6) for v in np.asarray(model.body_quat[index]).reshape(-1)[:4]],
+                "xpos": [round(float(v), 6) for v in np.asarray(data.body_xpos[index]).reshape(-1)[:3]],
+                "xquat": [round(float(v), 6) for v in np.asarray(data.body_xquat[index]).reshape(-1)[:4]],
+            }
+    except Exception as exc:  # noqa: BLE001
+        bodies = {"error": f"{type(exc).__name__}: {exc}"}
+
+    joints: dict[str, Any] = {}
+    try:
+        count = int(getattr(model, "njnt"))
+        qposadr = list(getattr(model, "jnt_qposadr"))
+        dofadr = list(getattr(model, "jnt_dofadr"))
+        nq = list(getattr(model, "jnt_type"))
+        for index in range(count):
+            name = ""
+            try:
+                name = str(model.joint_id2name(index) or "")
+            except Exception:
+                names = getattr(model, "joint_names", None)
+                if names is not None and index < len(list(names)):
+                    name = str(list(names)[index])
+            if not name:
+                continue
+            kind = int(nq[index])
+            qpos_len = 7 if kind == 0 else (4 if kind == 2 else 1)
+            qvel_len = 6 if kind == 0 else (3 if kind == 2 else 1)
+            q0 = int(qposadr[index])
+            v0 = int(dofadr[index])
+            joints[name] = {
+                "type": kind,
+                "qpos": [round(float(v), 6) for v in np.asarray(data.qpos[q0:q0 + qpos_len]).reshape(-1)],
+                "qvel": [round(float(v), 6) for v in np.asarray(data.qvel[v0:v0 + qvel_len]).reshape(-1)],
+            }
+    except Exception as exc:  # noqa: BLE001
+        joints = {"error": f"{type(exc).__name__}: {exc}"}
+
+    robot: dict[str, Any] = {}
+    try:
+        robots = list(getattr(env, "robots", []) or [])
+        if robots:
+            arm = robots[0]
+            controller_rows = []
+            for controller in list(getattr(arm, "controller", []) or []):
+                row: dict[str, Any] = {"name": type(controller).__name__}
+                for attr in (
+                    "goal_pos",
+                    "goal_ori",
+                    "ori_ref",
+                    "relative_ori",
+                    "scale",
+                    "kp",
+                    "damping_ratio",
+                    "input_min",
+                    "input_max",
+                ):
+                    value = getattr(controller, attr, None)
+                    if value is None:
+                        continue
+                    try:
+                        array = np.asarray(value, dtype=float).reshape(-1)
+                    except (TypeError, ValueError):
+                        continue
+                    if array.size and array.size <= 16:
+                        row[attr] = [round(float(v), 6) for v in array]
+                # The reference the OSC solve actually uses, when present.
+                interpolator = getattr(controller, "interpolator", None)
+                if interpolator is not None:
+                    for attr in ("goal_pos", "goal_ori", "current_pos", "current_ori"):
+                        value = getattr(interpolator, attr, None)
+                        if value is None:
+                            continue
+                        try:
+                            array = np.asarray(value, dtype=float).reshape(-1)
+                        except (TypeError, ValueError):
+                            continue
+                        if array.size and array.size <= 16:
+                            row[f"interpolator.{attr}"] = [round(float(v), 6) for v in array]
+                controller_rows.append(row)
+            robot = {
+                "eef_pos": reading["sim"].get("eef_pos"),
+                "eef_quat": reading["sim"].get("eef_quat"),
+                "gripper_opening_m": reading["sim"].get("gripper_opening_m"),
+                "controllers": controller_rows,
+                "joints": {
+                    str(name): value
+                    for name, value in joints.items()
+                    if isinstance(value, dict) and "robot0" in str(name)
+                },
+            }
+    except Exception as exc:  # noqa: BLE001
+        robot = {"error": f"{type(exc).__name__}: {exc}"}
+
+    images: dict[str, Any] = {}
+    try:
+        raw = {}
+        reader = getattr(env, "_get_observations", None)
+        if reader is None and getattr(env, "env", None) is not None:
+            reader = getattr(env.env, "_get_observations", None)
+        if callable(reader):
+            raw = reader(force_update=False) or {}
+        for key in ("agentview_image", "robot0_eye_in_hand_image"):
+            frame = raw.get(key) if isinstance(raw, dict) else None
+            if frame is None:
+                continue
+            array = np.ascontiguousarray(np.asarray(frame))
+            images[key] = {
+                "shape": list(array.shape),
+                "dtype": str(array.dtype),
+                "sha256": hashlib.sha256(array.tobytes()).hexdigest(),
+                "sum": int(array.sum()),
+            }
+    except Exception as exc:  # noqa: BLE001
+        images = {"error": f"{type(exc).__name__}: {exc}"}
+
+    return {
+        "schema": INIT_STATE_SCHEMA,
+        "bodies": bodies,
+        "movable": reading["sim"].get("objects") or {},
+        "joints": joints,
+        "robot": robot,
+        "images": images,
+        "placement": dict(getattr(env, "_sequential_placement_reseed", None) or getattr(getattr(env, "env", None), "_sequential_placement_reseed", {}) or {}),
+        "placement_seeding": placement_seeding(),
+        "evidence_source": "worker_mujoco_read",
+    }
+
+
+def _attach_placement_seed_class(cls) -> None:
+    """Give LIBERO's placement samplers a reproducible stream, before they draw.
+
+    Measured 2026-11-05: two resets with the same scene seed put every movable
+    ``*_pos`` object at a *bit identical* pose while the flat stove moved
+    12.4 mm, the cabinet 9.0 mm and the wine rack 6.1 mm. The cause is one
+    line: ``ObjectPositionSampler.__init__`` does ``rng = np.random.default_rng()``
+    when no rng is passed, so the samplers draw from OS entropy and
+    ``BDDLBaseDomain.seed`` (which only calls ``np.random.seed``) never
+    reaches them. Movable objects look stable only because
+    ``set_init_state`` afterwards overwrites their qpos from LIBERO's
+    ``init_files``; fixtures are written to ``sim.model.body_pos`` and are
+    *not* covered by that state, so they keep the sampled value.
+
+    Re-seeding at the start of every ``_reset_internal`` is what makes the
+    stream reproducible: the samplers are rebuilt from the same seed for each
+    reset instead of continuing an unseeded sequence. Nothing is written into
+    the scene outside the normal reset path, and the flag can be turned off
+    (``LIBERO_PLACEMENT_SEEDING=0``) for a control arm.
+    """
+    if not isinstance(cls, type) or getattr(cls, "_sequential_placement_seed", False):
+        return
+    original = getattr(cls, "_reset_internal", None)
+    if not callable(original):
+        return
+
+    def _reset_internal(self, *args, **kwargs):
+        _reseed_placement_samplers(self)
+        return original(self, *args, **kwargs)
+
+    cls._reset_internal = _reset_internal
+    cls._sequential_placement_seed = True
+
+
+def placement_seeding() -> dict[str, Any]:
+    raw = os.environ.get(PLACEMENT_SEED_ENV)
+    seed = None
+    if raw is not None:
+        try:
+            seed = int(raw)
+        except ValueError:
+            seed = None
+    return {
+        "enabled": seed is not None,
+        "seed": seed,
+        "source": "env var LIBERO_PLACEMENT_SEED set by the launcher from --seed"
+        if seed is not None
+        else "unset: samplers keep np.random.default_rng() (OS entropy)",
+        "applies_to": [
+            "placement_initializer",
+            "conditional_placement_initializer",
+            "conditional_placement_on_objects_initializer",
+        ],
+    }
+
+
+def _placement_seed_for(base: int, name: str) -> int:
+    text = str(name or "")
+    mixed = (int(base) * 0x9E3779B97F4A7C15 + (zlib.crc32(text.encode("utf-8")) & 0xFFFFFFFF)) & 0xFFFFFFFFFFFFFFFF
+    mixed = ((mixed ^ (mixed >> 30)) * 0xBF58476D1CE4E5B9) & 0xFFFFFFFFFFFFFFFF
+    mixed = ((mixed ^ (mixed >> 27)) * 0x94D049BB133111EB) & 0xFFFFFFFFFFFFFFFF
+    mixed ^= mixed >> 31
+    return int(mixed & 0x7FFFFFFFFFFFFFFF)
+
+
+def _walk_samplers(root) -> list[Any]:
+    found = []
+    stack = [root]
+    while stack:
+        item = stack.pop()
+        if item is None:
+            continue
+        # ``SequentialCompositeSampler`` keeps an OrderedDict under
+        # ``samplers``; a list check here silently skipped every sub-sampler
+        # and only seeded the composite, which draws nothing.
+        children = getattr(item, "samplers", None)
+        if isinstance(children, dict):
+            children = list(children.values())
+        if isinstance(children, (list, tuple)) and children:
+            stack.extend(children)
+            continue
+        found.append(item)
+    return found
+
+
+def _reseed_placement_samplers(env) -> list[dict[str, Any]]:
+    """Reset every placement sampler in this env to its seeded stream."""
+    setting = placement_seeding()
+    base = setting.get("seed")
+    if base is None:
+        env._sequential_placement_reseed = {"enabled": False, "samplers": []}
+        return []
+    import numpy as np
+
+    # LIBERO's own samplers (``libero.libero.envs.utils.MultiRegionRandomSampler``
+    # and ``regions/base_region_sampler.py``) override ``_sample_x/_sample_y``
+    # and draw from the *process-global* numpy stream. Giving them a private
+    # ``rng`` is not enough, so the global stream is rebuilt here as well, at
+    # the top of the reset, before anything reaches for a pose.
+    global_seed = _placement_seed_for(int(base), "__global_numpy__") & 0xFFFFFFFF
+    np.random.seed(global_seed)
+
+    rows: list[dict[str, Any]] = []
+    for attr in (
+        "placement_initializer",
+        "conditional_placement_initializer",
+        "conditional_placement_on_objects_initializer",
+    ):
+        root = getattr(env, attr, None)
+        if root is None:
+            continue
+        for sampler in _walk_samplers(root):
+            name = f"{attr}:{getattr(sampler, 'name', '?')}"
+            try:
+                seed = _placement_seed_for(int(base), name)
+                sampler.rng = np.random.default_rng(seed)
+            except Exception as exc:  # noqa: BLE001 - a missing rng must not break reset
+                rows.append({"name": name, "ok": False, "error": f"{type(exc).__name__}: {exc}"})
+                continue
+            rows.append(
+                {
+                    "name": name,
+                    "ok": True,
+                    "seed": seed,
+                    "class": type(sampler).__name__,
+                    # LIBERO's own samplers override `_sample_x/_sample_y` and
+                    # draw from the *global* numpy stream, not from ``rng``.
+                    "draws_global_numpy": type(sampler).__module__.startswith("libero"),
+                }
+            )
+    env._sequential_placement_reseed = {
+        "enabled": True,
+        "base_seed": int(base),
+        "global_numpy_seed": int(global_seed),
+        "samplers": rows,
+        "global_numpy_state": _numpy_state_digest(),
+    }
+    return rows
+
+
+def _numpy_state_digest() -> dict[str, Any]:
+    """Fingerprint of the process-global numpy stream at reset entry."""
+    try:
+        import numpy as np
+
+        state = np.random.get_state()
+        return {
+            "kind": str(state[0]),
+            "pos": int(state[2]),
+            "sha256_16": hashlib.sha256(np.asarray(state[1], dtype=np.uint32).tobytes()).hexdigest()[:16],
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"{type(exc).__name__}: {exc}"}
 
 
 def _attach_robot_state_class(cls) -> None:
@@ -643,6 +997,24 @@ def _read_worker_poses(facade) -> dict[str, Any]:
         return {"bodies": {}, "sites": {}, "error": f"named pose payload is {type(payload).__name__}"}
     payload.setdefault("bodies", {})
     payload.setdefault("sites", {})
+    return payload
+
+
+def _read_worker_init_state(facade) -> dict[str, Any]:
+    """Ask the worker for the complete init snapshot. No env.step, nothing written."""
+    try:
+        inner = getattr(facade, "_env", None)
+        vector = getattr(inner, "env", None)
+        workers = getattr(vector, "workers", None) or []
+        if not workers:
+            return {"schema": INIT_STATE_SCHEMA, "error": "init state worker missing"}
+        worker = workers[0]
+        worker.parent_remote.send(["getattr", "sequential_init_state"])
+        payload = worker.parent_remote.recv()
+    except Exception as exc:  # noqa: BLE001
+        return {"schema": INIT_STATE_SCHEMA, "error": f"{type(exc).__name__}: {exc}"}
+    if not isinstance(payload, dict):
+        return {"schema": INIT_STATE_SCHEMA, "error": f"init state payload is {type(payload).__name__}"}
     return payload
 
 

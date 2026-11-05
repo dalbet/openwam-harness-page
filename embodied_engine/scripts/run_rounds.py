@@ -332,6 +332,26 @@ def composite_row(record: dict[str, Any], spec: dict[str, Any], catalog: dict[st
         "restore_scene_check": handoff.get("scene_check"),
         "restore_eef_drift_m": (handoff.get("post_restore") or {}).get("eef_drift_m"),
         "action_accounting": composite.get("action_accounting"),
+        "independent_reseat": next(
+            (
+                {
+                    key: (row.get("independent_reseat") or {}).get(key)
+                    for key in (
+                        "status",
+                        "completed",
+                        "achieved",
+                        "missing",
+                        "policy_actions",
+                        "finalizer_actions",
+                        "stop_reason",
+                        "reason",
+                    )
+                }
+                for row in steps
+                if isinstance(row, dict) and row.get("independent_reseat")
+            ),
+            None,
+        ),
         "watch_events": [
             {"step_id": row.get("step_id"), "events": (row.get("watch_events") or [])[:3]}
             for row in steps

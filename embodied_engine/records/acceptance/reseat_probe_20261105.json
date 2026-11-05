@@ -1,0 +1,380 @@
+{
+  "meta": {
+    "schema": "embodied_engine.rounds.v1",
+    "started_at": "2026-11-05T09:17:15",
+    "manifest": "config/rounds_reseat_probe_20261105.json",
+    "manifest_sha256": "6f085ce03685068783f54a8eb334484a0d33d2e8041ceadd513da205204366cc",
+    "seed": 5,
+    "engine": "http://127.0.0.1:14823",
+    "agent_model": "Qwen3.5-9B",
+    "agent_mode": "semantic_router",
+    "action_model": "pi05_libero (official PyTorch conversion)",
+    "inference_mode": "sync",
+    "catalog": {
+      "schema": "embodied_engine.task_catalog.v2",
+      "version": "2026-10-27.1",
+      "sha256": "aa5bb0fd8dbbe1ff0313f9e478d2f35e334c2624fc6efece4b1e93c7dbc446ef",
+      "path": "/home/host/flashrt-exp/pi05_round/config_demo_b900/tasks.json",
+      "suite": "libero_goal",
+      "flows_version": "2026-11-05.1",
+      "flow_ids": [
+        "cream_cheese_heating_prep"
+      ],
+      "libero_repo": "https://github.com/RLinf/LIBERO.git",
+      "libero_commit": "a8323074d93a09e32bd898630a70531b1f51bc77",
+      "libero_package_path": "/home/host/page-dmh/openwam_harness/envs/rpent/lib/python3.10/site-packages/libero/libero",
+      "tasks_info_sha256": "547286ceb6485e85aa1472c03466a613573982d92284d792c1ab63524b479382"
+    },
+    "rounds_total": 1,
+    "retry_policy": "no round is ever retried or skipped",
+    "handoff_modes": [
+      "action_retreat"
+    ],
+    "policy_randomness": {
+      "inference_mode": "sync",
+      "denoise_steps": 10,
+      "execute_horizon": 32,
+      "action_horizon": 10,
+      "policy_seed": null,
+      "policy_seed_source": "unset",
+      "protocol": "legacy_prompt_index",
+      "scene_seed": 0,
+      "backend_supports_seed": true,
+      "seed_transport": "explicit initial-noise array in each /infer request",
+      "note": "no sampling seed: the backend's per-(prompt, chunk-index) noise stream is used, which is what every record before this round ran under (legacy protocol)"
+    },
+    "finished_at": "2026-11-05T09:18:47",
+    "summary": {
+      "rounds": 1,
+      "mapping_ok": 1,
+      "native_success": 1,
+      "user_goal_success": 1,
+      "failed": 0,
+      "stopped": 0
+    }
+  },
+  "rows": [
+    {
+      "kind": "composite",
+      "task_id": 7,
+      "load_task_id": 7,
+      "task_key": "put_cream_cheese_in_bowl,put_bowl_on_stove,turn_on_stove",
+      "lang": "en",
+      "user_instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": [
+        "put_cream_cheese_in_bowl",
+        "put_bowl_on_stove",
+        "turn_on_stove"
+      ],
+      "composite_keys": [
+        "put_cream_cheese_in_bowl",
+        "put_bowl_on_stove",
+        "turn_on_stove"
+      ],
+      "semantic_choice": {
+        "flow": "cream_cheese_heating_prep"
+      },
+      "router_status": "ok",
+      "router_reason_code": null,
+      "router_latency_s": 0.8016,
+      "router_ttft_s": null,
+      "router_completion_tokens": null,
+      "router_prompt_tokens": null,
+      "router_repairs": null,
+      "router_calls": 0,
+      "user_official_instructions": [
+        "put the cream cheese in the bowl",
+        "put the bowl on the stove",
+        "turn on the stove"
+      ],
+      "plan_step_prompts": [
+        "put the cream cheese in the bowl",
+        "put the bowl on the stove",
+        "turn on the stove"
+      ],
+      "mapping_ok": true,
+      "step_1_ok": true,
+      "step_1_final_ok": true,
+      "step_2_native": true,
+      "step_2_final_native": true,
+      "final_verification_read": true,
+      "native_goal_ever": true,
+      "step_1_goal_ever": true,
+      "scene_epoch_continuous": true,
+      "env_reset_between_steps": 0,
+      "env_reload_between_steps": 0,
+      "bddl_mutation": false,
+      "object_teleport": false,
+      "combo_verified": true,
+      "native_task_success": true,
+      "native_goal_final": true,
+      "user_goal_success": true,
+      "steps": [
+        {
+          "index": 1,
+          "step_id": "c1",
+          "task_id": 6,
+          "task_key": "put_cream_cheese_in_bowl",
+          "prompt": "put the cream cheese in the bowl",
+          "goal_kind": "relation",
+          "ok": true,
+          "ok_final": true,
+          "native_current": true,
+          "native_ever": false,
+          "sim_actions": 94,
+          "duration_s": 9.699,
+          "failure_code": null,
+          "release_state": "verified",
+          "release_source": "execution_finalizer",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:relation+release_height",
+            "predicate": "relation+release_height",
+            "target": "akita_black_bowl_1",
+            "qpos": null,
+            "threshold": null,
+            "relation": {
+              "ok": true,
+              "predicate": "bowl_interior",
+              "xy_m": 0.02,
+              "xy_limit_m": 0.025,
+              "object_bottom_z": 0.906,
+              "floor_z": 0.8911,
+              "rim_z": 0.9431,
+              "target_pose": [
+                -0.0898082549771117,
+                0.006193845751266736,
+                0.9031185416153715
+              ],
+              "evidence_source": "asset_geometry"
+            },
+            "height": {
+              "ready": true,
+              "kind": "interior_floor",
+              "object_bottom_z": 0.906,
+              "surface_z": 0.8911,
+              "delta_m": 0.0149
+            },
+            "object_pose": [
+              -0.06987560052412055,
+              0.00741483997537019,
+              0.9466053644763767
+            ],
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 95,
+            "confirm_samples": 2,
+            "sim_actions": 94,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "put the cream cheese in the bowl"
+          }
+        },
+        {
+          "index": 2,
+          "step_id": "c2",
+          "task_id": 1,
+          "task_key": "put_bowl_on_stove",
+          "prompt": "put the bowl on the stove",
+          "goal_kind": "relation",
+          "ok": true,
+          "ok_final": true,
+          "native_current": true,
+          "native_ever": false,
+          "sim_actions": 136,
+          "duration_s": 14.892,
+          "failure_code": null,
+          "release_state": "verified",
+          "release_source": "execution_finalizer",
+          "evidence": {
+            "ok": true,
+            "method": "engine_predicate:relation+release_height",
+            "predicate": "relation+release_height",
+            "target": "flat_stove_1_cook_region",
+            "qpos": null,
+            "threshold": null,
+            "relation": {
+              "ok": true,
+              "predicate": "SiteObject.under",
+              "delta_site": [
+                0.0322,
+                0.0001,
+                0.0451
+              ],
+              "inside_xy": true,
+              "supported": true,
+              "site_size": [
+                0.075,
+                0.075,
+                0.0025
+              ],
+              "target_pose": [
+                -0.26862998765981594,
+                0.2127755624405989,
+                0.905
+              ],
+              "evidence_source": "mujoco_site"
+            },
+            "height": {
+              "ready": true,
+              "kind": "site",
+              "object_bottom_z": 0.9381,
+              "surface_z": 0.9075,
+              "delta_m": 0.0306
+            },
+            "object_pose": [
+              -0.23645119379444773,
+              0.21291361209426315,
+              0.9500744647655789
+            ],
+            "native_goal": false,
+            "native_goal_note": "the loaded scene's flag; not this step's goal",
+            "samples": 137,
+            "confirm_samples": 2,
+            "sim_actions": 136,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "put the bowl on the stove"
+          }
+        },
+        {
+          "index": 3,
+          "step_id": "c3",
+          "task_id": 7,
+          "task_key": "turn_on_stove",
+          "prompt": "turn on the stove",
+          "goal_kind": "native_goal",
+          "ok": true,
+          "ok_final": true,
+          "native_current": true,
+          "native_ever": true,
+          "sim_actions": 83,
+          "duration_s": 8.918,
+          "failure_code": null,
+          "release_state": "not_applicable",
+          "release_source": "not_applicable",
+          "evidence": {
+            "ok": true,
+            "method": "native_libero_goal",
+            "native_goal": true,
+            "samples": 84,
+            "sim_actions": 83,
+            "limit": null,
+            "reason_code": null,
+            "prompt": "turn on the stove"
+          }
+        }
+      ],
+      "handoff_status": "ready",
+      "handoff_mode": "action_retreat",
+      "handoff_mode_requested": "action_retreat",
+      "handoff_mode_fallback": false,
+      "robot_state_restore": false,
+      "robot_teleport": false,
+      "physical_continuity": true,
+      "handoff_reason_code": null,
+      "handoff_reason": null,
+      "robot_state_capture": null,
+      "restore": null,
+      "restore_verification": null,
+      "restore_candidate": null,
+      "restore_gripper_contacts": null,
+      "restore_scene_check": null,
+      "restore_eef_drift_m": null,
+      "action_accounting": {
+        "policy_actions": 313,
+        "handoff_retreat_actions": 93,
+        "handoff_detach_actions": 0,
+        "handoff_settle_actions": 0,
+        "handoff_actions": 93,
+        "finalizer_actions": 42,
+        "repair_policy_actions": 0,
+        "repair_finalizer_actions": 0,
+        "reseat_policy_actions": 0,
+        "reseat_finalizer_actions": 0,
+        "sim_actions_total": 691
+      },
+      "independent_reseat": {
+        "status": "no_progress",
+        "completed": false,
+        "achieved": [],
+        "missing": [
+          "grasp",
+          "lift",
+          "carry",
+          "release",
+          "settle"
+        ],
+        "policy_actions": 240,
+        "finalizer_actions": 0,
+        "stop_reason": "action_budget_exhausted",
+        "reason": "policy produced no complete re-seat inside the budget (no_progress)"
+      },
+      "watch_events": [],
+      "watch_joints": [],
+      "handoff_s": 4.3324,
+      "handoff_retreat_actions": 57,
+      "handoff_retreat_reason": "home_reached",
+      "handoff_retreat_converged": true,
+      "handoff_buffer_reset": {
+        "requested": true,
+        "token": "inf-60337c08867e",
+        "reset_s": 0.0024,
+        "reason": "no step-1 action chunk may be consumed by step 2"
+      },
+      "handoff_scene_epoch_same": true,
+      "handoff_actions_total": 57,
+      "scene_epoch_start": 2,
+      "scene_epoch_end": 2,
+      "execution_status": "completed",
+      "failure_code": null,
+      "failure_reason": null,
+      "episode_sim_actions": 691,
+      "duration_s": 75.395,
+      "timing": {
+        "episode_init_s": 3.229,
+        "planner_s": 0.816,
+        "execution_s": 36.894,
+        "release_s": 0.006,
+        "verification_s": 0.266,
+        "inference_s_sum": 4.708,
+        "env_step_s_sum": 21.841,
+        "snapshot_s_sum": 3.005,
+        "observe_s_sum": 2.55,
+        "convert_s_sum": 0.023,
+        "frame_s_sum": 0.009,
+        "plan_to_first_action_s": 0.173,
+        "chunk_gap_s_sum": 0.0,
+        "chunk_decision_wait_s_sum": 0.0,
+        "prefetch_inference_overlap_s_est": 0.0,
+        "recovery_s": 0.0,
+        "handoff_s": 7.156,
+        "repair_s": 0.0,
+        "independent_reseat_s": 26.934,
+        "total_s_engine": 75.395,
+        "critical_path_note": "planner + skill wall time + final verification; inference and action execution overlap",
+        "record_assemble_s": 0.006
+      },
+      "recovery_count": 0,
+      "episode_id": "ep-20261105-091731-c813c2",
+      "scene_epoch": 2,
+      "seed": 5,
+      "record": "/home/host/flashrt-exp/pi05_round/records_ab_20261105/B/runs/ep-20261105-091731-c813c2.json",
+      "round": "reseat-probe-20261105-s5-ps202",
+      "policy_seed": 202,
+      "sampling_protocol": "policy_seed_v1",
+      "sampling": {
+        "policy_seed": 202,
+        "policy_seed_source": "request",
+        "scene_seed": 5,
+        "protocol": "policy_seed_v1",
+        "accelerators_changed": false
+      },
+      "handoff_mode_requested_by_runner": "action_retreat",
+      "handoff_mode_effective": "action_retreat",
+      "wall_s": 76.289,
+      "phase": "succeeded",
+      "archived_record": "/home/host/page-dmh/embodied_engine/records/acceptance/reseat_probe_20261105_runs/ep-20261105-091731-c813c2.json"
+    }
+  ]
+}

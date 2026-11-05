@@ -1,0 +1,332 @@
+{
+ "schema": "embodied_engine.seed_divergence.v1",
+ "note": "compares rounds from the inside out: scene init, static fixtures, the policy's own input hashes, the pinned noise, the first action, then the action stream. The first stage that differs is reported as first_divergence; later stages are consequences of it.",
+ "pairs": [
+  {
+   "label": "s5-ps202",
+   "a": {
+    "path": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084216-b999ea.json",
+    "episode_id": "ep-20261105-084216-b999ea",
+    "round": null
+   },
+   "b": {
+    "path": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084238-c783ed.json",
+    "episode_id": "ep-20261105-084238-c783ed",
+    "round": null
+   },
+   "sampling": {
+    "a": {
+     "scene_seed": 5,
+     "policy_seed": 202
+    },
+    "b": {
+     "scene_seed": 5,
+     "policy_seed": 202
+    }
+   },
+   "outcome": {
+    "a": {
+     "user_goal_success": false,
+     "failure_code": "composite_transport_not_ready"
+    },
+    "b": {
+     "user_goal_success": false,
+     "failure_code": "composite_transport_not_ready"
+    }
+   },
+   "first_step_actions": {
+    "a": 94,
+    "b": 94
+   },
+   "stages": [
+    {
+     "stage": "init_fixtures",
+     "same": true,
+     "a": "4757142c8d3ea268",
+     "b": "4757142c8d3ea268",
+     "what": "sim.model.body_pos/body_quat for every body (placement sampler output)",
+     "source": "env.init_state (worker: embodied_engine.env.init_state.v1)"
+    },
+    {
+     "stage": "init_movable",
+     "same": true,
+     "a": "0d869755462b374e",
+     "b": "0d869755462b374e",
+     "what": "movable objects: qpos-derived position + body xquat",
+     "source": "env.init_state (worker: embodied_engine.env.init_state.v1)"
+    },
+    {
+     "stage": "init_joints",
+     "same": true,
+     "a": "77b73e114730595b",
+     "b": "77b73e114730595b",
+     "what": "every joint's qpos and qvel",
+     "source": "env.init_state (worker: embodied_engine.env.init_state.v1)"
+    },
+    {
+     "stage": "init_robot",
+     "same": true,
+     "a": "b2cdd7e4f6eb8ab2",
+     "b": "b2cdd7e4f6eb8ab2",
+     "what": "eef pose, gripper opening, controller references, arm joints",
+     "source": "env.init_state (worker: embodied_engine.env.init_state.v1)"
+    },
+    {
+     "stage": "init_images",
+     "same": true,
+     "a": {
+      "agentview_image": "544b87c4c56dcdf56906582a62118c6a0fe9c5fd859ea018241d0dc4f3d4f8ad",
+      "robot0_eye_in_hand_image": "49e8693f6f6738944130eec6b17cf5ee5fd77b44bd6145eb9d999fc100742349"
+     },
+     "b": {
+      "agentview_image": "544b87c4c56dcdf56906582a62118c6a0fe9c5fd859ea018241d0dc4f3d4f8ad",
+      "robot0_eye_in_hand_image": "49e8693f6f6738944130eec6b17cf5ee5fd77b44bd6145eb9d999fc100742349"
+     },
+     "what": "sha256 of both raw camera frames, read in the same worker call as the physics",
+     "source": "env.init_state"
+    },
+    {
+     "stage": "scene_init_state",
+     "same": true,
+     "a": "cedd52548fc0601f",
+     "b": "cedd52548fc0601f",
+     "what": "movable objects + robot from the *_pos observables"
+    },
+    {
+     "stage": "static_fixtures",
+     "same": true,
+     "a": "ec09aa53c3ec70de",
+     "b": "ec09aa53c3ec70de",
+     "what": "flat stove, cabinet, wine rack: written by LIBERO's placement sampler, unseeded"
+    },
+    {
+     "stage": "policy_input_main_image",
+     "same": true,
+     "a": "e97a40011188ee4f",
+     "b": "e97a40011188ee4f",
+     "what": "the agentview frame the policy actually receives (rotated + resized)"
+    },
+    {
+     "stage": "policy_input_wrist_image",
+     "same": true,
+     "a": "ae64e2f8b9f6ae0e",
+     "b": "ae64e2f8b9f6ae0e",
+     "what": "the wrist frame the policy actually receives"
+    },
+    {
+     "stage": "policy_input_state",
+     "same": true,
+     "a": "3eb29f6e9d226d76",
+     "b": "3eb29f6e9d226d76",
+     "what": "the 10-D EEF proprio vector"
+    },
+    {
+     "stage": "sampling_noise",
+     "same": true,
+     "a": {
+      "seed": 2121488247,
+      "sha": "189f1553b53d27c0"
+     },
+     "b": {
+      "seed": 2121488247,
+      "sha": "189f1553b53d27c0"
+     },
+     "what": "the explicit initial diffusion noise sent with the request"
+    },
+    {
+     "stage": "first_action",
+     "same": true,
+     "a": [
+      0.536685,
+      0.382948,
+      -0.002184,
+      0.000265,
+      -0.010909,
+      -0.020126,
+      -0.997161
+     ],
+     "b": [
+      0.536685,
+      0.382948,
+      -0.002184,
+      0.000265,
+      -0.010909,
+      -0.020126,
+      -0.997161
+     ],
+     "what": "the first commanded 7-D action of the step"
+    }
+   ],
+   "first_divergence": null,
+   "first_action_difference": {
+    "chunk": null,
+    "action": null,
+    "reason": "the compared chunks are identical"
+   },
+   "reading": "every compared stage is identical; the difference, if any, is downstream of the first action"
+  },
+  {
+   "label": "s3-ps101",
+   "a": {
+    "path": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084313-7e778b.json",
+    "episode_id": "ep-20261105-084313-7e778b",
+    "round": null
+   },
+   "b": {
+    "path": "records/acceptance/fixturefix_repeat_20261105_runs/ep-20261105-084334-c9347b.json",
+    "episode_id": "ep-20261105-084334-c9347b",
+    "round": null
+   },
+   "sampling": {
+    "a": {
+     "scene_seed": 3,
+     "policy_seed": 101
+    },
+    "b": {
+     "scene_seed": 3,
+     "policy_seed": 101
+    }
+   },
+   "outcome": {
+    "a": {
+     "user_goal_success": false,
+     "failure_code": "composite_transport_not_ready"
+    },
+    "b": {
+     "user_goal_success": false,
+     "failure_code": "composite_transport_not_ready"
+    }
+   },
+   "first_step_actions": {
+    "a": 88,
+    "b": 88
+   },
+   "stages": [
+    {
+     "stage": "init_fixtures",
+     "same": true,
+     "a": "0b1adc09c7135c68",
+     "b": "0b1adc09c7135c68",
+     "what": "sim.model.body_pos/body_quat for every body (placement sampler output)",
+     "source": "env.init_state (worker: embodied_engine.env.init_state.v1)"
+    },
+    {
+     "stage": "init_movable",
+     "same": true,
+     "a": "21eda2ab65ec9278",
+     "b": "21eda2ab65ec9278",
+     "what": "movable objects: qpos-derived position + body xquat",
+     "source": "env.init_state (worker: embodied_engine.env.init_state.v1)"
+    },
+    {
+     "stage": "init_joints",
+     "same": true,
+     "a": "4583f304f9caa9ee",
+     "b": "4583f304f9caa9ee",
+     "what": "every joint's qpos and qvel",
+     "source": "env.init_state (worker: embodied_engine.env.init_state.v1)"
+    },
+    {
+     "stage": "init_robot",
+     "same": true,
+     "a": "227a9c116233173c",
+     "b": "227a9c116233173c",
+     "what": "eef pose, gripper opening, controller references, arm joints",
+     "source": "env.init_state (worker: embodied_engine.env.init_state.v1)"
+    },
+    {
+     "stage": "init_images",
+     "same": true,
+     "a": {
+      "agentview_image": "19d76cba6b8c425f3e00426932f11041379cab6bf75009f4a7b9cec3a422c0cf",
+      "robot0_eye_in_hand_image": "9c39df289b1b836268f77f47ffcd803417fd230c006bd4b7c4e6f67973ab3b3b"
+     },
+     "b": {
+      "agentview_image": "19d76cba6b8c425f3e00426932f11041379cab6bf75009f4a7b9cec3a422c0cf",
+      "robot0_eye_in_hand_image": "9c39df289b1b836268f77f47ffcd803417fd230c006bd4b7c4e6f67973ab3b3b"
+     },
+     "what": "sha256 of both raw camera frames, read in the same worker call as the physics",
+     "source": "env.init_state"
+    },
+    {
+     "stage": "scene_init_state",
+     "same": true,
+     "a": "4dcb769919279a46",
+     "b": "4dcb769919279a46",
+     "what": "movable objects + robot from the *_pos observables"
+    },
+    {
+     "stage": "static_fixtures",
+     "same": true,
+     "a": "2fc665393b7a84c2",
+     "b": "2fc665393b7a84c2",
+     "what": "flat stove, cabinet, wine rack: written by LIBERO's placement sampler, unseeded"
+    },
+    {
+     "stage": "policy_input_main_image",
+     "same": true,
+     "a": "7fa85ed87782e28c",
+     "b": "7fa85ed87782e28c",
+     "what": "the agentview frame the policy actually receives (rotated + resized)"
+    },
+    {
+     "stage": "policy_input_wrist_image",
+     "same": true,
+     "a": "7c7a1468ad64d9c6",
+     "b": "7c7a1468ad64d9c6",
+     "what": "the wrist frame the policy actually receives"
+    },
+    {
+     "stage": "policy_input_state",
+     "same": true,
+     "a": "55a1d15d58e48b88",
+     "b": "55a1d15d58e48b88",
+     "what": "the 10-D EEF proprio vector"
+    },
+    {
+     "stage": "sampling_noise",
+     "same": true,
+     "a": {
+      "seed": 2061631680,
+      "sha": "ce8808696325face"
+     },
+     "b": {
+      "seed": 2061631680,
+      "sha": "ce8808696325face"
+     },
+     "what": "the explicit initial diffusion noise sent with the request"
+    },
+    {
+     "stage": "first_action",
+     "same": true,
+     "a": [
+      0.424485,
+      0.409342,
+      0.041142,
+      0.000903,
+      -0.001446,
+      -0.004228,
+      -0.999868
+     ],
+     "b": [
+      0.424485,
+      0.409342,
+      0.041142,
+      0.000903,
+      -0.001446,
+      -0.004228,
+      -0.999868
+     ],
+     "what": "the first commanded 7-D action of the step"
+    }
+   ],
+   "first_divergence": null,
+   "first_action_difference": {
+    "chunk": null,
+    "action": null,
+    "reason": "the compared chunks are identical"
+   },
+   "reading": "every compared stage is identical; the difference, if any, is downstream of the first action"
+  }
+ ]
+}

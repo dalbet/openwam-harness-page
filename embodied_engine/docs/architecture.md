@@ -1180,3 +1180,164 @@ self.watch_goals = [ {step_id:"c1", object_n:"cream_cheese_1",
   同 init 同 seed 的两次闭环实测一次成功一次失败，报告里按事实写。
 - 生成服务的 `noise_used` 只回显前 4 个值，不是整张数组的证明；
   整张数组的证据是"同种子逐位相同 / 异种子动作不同"这一对对照。
+
+> 上面第一条"静态夹具没有种子"已在 §14 解决：`UniformRandomSampler` 的真实随机源
+> 是 `np.random.default_rng()`（OS 熵），不是 `BDDLBaseDomain.seed()` 的 `np.random.seed`。
+> 本节保留当时的结论与口径，不改写；修复方式、开关与实测见 §14。
+
+## 14. 场景初始化可复现与独立重新装料能力（2026-11-05）
+
+本轮只做两件事：把**场景初始化**变成逐位可复现的起点；把"奶酪已经在碗里"之后
+还能不能让策略自己重新抓起来放回去，做成一个**默认关闭、自带判据、不借用原完成谓词**
+的实验能力。权重、精度、加速、`num_steps=10`、`action_horizon=10`、`execute_horizon=5`、
+路由提示词、各类预算与传输就绪阈值全部未改。
+
+### 14.1 初始化为什么会变：`UniformRandomSampler` 的真实随机源
+
+LIBERO 的放置采样器有三层，随机性不在我们以为的那一层：
+
+| 位置 | 行为 | 后果 |
+| --- | --- | --- |
+| `libero/libero/envs/utils.py::ObjectPositionSampler.__init__` | 未传 `rng` 时执行 `self.rng = np.random.default_rng()` | 每个采样器持有一条**OS 熵**流，与 `np.random.seed()` 无关 |
+| `regions/base_region_sampler.py` / `MultiRegionRandomSampler` | 覆写 `_sample_x/_sample_y`，从**进程全局** `np.random` 抽样 | 只给采样器塞私有 `rng` 不够，全局流也必须重建 |
+| `BDDLBaseDomain.seed(seed)` | 只做 `np.random.seed(seed)`，不触碰已构造的采样器 | `scene seed` 从来没有到达采样器 |
+| `SequentialCompositeSampler.samplers` | 是 `OrderedDict`，不是 list | 遍历时按 list 判断会**跳过全部子采样器**，只播种一个不抽样的复合器 |
+
+reset 的顺序决定了"为什么只有静态夹具在变"：
+
+1. `_reset_internal()` → `sim.reset()`；
+2. `placement_initializer`（三个之一）抽样 → 写进 `sim.model.body_pos/body_quat`（**静态夹具**）；
+3. `set_init_state()` 从 LIBERO 的 `init_files` 覆盖可动对象 qpos；
+4. 机器人/控制器复位。
+
+可动对象在第 3 步被**逐位重写**，所以看起来"稳定"；静态夹具停在第 2 步的采样值上，
+于是每次重置都不同。这与实测完全吻合：`initial_state_fingerprint` 相同、
+`initial_fixture_fingerprint` 每次不同。
+
+### 14.2 修复：在 reset 路径里重建随机流（不是运行途中写位姿）
+
+- 种子来源：环境服务启动参数 `--seed` → `adapters/libero_env_server.py` 在
+  `robots.libero.env_server` 导入前写入 `LIBERO_PLACEMENT_SEED`。worker 进程由
+  robosuite 的向量环境 spawn，继承该环境变量。
+- 生效位置：`adapters/env_runtime/episode_service.py::_attach_placement_seed_class()`
+  包住 `_reset_internal`，**每次 reset 开头**做两件事：
+  1. `np.random.seed(splitmix64(base_seed, "__global_numpy__"))` — 重建全局流；
+  2. 对三个 initializer 下的每个叶子采样器 `sampler.rng = default_rng(splitmix64(base_seed, "attr:name"))`
+     — 每个采样器一条独立流（`_walk_samplers()` 显式处理 `OrderedDict`）。
+- 派生函数是纯整数的 splitmix64（`_placement_seed_for`），键是
+  `(scene_seed, sampler 名)`：不依赖 `hash()`、不依赖进程启动顺序、不依赖 wall clock。
+- 控制臂：`LIBERO_PLACEMENT_SEEDING=0` 时完全不播种（复现旧行为）；两种情形都在
+  `env.identity.placement_seeding` 里记账。
+- **没有**在任何采样之后写夹具位姿，也没有用"完整状态恢复"糊过去：整条路径仍然是
+  官方 reset；状态快照只用于读取与诊断，不参与验收。
+
+### 14.3 初始化检查面：先物理，再图像
+
+新增只读 RPC `env.init_state`（`embodied_engine.env.init_state.v1`），一次调用里
+按 reset 写入顺序读出四层物理量 + 两路原始图像：
+
+| 字段 | 内容 |
+| --- | --- |
+| `fixtures_sha256` | 全部 body 的 `model.body_pos/body_quat`（采样器输出），本轮 `fixture_count=40` |
+| `movable_sha256` | 可动对象：qpos 推出的位置 + body `xquat`（`movable_count=4`） |
+| `joints_sha256` | 每个关节的 `qpos` 与 `qvel`（`joint_count=17`） |
+| `robot_sha256` | eef 位姿、夹爪开度、控制器参考、手臂关节 |
+| `images` | `agentview_image` / `robot0_eye_in_hand_image` 的 sha256（256×256×3 原始帧） |
+| `policy_input` | 加载快照自带的观测哈希（主/腕）；快照未带时为 `null`，闭环里的策略输入哈希由首个 chunk 的 `obs` 单独记录 |
+| `placement_seeding` / `placement` | 本回合是否播种、基种子、全局 numpy 种子、被播种的采样器清单 |
+
+比较顺序固定为 `fixtures → movable → joints → robot → images`：**先物理后像素**。
+图像不同时，`render_determinism_probe` 与 `policy_obs_determinism_probe` 已经分别证明
+"同状态两次渲染逐位相同、相机与灯光不随机"，所以图像差异只能来自上游物理差异，
+排查顺序不需要再猜。
+
+回合记录新增 `initial_init_state`（整块）与 `initial_fixture_fingerprint`；
+`scripts/seed_divergence_report.py` 的对照链也扩展到这些 `init_*` 级，
+`first_divergence` 因此可以落在 `init_fixtures` 这一级，而不是只报到像素。
+
+### 14.4 独立重新装料：与原放置谓词的关系
+
+原来的 `put_cream_cheese_in_bowl` 完成谓词是官方 `In`（奶酪在碗内 + 已释放）。
+"奶酪已经在碗里但要重新装料"这个状态的**谓词已经成立**，所以：
+
+- 重跑同一个目录能力，提问的答案已知（§13.6 已把它写成前置拒绝）；
+- 纠偏必须是一个**不同能力**：`re-grasp → lift clear of the rim → carry → release → settle`。
+
+`common/independent_reseat.py` 只把原谓词当**前置条件**（`trigger`）：
+
+| 条件 | 判据 | 用途 |
+| --- | --- | --- |
+| `relation_ok` | 官方 `bowl_interior` 关系成立 | 说明确实有"已放入"的对象可重抓 |
+| `bottom_above_floor` | `bottom_z >= floor_z - 0.002` | 对象不在碗底以下 |
+| `xy_within_opening` | `xy_m <= 0.03` | 对象还在碗口范围内 |
+
+三者任一不成立 → `status="unsupported"`，**0 动作**，并且不改动回合结局。
+
+### 14.5 阶段判据（候选值，本轮冻结）
+
+| 阶段 | 判据 | 数值来源 |
+| --- | --- | --- |
+| `grasp` | 夹爪开度 ≤ 0.05 m 且 eef 到对象 ≤ 0.06 m 且夹爪接触列表非空 | 与既有 skill runner 的"已闭合"口径一致 |
+| `lift` | 对象底部相对本次起点上升 ≥ `(rim_z - bottom0) + 0.02` | 碗沿高度取自资产 `rim_z`，2 cm 是"明确离沿"的候选值 |
+| `carry` | 抬离状态下水平位移 ≥ 0.01 m | 碗口约 5 cm 宽，1 cm 不算抖动 |
+| `release` | 手指张开 ≥ 0.04 m 且接触不再指向对象，连续 2 个样本，且**松手起点**在碗上方（`xy ≤ 0.02`）且不低于碗沿 2 cm | 用"起点"而不是"确认完成时"，避免边落边判 |
+| `settle` | 松手后 3 个样本：关系成立、`seat ∈ [0.006, 0.029]`、`xy ≤ 0.015`、相对漂移 ≤ 0.002、不接触手指 | `[0.006,0.029]` 是候选窗：括住历史"真的搬起来过"的 seat 分布 0.0102–0.0263，上界对齐就绪检查的 0.029 |
+
+这些数值在跑之前就写进代码并冻结，验收后未按结果回调。资产几何核对（§37.5）说明：
+它们是**候选条件**，不是任何已证实的成功率预测。
+
+### 14.6 执行层的职责边界
+
+`engine/engine_service.py::_independent_reseat()` 只做四件事：发请求、按 `execute_horizon`
+执行策略动作、每步读一次测量、按预算/超时/stop 收尾。它**不**写抓取轨迹、
+**不**传送物体、**不**替策略张手或合手：
+
+- 动作全部来自策略：`policy_actions > 0`，`finalizer_actions` 恒为 0，
+  `completion_source="policy_actions_only"`；
+- 独立噪声坐标 `step_ref="rr"`：纠偏 chunk 不会复用该 step 自己的 `"c1"` 噪声流，
+  记录里 `noise[]` 每 chunk 都有 `noise_seed / noise_sha256 / seed_applied`；
+- 独立预算：`chunk_budget=48`、`max_actions=240`、`timeout_s=180`，与 step 预算分开计时
+  （`timing.independent_reseat_s`）；
+- 只对白名单 step（`step_task_keys=["put_cream_cheese_in_bowl"]`）且
+  `composite.candidate_step(step)` 为真时触发，`put_bowl_on_stove` 这类"容器进区域"不会被误纠偏；
+- `on_result="report"`（默认）只记录结论，不改回合结局；`on_result="stop"` 让
+  `independent_reseat_not_completed` 结束回合，供生命周期测试用。
+
+### 14.7 结论分级：不把 finalizer 的张手当成功
+
+| `status` | 条件 | 含义 |
+| --- | --- | --- |
+| `unsupported` | 前置条件不成立，或后端不是 pi05，或该 step 没有对象/容器绑定 | 这个能力在此状态下**无法表达** |
+| `no_progress` | 有动作、但一个阶段都没到 | 策略没有产生有效动作 |
+| `partial` | 到过部分阶段但没到 `settle` | 只写到阶段名，不写"成功" |
+| `completed` | `settle` 成立 | 唯一可称完成的判定 |
+| `stopped` / `failed` | 用户 stop / 推理或动作形状错误 | 单独记账，不进分母 |
+
+`release` 只看"策略自己张手"，`settle` 只看"松手后稳定落在候选窗内"；
+执行层的收手动作不计入任何阶段，因此"finalizer 张爪"无法被记成重新装料完成。
+
+### 14.8 生命周期
+
+- 纠偏循环内每个动作前后都检查 `stop_event`；chunk 之间也检查。stop 后抛 `Stopped`，
+  回合记 `execution_status="stopped"`、`failure.code="user_stop"`，
+  `independent_reseat.status="stopped"`、`stop_reason="user_stop"`。
+- stop ack 之后共享的 cancel 屏障保证：`in_flight_actions → 0`、推理空闲、
+  chunk 缓冲清空；下一次 `/api/load` 从 `sim_action_count=0`、`scene_epoch=1` 开始。
+- 纠偏自己的 token 是 `reseat:<episode>:<step>`：`reset` 轮换后旧 token 的 chunk 进不了新回合。
+- stop 测试的同步点是 `composite_independent_reseat_chunk`（**在**该 chunk 动作执行之前发布），
+  因此停点落在纠偏动作中间，而不是事后。
+
+### 14.9 已知限制（本轮实测暴露，未在验收后修补）
+
+1. **容器位移盲点**：`lift/carry` 只读对象底部与本次起点的相对上升，`rim_z` 是容器
+   **当前**位姿算出来的。如果策略把碗一起抬起来，对象与碗同步上升，`above_rim` 仍是负值，
+   `rise` 却很大 → `lift/carry` 会被点亮。本轮唯一 `partial` 回合正是这种情况（§37.7）。
+   下一轮应加"容器位移 ≤ 5 mm 否则判 `invalid_geometry`"，但**不在本轮**按结果改判据。
+2. **`grasp` 依赖夹爪接触列表**：`gripper_vs_nonrobot` 在多次读到空列表，
+   于是"夹爪闭合 + 贴近对象"也不会点亮 `grasp`；判据需要换成"对象是否随 eef 移动"的物理证据。
+3. **资产几何不匹配**：奶油奶酪碰撞包围体半径 0.04587 m，而碗内壁半径只有 0.02484 m，
+   碗口内圈 0.04139 m。也就是说"在碗里"在几何上只能是**搭在碗口**，不是落进内腔；
+   `seat` 从碗外底算起（0.8864 + 0.011 = 0.8974），低于内底 0.01649 仍然是"负座深"。
+   这条属于资产/任务设定本身，不是本轮能改的，报告里按事实写。
+4. **A/B 未运行**：按"只有出现实际重新抓取和重新放置后才做效果对照"的门控，
+   本轮没有可对照的纠偏样本，两臂都没有跑（A 臂记录目录为空）。

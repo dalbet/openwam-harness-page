@@ -3447,3 +3447,307 @@ init 3/4/5 **未被用于任何调参**：2026-11-04 的交付回合用的是 0/
   `scripts/seed_divergence_report.py --pair <a> <b>`、
   `scripts/run_rounds.py --manifest config/rounds_seed_matrix_20261105.json`、
   `scripts/run_flow_cases.py --cases config/flow_routing_boundary_20261105.json`。
+
+## 37. Pi0.5 家务组合：场景初始化可复现与独立重新装料能力（2026-11-05，真实执行）
+
+本轮基于已交付提交 `4a5f975`，目标只有两条：**先建立完整场景的受控复现**，
+再**验证策略是否具备真正的重新装料能力**。没有换模型、没有训练、没有改路由提示词。
+权重、精度、加速路径、`num_steps=10`、`action_horizon=10`、`execute_horizon=5`、
+传输就绪阈值、组合预算全部不变（§37.1）。
+
+### 37.1 不变量与实验配置
+
+| 项 | 值 | 核对方式 |
+| --- | --- | --- |
+| 基线提交 | `4a5f975`（`git rev-parse HEAD`，与标签 `backup/pi05-reproducible-baseline-20261105-4a5f975` 同一 commit） | 提交前 |
+| 基线源码包 | `embodied_engine-src-4a5f975.tar.gz`，SHA256 `258d2ff1e75bd7dd9fae9f63147251e418be1618a69278b39de576334b16e474` | 与 `SHA256SUMS` 一致 |
+| 功能分支 | `feature/pi05-scene-init-and-reseat-capability` | 从 `4a5f975` 新建，旧标签未动 |
+| 推理后端 | `pi05_libero (official PyTorch conversion)`，eager，无 CUDA Graph | `/health` identity |
+| 采样 | `num_steps=10`、`action_horizon=10`、`execute_horizon=5` | 未改 |
+| 实验两臂 | `config_abA_20261105`（`independent_reseat.enabled=false`）与 `config_abB_20261105`（`true`） | 两臂除端口与该开关外逐字段相同（§37.10） |
+| 闭环复现回合 | 运行在 `config_demo_b900_forced`（`max_seat_delta_m=0.005`，`perched_is_warning=false`），目的是让"运输就绪分支"必然触发，便于逐级比较 | 记录里的 `transport_ready.thresholds` 与之一致 |
+| 纠偏探针 | 运行在 `config_abB_20261105` | 记录里 `independent_reseat.enabled=true` |
+
+### 37.2 初始化为什么会变：`UniformRandomSampler` 的真实随机源
+
+结论写在 `docs/architecture.md` §14.1–14.2，这里只列**实测依据**：
+
+| 事实 | 证据 |
+| --- | --- |
+| 同 `scene seed` 两次重置，可动对象逐位相同、静态夹具不同 | `initial_state_fingerprint` 相同（如 `cedd52548fc0601f`），`initial_fixture_fingerprint` 不同（`4ee08f1869eaeadd` vs `453f4c2f406f0397`，§36.6） |
+| 第一个不同的字段是**夹具 body 位姿**，不是可动对象 | `scene_init_probe` 的 `first_difference` 恒为 `.flat_stove_1_main.model_pos[0]`（§37.3） |
+| 采样器不读 `np.random.seed` | `libero/libero/envs/utils.py::ObjectPositionSampler.__init__` 里 `self.rng = np.random.default_rng()`（OS 熵）；`BDDLBaseDomain.seed()` 只调 `np.random.seed()` |
+| 只给采样器塞 `rng` 不够 | `MultiRegionRandomSampler` 覆写 `_sample_x/_sample_y`，从**进程全局** `np.random` 抽样 |
+| 遍历时容易漏掉子采样器 | `SequentialCompositeSampler.samplers` 是 `OrderedDict`，按 list 判断会跳过全部子采样器（本轮修复了这个坑，`_walk_samplers()` 显式处理） |
+| 图像差异是物理差异的**后果** | 同状态两次渲染逐位相同（`render_determinism_probe`、`policy_obs_determinism_probe`），所以 `init_images` 只在物理相同时才有资格"相同" |
+
+修复方式：`--seed` → 环境服务写入 `LIBERO_PLACEMENT_SEED` → 每次 `_reset_internal`
+开头用 splitmix64(base_seed, 名字) 重建每个采样器的 `rng`，同时重建全局 numpy 流。
+**没有**在采样之后写夹具位姿，**没有**用状态快照恢复冒充正常初始化；
+`LIBERO_PLACEMENT_SEEDING=0` 保留旧行为做控制臂，两种情形都写进
+`env.identity.placement_seeding`。
+
+### 37.3 初始化可复现：init 0/1/2 × 2 进程 × 2 次加载
+
+`scripts/scene_init_probe.py` → `records/acceptance/scene_init_probe_20261105.json`
+（6 行 = 3 个 init × 播种/未播种；每行含 `in_process` 与 `cross_process` 两个对照，
+各自比较 `fixtures → movable → joints → robot → images`）：
+
+| init | 播种 | in_process 首个分歧 | cross_process 首个分歧 | 物理 | 图像 |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 关 | `fixtures`（炉灶 x −0.409414 vs −0.404865，+4.549 mm） | `fixtures`（−0.409414 vs −0.416067，6.653 mm） | 不同 | 不同 |
+| 1 | 关 | `fixtures`（−0.414479 vs −0.411242，3.237 mm） | `fixtures`（−0.414479 vs −0.400211，14.268 mm） | 不同 | 不同 |
+| 2 | 关 | `fixtures`（−0.408161 vs −0.418226，10.065 mm） | `fixtures`（−0.408161 vs −0.400568，7.593 mm） | 不同 | 不同 |
+| 0 | 开 | **无**（夹具 `8b6c94808a788176`，图像 `51687f2a…`） | **无** | 相同 | 相同 |
+| 1 | 开 | **无** | **无** | 相同 | 相同 |
+| 2 | 开 | **无** | **无** | 相同 | 相同 |
+
+也就是说：**未播种时 6/6 对照在物理层就分叉，播种后 6/6 逐位相同（含两路原始图像）**。
+`movable / joints / robot` 在两种情况下都相同，正好对应"第 3 步被 `init_files` 覆盖"这一机制，
+而不是"对象位置才是关键"。
+
+记录层：每回合新增 `initial_init_state`（`fixtures/movable/joints/robot/images` 五个哈希 +
+`placement_seeding` + `placement.global_numpy_seed` + 被播种采样器数，本轮 seed 5 为 9 个）
+与 `initial_fixture_fingerprint`；`seed_divergence_report.py` 的对照链扩展到
+`init_fixtures / init_movable / init_joints / init_robot / init_images`。
+
+### 37.4 闭环可复现：两对固定配置各重复一次
+
+`config/rounds_fixturefix_repeat_20261105.json` → 4 回合（顺序固定，一次跑完，不重试）：
+`records/acceptance/fixturefix_repeat_20261105.json` + `_runs/`（每回合整档）。
+
+| 回合 | scene / policy seed | 结束 | 动作数 | 夹具哈希 | 主相机哈希 |
+| --- | --- | --- | --- | --- | --- |
+| s5-ps202 #1 | 5 / 202 | `composite_transport_not_ready` | 115 | `ec09aa53c3ec70de` | `544b87c4…` |
+| s5-ps202 #2 | 5 / 202 | 同上（同一 sim action） | 115 | 同 | 同 |
+| s3-ps101 #1 | 3 / 101 | `composite_transport_not_ready` | 109 | `2fc665393b7a84c2` | `19d76cba…` |
+| s3-ps101 #2 | 3 / 101 | 同上（同一 sim action） | 109 | 同 | 同 |
+
+失败点相同、动作数相同、指纹相同：两对内部**逐位一致**。
+但要注意两点，不夸大：
+
+1. 播种改变了"这个 seed 对应哪个场景"（旧回合的夹具是 OS 随机），
+   所以本轮的 s5/ps202 已经不是 §36 里成功的那个物理场景，
+   结局从上一次的成功变成 `composite_transport_not_ready`。这是**新场景的新结果**，
+   不是重试，也不能拿来当成功率。
+2. 就绪检查在 `max_seat_delta_m=0.005` 的强制配置下判定 `perched_above_floor`：
+   s5 的 `seat_delta_m=0.0101`、`xy_m=0.0134`、`xy_margin_m=0.0116`、`rim_clearance_m=0.0419`；
+   s3 的 `seat_delta_m=0.0127`、`xy_m=0.0011`、`xy_margin_m=0.0239`、`rim_clearance_m=0.0393`。
+   两对都在同一个分支上停住，正是"同配置同轨迹"的体现。
+
+### 37.5 固定起点与噪声之后的首次分歧
+
+`scripts/seed_divergence_report.py` → `records/acceptance/seed_divergence_fixturefix_20261105.json`：
+
+| 阶段 | s5-ps202 | s3-ps101 |
+| --- | --- | --- |
+| `init_fixtures / movable / joints / robot` | 相同 | 相同 |
+| `init_images`（agentview / wrist） | 相同 | 相同 |
+| `static_fixtures` | 相同 `ec09aa53c3ec70de` | 相同 `2fc665393b7a84c2` |
+| `policy_input_main_image / wrist / state` | 相同 | 相同 |
+| `sampling_noise` | 相同（`noise_seed=2121488247`，`noise_sha256=189f1553b53d27c0…`） | 相同（`noise_seed=2061631680`，`noise_sha256=ce8808696325face…`） |
+| `first_action`（`action0_sha256`） | 相同 `c0d6b3912bc104c3` | 相同 `61f1c5cc01601b08` |
+| **`first_divergence`** | **`None`** | **`None`** |
+
+对照：修复**前**的同一份报告里，两对同配置回合的首个分歧都是 `static_fixtures`，
+随后 `policy_input_*` 与 `first_action` 跟着不同（`records/acceptance/seed_divergence_20261105.json`，
+§36.6）。因此"首次分歧在哪里"的答案是：
+
+- 修复前：**静态夹具的采样值**（不是扩散噪声；噪声在同一对里本来逐位相同）；
+- 修复后：**没有分歧**——两对重复从夹具到动作流全程逐位相同。
+
+### 37.6 先核实几何：seat / xy / 碗沿的定义与资产实际尺寸
+
+`scripts/asset_geometry_audit.py` → `records/acceptance/asset_geometry_20261105.json`
+（直接读安装目录里的 XML，不用任务配置里的常量）：
+
+| 量 | 值 | 来源 |
+| --- | --- | --- |
+| 碗碰撞体外底 / 内底 / 顶沿 | 0.00159 / 0.01649 / 0.05213 m | `akita_black_bowl.xml` 40 个 geom 的 z 分层 |
+| 碗 `top_site` | 0.04 m | 资产 site |
+| 碗内壁半径 / 内圈半径 / 最大半径 | 0.02484 / 0.04139 / 0.05395 m | 同上 |
+| 资产 `horizontal_radius_site` | 0.025 m | `In` 谓词用的就是这个约定值 |
+| 奶酪高度 / 最大半径 | 0.017872 / 0.04587 m | `cream_cheese.xml`（单 geom） |
+| 奶酪底偏移 | −0.008936 m | 同上 |
+
+据此把三个候选条件逐条对上：
+
+- **`seat`**：定义是 `object_bottom_z − floor_z`，而 `floor_z` 是碗**外底**
+  （`target_pos.z + (−0.012)`，实测 0.8864）。奶酪落内底时读数 0.02849，
+  所以 `[0.006, 0.029]` 的**下界比内底还低 0.0225 m**，它是"容差下限"，不是座位深度；
+  上界 0.029 与就绪检查的"perched"阈值同值。窗口括住历史"真的搬起来过"的 0.0102–0.0263。
+- **`xy`**：中心距。`0.015` 严格于官方 `In`（0.025）而宽松于"完全贴壁"
+  （内壁 0.02484，而奶酪自身半径 0.04587 → 与内壁的间隙是 **−0.02103 m**）。
+- **碗沿高度**：资产 `top_site=0.04` 但碰撞沿到 0.05213；"抬离 2 cm"指奶酪底部
+  达到 `rim + 0.02`，即相对碗原点 0.07213 m。
+
+同时必须记下一个**几何事实**：奶酪碰撞包围体半径 0.04587 m **大于**碗口内圈 0.04139 m，
+更大于内壁 0.02484 m。也就是说"奶酪在碗内"在这个资产组合里只能是**搭在碗口**
+（本轮 seat 读数 0.0101、`rim_clearance_m` 0.0419 正好对应），不可能是落进内腔。
+这不是本轮改得动的东西（属于资产/任务设定），但它决定了后面所有"座深"数字的解释方式。
+
+这些数值在跑纠偏之前就写进代码并冻结（`common/independent_reseat.py` 的 `DEFAULTS`），
+验收后没有按结果回调。报告口径是：**它们是候选条件，不是已证实的成功率预测**。
+
+### 37.7 独立重新装料：能力验证（不是效果对照）
+
+配置：`config_abB_20261105`（`enabled=true`，`step_task_keys=["put_cream_cheese_in_bowl"]`），
+提示词 `pick up the cream cheese and put it back in the bowl`，独立噪声坐标 `step_ref="rr"`，
+预算 48 chunk / 240 动作 / 180 s。起点是**连续回合里自然形成的**"第一步刚放完"的状态
+（`sim_action_count=115`、`relation_ok=true`、`seat=0.0101`、`xy=0.0134`），
+没有用快照配对拼一个假回合。
+
+**4 次同配置重复，逐位相同**（`records/acceptance/reseat_probe_20261105.json` +
+`_runs/ep-20261105-090401`、`090635`、`091731`、`091931`）：
+
+| 项 | 4 次共同值 |
+| --- | --- |
+| chunk 0 的 `action0_sha256` | `52d1d062d89b2430…` |
+| chunk 47 的 `action0_sha256` | `f19acb49c7463d96…` |
+| 噪声（48 个 chunk） | `noise_sha256` 首项 `f4fe049a3f9f8c4d…` 完全一致 |
+| 结果 | `status=no_progress`，`achieved=[]`，`missing=[grasp,lift,carry,release,settle]` |
+| 动作 | `policy_actions=240`、`finalizer_actions=0`、`stop_reason=action_budget_exhausted` |
+| 峰值 | `min_eef_object=0.0228 m`、`min_opening=0.0695 m`、`closed_samples=0`、`contact_samples=0`、`rise=0.0045 m`、`offset=0.0066 m` |
+| 终局 | `seat 0.0101→0.0108`、`xy 0.0134→0.0145`、奶酪只动了 2.12 mm，关系仍成立 |
+| 耗时 | 27.0 s（240 个策略动作，48 个 chunk） |
+
+判读：策略**靠近了**（最近 2.28 cm）但**从未合爪**（最小开度 6.95 cm > 5 cm 阈值），
+也从未满足 `grasp` 的接触条件。这不是"执行层没帮它"，因为它没有可帮的动作：
+`finalizer_actions=0`，所有 240 个动作都来自策略。
+在一整条连续任务里（该回合 3 步全通过、687 个 sim action、73.7 s、用户目标成立），
+纠偏只是**没有进展**，没有把任务弄坏——这一点与下面那个`partial` 回合形成对照。
+
+### 37.8 唯一一次 `partial`：抬起来的是碗，不是重新抓奶酪
+
+`_runs/…090854` 这个回合与前 4 次唯一的区别是**没有固定 `policy_seed`**
+（`sampling.policy_seed=null`，走 legacy 噪声流）。它的记录：
+
+- `status=partial`，`grasp=false`、`lift=true`（sim action 200）、`carry=true`，
+  `release/settle=false`；
+- 峰值 `rise=0.16 m`、`offset=0.13937 m`、`min_opening=0.0054 m`、`closed_samples=57`、
+  `contact_samples=0`、`min_eef_object=0.0156 m`；
+- 终局 `seat 0.0110→0.0137`、`object_moved=0.13726 m`、`relation_ok=false`；
+- 回合以 `composite_handoff_failed` / `step_1_unverified` 结束：**第一步谓词不再成立**，
+  交接被拒，第 2、3 步没有开始。
+
+关键判读在 `above_rim` 上：`lift` 那一帧 `rise=0.0706` 但 `above_rim=-0.0391`。
+用 `rim_z = bottom_z − above_rim` 反推，抬升帧的碗沿 = 0.9680 −(−0.0391)= 1.0071 m
+（比起点 0.9384 高 **+6.9 cm**），峰值帧 = 1.0574 −(−0.0322)= 1.0896 m（**+15.1 cm**）。
+即：**奶酪和碗是一起被抬起来的**，`lift/carry` 只是"对象相对本次起点上升/平移"的读数，
+分辨不了"抓住奶酪"和"连碗端走"。所以这个回合**不能**算作重新抓取/重新放置：
+`grasp` 判据（贴近 + 闭合 + 接触）没有成立，而 `release/settle` 也没有出现，
+最后把奶酪带离碗 13.7 cm。
+
+这也暴露了判据本身的缺陷（`docs/architecture.md` §14.9 已登记）：
+需要一个"容器位移 ≤ 5 mm"的守卫，否则容器被一起搬走时 `lift/carry` 会误判。
+**本轮没有按这个结果去改判据**，只如实记录。
+
+结论（回答"Pi0.5 是否真正完成重新抓取和重新放置"）：
+**没有。** 固定配置下 4/4 是 `no_progress`（从未合爪）；
+唯一出现"闭合夹爪 + 抬升"的回合是不同噪声抽样，且抬升的是碗、没有放回、还把第一步弄坏。
+因此纠偏能力**未被证实**，`status` 保持 `no_progress`/`partial`，不写 completed。
+
+### 37.9 生命周期：纠偏阶段 stop 与 reset 后缓冲隔离
+
+`scripts/composite_stop_tests.py --include-reseat-case --only stop-independent-reseat-actions`，
+同步点是 `composite_independent_reseat_chunk`（在该 chunk 动作**执行之前**发布），
+两次独立运行（`records/acceptance/reseat_stop_20261105.json`、
+`records/acceptance/composite_stop_reseat_20261105.json`）：
+
+| 项 | 两次结果（完全相同） |
+| --- | --- |
+| 触发 | `re-seat chunk 1 generated, its actions have not run yet`，`sim=120`（请求时 115） |
+| ack | `sim_at_request=115`、`sim_at_ack=121`、`in_flight_actions=6` |
+| 取消后 | `in_flight_after_cancel=0`、`thread_alive=false`、`inference_idle=true`、`chunk_buffer_cleared=true`、`settle_agreements=3` |
+| 之后动作数 | `121 → 121`（12 次采样全部不动，`advanced=false`） |
+| 回合记录 | `execution_status=stopped`、`failure.code=user_stop`、`sim_action_count=121` |
+| 纠偏记录 | `status=stopped`、`stop_reason=user_stop`、`policy_actions=6`、`chunks_used=2`、`achieved=[]`、`finalizer_actions=0` |
+| 重载隔离 | `/api/load` 后 `sim_action_count=0`、`scene_epoch=1`、`episode_id=null`、`phase=ready`、`last_result={}` |
+
+即：纠偏过程中 stop 会立刻停住（6 个在飞动作全部作废、缓冲清空），
+下一回合不继承任何纠偏状态。
+
+另记一条**工具缺陷**（本轮暴露并修好）：`composite_stop_tests.py` 原来只按
+`$EMBODIED_RECORDS_DIR/run_journal.jsonl` 找日志。实验引擎在
+`records_ab_20261105/B`，客户端没带那个环境变量时同步点永远等不到，
+于是**跑了 10 分钟、报成"未到达阶段"**（这一次误判的回合实际完整跑完并被计入 §37.7 的第 4 次重复）。
+修复：新增 `--journal` 显式路径，并在文档里写清"路径不对不会报错，只会静默超时"。
+修复后同一用例连续两次通过（上表）。
+
+### 37.10 A/B 效果对照：按门控**未运行**
+
+用户给定的门控是"只有出现实际重新抓取和重新放置后，才对少量固定配置比较 A 不纠偏 / B 纠偏后运输"。
+本轮的纠偏尝试没有任何一次完成 `grasp→…→settle`（§37.7、§37.8），
+因此：
+
+- **A/B 都没有跑**（`records_ab_20261105/A/runs` 不存在）；B 臂只用 1 个探针回合验证能力，
+  纠偏预算耗尽后同一回合继续走完了 3 步（该回合用户目标成立）。
+- 所以本轮**不能**报告"纠偏减少掉料"或"纠偏有副作用"这类效果结论。
+  唯一可说的副作用来自那个 `partial` 回合：**纠偏可以破坏一个已经成立的放置**
+  （把奶酪带离碗 13.7 cm，第一步谓词失效，交接被拒）。这条属于"能力不可靠"的证据，
+  不是"A 与 B 的对照"。
+- 两臂配置已经准备好且除开关与端口外逐字段相同（`diff` 为空），下一轮一旦出现
+  `completed`，可以直接按固定 `scene_seed`/`policy_seed` 跑对照，并分开记
+  `step_ref="rr"`（纠偏）与 `"c1/c2/c3"`（运输）的噪声键。
+
+### 37.11 本轮所有失败（全部保留，未覆盖重跑）
+
+| 回合 | 现象 | 处理 |
+| --- | --- | --- |
+| `085544` | `engine_error` / `UnboundLocalError: local variable 'step_task'` | 传参修正（`catalog_by_key.get(step_task_key)`） |
+| `085655` | `engine_error` / `NameError: name 'step' is not defined` | `_reseat_reading(goal=…)` 修正 |
+| `085835` | `engine_error` / `KeyError: 'main_images'` | 观测键名修正 |
+| `090008` | `engine_error` / `raw LIBERO obs is missing agentview_image` | 每 chunk 前重取 `raw_obs()` 再 `build_pi05_obs` |
+| `090151` | 纠偏 `inference_error`：`pi05 generation server returned 500: image buffer is 196608 bytes, expected 150528` | 改为共享的 224×224 预处理路径 |
+| `091931` | 停止测试同步点未命中（错误日志路径），实际跑完整回合 | 作为第 4 次纠偏重复计入 §37.7；工具修 `--journal` |
+| `090854` | `composite_handoff_failed` / `step_1_unverified` | 保留为"纠偏可破坏放置"的证据（§37.8） |
+
+上述 7 个回合的整档都在 `records/acceptance/reseat_probe_20261105_runs/`（前 5 个）
+或实验记录目录（后 2 个）里，没有删除、没有用重跑覆盖。
+
+### 37.12 代码改动与测试
+
+| 文件 | 改动 |
+| --- | --- |
+| `adapters/libero_env_server.py` | `--seed` → `LIBERO_PLACEMENT_SEED`（在导入 env_server 之前），`LIBERO_PLACEMENT_SEEDING=0` 可关闭 |
+| `adapters/env_runtime/episode_service.py` | `_attach_placement_seed_class` / `_reseed_placement_samplers` / `_walk_samplers` / `_placement_seed_for`；`env.init_state` 只读 RPC；`placement_seeding` 记账 |
+| `adapters/env_client.py` | `init_state()` RPC |
+| `engine/engine_service.py` | `_init_state_fingerprint`（`initial_init_state`）、`_reseat_contacts/_reseat_reading/_independent_reseat`、白名单触发、stop 传播 |
+| `common/independent_reseat.py`（新） | 阶段机、`measure/trigger/options/candidate_step/summarise`，默认关闭 |
+| `config/engine.json` | 新增 `composite.independent_reseat`（`enabled=false`，`on_result="report"`） |
+| `scripts/scene_init_probe.py`（新） | init × 播种两臂的 in-process / cross-process 对照 |
+| `scripts/asset_geometry_audit.py`（新） | 从 XML 读碗/奶酪几何 |
+| `scripts/seed_divergence_report.py` | 对照链新增 `init_*` 五级 |
+| `scripts/composite_stop_tests.py` | `--include-reseat-case`、`stop-independent-reseat-actions`、`--journal` |
+| `scripts/run_rounds.py` | 汇总行带 `independent_reseat` 摘要 |
+| `tests/test_independent_reseat.py`（新） | 15 个用例：默认关闭、前置条件、抬升需求计算、阶段推进、不推进、拒绝"只有 finalizer 张手"、摘要格式等 |
+
+`pytest tests -q` → **224 passed**（原 209 + 新增 15），`compileall` 通过，改动文件无 lint 报错。
+
+### 37.13 结论
+
+1. **初始化为什么变、修复后是否一致**：变的原因是静态夹具的 `ObjectPositionSampler`
+   每条采样器一条 OS 熵流、`BDDLBaseDomain.seed` 到不了它，而可动对象随后被
+   `init_files` 覆盖。修复后 init 0/1/2 的 in-process 与 cross-process 对照
+   **6/6 逐位相同（含两路原始图像）**。
+2. **固定起点与噪声后的首个闭环分歧**：修复前是 `static_fixtures`；
+   修复后两对同配置重复的 `first_divergence = None`，动作流也逐位相同，
+   两对都停在同一个 sim action（115 / 109）。
+3. **Pi0.5 是否真正完成重新抓取与重新放置**：**没有**。固定配置 4/4 `no_progress`
+   （从未合爪，最近 2.28 cm）；唯一 `partial` 回合抬起来的是碗（碗沿同步上升 6.9→15.1 cm），
+   没放回、把奶酪带离 13.7 cm，且破坏了第一步谓词。能力未证实。
+4. **纠偏是否减少掉料、有什么副作用**：**未测**（A/B 按门控未运行）。
+   已观察到的副作用是"纠偏可以把一个已成立的放置弄坏"。
+5. **下一步**：见 §37.14。
+
+### 37.14 下一步（按优先级）
+
+1. **先修两处判据（代码修复，不改阈值）**：容器位移守卫（>5 mm 判 `invalid_geometry`）、
+   `grasp` 改为"对象随 eef 移动"的物理证据（不再依赖为空的接触列表）。
+2. **再决定执行方式**：在修好判据后，用同一固定种子重跑纠偏探针，看是否仍然
+   `closed_samples=0`。如果仍是，则说明是策略分布问题（LIBERO 训练里没有
+   "从碗内重抓"的恢复轨迹），此时应换**指令表达/动作方式**（例如先学/给一个
+   "先把奶酪拿起来"的更短指令）而不是继续加预算。
+3. **只有第 2 步出现 `completed` 之后**，才按 §37.10 的门控跑 A/B 对照；
+   在此之前不要收集"纠偏数据"当效果证据（当前数据只能支撑"能力不存在"）。
+

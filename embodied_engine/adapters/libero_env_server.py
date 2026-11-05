@@ -43,6 +43,31 @@ import episode_service  # noqa: E402
 
 episode_service.install()
 
+
+def _flag_value(flag: str) -> str | None:
+    argv = sys.argv[1:]
+    for index, item in enumerate(argv):
+        if item == flag and index + 1 < len(argv):
+            return argv[index + 1]
+        if item.startswith(f"{flag}="):
+            return item.split("=", 1)[1]
+    return None
+
+
+# Tell the worker processes which stream the placement samplers must draw
+# from, *before* any env is built. LIBERO's ``ObjectPositionSampler`` defaults
+# ``rng`` to ``np.random.default_rng()`` (OS entropy), so ``np.random.seed()``
+# in ``BDDLBaseDomain.seed`` never reached it; the fixtures were re-drawn on
+# every reset. The seed travels as an env var because the workers are spawned
+# by robosuite's vector env and inherit this process's environment.
+# ``LIBERO_PLACEMENT_SEEDING=0`` reproduces the old unseeded behaviour for a
+# control arm; it is recorded in ``env.identity`` either way.
+_placement_seed = _flag_value("--seed")
+if os.environ.get("LIBERO_PLACEMENT_SEEDING", "1") != "0" and _placement_seed is not None:
+    os.environ["LIBERO_PLACEMENT_SEED"] = str(_placement_seed)
+else:
+    os.environ.pop("LIBERO_PLACEMENT_SEED", None)
+
 from robots.libero import env_server  # noqa: E402
 
 

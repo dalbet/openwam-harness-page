@@ -140,7 +140,7 @@ def _official_instruction(engine: str, task_id: int) -> str:
 def run_case(args, spec: dict[str, Any]) -> dict[str, Any]:
     engine = args.engine
     kind = spec["kind"]
-    tail = JournalTail()
+    tail = JournalTail(Path(args.journal) if args.journal else JOURNAL)
     loaded = post(
         f"{engine}/api/load",
         {"task_id": int(spec.get("load_task_id", spec["task_id"])), "seed": int(spec["seed"])},
@@ -153,6 +153,10 @@ def run_case(args, spec: dict[str, Any]) -> dict[str, Any]:
         "instruction": spec["instruction"],
         "seed": int(spec["seed"]),
     }
+    if spec.get("policy_seed") is not None:
+        # Same sampling seed as the round this case mirrors, so the stop lands
+        # in the same attempt instead of in a different sample.
+        run_body["policy_seed"] = int(spec["policy_seed"])
     if spec.get("plan_keys"):
         # The stop mechanics are the subject here, not the language router:
         # pin the ordered plan through the engine's structured entry.
@@ -235,6 +239,43 @@ def run_case(args, spec: dict[str, Any]) -> dict[str, Any]:
             status = {"phase": "sync_timeout", "detail": f"no {kind} stage"}
         else:
             status = {**status, "trigger_row": hit}
+    elif kind == "reseat":
+        # The re-seat publishes one journal row per generated chunk, *before*
+        # that chunk's actions execute. Synchronising on a chunk row therefore
+        # lands the stop inside the attempt (a couple of actions in), not after
+        # it: there is deliberately no per-stage row when the policy never
+        # grasps, so the report also keeps the stage state it saw.
+        want = int(spec.get("min_chunks") or 2)
+        deadline = time.time() + args.timeout
+        status: dict[str, Any] = {}
+        hit = None
+        ended = None
+        while time.time() < deadline:
+            for row in tail.new_rows():
+                if episode_id and row.get("episode_id") != episode_id:
+                    continue
+                if row.get("stage") == "composite_independent_reseat_chunk" and int(row.get("chunk") or 0) + 1 >= want:
+                    hit = row
+                    break
+                if row.get("stage") in {"episode_end", "succeeded", "failed", "stopped"}:
+                    ended = row
+            if hit:
+                status = {
+                    "phase": "reseat",
+                    "detail": f"re-seat chunk {hit.get('chunk')} generated, its actions have not run yet",
+                    "sim_action_count": hit.get("sim_action_count"),
+                    "trigger_row": hit,
+                }
+                break
+            if ended is not None:
+                status = {
+                    "phase": "stage_not_reached",
+                    "detail": f"episode ended with stage {ended.get('stage')} before re-seat chunk {want}",
+                }
+                break
+            time.sleep(0.01)
+        if hit is None and not status:
+            status = {"phase": "sync_timeout", "detail": f"no re-seat chunk {want} row"}
     elif kind == "repair":
         # Synchronise on the engine's own repair decision row: the model has
         # just chosen the repair task, the repair actions have not started yet.
@@ -484,6 +525,15 @@ def main() -> int:
     parser.add_argument("--engine", default="http://127.0.0.1:14800")
     parser.add_argument("--out", default="records/acceptance/composite_stop_20261027.json")
     parser.add_argument("--timeout", type=float, default=600.0)
+    parser.add_argument(
+        "--journal",
+        default="",
+        help=(
+            "journal to tail; defaults to $EMBODIED_RECORDS_DIR/run_journal.jsonl. "
+            "A wrong path does not error, it silently never sees the trigger row, "
+            "so pass it explicitly when the engine runs on another records dir."
+        ),
+    )
     parser.add_argument("--only", default="")
     parser.add_argument(
         "--handoff-mode",
@@ -494,6 +544,11 @@ def main() -> int:
         "--include-restore-cases",
         action="store_true",
         help="add the two robot_state_restore stages (before/after the state write)",
+    )
+    parser.add_argument(
+        "--include-reseat-case",
+        action="store_true",
+        help="add the independent re-seat stop case (requires an engine whose config enables it)",
     )
     parser.add_argument(
         "--finalizer-task",
@@ -639,6 +694,26 @@ def main() -> int:
             "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
         },
     ]
+    if args.include_reseat_case:
+        cases.append(
+            {
+                # Stop inside the independent re-seat attempt: the ack must land
+                # while the re-seat's own actions are still running, nothing may
+                # execute after it, the record must say stopped, and the next
+                # load must start from zero actions with a cleared buffer.
+                "id": "stop-independent-reseat-actions",
+                "kind": "reseat",
+                "task_id": 7,
+                "load_task_id": 7,
+                "seed": 5,
+                "policy_seed": 202,
+                "min_chunks": 2,
+                "instruction": (
+                    "put the cream cheese in the bowl, then put the bowl on the stove, "
+                    "then turn on the stove"
+                ),
+            }
+        )
     if args.include_restore_cases:
         cases.extend(
             [

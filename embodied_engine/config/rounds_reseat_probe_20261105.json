@@ -1,0 +1,20 @@
+{
+  "schema": "embodied_engine.rounds.v1",
+  "frozen_at": "2026-11-05T17:10:00+08:00",
+  "note": "Capability probe for the independent re-seat. One round only, on the frozen scene seed 5 and policy seed 202, run against the experiment config copy that enables the re-seat. The point is not success: it is whether the policy can actually re-grasp the already-placed cheese, lift it clear of the rim, carry it, release it over the bowl and let it settle. A run that produces no effective action is reported as no_progress, never as a repair. This round is not part of any success-rate denominator.",
+  "seed": 5,
+  "rounds": [
+    {
+      "round": "reseat-probe-20261105-s5-ps202",
+      "task_id": 7,
+      "load_task_id": 7,
+      "lang": "en",
+      "instruction": "put the cream cheese in the bowl, then put the bowl on the stove, then turn on the stove",
+      "expected_keys": ["put_cream_cheese_in_bowl", "put_bowl_on_stove", "turn_on_stove"],
+      "routing_source": "config/flow_routing_cases.json#en_explicit_three_steps (frozen base suite; composite, not a flow)",
+      "seed": 5,
+      "policy_seed": 202,
+      "handoff_mode": "action_retreat"
+    }
+  ]
+}

@@ -36,8 +36,10 @@ if str(PROJECT) not in sys.path:
     sys.path.insert(0, str(PROJECT))
 
 from adapters.env_client import EnvClient  # noqa: E402
+from adapters.pi05_contract import build_pi05_obs, pi05_action7  # noqa: E402
 from common import config, records, task_catalog  # noqa: E402
 from common import geometry  # noqa: E402
+from common import independent_reseat  # noqa: E402
 from common import plan_contract
 from common import policy_seed as policy_seed_module  # noqa: E402
 from common import transport_ready  # noqa: E402
@@ -46,6 +48,7 @@ from engine import composite  # noqa: E402
 from engine import finalize  # noqa: E402
 from engine import grasp_geometry  # noqa: E402
 from engine.inference_client import InferenceClient  # noqa: E402
+from engine.inference_client import model_view, request_row  # noqa: E402
 from engine.openwam_rollout import WholeTaskRunner  # noqa: E402
 from engine.pi05_rollout import Pi05WholeTaskRunner  # noqa: E402
 from engine.skills import SkillFailure, SkillRunner, Stopped  # noqa: E402
@@ -167,6 +170,81 @@ def _state_fingerprint(snapshot: dict[str, Any]) -> str:
         "gripper": round(float(sim.get("gripper_opening_m") or 0.0), 6),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def _init_state_fingerprint(init_state: dict[str, Any], policy_input: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Staged fingerprint of the state a reset produced, physics before pixels.
+
+    Read from inside the env worker (``env.init_state``), so the stages are
+    separable: fixtures (``model.body_pos``, what the placement sampler writes),
+    movable objects, every joint's qpos/qvel, the robot and its controller
+    references, then the two raw camera hashes. The order matters: "the images
+    differ" is only a finding once the physics above it is identical.
+    """
+
+    def digest(payload: Any) -> str:
+        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
+
+    bodies = init_state.get("bodies") or {}
+    fixtures = {
+        str(name): {
+            "model_pos": [round(float(v), 6) for v in (row.get("model_pos") or [])],
+            "model_quat": [round(float(v), 6) for v in (row.get("model_quat") or [])],
+        }
+        for name, row in bodies.items()
+        if isinstance(row, dict) and row.get("model_pos") is not None
+    }
+    movable = {
+        str(name): {
+            "pos": [round(float(v), 6) for v in (row.get("pos") or [])],
+            "xquat": [round(float(v), 6) for v in ((bodies.get(name) or {}).get("xquat") or [])],
+        }
+        for name, row in (init_state.get("movable") or {}).items()
+        if isinstance(row, dict)
+    }
+    joints = {
+        str(name): {
+            "qpos": [round(float(v), 6) for v in (row.get("qpos") or [])],
+            "qvel": [round(float(v), 6) for v in (row.get("qvel") or [])],
+        }
+        for name, row in (init_state.get("joints") or {}).items()
+        if isinstance(row, dict) and "qpos" in row
+    }
+    robot = init_state.get("robot") or {}
+    images = {
+        str(name): str(row.get("sha256"))
+        for name, row in (init_state.get("images") or {}).items()
+        if isinstance(row, dict)
+    }
+    return {
+        "schema": init_state.get("schema"),
+        "error": init_state.get("error"),
+        "fixtures_sha256": digest(fixtures),
+        "movable_sha256": digest(movable),
+        "joints_sha256": digest(joints),
+        "robot_sha256": digest(
+            {
+                "eef_pos": robot.get("eef_pos"),
+                "eef_quat": robot.get("eef_quat"),
+                "gripper_opening_m": robot.get("gripper_opening_m"),
+                "controllers": robot.get("controllers"),
+                "joints": robot.get("joints"),
+            }
+        ),
+        "images": images,
+        "policy_input": policy_input or {},
+        "fixture_count": len(fixtures),
+        "movable_count": len(movable),
+        "joint_count": len(joints),
+        "placement_seeding": init_state.get("placement_seeding"),
+        "placement": {
+            "enabled": (init_state.get("placement") or {}).get("enabled"),
+            "base_seed": (init_state.get("placement") or {}).get("base_seed"),
+            "global_numpy_seed": (init_state.get("placement") or {}).get("global_numpy_seed"),
+            "samplers": len((init_state.get("placement") or {}).get("samplers") or []),
+        },
+        "order": ["fixtures", "movable", "joints", "robot", "images"],
+    }
 
 
 def _fixture_fingerprint(snapshot: dict[str, Any]) -> dict[str, Any]:
@@ -1395,6 +1473,401 @@ class Engine:
             block["near_miss"] = bool(0.0 < outside <= 0.03)
         return block
 
+    # ---- independent re-seat (experiment, default off) --------------------
+
+    def _reseat_contacts(self, env: EnvClient) -> list[dict[str, Any]] | None:
+        """Finger-to-non-robot contact names, or ``None`` when unreadable."""
+        reader = getattr(env, "robot_state_inspect", None)
+        if not callable(reader):
+            return None
+        try:
+            row = reader()
+        except Exception:  # noqa: BLE001 - evidence only
+            return None
+        if not isinstance(row, dict) or not row.get("ok"):
+            return None
+        state = ((row.get("robot") or {}).get("state") or {})
+        contacts = (state.get("contacts") or {}).get("gripper_vs_nonrobot")
+        return list(contacts or [])
+
+    def _reseat_reading(
+        self,
+        *,
+        env: EnvClient,
+        snapshot: dict[str, Any],
+        goal: dict[str, Any],
+        task: dict[str, Any],
+    ) -> dict[str, Any]:
+        """One re-seat sample in the numbers ``common.independent_reseat`` uses.
+
+        The relation/height numbers are the same evaluator the step goals use;
+        they are read here as *measurements*, never as the re-seat's completion.
+        """
+        state = completion.goal_state(snapshot, goal, task)
+        relation = state.get("relation") if isinstance(state.get("relation"), dict) else {}
+        height = state.get("height") if isinstance(state.get("height"), dict) else {}
+        bottom = relation.get("object_bottom_z")
+        if bottom is None:
+            bottom = height.get("object_bottom_z")
+        floor = relation.get("floor_z")
+        if floor is None:
+            floor = height.get("surface_z")
+        object_n = goal.get("object_n")
+        return independent_reseat.measure(
+            {
+                "sim_action_count": snapshot.get("sim_action_count"),
+                "observation_id": snapshot.get("observation_id"),
+                "object_pos": grasp_geometry.object_pos(snapshot, object_n),
+                "target_pose": relation.get("target_pose"),
+                "eef_pos": grasp_geometry.eef_pos(snapshot),
+                "opening_m": grasp_geometry.opening_m(snapshot),
+                "eef_object_m": grasp_geometry.eef_object_m(snapshot, object_n),
+                "gripper_contacts": self._reseat_contacts(env),
+                "relation_ok": relation.get("ok"),
+                "xy_m": relation.get("xy_m"),
+                "object_bottom_z": bottom,
+                "floor_z": floor,
+                "rim_z": relation.get("rim_z"),
+            }
+        )
+
+    def _independent_reseat(
+        self,
+        *,
+        env: EnvClient,
+        episode_id: str,
+        step: dict[str, Any],
+        step_task: dict[str, Any],
+        task: dict[str, Any],
+        record: dict[str, Any],
+        obs: dict[str, Any],
+        snapshot: dict[str, Any],
+        token: str,
+        stop_event: threading.Event,
+        composite_state: dict[str, Any],
+        timing: dict[str, Any],
+        records,
+    ) -> tuple[dict[str, Any], dict[str, Any], str]:
+        """Ask the policy to move an object that is *already* in its container.
+
+        This is a different capability from the catalog step: it has its own
+        instruction, its own noise coordinates (``step_ref="rr"``), its own
+        budget and its own stage machine. Nothing here changes the step's goal
+        or its evidence, no action is written by the execution layer
+        (``finalizer_actions`` stays 0), and a refused or uneventful attempt is
+        recorded as ``unsupported`` / ``no_progress``.
+        """
+        opts = independent_reseat.options(self.cfg)
+        pi05_cfg = dict(self.cfg["action_model"].get("pi05") or {})
+        execute_horizon = int(pi05_cfg.get("execute_horizon") or 5)
+        block: dict[str, Any] = {
+            "schema": independent_reseat.SCHEMA,
+            "enabled": bool(opts["enabled"]),
+            "attempted": False,
+            "step_id": step.get("step_id"),
+            "step_task_key": step.get("step_task_key"),
+            "prompt": opts["prompt"],
+            "skill": opts["skill"],
+            "step_ref": opts["step_ref"],
+            "status": "not_attempted",
+            "reason": None,
+            "trigger": None,
+            "policy_actions": 0,
+            "finalizer_actions": 0,
+            "completion_source": "policy_actions_only",
+            "budget": {
+                "chunk_budget": int(opts["chunk_budget"]),
+                "max_actions": int(opts["max_actions"]),
+                "execute_horizon": execute_horizon,
+                "denoise_steps": (self.inference.health().get("identity", {}).get("server", {}).get("num_steps")),
+            },
+            "policy_seed": self.active_policy_seed(),
+            "start": None,
+            "chunks": [],
+            "noise": [],
+        }
+        record["independent_reseat"] = block
+
+        goal = composite.step_goal(step)
+        if not isinstance(goal, dict):
+            block["status"] = "unsupported"
+            block["reason"] = (
+                "this step has no relation goal the re-seat could start from; the native "
+                "whole-task goal carries no object/container binding"
+            )
+            return obs, snapshot, token
+
+        if self._action_backend() != "pi05":
+            block["status"] = "unsupported"
+            block["reason"] = "the whole-task policy backend is not serving pi05; nothing to attempt"
+            return obs, snapshot, token
+
+        start_reading = self._reseat_reading(env=env, snapshot=snapshot, goal=goal, task=task)
+        block["trigger"] = independent_reseat.trigger(start_reading)
+        block["start"] = {
+            "observation_id": snapshot.get("observation_id"),
+            "sim_action_count": snapshot.get("sim_action_count"),
+            "scene_epoch": snapshot.get("scene_epoch"),
+            "seat_m": start_reading.get("seat_m"),
+            "xy_m": start_reading.get("xy_m"),
+            "object_pos": start_reading.get("object_pos"),
+            "object_bottom_z": start_reading.get("object_bottom_z"),
+            "rim_z": start_reading.get("rim_z"),
+            "floor_z": start_reading.get("floor_z"),
+            "opening_m": start_reading.get("opening_m"),
+            "relation_ok": start_reading.get("relation_ok"),
+        }
+        if not block["trigger"]["ok"]:
+            block["status"] = "unsupported"
+            block["reason"] = (
+                "start state is not 'object already in the container', so there is no re-seat "
+                "to express; the step's own placement is reported separately"
+            )
+            records.append_journal(
+                {
+                    "t": time.time(),
+                    "stage": "composite_independent_reseat_unsupported",
+                    "episode_id": episode_id,
+                    "step_id": step.get("step_id"),
+                    "trigger": block["trigger"],
+                }
+            )
+            return obs, snapshot, token
+
+        block["attempted"] = True
+        block["status"] = "executing"
+        token = self.inference.reset(f"reseat:{episode_id}:{step.get('step_id')}")
+        obs, snapshot = env.raw_obs(), env.state_snapshot()
+        tracker = independent_reseat.Tracker(start=start_reading, opts=opts)
+        tracker.observe(start_reading)
+        block["start"]["token"] = token
+        records.append_journal(
+            {
+                "t": time.time(),
+                "stage": "composite_independent_reseat_start",
+                "episode_id": episode_id,
+                "step_id": step.get("step_id"),
+                "prompt": opts["prompt"],
+                "sim_action_count": snapshot.get("sim_action_count"),
+                "scene_epoch": snapshot.get("scene_epoch"),
+                "trigger": block["trigger"],
+                "start_seat_m": block["start"]["seat_m"],
+                "start_xy_m": block["start"]["xy_m"],
+            }
+        )
+        started = time.perf_counter()
+        actions_used = 0
+        chunks_done = 0
+        stop_reason = None
+        announced: set[str] = set()
+        while (
+            not tracker.done
+            and actions_used < int(opts["max_actions"])
+            and chunks_done < int(opts["chunk_budget"])
+        ):
+            if stop_event.is_set():
+                stop_reason = "user_stop"
+                break
+            # The observation the policy consumes is rebuilt from the raw
+            # LIBERO frames exactly like the shipped rollout does: the env
+            # server's own step observation is 256x256 while pi05 expects the
+            # single shared 224x224 resize.
+            snapshot = env.state_snapshot()
+            obs = env.raw_obs()
+            model_obs = build_pi05_obs(obs)
+            seed = self.active_policy_seed()
+            noise_seed = None
+            if seed is not None:
+                noise_seed = policy_seed_module.derive(
+                    seed, step_ref=str(opts["step_ref"]), sim_action_count=snapshot.get("sim_action_count")
+                )
+            request = request_row(
+                token=token,
+                episode_id=episode_id,
+                scene_epoch=snapshot.get("scene_epoch"),
+                snapshot=snapshot,
+                skill=str(opts["skill"]),
+                step_id=chunks_done,
+                prompt=str(opts["prompt"]),
+                step_ref=str(opts["step_ref"]),
+                noise_seed=noise_seed,
+                policy_seed=seed,
+            )
+            out = self.inference.infer(request, model_view(model_obs), timeout_s=float(opts["timeout_s"]))
+            if out.get("status") != "ok":
+                block["status"] = "failed"
+                block["reason"] = f"inference_{out.get('status')}: {out.get('error') or out.get('reason')}"
+                break
+            actions = np.asarray(out.get("actions"))
+            if actions.ndim != 2 or actions.shape[1] < 7:
+                block["status"] = "failed"
+                block["reason"] = f"bad_action_shape: {actions.shape}"
+                break
+            window = actions[:execute_horizon]
+            block["chunks"].append(
+                {
+                    "chunk": chunks_done,
+                    "at_sim_action": snapshot.get("sim_action_count"),
+                    "generated_actions": int(actions.shape[0]),
+                    "executed_actions": int(window.shape[0]),
+                    "prompt": opts["prompt"],
+                    "action0": [round(float(v), 6) for v in window[0][:7]],
+                    "action0_sha256": policy_seed_module.digest(window[0][:7]),
+                }
+            )
+            records.append_journal(
+                {
+                    "t": time.time(),
+                    "stage": "composite_independent_reseat_chunk",
+                    "episode_id": episode_id,
+                    "step_id": step.get("step_id"),
+                    "chunk": chunks_done,
+                    "sim_action_count": snapshot.get("sim_action_count"),
+                    "actions_used": actions_used,
+                }
+            )
+            block["noise"].append(
+                {
+                    "chunk": chunks_done,
+                    "noise_seed": out.get("noise_seed"),
+                    "noise_sha256": out.get("noise_sha256"),
+                    "seed_applied": out.get("seed_applied"),
+                    "seed_unsupported": out.get("seed_unsupported"),
+                }
+            )
+            for action in window:
+                if stop_event.is_set():
+                    stop_reason = "user_stop"
+                    break
+                obs, _reward, terminated, truncated, _info = env.step(pi05_action7(action))
+                actions_used += 1
+                snapshot = env.state_snapshot()
+                reading = self._reseat_reading(env=env, snapshot=snapshot, goal=goal, task=task)
+                row = tracker.observe(reading)
+                for name in independent_reseat.STAGE_ORDER:
+                    if name in announced or not tracker.stages[name]["achieved"]:
+                        continue
+                    announced.add(name)
+                    records.append_journal(
+                        {
+                            "t": time.time(),
+                            "stage": f"composite_independent_reseat_{name}",
+                            "episode_id": episode_id,
+                            "step_id": step.get("step_id"),
+                            "sim_action_count": snapshot.get("sim_action_count"),
+                            "evidence": tracker.stages[name]["evidence"],
+                        }
+                    )
+                if tracker.done:
+                    break
+                if terminated or truncated:
+                    stop_reason = "env_terminal"
+                    break
+                if actions_used >= int(opts["max_actions"]):
+                    stop_reason = "action_budget_exhausted"
+                    break
+            chunks_done += 1
+        if stop_reason is None and not tracker.done:
+            stop_reason = "chunk_budget_exhausted"
+        verdict = tracker.result()
+        failure_status = block.get("status")
+        failure_reason = block.get("reason")
+        verdict["start"] = block["start"]
+        verdict["chunks"] = block["chunks"]
+        verdict["noise"] = block["noise"]
+        verdict["budget"] = block["budget"]
+        verdict["prompt"] = block["prompt"]
+        verdict["skill"] = block["skill"]
+        verdict["step_ref"] = block["step_ref"]
+        verdict["policy_seed"] = block["policy_seed"]
+        verdict["trigger"] = block["trigger"]
+        verdict["schema"] = independent_reseat.SCHEMA
+        verdict["enabled"] = block["enabled"]
+        verdict["attempted"] = block["attempted"]
+        verdict["step_id"] = block["step_id"]
+        verdict["step_task_key"] = block["step_task_key"]
+        block.clear()
+        block.update(verdict)
+        block["policy_actions"] = actions_used
+        block["finalizer_actions"] = 0
+        block["completion_source"] = "policy_actions_only"
+        block["stop_reason"] = stop_reason
+        block["chunks_used"] = chunks_done
+        block["sim_action_count_end"] = snapshot.get("sim_action_count")
+        block["s"] = round(time.perf_counter() - started, 3)
+        timing["independent_reseat_s"] = float(timing.get("independent_reseat_s") or 0.0) + block["s"]
+        end = block.get("end") or {}
+        block["pose_change"] = {
+            "seat_before_m": block["start"].get("seat_m"),
+            "seat_after_m": end.get("seat_m"),
+            "seat_delta_change_m": (
+                None
+                if not (
+                    isinstance(block["start"].get("seat_m"), (int, float))
+                    and isinstance(end.get("seat_m"), (int, float))
+                )
+                else round(float(end["seat_m"]) - float(block["start"]["seat_m"]), 5)
+            ),
+            "xy_before_m": block["start"].get("xy_m"),
+            "xy_after_m": end.get("xy_m"),
+            "object_moved_m": (
+                None
+                if not (
+                    isinstance(block["start"].get("object_pos"), (list, tuple))
+                    and isinstance(end.get("object_pos"), (list, tuple))
+                )
+                else round(
+                    float(
+                        sum(
+                            (float(a) - float(b)) ** 2
+                            for a, b in zip(end["object_pos"][:3], block["start"]["object_pos"][:3])
+                        )
+                    )
+                    ** 0.5,
+                    5,
+                )
+            ),
+        }
+        if stop_reason == "user_stop":
+            block["reason"] = "user stop requested during the re-seat attempt"
+        else:
+            block["reason"] = failure_reason or (
+                None
+                if block["status"] == "completed"
+                else f"policy produced no complete re-seat inside the budget ({block['status']})"
+            )
+        if failure_status == "failed":
+            block["status"] = "failed"
+        if stop_reason == "user_stop":
+            block["status"] = "stopped"
+        records.append_journal(
+            {
+                "t": time.time(),
+                "stage": "composite_independent_reseat_end",
+                "episode_id": episode_id,
+                "step_id": step.get("step_id"),
+                "status": block["status"],
+                "achieved": block.get("achieved"),
+                "missing": block.get("missing"),
+                "policy_actions": actions_used,
+                "finalizer_actions": 0,
+                "stop_reason": stop_reason,
+                "pose_change": block["pose_change"],
+            }
+        )
+        if stop_reason == "user_stop":
+            raise Stopped("stop requested during independent re-seat")
+        if str(opts.get("on_result") or "report") == "stop" and not block.get("completed"):
+            raise SkillFailure(
+                "independent_reseat_not_completed",
+                (
+                    f"step {step.get('step_id')} re-seat ended as {block['status']} "
+                    f"({', '.join(block.get('missing') or [])} missing) after {actions_used} policy actions"
+                ),
+                {"independent_reseat": independent_reseat.summarise(block)},
+            )
+        return obs, snapshot, token
+
     def _transport_readiness(
         self,
         *,
@@ -2375,6 +2848,23 @@ class Engine:
         initial_scene = _scene_fingerprint(snapshot)
         initial_state = _state_fingerprint(snapshot)
         initial_fixtures = _fixture_fingerprint(snapshot)
+        # Complete staged read from inside the env worker (physics first, then
+        # the two camera hashes). This is what separates "the scene changed"
+        # from "only the pixels changed" without polling *_pos alone.
+        init_state: dict[str, Any] = {}
+        init_state_error = ""
+        try:
+            init_state = env.init_state()
+        except Exception as exc:  # noqa: BLE001 - a missing read must not fail the episode
+            init_state_error = f"{type(exc).__name__}: {exc}"
+            init_state = {"error": init_state_error}
+        initial_init_state = _init_state_fingerprint(
+            init_state,
+            {
+                "main_sha256": ((snapshot.get("observation") or {}).get("main_sha256")),
+                "wrist_sha256": ((snapshot.get("observation") or {}).get("wrist_sha256")),
+            },
+        )
         handoff_mode = composite.handoff_mode(self.cfg)
         handoff_options = composite.handoff_options(self.cfg)
         robot_state_capture: dict = {}
@@ -2992,6 +3482,31 @@ class Engine:
                             {"verification": evidence, "recovery": recovery},
                         )
                     if composite_state.get("enabled") and index + 1 < len(steps):
+                        reseat_opts = independent_reseat.options(self.cfg)
+                        reseat_keys = [str(k) for k in (reseat_opts.get("step_task_keys") or [])]
+                        reseat_due = bool(
+                            reseat_opts["enabled"]
+                            and independent_reseat.candidate_step(step)
+                            and str(step.get("step_task_key")) in reseat_keys
+                            and record.get("independent_reseat") is None
+                        )
+                        if reseat_due:
+                            obs, snapshot, token = self._independent_reseat(
+                                env=env,
+                                episode_id=episode_id,
+                                step=step,
+                                step_task=catalog_by_key.get(str(step.get("step_task_key"))) or {},
+                                task=task,
+                                record=record,
+                                obs=obs,
+                                snapshot=snapshot,
+                                token=token,
+                                stop_event=stop_event,
+                                composite_state=composite_state,
+                                timing=timing,
+                                records=records,
+                            )
+                            self._set_frames(obs, snapshot)
                         # Transport readiness: the step's own relation is met,
                         # but the object may be perched on the rim. Evaluated on
                         # the step's own post-release samples; may run exactly
@@ -4022,6 +4537,11 @@ class Engine:
             # reset, so they are NOT covered by the state fingerprint. Kept
             # separate so old records stay comparable.
             "initial_fixture_fingerprint": initial_fixtures,
+            # Full staged read (fixtures -> movable -> joints -> robot -> images)
+            # plus the placement seeding that produced it. Old records without
+            # this block ran under LIBERO's unseeded sampler.
+            "initial_init_state": initial_init_state,
+            "initial_init_state_error": init_state_error or None,
             # Sampling protocol of *this* episode. Old records (before this
             # field existed) are the legacy protocol by definition and must not
             # be re-read as if they had been seeded.

@@ -86,7 +86,35 @@ def compare(path_a: str, path_b: str, label: str) -> dict[str, Any]:
     step_b, first_b = _first_chunk(b)
     obs_a, obs_b = first_a.get("obs") or {}, first_b.get("obs") or {}
     sampling_a, sampling_b = a.get("sampling") or {}, b.get("sampling") or {}
+    init_a = a.get("initial_init_state") or {}
+    init_b = b.get("initial_init_state") or {}
+
+    def init_stage(name: str, key: str, what: str) -> dict[str, Any]:
+        return {
+            "stage": f"init_{name}",
+            "same": init_a.get(key) is not None and init_a.get(key) == init_b.get(key),
+            "a": init_a.get(key),
+            "b": init_b.get(key),
+            "what": what,
+            "source": "env.init_state (worker: " + (init_a.get("schema") or "absent") + ")",
+        }
+
     stages = [
+        # Physics first, in the order the reset writes it, then the pixels. An
+        # images-only difference is a renderer question; anything above it is
+        # a scene question.
+        init_stage("fixtures", "fixtures_sha256", "sim.model.body_pos/body_quat for every body (placement sampler output)"),
+        init_stage("movable", "movable_sha256", "movable objects: qpos-derived position + body xquat"),
+        init_stage("joints", "joints_sha256", "every joint's qpos and qvel"),
+        init_stage("robot", "robot_sha256", "eef pose, gripper opening, controller references, arm joints"),
+        {
+            "stage": "init_images",
+            "same": bool(init_a.get("images")) and init_a.get("images") == init_b.get("images"),
+            "a": init_a.get("images"),
+            "b": init_b.get("images"),
+            "what": "sha256 of both raw camera frames, read in the same worker call as the physics",
+            "source": "env.init_state",
+        },
         {
             "stage": "scene_init_state",
             "same": a.get("initial_state_fingerprint") == b.get("initial_state_fingerprint"),
